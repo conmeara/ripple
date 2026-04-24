@@ -5,8 +5,9 @@ Ripple: a local-first desktop app for creating short motion graphics with
 HyperFrames, plain-English chat, frame-anchored comments, reviewable revisions,
 and export.
 
-For the full roadmap, migration plan, execution-plan guidance, and product
-specification, read `PLANS.md`.
+For execution-plan guidance, read `PLANS.md`. For the Ripple roadmap, migration
+plan, product specification, release criteria, and testing strategy, read
+`ROADMAP.md`.
 
 ## Product Direction
 
@@ -56,8 +57,8 @@ Current code is still mostly 1Code-shaped:
 - `src/main/lib/db/schema/index.ts`: current Drizzle schema. It still has
   `projects`, `chats`, `sub_chats`, and provider credential tables; Ripple
   domain tables still need to be added.
-- `PLANS.md`: active roadmap/spec, execution-plan guidance, and durable product
-  context.
+- `PLANS.md`: ExecPlan rules and template for complex work.
+- `ROADMAP.md`: active roadmap/spec and durable product context.
 
 Target Ripple additions:
 
@@ -74,16 +75,18 @@ Target Ripple additions:
 - Use `PLANS.md` for complex features, significant refactors, multi-hour
   migrations, work with major unknowns, or any change that materially affects
   Ripple's architecture, roadmap, scope, or release criteria.
-- Before starting that kind of work, read `PLANS.md` in full and keep the plan
-  self-contained enough that another agent can continue from the working tree
-  and the plan alone.
+- Before starting that kind of work, read `PLANS.md` and `ROADMAP.md`, then
+  create or update the relevant phase plan under `plans/`.
+- Keep each ExecPlan self-contained enough that another agent can continue from
+  the working tree and the plan alone.
 - Keep active plans living: update progress, discoveries, decisions,
   retrospective notes, validation steps, and recovery guidance as work proceeds.
 - Use prototyping milestones for uncertain libraries or integration risks,
   especially HyperFrames runtime behavior, Electron packaging, render/export
   validation, and agent revision isolation.
 - For small edits, follow `AGENTS.md` directly and update `PLANS.md` only when
-  the change alters durable product or engineering direction.
+  the change alters the ExecPlan process. Update `ROADMAP.md` when the change
+  alters durable product or engineering direction.
 
 ## Commands
 
@@ -106,15 +109,15 @@ Notes:
 - `bun run dev` starts the Electron app with hot reload.
 - `bun run ts:check` is the current TypeScript check.
 - Ripple should grow full unit, integration, renderer/component, Electron E2E,
-  render/export, packaging, and manual QA gates; see `PLANS.md`.
+  render/export, packaging, and manual QA gates; see `ROADMAP.md`.
 - HyperFrames integration should eventually validate Node.js 22+, FFmpeg, and
   `npx hyperframes doctor` through app-managed flows.
 
 ## Implementation Rules
 
-- Read `PLANS.md` before large changes or architecture work. For complex or
-  high-risk work, create or update the relevant plan there or under `plans/`,
-  and keep progress, decisions, and validation current.
+- Read `PLANS.md` and `ROADMAP.md` before large changes or architecture work.
+  For complex or high-risk work, create or update the relevant ExecPlan under
+  `plans/`, and keep progress, decisions, and validation current.
 - Keep work scoped to the current request. Do not do broad rebrands, schema
   migrations, or dependency upgrades unless the task calls for them.
 - Prefer existing Electron, tRPC, Drizzle, Jotai, Zustand, React Query, Radix,
@@ -195,5 +198,5 @@ Notes:
   Remotion-style assumptions were introduced.
 - Risky filesystem, process, provider, preview, render, or export behavior is
   validated from the main process.
-- `PLANS.md` is updated when the change materially affects roadmap, scope,
+- `ROADMAP.md` is updated when the change materially affects roadmap, scope,
   architecture, or acceptance criteria.
