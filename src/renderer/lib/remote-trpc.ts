@@ -1,5 +1,5 @@
 /**
- * tRPC client for remote web backend (21st.dev)
+ * tRPC client for an optional hosted backend.
  * Uses signedFetch via IPC for authentication (no CORS issues)
  */
 import { createTRPCClient, httpLink } from "@trpc/client"
@@ -10,11 +10,11 @@ import SuperJSON from "superjson"
 const TRPC_PLACEHOLDER = "/__dynamic__/api/trpc"
 
 // Cache the API base URL after first fetch
-let cachedApiBase: string | null = null
+let cachedApiBase: string | null | undefined = undefined
 
-async function getApiBase(): Promise<string> {
-  if (!cachedApiBase) {
-    cachedApiBase = await window.desktopApi?.getApiBaseUrl() || "https://21st.dev"
+async function getApiBase(): Promise<string | null> {
+  if (cachedApiBase === undefined) {
+    cachedApiBase = await window.desktopApi?.getApiBaseUrl() ?? null
   }
   return cachedApiBase
 }
@@ -34,6 +34,14 @@ const signedFetch: typeof fetch = async (input, init) => {
   // Replace placeholder with actual API base
   if (url.startsWith("/__dynamic__")) {
     const apiBase = await getApiBase()
+    if (!apiBase) {
+      return {
+        ok: false,
+        status: 503,
+        json: async () => ({ error: "Hosted API is not configured" }),
+        text: async () => JSON.stringify({ error: "Hosted API is not configured" }),
+      } as Response
+    }
     url = url.replace("/__dynamic__", apiBase)
   }
 

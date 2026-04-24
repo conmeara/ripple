@@ -774,7 +774,7 @@ export function AgentsContent() {
 
     // Check if running in Electron desktop app
     if (typeof window !== "undefined" && window.desktopApi) {
-      // Use desktop logout which clears the token and shows login page
+      // Use desktop logout to clear hosted auth while keeping local app entry open.
       await window.desktopApi.logout()
     } else {
       // Web: use Clerk sign out

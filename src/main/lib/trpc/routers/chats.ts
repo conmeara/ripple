@@ -5,6 +5,7 @@ import * as path from "path"
 import simpleGit from "simple-git"
 import { z } from "zod"
 import { getAuthManager } from "../../../index"
+import { getApiUrl } from "../../config"
 import {
   trackPRCreated,
   trackWorkspaceArchived,
@@ -1276,10 +1277,11 @@ export const chatsRouter = router({
         try {
           const authManager = getAuthManager()
           const token = await authManager.getValidToken()
-          // Use localhost in dev, production otherwise
-          const apiUrl = process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://21st.dev"
+          const apiUrl = getApiUrl()
 
-          if (!token) {
+          if (!apiUrl) {
+            apiError = "Hosted API not configured"
+          } else if (!token) {
             apiError = "No auth token available"
           } else {
             const response = await fetch(
@@ -1402,7 +1404,12 @@ export const chatsRouter = router({
         // Online - use web API
         const authManager = getAuthManager()
         const token = await authManager.getValidToken()
-        const apiUrl = "https://21st.dev"
+        const apiUrl = getApiUrl()
+
+        if (!apiUrl) {
+          console.log("[generateSubChatName] Hosted API not configured, using fallback")
+          return { name: getFallbackName(input.userMessage) }
+        }
 
         console.log(
           "[generateSubChatName] Online - calling API with token:",

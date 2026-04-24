@@ -17,12 +17,22 @@ boot gates are removed from the default path.
 ## Progress
 
 - [x] 2026-04-24 / Codex: Created this ExecPlan from the current codebase state.
-- [ ] Remove the main-process auth gate that loads `login.html` instead of the
-  renderer.
-- [ ] Remove renderer entry gates that force billing/provider onboarding before
-  local app use.
-- [ ] Preserve optional provider/auth setup for later explicit user actions.
-- [ ] Validate with typecheck and an Electron smoke run.
+- [x] 2026-04-24 / Codex: Removed the main-process auth gate that loaded
+  `login.html` instead of the renderer.
+- [x] 2026-04-24 / Codex: Removed renderer entry gates that forced
+  billing/provider onboarding before local app use.
+- [x] 2026-04-24 / Codex: Preserved optional provider/auth setup for later
+  explicit user actions, including auth IPC and provider onboarding surfaces.
+- [x] 2026-04-24 / Codex: Ran `bun run ts:check` and an Electron smoke run.
+  Typecheck is still blocked by existing repo-wide errors; smoke validation
+  passed.
+- [x] 2026-04-24 / Codex: Follow-up service decoupling: removed default
+  runtime requests to `21st.dev` and disabled the legacy updater feed.
+- [x] 2026-04-24 / Codex: Review polish: passed explicit unauthenticated user
+  state into the desktop sidebar, guarded hosted chat before stream listener
+  setup, and routed generic hosted API fetches through main-process IPC.
+- [x] 2026-04-24 / Codex: Replaced primary desktop window/sidebar title labels
+  touched by this phase with Ripple naming.
 
 ## Surprises & Discoveries
 
@@ -39,6 +49,25 @@ boot gates are removed from the default path.
   Evidence: `src/renderer/features/onboarding/select-repo-page.tsx` says
   "Select a repository" and offers "Select folder" and "Clone from GitHub".
   Replacing it with a Ripple create/open flow is Phase 2.
+- Observation: The local-first smoke run still triggered signed hosted-service
+  requests for changelog/team data, which returned unauthenticated because no
+  token was present.
+  Evidence: `bun run dev` logged signed fetches to `21st.dev` with
+  `Token: missing`, while the renderer still reached the project entry page.
+  Removing upstream service coupling is a later roadmap phase.
+- Observation: After the follow-up, local boot no longer logs signed fetches to
+  `21st.dev`.
+  Evidence: `bun run dev` reached the same temporary project entry page and the
+  main-process log showed no `SignedFetch` requests to `21st.dev`.
+- Observation: The desktop sidebar had fallback demo account props, so an
+  unauthenticated local user could look signed in after the auth gate was
+  removed.
+  Evidence: `AgentsSidebar` defaulted `userId` and `desktopUser` to demo values.
+- Observation: Static renderer CSP cannot know a future
+  `MAIN_VITE_API_URL`.
+  Evidence: `src/renderer/index.html` has a static `connect-src`, while
+  `src/renderer/lib/api-fetch.ts` is configured at runtime through
+  `window.desktopApi.getApiBaseUrl()`.
 
 ## Decision Log
 
@@ -52,10 +81,69 @@ boot gates are removed from the default path.
   Rationale: Ripple may still support optional accounts or providers; deleting
   those systems belongs to later rebrand/service-decoupling work.
   Date/Author: 2026-04-24 / Codex.
+- Decision: Desktop logout clears hosted auth state without navigating windows
+  back to the legacy login page.
+  Rationale: If auth is optional, signing out must not strand local users on a
+  mandatory sign-in surface.
+  Date/Author: 2026-04-24 / Codex.
+- Decision: Hosted API and update URLs must be explicitly configured and legacy
+  `21st.dev` / `*.21st.dev` URLs are treated as disabled.
+  Rationale: Ripple should not make upstream service requests during local-first
+  boot, while still preserving a future hook for Ripple-owned services.
+  Date/Author: 2026-04-24 / Codex.
+- Decision: Keep renderer CSP local-first and route optional generic hosted API
+  fetches through the main process.
+  Rationale: This preserves future hosted-service plumbing without allowing
+  arbitrary renderer network origins or hardcoding a new service URL into
+  `index.html`.
+  Date/Author: 2026-04-24 / Codex.
 
 ## Outcomes & Retrospective
 
-Not started.
+Phase 1 now opens the main renderer regardless of hosted auth state. In
+`src/main/windows/main.ts`, `createWindow` always loads the app renderer with
+the existing window ID and optional chat/sub-chat parameters. The auth IPC
+handlers, signed fetch behavior, and explicit `showLoginPage` helper remain in
+place for future optional account flows. Desktop logout now clears auth/cookies
+without navigating active windows to `login.html`.
+
+In `src/renderer/App.tsx`, app entry no longer depends on billing method or
+provider onboarding completion. The renderer validates the selected project; if
+none is valid after projects load, it shows the current `SelectRepoPage`
+temporary entry, otherwise it renders `AgentsLayout`.
+
+Validation:
+
+- `bun run ts:check` exits with code 2 due to existing repo-wide TypeScript
+  errors, including `app.dock` nullability, missing credential-manager modules,
+  Claude SDK type drift, and several renderer model/type mismatches. No
+  reported error was introduced in the Phase 1 boot-path edits.
+- `bun run dev` launched Electron successfully. The first visible app screen was
+  the renderer at `localhost:5173/?windowId=main` showing the temporary
+  "Select a repository" page. It did not show `login.html`,
+  `BillingMethodPage`, or provider onboarding.
+- Follow-up validation: a runtime URL scan found no `https://21st.dev`,
+  `*.21st.dev`, or `cdn.21st.dev` request URLs in `src` or `package.json`.
+  A second `bun run dev` smoke reached the same project entry page with no
+  startup signed-fetch requests to `21st.dev` in the main-process log.
+- Final QA: Computer Use inspected the Electron window after `bun run dev`.
+  The app content URL was `localhost:5173/?windowId=main` and the visible first
+  screen was the temporary project picker with "Select folder" and
+  "Clone from GitHub". There was no mandatory sign-in screen, no billing method
+  screen, and no provider onboarding screen. The boot log showed the renderer
+  load path and no startup `SignedFetch` calls.
+- Review polish validation: the sidebar now receives `userId={desktopUser?.id ??
+  null}` and no longer defaults to a demo user. Hosted remote chat checks for a
+  configured API base before creating IPC stream listeners. Generic hosted API
+  requests now use `api:hosted-fetch` / `api:hosted-fetch-abort` IPC handlers
+  instead of direct renderer `fetch`, so the static CSP does not need a hosted
+  origin for optional future services.
+- Focused label validation: the primary window, renderer document title, custom
+  Windows title bar, and sidebar header files touched in this phase no longer
+  contain `1Code` labels.
+- `bun run ts:check` was re-run after polish and still exits with code 2 due to
+  the same existing repo-wide baseline; no new errors appeared in the hosted API
+  bridge files.
 
 ## Context and Orientation
 

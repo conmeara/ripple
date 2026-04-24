@@ -69,7 +69,16 @@ export interface DesktopApi {
   setBadge: (count: number | null) => Promise<void>
   showNotification: (options: { title: string; body: string }) => Promise<void>
   openExternal: (url: string) => Promise<void>
-  getApiBaseUrl: () => Promise<string>
+  getApiBaseUrl: () => Promise<string | null>
+  hostedApiFetch: (
+    streamId: string,
+    path: string,
+    options?: { method?: string; body?: string; headers?: Record<string, string> },
+  ) => Promise<{ ok: boolean; status: number; headers: Record<string, string>; error: string | null }>
+  abortHostedApiFetch: (streamId: string) => Promise<boolean>
+  onStreamChunk: (streamId: string, callback: (chunk: Uint8Array) => void) => () => void
+  onStreamDone: (streamId: string, callback: () => void) => () => void
+  onStreamError: (streamId: string, callback: (error: string) => void) => () => void
 
   // Clipboard
   clipboardWrite: (text: string) => Promise<void>

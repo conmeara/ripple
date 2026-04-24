@@ -1,14 +1,7 @@
 import { AuthStore, AuthData, AuthUser } from "./auth-store"
 import { app, BrowserWindow } from "electron"
 import { AUTH_SERVER_PORT } from "./constants"
-
-// Get API URL - in packaged app always use production, in dev allow override
-function getApiBaseUrl(): string {
-  if (app.isPackaged) {
-    return "https://21st.dev"
-  }
-  return import.meta.env.MAIN_VITE_API_URL || "https://21st.dev"
-}
+import { getApiUrl, requireApiUrl } from "./lib/config"
 
 export class AuthManager {
   private store: AuthStore
@@ -34,16 +27,13 @@ export class AuthManager {
     this.onTokenRefresh = callback
   }
 
-  private getApiUrl(): string {
-    return getApiBaseUrl()
-  }
-
   /**
    * Exchange auth code for session tokens
    * Called after receiving code via deep link
    */
   async exchangeCode(code: string): Promise<AuthData> {
-    const response = await fetch(`${this.getApiUrl()}/api/auth/desktop/exchange`, {
+    const apiUrl = requireApiUrl("Hosted auth")
+    const response = await fetch(`${apiUrl}/api/auth/desktop/exchange`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -79,7 +69,7 @@ export class AuthManager {
     const platform = process.platform
     const arch = process.arch
     const version = app.getVersion()
-    return `21st Desktop ${version} (${platform} ${arch})`
+    return `Ripple Desktop ${version} (${platform} ${arch})`
   }
 
   /**
@@ -108,7 +98,13 @@ export class AuthManager {
     }
 
     try {
-      const response = await fetch(`${this.getApiUrl()}/api/auth/desktop/refresh`, {
+      const apiUrl = getApiUrl()
+      if (!apiUrl) {
+        console.log("[AuthManager] Hosted auth is not configured; skipping refresh")
+        return false
+      }
+
+      const response = await fetch(`${apiUrl}/api/auth/desktop/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken }),
@@ -208,8 +204,16 @@ export class AuthManager {
    */
   startAuthFlow(mainWindow: BrowserWindow | null): void {
     const { shell } = require("electron")
+    const apiUrl = getApiUrl()
+    if (!apiUrl) {
+      mainWindow?.webContents.send(
+        "auth:error",
+        "Hosted sign-in is not configured for this Ripple build",
+      )
+      return
+    }
 
-    let authUrl = `${this.getApiUrl()}/auth/desktop?auto=true`
+    let authUrl = `${apiUrl}/auth/desktop?auto=true`
 
     // In dev mode, use localhost callback (we run HTTP server on AUTH_SERVER_PORT)
     // Also pass the protocol so web knows which deep link to use as fallback
@@ -230,9 +234,10 @@ export class AuthManager {
     if (!token) {
       throw new Error("Not authenticated")
     }
+    const apiUrl = requireApiUrl("Hosted profile updates")
 
     // Update on server using X-Desktop-Token header
-    const response = await fetch(`${this.getApiUrl()}/api/user/profile`, {
+    const response = await fetch(`${apiUrl}/api/user/profile`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -259,9 +264,11 @@ export class AuthManager {
   async fetchUserPlan(): Promise<{ email: string; plan: string; status: string | null } | null> {
     const token = await this.getValidToken()
     if (!token) return null
+    const apiUrl = getApiUrl()
+    if (!apiUrl) return null
 
     try {
-      const response = await fetch(`${this.getApiUrl()}/api/desktop/user/plan`, {
+      const response = await fetch(`${apiUrl}/api/desktop/user/plan`, {
         headers: { "X-Desktop-Token": token },
       })
 

@@ -174,11 +174,15 @@ export const claudeCodeRouter = router({
   startAuth: publicProcedure.mutation(async () => {
     const token = await getDesktopToken()
     if (!token) {
-      throw new Error("Not authenticated with 21st.dev")
+      throw new Error("Not authenticated with hosted service")
+    }
+    const apiUrl = getApiUrl()
+    if (!apiUrl) {
+      throw new Error("Hosted Claude Code auth is not configured")
     }
 
     // Server creates sandbox (has CodeSandbox SDK)
-    const response = await fetch(`${getApiUrl()}/api/auth/claude-code/start`, {
+    const response = await fetch(`${apiUrl}/api/auth/claude-code/start`, {
       method: "POST",
       headers: { "x-desktop-token": token },
     })

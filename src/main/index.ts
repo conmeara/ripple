@@ -19,6 +19,7 @@ import {
   setupFocusUpdateCheck,
 } from "./lib/auto-updater"
 import { closeDatabase, initDatabase } from "./lib/db"
+import { getApiUrl } from "./lib/config"
 import {
   getLaunchDirectory,
   isCliInstalled,
@@ -77,18 +78,15 @@ if (app.isPackaged && !IS_DEV) {
   console.log("[App] Skipping Sentry initialization (dev mode)")
 }
 
-// URL configuration (exported for use in other modules)
-// In packaged app, ALWAYS use production URL to prevent localhost leaking into releases
-// In dev mode, allow override via MAIN_VITE_API_URL env variable
-export function getBaseUrl(): string {
-  if (app.isPackaged) {
-    return "https://21st.dev"
-  }
-  return import.meta.env.MAIN_VITE_API_URL || "https://21st.dev"
+// Hosted-service URL configuration. Local Ripple builds do not default to the
+// old 21st.dev backend; an optional future service must be configured
+// explicitly.
+export function getBaseUrl(): string | null {
+  return getApiUrl()
 }
 
 export function getAppUrl(): string {
-  return process.env.ELECTRON_RENDERER_URL || "https://21st.dev/agents"
+  return process.env.ELECTRON_RENDERER_URL || getBaseUrl() || "about:blank"
 }
 
 // Auth manager singleton (use the one from auth-manager module)
@@ -121,25 +119,30 @@ export async function handleAuthCode(code: string): Promise<void> {
     }
 
     // Set desktop token cookie using persist:main partition
-    const ses = session.fromPartition("persist:main")
-    try {
-      // First remove any existing cookie to avoid HttpOnly conflict
-      await ses.cookies.remove(getBaseUrl(), "x-desktop-token")
-      await ses.cookies.set({
-        url: getBaseUrl(),
-        name: "x-desktop-token",
-        value: authData.token,
-        expirationDate: Math.floor(
-          new Date(authData.expiresAt).getTime() / 1000,
-        ),
-        httpOnly: false,
-        secure: getBaseUrl().startsWith("https"),
-        sameSite: "lax" as const,
-      })
-      console.log("[Auth] Desktop token cookie set")
-    } catch (cookieError) {
-      // Cookie setting is optional - auth data is already saved to disk
-      console.warn("[Auth] Cookie set failed (non-critical):", cookieError)
+    const baseUrl = getBaseUrl()
+    if (baseUrl) {
+      const ses = session.fromPartition("persist:main")
+      try {
+        // First remove any existing cookie to avoid HttpOnly conflict
+        await ses.cookies.remove(baseUrl, "x-desktop-token")
+        await ses.cookies.set({
+          url: baseUrl,
+          name: "x-desktop-token",
+          value: authData.token,
+          expirationDate: Math.floor(
+            new Date(authData.expiresAt).getTime() / 1000,
+          ),
+          httpOnly: false,
+          secure: baseUrl.startsWith("https"),
+          sameSite: "lax" as const,
+        })
+        console.log("[Auth] Desktop token cookie set")
+      } catch (cookieError) {
+        // Cookie setting is optional - auth data is already saved to disk
+        console.warn("[Auth] Cookie set failed (non-critical):", cookieError)
+      }
+    } else {
+      console.log("[Auth] Hosted API not configured; skipping desktop token cookie")
     }
 
     // Notify all windows and reload them to show app
@@ -840,11 +843,8 @@ if (gotTheLock) {
           role: "help",
           submenu: [
             {
-              label: "Learn More",
-              click: async () => {
-                const { shell } = await import("electron")
-                await shell.openExternal("https://21st.dev")
-              },
+              label: "About Ripple",
+              click: () => app.showAboutPanel(),
             },
           ],
         },
@@ -912,17 +912,22 @@ if (gotTheLock) {
     // Set up callback to update cookie when token is refreshed
     authManager.setOnTokenRefresh(async (authData) => {
       console.log("[Auth] Token refreshed, updating cookie...")
+      const baseUrl = getBaseUrl()
+      if (!baseUrl) {
+        console.log("[Auth] Hosted API not configured; skipping token cookie refresh")
+        return
+      }
       const ses = session.fromPartition("persist:main")
       try {
         await ses.cookies.set({
-          url: getBaseUrl(),
+          url: baseUrl,
           name: "x-desktop-token",
           value: authData.token,
           expirationDate: Math.floor(
             new Date(authData.expiresAt).getTime() / 1000,
           ),
           httpOnly: false,
-          secure: getBaseUrl().startsWith("https"),
+          secure: baseUrl.startsWith("https"),
           sameSite: "lax" as const,
         })
         console.log("[Auth] Desktop token cookie updated after refresh")

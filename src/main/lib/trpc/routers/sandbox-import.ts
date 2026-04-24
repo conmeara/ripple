@@ -125,6 +125,9 @@ export const sandboxImportRouter = router({
 			const db = getDatabase();
 			const authManager = getAuthManager();
 			const apiUrl = getBaseUrl();
+			if (!apiUrl) {
+				throw new Error("Hosted sandbox import is not configured");
+			}
 
 			console.log(`[OPEN-LOCALLY] Starting import: remoteChatId=${input.remoteChatId}, remoteSubChatId=${input.remoteSubChatId || "all"}, sandboxId=${input.sandboxId}`);
 
@@ -305,6 +308,9 @@ export const sandboxImportRouter = router({
 		.query(async ({ input }) => {
 			const authManager = getAuthManager();
 			const apiUrl = getBaseUrl();
+			if (!apiUrl) {
+				throw new Error("Hosted sandbox import is not configured");
+			}
 
 			const token = await authManager.getValidToken();
 			if (!token) {
@@ -357,6 +363,9 @@ export const sandboxImportRouter = router({
 			const db = getDatabase();
 			const authManager = getAuthManager();
 			const apiUrl = getBaseUrl();
+			if (!apiUrl) {
+				throw new Error("Hosted sandbox import is not configured");
+			}
 			console.log(`[OPEN-LOCALLY] API URL: ${apiUrl}`);
 
 			// Verify auth

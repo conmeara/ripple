@@ -1,13 +1,12 @@
 import type { ChatTransport, UIMessage } from "ai"
 import { toast } from "sonner"
 
-// Cache the API base URL (fetched once from main process)
-let cachedApiBase: string | null = null
+// Cache the optional hosted API base URL (fetched once from main process)
+let cachedApiBase: string | null | undefined = undefined
 
-async function getApiBase(): Promise<string> {
-  if (!cachedApiBase) {
-    // Uses MAIN_VITE_API_URL in dev, "https://21st.dev" in production
-    cachedApiBase = await window.desktopApi?.getApiBaseUrl() || "https://21st.dev"
+async function getApiBase(): Promise<string | null> {
+  if (cachedApiBase === undefined) {
+    cachedApiBase = await window.desktopApi?.getApiBaseUrl() ?? null
   }
   return cachedApiBase
 }
@@ -61,6 +60,16 @@ export class RemoteChatTransport implements ChatTransport<UIMessage> {
       messageCount: options.messages.length,
     })
 
+    // Get API base URL before creating stream listeners. Local-first builds
+    // should fail cleanly without leaving IPC listeners behind.
+    const apiBase = await getApiBase()
+    if (!apiBase) {
+      toast.error("Hosted chat is not configured", {
+        description: "Local Ripple builds do not connect to the old upstream service.",
+      })
+      throw new Error("Hosted API is not configured")
+    }
+
     // Build headers - only include x-model if model is specified
     const headers: Record<string, string> = {
       "sandbox-url": this.config.sandboxUrl,
@@ -75,9 +84,6 @@ export class RemoteChatTransport implements ChatTransport<UIMessage> {
 
     // Create a ReadableStream that receives chunks from IPC
     const stream = this.createIPCStream(streamId, subId, options.abortSignal)
-
-    // Get API base URL (uses env var in dev, production URL in packaged app)
-    const apiBase = await getApiBase()
 
     // Start the streaming fetch via IPC
     const result = await window.desktopApi.streamFetch(

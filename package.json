@@ -3,10 +3,8 @@
   "version": "0.0.72",
   "private": true,
   "description": "1Code - UI for parallel work with AI agents",
-  "homepage": "https://21st.dev",
   "author": {
-    "name": "21st.dev",
-    "email": "support@21st.dev"
+    "name": "Ripple"
   },
   "main": "out/main/index.js",
   "scripts": {
@@ -250,10 +248,6 @@
       "allowToChangeInstallationDirectory": true,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico"
-    },
-    "publish": {
-      "provider": "generic",
-      "url": "https://cdn.21st.dev/releases/desktop"
     }
   },
   "pnpm": {

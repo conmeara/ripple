@@ -3,6 +3,7 @@ import log from "electron-log"
 import { autoUpdater, type UpdateInfo, type ProgressInfo } from "electron-updater"
 import { readFileSync, writeFileSync, existsSync } from "fs"
 import { join } from "path"
+import { isLegacy21stUrl } from "./config"
 
 /**
  * IMPORTANT: Do NOT use lazy/dynamic imports for electron-updater!
@@ -25,8 +26,15 @@ function initAutoUpdaterConfig() {
   autoUpdater.autoRunAppAfterInstall = true // Restart app after install
 }
 
-// CDN base URL for updates
-const CDN_BASE = "https://cdn.21st.dev/releases/desktop"
+// Optional update feed URL. Local Ripple builds must not default to the old
+// upstream updater.
+const CONFIGURED_UPDATE_FEED_URL = (
+  import.meta.env.MAIN_VITE_UPDATE_URL as string | undefined
+)?.trim().replace(/\/+$/, "") || null
+const UPDATE_FEED_URL =
+  CONFIGURED_UPDATE_FEED_URL && !isLegacy21stUrl(CONFIGURED_UPDATE_FEED_URL)
+    ? CONFIGURED_UPDATE_FEED_URL
+    : null
 
 // Minimum interval between update checks (prevent spam on rapid focus/blur)
 const MIN_CHECK_INTERVAL = 60 * 1000 // 1 minute
@@ -89,6 +97,15 @@ function sendToAllRenderers(channel: string, data?: unknown) {
 export async function initAutoUpdater(getWindows: () => BrowserWindow[]) {
   getAllWindows = getWindows
 
+  // Register IPC handlers even when updates are disabled so renderer/menu calls
+  // remain harmless no-ops.
+  registerIpcHandlers()
+
+  if (!UPDATE_FEED_URL) {
+    log.info("[AutoUpdater] Disabled; no Ripple update feed configured")
+    return
+  }
+
   // Initialize config
   initAutoUpdaterConfig()
 
@@ -104,7 +121,7 @@ export async function initAutoUpdater(getWindows: () => BrowserWindow[]) {
   // Note: We use a custom request headers to bypass CDN cache
   autoUpdater.setFeedURL({
     provider: "generic",
-    url: CDN_BASE,
+    url: UPDATE_FEED_URL,
   })
 
   // Add cache-busting to update requests
@@ -177,10 +194,7 @@ export async function initAutoUpdater(getWindows: () => BrowserWindow[]) {
     sendToAllRenderers("update:error", error.message)
   })
 
-  // Register IPC handlers
-  registerIpcHandlers()
-
-  log.info("[AutoUpdater] Initialized with feed URL:", CDN_BASE)
+  log.info("[AutoUpdater] Initialized with feed URL:", UPDATE_FEED_URL)
 }
 
 /**
@@ -193,22 +207,26 @@ function registerIpcHandlers() {
       log.info("[AutoUpdater] Skipping update check in dev mode")
       return null
     }
+    if (!UPDATE_FEED_URL) {
+      log.info("[AutoUpdater] Skipping update check; no Ripple update feed configured")
+      return null
+    }
     try {
       // If force is true, add cache-busting timestamp to URL
       if (force) {
         const cacheBuster = `?t=${Date.now()}`
         autoUpdater.setFeedURL({
           provider: "generic",
-          url: `${CDN_BASE}${cacheBuster}`,
+          url: `${UPDATE_FEED_URL}${cacheBuster}`,
         })
-        log.info("[AutoUpdater] Force check with cache-busting:", `${CDN_BASE}${cacheBuster}`)
+        log.info("[AutoUpdater] Force check with cache-busting:", `${UPDATE_FEED_URL}${cacheBuster}`)
       }
       const result = await autoUpdater.checkForUpdates()
       // Reset feed URL back to normal after force check
       if (force) {
         autoUpdater.setFeedURL({
           provider: "generic",
-          url: CDN_BASE,
+          url: UPDATE_FEED_URL,
         })
       }
       return result?.updateInfo || null
@@ -259,6 +277,10 @@ function registerIpcHandlers() {
     saveChannel(channel)
     // Check for updates immediately with new channel
     if (app.isPackaged) {
+      if (!UPDATE_FEED_URL) {
+        log.info("[AutoUpdater] Channel saved; no Ripple update feed configured")
+        return true
+      }
       try {
         await autoUpdater.checkForUpdates()
       } catch (error) {
@@ -283,6 +305,10 @@ export async function checkForUpdates(force = false) {
     log.info("[AutoUpdater] Skipping update check in dev mode")
     return Promise.resolve(null)
   }
+  if (!UPDATE_FEED_URL) {
+    log.info("[AutoUpdater] Skipping update check; no Ripple update feed configured")
+    return Promise.resolve(null)
+  }
 
   // Respect minimum interval to prevent spam
   const now = Date.now()
@@ -303,6 +329,10 @@ export async function checkForUpdates(force = false) {
 export async function downloadUpdate() {
   if (!app.isPackaged) {
     log.info("[AutoUpdater] Skipping download in dev mode")
+    return false
+  }
+  if (!UPDATE_FEED_URL) {
+    log.info("[AutoUpdater] Skipping download; no Ripple update feed configured")
     return false
   }
 

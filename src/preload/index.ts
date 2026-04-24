@@ -134,6 +134,19 @@ contextBridge.exposeInMainWorld("desktopApi", {
 
   // API base URL (for fetch requests to server)
   getApiBaseUrl: () => ipcRenderer.invoke("app:get-api-base-url"),
+  hostedApiFetch: (
+    streamId: string,
+    path: string,
+    options?: { method?: string; body?: string; headers?: Record<string, string> },
+  ) =>
+    ipcRenderer.invoke("api:hosted-fetch", streamId, path, options) as Promise<{
+      ok: boolean
+      status: number
+      headers: Record<string, string>
+      error: string | null
+    }>,
+  abortHostedApiFetch: (streamId: string) =>
+    ipcRenderer.invoke("api:hosted-fetch-abort", streamId) as Promise<boolean>,
 
   // Clipboard
   clipboardWrite: (text: string) => ipcRenderer.invoke("clipboard:write", text),
@@ -333,7 +346,13 @@ export interface DesktopApi {
   setBadgeIcon: (imageData: string | null) => Promise<void>
   showNotification: (options: { title: string; body: string }) => Promise<void>
   openExternal: (url: string) => Promise<void>
-  getApiBaseUrl: () => Promise<string>
+  getApiBaseUrl: () => Promise<string | null>
+  hostedApiFetch: (
+    streamId: string,
+    path: string,
+    options?: { method?: string; body?: string; headers?: Record<string, string> },
+  ) => Promise<{ ok: boolean; status: number; headers: Record<string, string>; error: string | null }>
+  abortHostedApiFetch: (streamId: string) => Promise<boolean>
   clipboardWrite: (text: string) => Promise<void>
   clipboardRead: () => Promise<string>
   saveFile: (options: { base64Data: string; filename: string; filters?: { name: string; extensions: string[] }[] }) => Promise<{ success: boolean; filePath?: string }>

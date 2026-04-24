@@ -251,6 +251,7 @@ export function AgentsLayout() {
     if (window.desktopApi?.logout) {
       await window.desktopApi.logout()
     }
+    setDesktopUser(null)
   }, [
     setSelectedProject,
     setSelectedChatId,
@@ -327,6 +328,7 @@ export function AgentsLayout() {
             <SettingsSidebar />
           ) : (
             <AgentsSidebar
+              userId={desktopUser?.id ?? null}
               desktopUser={desktopUser}
               onSignOut={handleSignOut}
               onToggleSidebar={handleCloseSidebar}

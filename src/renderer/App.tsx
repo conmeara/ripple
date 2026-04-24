@@ -8,20 +8,8 @@ import { WindowProvider, getInitialWindowParams } from "./contexts/WindowContext
 import { selectedProjectAtom, selectedAgentChatIdAtom } from "./features/agents/atoms"
 import { useAgentSubChatStore } from "./features/agents/stores/sub-chat-store"
 import { AgentsLayout } from "./features/layout/agents-layout"
-import {
-  AnthropicOnboardingPage,
-  ApiKeyOnboardingPage,
-  BillingMethodPage,
-  CodexOnboardingPage,
-  SelectRepoPage,
-} from "./features/onboarding"
+import { SelectRepoPage } from "./features/onboarding"
 import { identify, initAnalytics, shutdown } from "./lib/analytics"
-import {
-  anthropicOnboardingCompletedAtom,
-  apiKeyOnboardingCompletedAtom,
-  billingMethodAtom,
-  codexOnboardingCompletedAtom,
-} from "./lib/atoms"
 import { appStore } from "./lib/jotai-store"
 import { VSCodeThemeProvider } from "./lib/themes/theme-provider"
 import { trpc } from "./lib/trpc"
@@ -42,18 +30,9 @@ function ThemedToaster() {
 }
 
 /**
- * Main content router - decides which page to show based on onboarding state
+ * Main content router - decides whether to show project entry or the app shell.
  */
 function AppContent() {
-  const billingMethod = useAtomValue(billingMethodAtom)
-  const setBillingMethod = useSetAtom(billingMethodAtom)
-  const anthropicOnboardingCompleted = useAtomValue(
-    anthropicOnboardingCompletedAtom
-  )
-  const setAnthropicOnboardingCompleted = useSetAtom(anthropicOnboardingCompletedAtom)
-  const apiKeyOnboardingCompleted = useAtomValue(apiKeyOnboardingCompletedAtom)
-  const setApiKeyOnboardingCompleted = useSetAtom(apiKeyOnboardingCompletedAtom)
-  const codexOnboardingCompleted = useAtomValue(codexOnboardingCompletedAtom)
   const selectedProject = useAtomValue(selectedProjectAtom)
   const setSelectedChatId = useSetAtom(selectedAgentChatIdAtom)
   const { setActiveSubChat, addToOpenSubChats, setChatId } = useAgentSubChatStore()
@@ -90,29 +69,6 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Check if user has existing CLI config (API key or proxy)
-  // Based on PR #29 by @sa4hnd
-  const { data: cliConfig, isLoading: isLoadingCliConfig } =
-    trpc.claudeCode.hasExistingCliConfig.useQuery()
-
-  // Migration: If user already completed Anthropic onboarding but has no billing method set,
-  // automatically set it to "claude-subscription" (legacy users before billing method was added)
-  useEffect(() => {
-    if (!billingMethod && anthropicOnboardingCompleted) {
-      setBillingMethod("claude-subscription")
-    }
-  }, [billingMethod, anthropicOnboardingCompleted, setBillingMethod])
-
-  // Auto-skip onboarding if user has existing CLI config (API key or proxy)
-  // This allows users with ANTHROPIC_API_KEY to use the app without OAuth
-  useEffect(() => {
-    if (cliConfig?.hasConfig && !billingMethod) {
-      console.log("[App] Detected existing CLI config, auto-completing onboarding")
-      setBillingMethod("api-key")
-      setApiKeyOnboardingCompleted(true)
-    }
-  }, [cliConfig?.hasConfig, billingMethod, setBillingMethod, setApiKeyOnboardingCompleted])
-
   // Fetch projects to validate selectedProject exists
   const { data: projects, isLoading: isLoadingProjects } =
     trpc.projects.list.useQuery()
@@ -128,36 +84,7 @@ function AppContent() {
     return exists ? selectedProject : null
   }, [selectedProject, projects, isLoadingProjects])
 
-  // Determine which page to show:
-  // 1. No billing method selected -> BillingMethodPage
-  // 2. Claude subscription selected but not completed -> AnthropicOnboardingPage
-  // 3. Codex selected but not completed -> CodexOnboardingPage
-  // 4. API key or custom model selected but not completed -> ApiKeyOnboardingPage
-  // 5. No valid project selected -> SelectRepoPage
-  // 6. Otherwise -> AgentsLayout
-  if (!billingMethod) {
-    return <BillingMethodPage />
-  }
-
-  if (billingMethod === "claude-subscription" && !anthropicOnboardingCompleted) {
-    return <AnthropicOnboardingPage />
-  }
-
-  if (
-    (billingMethod === "codex-subscription" ||
-      billingMethod === "codex-api-key") &&
-    !codexOnboardingCompleted
-  ) {
-    return <CodexOnboardingPage />
-  }
-
-  if (
-    (billingMethod === "api-key" || billingMethod === "custom-model") &&
-    !apiKeyOnboardingCompleted
-  ) {
-    return <ApiKeyOnboardingPage />
-  }
-
+  // Local app entry only depends on whether the current project still exists.
   if (!validatedProject && !isLoadingProjects) {
     return <SelectRepoPage />
   }

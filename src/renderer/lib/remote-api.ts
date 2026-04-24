@@ -1,17 +1,25 @@
 /**
- * Remote API - wrapper around tRPC client for web backend
+ * Remote API - wrapper around optional hosted backend calls
  * Provides clean interface for fetching remote sandbox data
  */
 import { remoteTrpc } from "./remote-trpc"
 
 // API base URL - dynamically fetched from main process
-let API_BASE: string | null = null
+let API_BASE: string | null | undefined = undefined
 
-async function getApiBase(): Promise<string> {
-  if (!API_BASE) {
-    API_BASE = await window.desktopApi?.getApiBaseUrl() || "https://21st.dev"
+async function getApiBase(): Promise<string | null> {
+  if (API_BASE === undefined) {
+    API_BASE = await window.desktopApi?.getApiBaseUrl() ?? null
   }
   return API_BASE
+}
+
+async function requireApiBase(): Promise<string> {
+  const apiBase = await getApiBase()
+  if (!apiBase) {
+    throw new Error("Hosted API is not configured for this Ripple build")
+  }
+  return apiBase
 }
 
 // Re-export types for convenience
@@ -127,7 +135,7 @@ export const remoteApi = {
     if (!window.desktopApi?.signedFetch) {
       throw new Error("Desktop API not available")
     }
-    const apiBase = await getApiBase()
+    const apiBase = await requireApiBase()
     const result = await window.desktopApi.signedFetch(
       `${apiBase}/api/agents/sandbox/${sandboxId}/diff`
     )
@@ -144,7 +152,7 @@ export const remoteApi = {
     if (!window.desktopApi?.signedFetch) {
       throw new Error("Desktop API not available")
     }
-    const apiBase = await getApiBase()
+    const apiBase = await requireApiBase()
     const result = await window.desktopApi.signedFetch(
       `${apiBase}/api/agents/sandbox/${sandboxId}/files?path=${encodeURIComponent(path)}`
     )

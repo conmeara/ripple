@@ -15,6 +15,7 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync } from "fs"
 import { createIPCHandler } from "trpc-electron/main"
 import { createAppRouter } from "../lib/trpc/routers"
 import { getAuthManager, handleAuthCode, getBaseUrl } from "../index"
+import { isLegacy21stUrl } from "../lib/config"
 import { registerGitWatcherIPC } from "../lib/git/watcher"
 import { hasActiveClaudeSessions, abortAllClaudeSessions } from "../lib/trpc/routers/claude"
 import { hasActiveCodexStreams, abortAllCodexStreams } from "../lib/trpc/routers/codex"
@@ -39,6 +40,7 @@ function getWindowFromEvent(
 
 // Register IPC handlers for window operations (only once)
 let ipcHandlersRegistered = false
+const hostedFetchAbortControllers = new Map<string, AbortController>()
 
 function registerIpcHandlers(): void {
   if (ipcHandlersRegistered) return
@@ -85,9 +87,9 @@ function registerIpcHandlers(): void {
     } else if (process.platform === "win32" && win) {
       // Windows: Update title with count as fallback
       if (count !== null && count > 0) {
-        win.setTitle(`1Code (${count})`)
+        win.setTitle(`Ripple (${count})`)
       } else {
-        win.setTitle("1Code")
+        win.setTitle("Ripple")
         win.setOverlayIcon(null, "")
       }
     }
@@ -148,6 +150,99 @@ function registerIpcHandlers(): void {
 
   // API base URL for fetch requests
   ipcMain.handle("app:get-api-base-url", () => getBaseUrl())
+
+  ipcMain.handle(
+    "api:hosted-fetch",
+    async (
+      event,
+      streamId: string,
+      path: string,
+      options?: { method?: string; body?: string; headers?: Record<string, string> },
+    ) => {
+      if (!validateSender(event)) {
+        return { ok: false, status: 403, headers: {}, error: "Unauthorized sender" }
+      }
+
+      const baseUrl = getBaseUrl()
+      if (!baseUrl) {
+        return { ok: false, status: 503, headers: {}, error: "Hosted API is not configured" }
+      }
+
+      if (typeof streamId !== "string" || !streamId || typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) {
+        return { ok: false, status: 400, headers: {}, error: "Invalid hosted API request" }
+      }
+
+      const url = `${baseUrl}${path}`
+      if (isLegacy21stUrl(url)) {
+        return { ok: false, status: 410, headers: {}, error: "Legacy 21st.dev requests are disabled" }
+      }
+
+      const abortController = new AbortController()
+      hostedFetchAbortControllers.set(streamId, abortController)
+
+      try {
+        const response = await fetch(url, {
+          method: options?.method || "GET",
+          body: options?.body,
+          headers: options?.headers,
+          signal: abortController.signal,
+        })
+        const headers = Object.fromEntries(response.headers.entries())
+
+        const reader = response.body?.getReader()
+        if (!reader) {
+          event.sender.send(`stream:${streamId}:done`)
+          hostedFetchAbortControllers.delete(streamId)
+          return { ok: response.ok, status: response.status, headers, error: null }
+        }
+
+        ;(async () => {
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) {
+                if (!event.sender.isDestroyed()) {
+                  event.sender.send(`stream:${streamId}:done`)
+                }
+                break
+              }
+              if (!event.sender.isDestroyed()) {
+                event.sender.send(`stream:${streamId}:chunk`, value)
+              }
+            }
+          } catch (err) {
+            if (!event.sender.isDestroyed()) {
+              event.sender.send(
+                `stream:${streamId}:error`,
+                err instanceof Error ? err.message : "Hosted API stream error",
+              )
+            }
+          } finally {
+            hostedFetchAbortControllers.delete(streamId)
+          }
+        })()
+
+        return { ok: response.ok, status: response.status, headers, error: null }
+      } catch (error) {
+        hostedFetchAbortControllers.delete(streamId)
+        return {
+          ok: false,
+          status: 0,
+          headers: {},
+          error: error instanceof Error ? error.message : "Network error",
+        }
+      }
+    },
+  )
+
+  ipcMain.handle("api:hosted-fetch-abort", (event, streamId: string) => {
+    if (!validateSender(event)) return false
+    const controller = hostedFetchAbortControllers.get(streamId)
+    if (!controller) return false
+    controller.abort()
+    hostedFetchAbortControllers.delete(streamId)
+    return true
+  })
 
   // Window controls - use event.sender to identify window
   ipcMain.handle("window:minimize", (event) => {
@@ -254,7 +349,7 @@ function registerIpcHandlers(): void {
     const win = getWindowFromEvent(event)
     if (win) {
       // Show just the title, or default app name if empty
-      win.setTitle(title || "1Code")
+      win.setTitle(title || "Ripple")
     }
   })
 
@@ -339,7 +434,7 @@ function registerIpcHandlers(): void {
       const parsed = new URL(senderUrl)
       if (parsed.protocol === "file:") return true
       const hostname = parsed.hostname.toLowerCase()
-      const trusted = ["21st.dev", "localhost", "127.0.0.1"]
+      const trusted = ["localhost", "127.0.0.1"]
       return trusted.some((h) => hostname === h || hostname.endsWith(`.${h}`))
     } catch {
       return false
@@ -360,17 +455,17 @@ function registerIpcHandlers(): void {
     if (!validateSender(event)) return
     getAuthManager().logout()
     // Clear cookie from persist:main partition
-    const ses = session.fromPartition("persist:main")
-    try {
-      await ses.cookies.remove(getBaseUrl(), "x-desktop-token")
-      console.log("[Auth] Cookie cleared on logout")
-    } catch (err) {
-      console.error("[Auth] Failed to clear cookie:", err)
+    const baseUrl = getBaseUrl()
+    if (baseUrl) {
+      const ses = session.fromPartition("persist:main")
+      try {
+        await ses.cookies.remove(baseUrl, "x-desktop-token")
+        console.log("[Auth] Cookie cleared on logout")
+      } catch (err) {
+        console.error("[Auth] Failed to clear cookie:", err)
+      }
     }
-    // Show login page in all windows
-    for (const win of windowManager.getAll()) {
-      showLoginPageInWindow(win)
-    }
+    console.log("[Auth] Logout complete; keeping local app windows open")
   })
 
   ipcMain.handle("auth:start-flow", (event) => {
@@ -420,6 +515,16 @@ function registerIpcHandlers(): void {
         return { ok: false, status: 403, data: null, error: "Unauthorized sender" }
       }
       console.log("[SignedFetch] Sender validated OK")
+
+      if (isLegacy21stUrl(url)) {
+        console.log("[SignedFetch] Blocked legacy upstream URL:", url)
+        return {
+          ok: false,
+          status: 410,
+          data: null,
+          error: "Legacy 21st.dev requests are disabled",
+        }
+      }
 
       const token = await getAuthManager().getValidToken()
       console.log("[SignedFetch] Token:", token ? "present" : "missing", "URL:", url)
@@ -473,6 +578,11 @@ function registerIpcHandlers(): void {
       if (!validateSender(event)) {
         console.log("[StreamFetch] Unauthorized sender")
         return { ok: false, status: 403, error: "Unauthorized sender" }
+      }
+
+      if (isLegacy21stUrl(url)) {
+        console.log("[StreamFetch] Blocked legacy upstream URL:", url)
+        return { ok: false, status: 410, error: "Legacy 21st.dev requests are disabled" }
       }
 
       const token = await getAuthManager().getValidToken()
@@ -624,7 +734,7 @@ export function createWindow(options?: { chatId?: string; subChatId?: string }):
     minWidth: 500, // Allow narrow mobile-like mode
     minHeight: 600,
     show: false,
-    title: "1Code",
+    title: "Ripple",
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#09090b" : "#ffffff",
     // hiddenInset shows native traffic lights inset in the window
     // hiddenInset hides the native title bar but keeps traffic lights visible
@@ -780,57 +890,37 @@ export function createWindow(options?: { chatId?: string; subChatId?: string }):
     // windowManager handles cleanup via 'closed' event listener
   })
 
-  // Load the renderer - check auth first
+  // Load the renderer. Auth remains optional and must not gate local app entry.
   const devServerUrl = process.env.ELECTRON_RENDERER_URL
-  const authManager = getAuthManager()
 
-  console.log("[Main] ========== AUTH CHECK ==========")
-  console.log("[Main] AuthManager exists:", !!authManager)
-  const isAuth = authManager.isAuthenticated()
-  console.log("[Main] isAuthenticated():", isAuth)
-  const user = authManager.getUser()
-  console.log("[Main] getUser():", user ? user.email : "null")
-  console.log("[Main] ================================")
+  console.log("[Main] Loading app renderer")
+  // Get stable window ID from manager (assigned during register)
+  // "main" for first window, "window-2", "window-3", etc. for additional windows
+  const windowId = windowManager.getStableId(window)
 
-  if (isAuth) {
-    console.log("[Main] ✓ User authenticated, loading app")
-    // Get stable window ID from manager (assigned during register)
-    // "main" for first window, "window-2", "window-3", etc. for additional windows
-    const windowId = windowManager.getStableId(window)
+  // Build URL params including optional chatId/subChatId
+  const buildParams = (params: URLSearchParams) => {
+    params.set("windowId", windowId)
+    if (options?.chatId) params.set("chatId", options.chatId)
+    if (options?.subChatId) params.set("subChatId", options.subChatId)
+  }
 
-    // Build URL params including optional chatId/subChatId
-    const buildParams = (params: URLSearchParams) => {
-      params.set("windowId", windowId)
-      if (options?.chatId) params.set("chatId", options.chatId)
-      if (options?.subChatId) params.set("subChatId", options.subChatId)
-    }
-
-    if (devServerUrl) {
-      // Pass params via query for dev mode
-      const url = new URL(devServerUrl)
-      buildParams(url.searchParams)
-      window.loadURL(url.toString())
-      // Only open devtools for first window in development
-      if (!app.isPackaged && windowId === "main") {
-        window.webContents.openDevTools()
-      }
-    } else {
-      // Pass params via hash for production (file:// URLs)
-      const hashParams = new URLSearchParams()
-      buildParams(hashParams)
-      window.loadFile(join(__dirname, "../renderer/index.html"), {
-        hash: hashParams.toString(),
-      })
+  if (devServerUrl) {
+    // Pass params via query for dev mode
+    const url = new URL(devServerUrl)
+    buildParams(url.searchParams)
+    window.loadURL(url.toString())
+    // Only open devtools for first window in development
+    if (!app.isPackaged && windowId === "main") {
+      window.webContents.openDevTools()
     }
   } else {
-    console.log("[Main] ✗ Not authenticated, showing login page")
-    // In dev mode, login.html is in src/renderer
-    if (devServerUrl) {
-      const loginPath = join(app.getAppPath(), "src/renderer/login.html")
-      window.loadFile(loginPath)
-    } else {
-      window.loadFile(join(__dirname, "../renderer/login.html"))
-    }
+    // Pass params via hash for production (file:// URLs)
+    const hashParams = new URLSearchParams()
+    buildParams(hashParams)
+    window.loadFile(join(__dirname, "../renderer/index.html"), {
+      hash: hashParams.toString(),
+    })
   }
 
   // Log page load - traffic light visibility is managed by the renderer

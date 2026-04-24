@@ -40,12 +40,12 @@ import {
 } from "../../lib/hooks/use-remote-chats"
 import { usePrefetchLocalChat } from "../../lib/hooks/use-prefetch-local-chat"
 import { ArchivePopover } from "../agents/ui/archive-popover"
-import { ChevronDown, MoreHorizontal, Columns3, ArrowUpRight } from "lucide-react"
+import { ChevronDown, MoreHorizontal, Columns3 } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { remoteTrpc } from "../../lib/remote-trpc"
 // import { useRouter } from "next/navigation" // Desktop doesn't use next/navigation
 // import { useCombinedAuth } from "@/lib/hooks/use-combined-auth"
-const useCombinedAuth = () => ({ userId: null })
+const useCombinedAuth = () => ({ userId: null, isLoaded: true })
 // import { AuthDialog } from "@/components/auth/auth-dialog"
 const AuthDialog = () => null
 // Desktop: archive is handled inline, not via hook
@@ -1052,7 +1052,7 @@ const ChatListSection = React.memo(function ChatListSection({
 interface AgentsSidebarProps {
   userId?: string | null | undefined
   clerkUser?: any
-  desktopUser?: { id: string; email: string; name?: string } | null
+  desktopUser?: { id: string; email: string; name?: string | null } | null
   onSignOut?: () => void
   onToggleSidebar?: () => void
   isMobileFullscreen?: boolean
@@ -1202,10 +1202,11 @@ const InboxButton = memo(function InboxButton() {
 // Isolated Automations Button - full-width navigation link matching web layout
 const AutomationsButton = memo(function AutomationsButton() {
   const automationsEnabled = useAtomValue(betaAutomationsEnabledAtom)
+  const setDesktopView = useSetAtom(desktopViewAtom)
 
   const handleClick = useCallback(() => {
-    window.desktopApi.openExternal("https://21st.dev/agents/app/automations")
-  }, [])
+    setDesktopView("automations")
+  }, [setDesktopView])
 
   if (!automationsEnabled) return null
 
@@ -1220,7 +1221,6 @@ const AutomationsButton = memo(function AutomationsButton() {
     >
       <SidebarAutomationsIcon className="h-4 w-4" />
       <span className="flex-1 text-left">Automations</span>
-      <ArrowUpRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
     </button>
   )
 })
@@ -1275,7 +1275,7 @@ interface SidebarHeaderProps {
   isFullscreen: boolean | null
   isMobileFullscreen: boolean
   userId: string | null | undefined
-  desktopUser: { id: string; email: string; name?: string } | null
+  desktopUser: { id: string; email: string; name?: string | null } | null
   onSignOut: () => void
   onToggleSidebar?: () => void
   setSettingsDialogOpen: (open: boolean) => void
@@ -1388,7 +1388,7 @@ const SidebarHeader = memo(function SidebarHeader({
                     </div>
                     <div className="min-w-0 flex-1 overflow-hidden">
                       <div className="text-sm font-medium text-foreground truncate">
-                        1Code
+                        Ripple
                       </div>
                     </div>
                     {showOfflineFeatures && (
@@ -1651,13 +1651,9 @@ const HelpSection = memo(function HelpSection({ isMobile }: HelpSectionProps) {
 })
 
 export function AgentsSidebar({
-  userId = "demo-user-id",
+  userId = null,
   clerkUser = null,
-  desktopUser = {
-    id: "demo-user-id",
-    email: "demo@example.com",
-    name: "Demo User",
-  },
+  desktopUser = null,
   onSignOut = () => {},
   onToggleSidebar,
   isMobileFullscreen = false,
