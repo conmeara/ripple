@@ -184,7 +184,7 @@ const ArchiveChatItem = memo(function ArchiveChatItem({
             <span className="truncate block text-sm leading-tight flex-1">
               {chat.name || (
                 <span className="text-muted-foreground/50">
-                  New workspace
+                  New project
                 </span>
               )}
             </span>

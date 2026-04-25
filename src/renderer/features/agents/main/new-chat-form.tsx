@@ -36,7 +36,6 @@ import {
   lastSelectedBranchesAtom,
   lastSelectedModelIdAtom,
   lastSelectedRepoAtom,
-  lastSelectedWorkModeAtom,
   selectedAgentChatIdAtom,
   selectedChatIsRemoteAtom,
   selectedDraftIdAtom,
@@ -45,8 +44,6 @@ import {
   type AgentMode,
 } from "../atoms"
 import { defaultAgentModeAtom } from "../../../lib/atoms"
-import { ProjectSelector } from "../components/project-selector"
-import { WorkModeSelector } from "../components/work-mode-selector"
 // import { selectedTeamIdAtom } from "@/lib/atoms/team"
 import { atom } from "jotai"
 const selectedTeamIdAtom = atom<string | null>(null)
@@ -69,10 +66,10 @@ import {
 } from "../../../lib/atoms"
 // Desktop uses real tRPC
 import { toast } from "sonner"
+import { showProjectSetupNotice } from "../../../lib/project-setup-toast"
 import { trpc } from "../../../lib/trpc"
 import {
   AgentsSlashCommand,
-  COMMAND_PROMPTS,
   BUILTIN_SLASH_COMMANDS,
   type SlashCommandOption,
 } from "../commands"
@@ -98,6 +95,7 @@ import { AgentImageItem } from "../ui/agent-image-item"
 import { AgentPastedTextItem } from "../ui/agent-pasted-text-item"
 import { AgentsHeaderControls } from "../ui/agents-header-controls"
 import { VoiceWaveIndicator } from "../ui/voice-wave-indicator"
+import { useAgentSubChatStore } from "../stores/sub-chat-store"
 // import { CreateBranchDialog } from "@/app/(alpha)/agents/{components}/create-branch-dialog"
 import {
   PromptInput,
@@ -171,6 +169,17 @@ const agents = [
   { id: "codex", name: "OpenAI Codex" },
 ]
 
+const enableHiddenRevisionControls = false
+
+type RemoteRepository = {
+  id: string
+  name: string
+  full_name: string
+  sandbox_status?: "not_setup" | "in_progress" | "ready" | "error"
+  pushed_at?: string | null
+  isPublicImport?: boolean
+}
+
 interface NewChatFormProps {
   isMobileFullscreen?: boolean
   onBackToChats?: () => void
@@ -234,7 +243,6 @@ export function NewChatForm({
   const toggleMode = useCallback(() => {
     setAgentMode(getNextMode)
   }, [])
-  const [workMode, setWorkMode] = useAtom(lastSelectedWorkModeAtom)
   const debugMode = useAtomValue(agentsDebugModeAtom)
   const customClaudeConfig = useAtomValue(customClaudeConfigAtom)
   const normalizedCustomClaudeConfig =
@@ -257,40 +265,6 @@ export function NewChatForm({
   const [repoSearchQuery, setRepoSearchQuery] = useState("")
   const [createBranchDialogOpen, setCreateBranchDialogOpen] = useState(false)
 
-  // Worktree config banner state
-  const [worktreeBannerDismissed, setWorktreeBannerDismissed] = useState(() => {
-    try {
-      return localStorage.getItem("worktree-banner-dismissed") === "true"
-    } catch {
-      return false
-    }
-  })
-
-  // Check if project has worktree config
-  const { data: worktreeConfigData } = trpc.worktreeConfig.get.useQuery(
-    { projectId: validatedProject?.id ?? "" },
-    { enabled: !!validatedProject?.id && workMode === "worktree" && !worktreeBannerDismissed },
-  )
-
-  const showWorktreeBanner =
-    workMode === "worktree" &&
-    validatedProject &&
-    !worktreeBannerDismissed &&
-    worktreeConfigData &&
-    !worktreeConfigData.config
-
-  const handleDismissWorktreeBanner = () => {
-    setWorktreeBannerDismissed(true)
-    try {
-      localStorage.setItem("worktree-banner-dismissed", "true")
-    } catch {}
-  }
-
-  const handleConfigureWorktree = () => {
-    // Open the projects settings tab
-    setSettingsActiveTab("projects")
-    setSettingsDialogOpen(true)
-  }
   // Parse owner/repo from GitHub URL
   const parseGitHubUrl = (url: string) => {
     const match = url.match(/(?:github\.com\/)?([^\/]+)\/([^\/\s#?]+)/)
@@ -712,7 +686,7 @@ export function NewChatForm({
 
   // Fetch repos from team
   // Desktop: no remote repos, we use local projects
-  const reposData = { repositories: [] }
+  const reposData: { repositories: RemoteRepository[] } = { repositories: [] }
   const isLoadingRepos = false
 
   // Memoize repos arrays to prevent useEffect from running on every keystroke
@@ -792,7 +766,7 @@ export function NewChatForm({
   const branchesQuery = trpc.changes.getBranches.useQuery(
     { worktreePath: validatedProject?.path || "" },
     {
-      enabled: !!validatedProject?.path,
+      enabled: enableHiddenRevisionControls && !!validatedProject?.path,
       staleTime: 30_000, // Cache for 30 seconds
     },
   )
@@ -951,13 +925,13 @@ export function NewChatForm({
   const prevSelectedDraftIdRef = useRef<string | null>(null)
 
   // Restore draft when a specific draft is selected from sidebar
-  // Or clear editor when "New Workspace" is clicked (selectedDraftId becomes null)
+  // Or clear editor when "New Project" is clicked (selectedDraftId becomes null)
   useEffect(() => {
     const hadDraftBefore = prevSelectedDraftIdRef.current !== null
     prevSelectedDraftIdRef.current = selectedDraftId
 
     if (!selectedDraftId) {
-      // No draft selected - only clear if we had a draft before (user clicked "New Workspace")
+      // No draft selected - only clear if we had a draft before (user clicked "New Project")
       // Don't clear if user is currently typing (currentDraftIdRef has a value)
       if (hadDraftBefore) {
         currentDraftIdRef.current = null
@@ -967,8 +941,8 @@ export function NewChatForm({
           setHasContent(false)
         }
 
-        // Fetch remote branches in background when starting new workspace
-        if (validatedProject?.path) {
+        // Hidden revision controls can refresh branch data when enabled.
+        if (enableHiddenRevisionControls && validatedProject?.path) {
           handleRefreshBranchesRef.current()
         }
       }
@@ -1039,7 +1013,41 @@ export function NewChatForm({
       fileContentsRef.current.clear()
       clearCurrentDraft()
       utils.chats.list.invalidate()
+      if (selectedChatId && selectedChatId !== data.id) {
+        window.desktopApi?.releaseChat?.(selectedChatId)
+      }
       setSelectedChatId(data.id)
+      if (data.subChats?.[0]?.id) {
+        const createdSubChat = data.subChats[0]
+        const subChatStore = useAgentSubChatStore.getState()
+        if (subChatStore.chatId !== data.id) {
+          subChatStore.setChatId(data.id)
+        }
+        subChatStore.addToAllSubChats({
+          id: createdSubChat.id,
+          name: createdSubChat.name || "New Chat",
+          created_at:
+            createdSubChat.createdAt?.toISOString() ?? new Date().toISOString(),
+          updated_at:
+            createdSubChat.updatedAt?.toISOString() ?? new Date().toISOString(),
+          mode: (createdSubChat.mode as "plan" | "agent" | undefined) ?? "agent",
+        })
+        subChatStore.addToOpenSubChats(createdSubChat.id)
+        subChatStore.setActiveSubChat(createdSubChat.id)
+        utils.chats.get.setData({ id: data.id }, (old) => {
+          if (!old) return old
+          const existingSubChats = old.subChats ?? []
+          if (existingSubChats.some((subChat) => subChat.id === createdSubChat.id)) {
+            return old
+          }
+          return {
+            ...old,
+            updatedAt: data.updatedAt,
+            subChats: [...existingSubChats, createdSubChat],
+          }
+        })
+        utils.chats.get.invalidate({ id: data.id })
+      }
       // New chats are always local
       setSelectedChatIsRemote(false)
       setChatSourceMode("local")
@@ -1056,38 +1064,40 @@ export function NewChatForm({
   })
 
   // Open folder mutation for selecting a project
-  const openFolder = trpc.projects.openFolder.useMutation({
+  const openFolder = trpc.projects.openRippleProjectFolder.useMutation({
     onSuccess: (project) => {
-      if (project) {
+      if (project?.project) {
+        const openedProject = project.project
         // Optimistically update the projects list cache to prevent "Select repo" flash
         // This ensures validatedProject can find the new project immediately
         utils.projects.list.setData(undefined, (oldData) => {
-          if (!oldData) return [project]
+          if (!oldData) return [openedProject]
           // Check if project already exists (reopened existing project)
-          const exists = oldData.some((p) => p.id === project.id)
+          const exists = oldData.some((p) => p.id === openedProject.id)
           if (exists) {
             // Update existing project's timestamp
             return oldData.map((p) =>
-              p.id === project.id ? { ...p, updatedAt: project.updatedAt } : p,
+              p.id === openedProject.id ? { ...p, updatedAt: openedProject.updatedAt } : p,
             )
           }
           // Add new project at the beginning
-          return [project, ...oldData]
+          return [openedProject, ...oldData]
         })
 
         setSelectedProject({
-          id: project.id,
-          name: project.name,
-          path: project.path,
-          gitRemoteUrl: project.gitRemoteUrl,
-          gitProvider: project.gitProvider as
+          id: openedProject.id,
+          name: openedProject.name,
+          path: openedProject.path,
+          gitRemoteUrl: openedProject.gitRemoteUrl,
+          gitProvider: openedProject.gitProvider as
             | "github"
             | "gitlab"
             | "bitbucket"
             | null,
-          gitOwner: project.gitOwner,
-          gitRepo: project.gitRepo,
+          gitOwner: openedProject.gitOwner,
+          gitRepo: openedProject.gitRepo,
         })
+        showProjectSetupNotice(project)
       }
     },
   })
@@ -1213,11 +1223,9 @@ export function NewChatForm({
       name: message.trim().slice(0, 50), // Use first 50 chars as chat name
       model: selectedChatModel,
       initialMessageParts: parts.length > 0 ? parts : undefined,
-      baseBranch:
-        workMode === "worktree" ? selectedBranch || undefined : undefined,
-      branchType:
-        workMode === "worktree" ? selectedBranchType : undefined,
-      useWorktree: workMode === "worktree",
+      baseBranch: undefined,
+      branchType: undefined,
+      useWorktree: false,
       mode: agentMode,
     })
     // Editor, images, files, and pasted texts are cleared in onSuccess callback
@@ -1228,7 +1236,6 @@ export function NewChatForm({
     hasContent,
     selectedBranch,
     selectedBranchType,
-    workMode,
     images,
     files,
     pastedTexts,
@@ -1646,14 +1653,14 @@ export function NewChatForm({
 
           {/* Input Area or Select Repo State */}
           {!validatedProject ? (
-            // No project selected - show select repo button (like Sign in button)
+            // No project selected - show project picker button
             <div className="flex justify-center">
               <button
                 onClick={handleOpenFolder}
                 disabled={openFolder.isPending}
                 className="h-8 px-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-[background-color,transform] duration-150 hover:bg-primary/90 active:scale-[0.97] shadow-[0_0_0_0.5px_rgb(23,23,23),inset_0_0_0_1px_rgba(255,255,255,0.14)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {openFolder.isPending ? "Opening..." : "Select repo"}
+                {openFolder.isPending ? "Opening..." : "Open Project"}
               </button>
             </div>
           ) : (
@@ -1984,21 +1991,10 @@ export function NewChatForm({
                   </PromptInputActions>
                 </PromptInput>
 
-                {/* Project, Work Mode, and Branch selectors - directly under input */}
+                {enableHiddenRevisionControls && (
                 <div className="mt-1.5 md:mt-2 ml-[5px] flex items-center gap-2">
-                  <ProjectSelector />
-
-                  {/* Work mode selector - between project and branch */}
+                  {/* Branch selector - hidden in Ripple's normal project path */}
                   {validatedProject && (
-                    <WorkModeSelector
-                      value={workMode}
-                      onChange={setWorkMode}
-                      disabled={createChatMutation.isPending}
-                    />
-                  )}
-
-                  {/* Branch selector - only visible when worktree mode is selected */}
-                  {validatedProject && workMode === "worktree" && (
                     <Popover
                       open={branchPopoverOpen}
                       onOpenChange={(open) => {
@@ -2156,8 +2152,9 @@ export function NewChatForm({
                     />
                   )}
                 </div>
+                )}
 
-                {/* Worktree config banner - moved to corner banner below */}
+                {/* Hidden revision setup banner disabled for normal Ripple projects */}
 
                 {/* File mention dropdown */}
                 {/* Desktop: use projectPath for local file search */}
@@ -2198,44 +2195,6 @@ export function NewChatForm({
         </div>
       </div>
 
-      {/* Worktree config banner - fixed bottom-right corner */}
-      {showWorktreeBanner && (
-        <div className="absolute bottom-4 right-4 max-w-sm p-3 pb-4 bg-muted/50 backdrop-blur-sm rounded-lg border border-border space-y-3 shadow-lg z-50">
-          <p className="text-sm text-muted-foreground">
-            Configure a worktree setup script to install dependencies or copy
-            environment variables.
-          </p>
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleConfigureWorktree}
-            >
-              Settings
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                const prompt = COMMAND_PROMPTS["worktree-setup"]
-                if (prompt && validatedProject) {
-                  createChatMutation.mutate({
-                    projectId: validatedProject.id,
-                    name: "Worktree Setup",
-                    model: selectedChatModel,
-                    initialMessageParts: [
-                      { type: "text", text: prompt },
-                    ],
-                    useWorktree: false,
-                    mode: "agent",
-                  })
-                }
-              }}
-            >
-              Fill with AI
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

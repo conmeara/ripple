@@ -20,12 +20,12 @@ interface WorkModeSelectorProps {
 const workModeOptions = [
   {
     id: "local" as const,
-    label: "Local",
+    label: "Project",
     icon: LaptopIcon,
   },
   {
     id: "worktree" as const,
-    label: "Worktree",
+    label: "Revision",
     icon: GitBranch,
   },
   {
@@ -72,7 +72,7 @@ export function WorkModeSelector({
             <button
               key={option.id}
               onClick={() => {
-                if (isDisabled) return
+                if (isDisabled || option.id === "sandbox") return
                 onChange(option.id)
                 setOpen(false)
               }}

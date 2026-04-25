@@ -4,7 +4,7 @@
  */
 
 import type { SettingsTab } from "../../../lib/atoms"
-import type { DesktopView } from "../atoms"
+import type { DesktopView, SelectedProject } from "../atoms"
 
 // ============================================================================
 // TYPES
@@ -17,6 +17,8 @@ export type AgentActionCategory = "general" | "navigation" | "chat" | "view"
 export interface AgentActionContext {
   // Navigation
   setSelectedChatId?: (id: string | null) => void
+  setSelectedProject?: (project: SelectedProject) => void
+  setProjectEntryReturnProject?: (project: NonNullable<SelectedProject> | null) => void
   setSelectedDraftId?: (id: string | null) => void
   setShowNewChatForm?: (show: boolean) => void
   setDesktopView?: (view: DesktopView) => void
@@ -29,6 +31,8 @@ export interface AgentActionContext {
 
   // Data
   selectedChatId?: string | null
+  selectedProject?: SelectedProject
+  releaseSelectedChat?: (id: string) => Promise<void>
 }
 
 export interface AgentActionResult {
@@ -72,19 +76,21 @@ const openShortcutsAction: AgentActionDefinition = {
 
 const createNewAgentAction: AgentActionDefinition = {
   id: "create-new-agent",
-  label: "New workspace",
-  description: "Create a new workspace",
+  label: "New project",
+  description: "Create a new project",
   category: "general",
   hotkey: "cmd+n",
   handler: async (context) => {
     console.log("[Action] create-new-agent handler called")
-    // Clear selected chat
+    if (context.selectedChatId) {
+      await context.releaseSelectedChat?.(context.selectedChatId)
+    }
+    // Route keyboard/menu users to the same project creation flow as the rail button.
+    context.setProjectEntryReturnProject?.(context.selectedProject ?? null)
+    context.setSelectedProject?.(null)
     context.setSelectedChatId?.(null)
-    // Clear selected draft so form starts empty
     context.setSelectedDraftId?.(null)
-    // Explicitly show new chat form
     context.setShowNewChatForm?.(true)
-    // Clear automations/inbox view
     context.setDesktopView?.(null)
     return { success: true }
   },
@@ -201,7 +207,7 @@ const openFileInEditorAction: AgentActionDefinition = {
 const fileSearchAction: AgentActionDefinition = {
   id: "file-search",
   label: "Go to file",
-  description: "Search and open a file in the workspace",
+  description: "Search and open a file in the project",
   category: "navigation",
   hotkey: "cmd+p",
   handler: async (context) => {

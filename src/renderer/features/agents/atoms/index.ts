@@ -2,6 +2,9 @@ import { atom } from "jotai"
 import { atomFamily, atomWithStorage } from "jotai/utils"
 import { atomWithWindowStorage } from "../../../lib/window-storage"
 import type { FileMentionOption } from "../mentions/agents-mentions-editor"
+import type { SelectedProject } from "../utils/selected-project"
+export { toSelectedProject } from "../utils/selected-project"
+export type { SelectableProjectRecord, SelectedProject } from "../utils/selected-project"
 
 // Agent mode type - extensible for future modes like "debug"
 export type AgentMode = "agent" | "plan"
@@ -37,12 +40,12 @@ export const previousAgentChatIdAtom = atom<string | null>(null)
 
 // Selected draft ID - when user clicks on a draft in sidebar, this is set
 // NewChatForm uses this to restore the draft text
-// Reset to null when "New Workspace" is clicked or chat is created
+// Reset to null when "New Project" is clicked or chat is created
 export const selectedDraftIdAtom = atom<string | null>(null)
 
 // Show new chat form explicitly - true by default so new users see the form, not kanban
 // Set to false when kanban is explicitly opened (via hotkey or button)
-// Set to true when "New Workspace" is clicked
+// Set to true when "New Project" is clicked
 export const showNewChatFormAtom = atom<boolean>(true)
 
 // When true, suppress auto-focus on chat input (e.g. during sidebar keyboard navigation)
@@ -186,23 +189,14 @@ export const lastSelectedRepoAtom = atomWithStorage<SavedRepo>(
   { getOnInit: true },
 )
 
-// Selected local project (persisted)
-export type SelectedProject = {
-  id: string
-  name: string
-  path: string
-  gitRemoteUrl?: string | null
-  gitProvider?: "github" | "gitlab" | "bitbucket" | null
-  gitOwner?: string | null
-  gitRepo?: string | null
-} | null
-
 // Selected local project - uses window-scoped storage so each window can work with different projects
 export const selectedProjectAtom = atomWithWindowStorage<SelectedProject>(
   "agents:selectedProject",
   null,
   { getOnInit: true },
 )
+
+export const projectEntryReturnProjectAtom = atom<NonNullable<SelectedProject> | null>(null)
 
 export const lastSelectedAgentIdAtom = atomWithStorage<string>(
   "agents:lastSelectedAgentId",
@@ -732,11 +726,12 @@ export interface PendingChatHistory {
 }
 export const pendingChatHistoryAtom = atom<PendingChatHistory | null>(null)
 
-// Work mode preference (local = work in project dir, worktree = create isolated worktree)
+// Hidden revision mode preference. Ripple's normal path works in the project
+// until isolated revisions replace the old worktree surface.
 export type WorkMode = "local" | "worktree"
 export const lastSelectedWorkModeAtom = atomWithStorage<WorkMode>(
   "agents:lastSelectedWorkMode",
-  "worktree", // default to worktree for current behavior
+  "local",
   undefined,
   { getOnInit: true },
 )

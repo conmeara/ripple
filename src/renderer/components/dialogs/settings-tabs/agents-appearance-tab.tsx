@@ -594,10 +594,10 @@ export function AgentsAppearanceTab() {
         <div className="flex items-center justify-between p-4">
           <div className="flex flex-col space-y-1">
             <span className="text-sm font-medium text-foreground">
-              Workspace icon
+              Project icon
             </span>
             <span className="text-xs text-muted-foreground">
-              Show project icon in the sidebar workspace list
+              Show project icons in the sidebar
             </span>
           </div>
           <Switch

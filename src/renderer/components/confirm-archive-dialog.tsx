@@ -125,7 +125,7 @@ export function ConfirmArchiveDialog({
               <div className="bg-background rounded-2xl border shadow-2xl overflow-hidden" data-canvas-dialog>
                 <div className="p-6">
                   <h2 className="text-xl font-semibold mb-4">
-                    Archive Workspace
+                    Archive Project
                   </h2>
 
                   {/* Active processes warning */}
@@ -145,7 +145,7 @@ export function ConfirmArchiveDialog({
                           className="mt-0.5"
                         />
                         <span className="text-sm select-none">
-                          Delete worktree to free disk space
+                          Delete hidden revision files to free disk space
                         </span>
                       </label>
 

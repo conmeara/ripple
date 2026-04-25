@@ -94,6 +94,8 @@ Use Bun unless a task specifically requires another package manager.
 
 ```bash
 bun run dev
+bun test
+bun run test:ripple
 bun run build
 bun run ts:check
 bun run package
@@ -107,6 +109,10 @@ bun run db:push
 Notes:
 
 - `bun run dev` starts the Electron app with hot reload.
+- `bun run test:ripple` runs the focused Ripple regression suite:
+  project paths/scaffold/metadata/environment/lifecycle, hidden `.ripple`
+  setup config, project chat selection, chat ownership, New Project shortcut
+  routing, and selected-project mapping.
 - `bun run ts:check` is the current TypeScript check.
 - Ripple should grow full unit, integration, renderer/component, Electron E2E,
   render/export, packaging, and manual QA gates; see `ROADMAP.md`.

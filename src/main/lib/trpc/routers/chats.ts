@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm"
 import { BrowserWindow } from "electron"
 import * as fs from "fs/promises"
 import * as path from "path"
@@ -27,6 +27,8 @@ import { execWithShellEnv } from "../../git/shell-env"
 import { applyRollbackStash } from "../../git/stash"
 import { checkInternetConnection, checkOllamaStatus } from "../../ollama"
 import { terminalManager } from "../../terminal/manager"
+import { getLocalChatReusePaths } from "../../ripple-projects/chat-reuse"
+import { windowManager } from "../../../windows/window-manager"
 import { publicProcedure, router } from "../index"
 
 type WorktreeSetupFailurePayload = {
@@ -218,7 +220,14 @@ export const chatsRouter = router({
     .input(z.object({ projectId: z.string().optional() }))
     .query(({ input }) => {
       const db = getDatabase()
-      const conditions = [isNull(chats.archivedAt)]
+      const conditions = [
+        isNull(chats.archivedAt),
+        sql`exists (
+          select 1 from projects
+          where ${projects.id} = ${chats.projectId}
+          and ${projects.archivedAt} is null
+        )`,
+      ]
       if (input.projectId) {
         conditions.push(eq(chats.projectId, input.projectId))
       }
@@ -316,7 +325,8 @@ export const chatsRouter = router({
     .mutation(async ({ input, ctx }) => {
       console.log("[chats.create] called with:", input)
       const db = getDatabase()
-      const requestingWindowId = ctx.getWindow?.()?.id ?? null
+      const requestingWindow = ctx.getWindow?.() ?? BrowserWindow.getFocusedWindow()
+      const requestingWindowId = requestingWindow?.id ?? null
 
       // Get project path
       const project = db
@@ -327,16 +337,63 @@ export const chatsRouter = router({
       console.log("[chats.create] found project:", project)
       if (!project) throw new Error("Project not found")
 
-      // Create chat (fast path)
-      const chat = db
-        .insert(chats)
-        .values({
-          name: input.name,
-          projectId: input.projectId,
-        })
-        .returning()
-        .get()
-      console.log("[chats.create] created chat:", chat)
+      const localProjectPaths = getLocalChatReusePaths(project)
+      const localPathConditions = localProjectPaths.map((candidate) =>
+        eq(chats.worktreePath, candidate),
+      )
+      const localPathCondition =
+        localPathConditions.length === 1
+          ? localPathConditions[0]
+          : or(...localPathConditions)
+
+      const existingLocalChat = !input.useWorktree
+        ? db
+            .select()
+            .from(chats)
+            .where(
+              and(
+                eq(chats.projectId, input.projectId),
+                isNull(chats.archivedAt),
+                isNull(chats.branch),
+                isNull(chats.baseBranch),
+                localPathCondition,
+              ),
+            )
+            .orderBy(desc(chats.updatedAt))
+            .get()
+        : null
+
+      const chat = existingLocalChat ??
+        db
+          .insert(chats)
+          .values({
+            name: input.name,
+            projectId: input.projectId,
+          })
+          .returning()
+          .get()
+
+      if (requestingWindow) {
+        const claimResult = windowManager.claimChat(chat.id, requestingWindow.id)
+        if (!claimResult.ok) {
+          windowManager.focusChatOwner(chat.id)
+          throw new Error("This project conversation is already open in another window.")
+        }
+      }
+
+      if (existingLocalChat && input.name) {
+        db.update(chats)
+          .set({ name: existingLocalChat.name ?? input.name, updatedAt: new Date() })
+          .where(eq(chats.id, existingLocalChat.id))
+          .run()
+      }
+
+      console.log(
+        existingLocalChat
+          ? "[chats.create] reused project chat:"
+          : "[chats.create] created chat:",
+        chat,
+      )
 
       // Create initial sub-chat with user message (AI SDK format)
       // If initialMessageParts is provided, use it; otherwise fallback to text-only message
@@ -400,7 +457,7 @@ export const chatsRouter = router({
               if (setupResult.success) return
               const message =
                 setupResult.errors[0] ||
-                "Worktree setup failed. Check your setup commands."
+                "Project setup could not finish."
               sendWorktreeSetupFailure(requestingWindowId, {
                 kind: "setup-failed",
                 message,
@@ -429,7 +486,7 @@ export const chatsRouter = router({
           console.warn(`[Worktree] Failed: ${result.error}`)
           sendWorktreeSetupFailure(requestingWindowId, {
             kind: "create-failed",
-            message: result.error || "Worktree creation failed.",
+            message: result.error || "Revision setup could not finish.",
             projectId: project.id,
           })
           // Fallback to project path
@@ -443,7 +500,11 @@ export const chatsRouter = router({
         // Local mode: use project path directly, no branch info
         console.log("[chats.create] local mode - using project path directly")
         db.update(chats)
-          .set({ worktreePath: project.path })
+          .set({
+            worktreePath: project.path,
+            branch: null,
+            baseBranch: null,
+          })
           .where(eq(chats.id, chat.id))
           .run()
         worktreeResult = { worktreePath: project.path }
@@ -452,8 +513,8 @@ export const chatsRouter = router({
       const response = {
         ...chat,
         worktreePath: worktreeResult.worktreePath || project.path,
-        branch: worktreeResult.branch,
-        baseBranch: worktreeResult.baseBranch,
+        branch: worktreeResult.branch ?? null,
+        baseBranch: worktreeResult.baseBranch ?? null,
         subChats: [subChat],
       }
 

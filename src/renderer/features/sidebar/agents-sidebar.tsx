@@ -28,6 +28,7 @@ import {
   showWorkspaceIconAtom,
   betaKanbanEnabledAtom,
   betaAutomationsEnabledAtom,
+  type SettingsTab,
 } from "../../lib/atoms"
 import {
   useRemoteChats,
@@ -47,7 +48,7 @@ import { remoteTrpc } from "../../lib/remote-trpc"
 // import { useCombinedAuth } from "@/lib/hooks/use-combined-auth"
 const useCombinedAuth = () => ({ userId: null, isLoaded: true })
 // import { AuthDialog } from "@/components/auth/auth-dialog"
-const AuthDialog = () => null
+const AuthDialog = (_props: { open?: boolean; onOpenChange?: (open: boolean) => void }) => null
 // Desktop: archive is handled inline, not via hook
 // import { DiscordIcon } from "@/components/icons"
 import { DiscordIcon } from "../../icons"
@@ -113,7 +114,9 @@ import {
   agentsUnseenChangesAtom,
   archivePopoverOpenAtom,
   agentsDebugModeAtom,
+  projectEntryReturnProjectAtom,
   selectedProjectAtom,
+  toSelectedProject,
   justCreatedIdsAtom,
   undoStackAtom,
   pendingUserQuestionsAtom,
@@ -135,6 +138,7 @@ import {
 import { useHotkeys } from "react-hotkeys-hook"
 import { Checkbox } from "../../components/ui/checkbox"
 import { useHaptic } from "./hooks/use-haptic"
+import { findReusableProjectChat } from "./project-chat-selection"
 import { TypewriterText } from "../../components/ui/typewriter-text"
 import { exportChat, copyChat, type ExportFormat } from "../agents/lib/export-chat"
 
@@ -595,7 +599,7 @@ const AgentChatItem = React.memo(function AgentChatItem({
                 >
                   <TypewriterText
                     text={chatName || ""}
-                    placeholder="New workspace"
+                    placeholder="New project"
                     id={chatId}
                     isJustCreated={isJustCreated}
                     showPlaceholder={true}
@@ -1279,11 +1283,11 @@ interface SidebarHeaderProps {
   onSignOut: () => void
   onToggleSidebar?: () => void
   setSettingsDialogOpen: (open: boolean) => void
-  setSettingsActiveTab: (tab: string) => void
+  setSettingsActiveTab: (tab: SettingsTab) => void
   setShowAuthDialog: (open: boolean) => void
   handleSidebarMouseEnter: () => void
-  handleSidebarMouseLeave: () => void
-  closeButtonRef: React.RefObject<HTMLDivElement>
+  handleSidebarMouseLeave: (e: React.MouseEvent) => void
+  closeButtonRef: React.RefObject<HTMLDivElement | null>
 }
 
 const SidebarHeader = memo(function SidebarHeader({
@@ -1765,7 +1769,8 @@ export function AgentsSidebar({
   const showWorkspaceIcon = useAtomValue(showWorkspaceIconAtom)
 
   // Desktop: use selectedProject instead of teams
-  const [selectedProject] = useAtom(selectedProjectAtom)
+  const [selectedProject, setSelectedProject] = useAtom(selectedProjectAtom)
+  const setProjectEntryReturnProject = useSetAtom(projectEntryReturnProjectAtom)
 
   // Keep chatSourceModeAtom for backwards compatibility (used in other places)
   const [chatSourceMode, setChatSourceMode] = useAtom(chatSourceModeAtom)
@@ -1940,12 +1945,49 @@ export function AgentsSidebar({
     return new Map(projects.map((p) => [p.id, p]))
   }, [projects])
 
+  const filteredProjectsForRail = useMemo(() => {
+    if (!projects) return []
+    if (!searchQuery.trim()) return projects
+    const query = searchQuery.toLowerCase()
+    return projects.filter((project) =>
+      project.name.toLowerCase().includes(query) ||
+      project.path.toLowerCase().includes(query) ||
+      project.localPath?.toLowerCase().includes(query),
+    )
+  }, [projects, searchQuery])
+
   // Fetch all archived chats (to get count)
   const { data: archivedChats } = trpc.chats.listArchived.useQuery({})
   const archivedChatsCount = archivedChats?.length ?? 0
 
   // Get utils outside of callbacks - hooks must be called at top level
   const utils = trpc.useUtils()
+
+  const archiveProjectMutation = trpc.projects.archive.useMutation({
+    onSuccess: (_, variables) => {
+      utils.projects.list.invalidate()
+      utils.projects.listArchived.invalidate()
+      utils.chats.list.invalidate()
+      utils.chats.listArchived.invalidate()
+      toast.success("Project archived")
+
+      if (selectedProject?.id === variables.id) {
+        const fallbackProject = projects?.find((project) => project.id !== variables.id)
+        if (selectedChatId) {
+          window.desktopApi?.releaseChat?.(selectedChatId)
+        }
+        setSelectedProject(fallbackProject ? toSelectedProject(fallbackProject) : null)
+        setSelectedChatId(null)
+        setSelectedChatIsRemote(false)
+        setSelectedDraftId(null)
+        setShowNewChatForm(true)
+        setProjectEntryReturnProject(null)
+      }
+    },
+    onError: (error) => {
+      toast.error("Project was not archived", { description: error.message })
+    },
+  })
 
   // Unified undo stack for workspaces and sub-chats (Jotai atom)
   const [undoStack, setUndoStack] = useAtom(undoStackAtom)
@@ -2049,7 +2091,7 @@ export function AgentsSidebar({
         setUndoStack((prev) => prev.slice(0, -1))
 
         if (lastItem.type === "workspace") {
-          // Restore workspace from archive
+          // Restore project from archive
           if (lastItem.isRemote) {
             // Strip remote_ prefix before calling API (stored with prefix for undo stack identification)
             const originalId = lastItem.chatId.replace(/^remote_/, '')
@@ -2061,7 +2103,7 @@ export function AgentsSidebar({
               },
               onError: (error) => {
                 console.error('[handleUndo] Failed to restore remote workspace:', error)
-                toast.error("Failed to restore workspace")
+                toast.error("Failed to restore project")
               },
             })
           } else {
@@ -2551,17 +2593,115 @@ export function AgentsSidebar({
     return chatIds
   }, [pendingQuestions])
 
-  const handleNewAgent = () => {
-    triggerHaptic("light")
+  const clearAgentChatSelection = useCallback(async () => {
+    if (selectedChatId) {
+      await window.desktopApi?.releaseChat?.(selectedChatId)
+    }
     setSelectedChatId(null)
+    setSelectedChatIsRemote(false)
+    setShowNewChatForm(true)
+  }, [
+    selectedChatId,
+    setSelectedChatId,
+    setSelectedChatIsRemote,
+    setShowNewChatForm,
+  ])
+
+  const handleNewAgent = async () => {
+    triggerHaptic("light")
+    setProjectEntryReturnProject(selectedProject)
+    setSelectedProject(null)
+    await clearAgentChatSelection()
     setSelectedDraftId(null) // Clear selected draft so form starts empty
-    setShowNewChatForm(true) // Explicitly show new chat form
     setDesktopView(null) // Clear automations/inbox view
     // On mobile, switch to chat mode to show NewChatForm
     if (isMobileFullscreen && onChatSelect) {
       onChatSelect()
     }
   }
+
+  const openAgentChat = useCallback(async (
+    chatId: string,
+    options: { isRemote?: boolean } = {},
+  ): Promise<boolean> => {
+    const isRemote = options.isRemote ?? chatId.startsWith("remote_")
+    const originalId = isRemote ? chatId.replace(/^remote_/, "") : chatId
+
+    if (window.desktopApi?.claimChat) {
+      const result = await window.desktopApi.claimChat(originalId)
+      if (!result.ok) {
+        toast.info("This conversation is already open in another window", {
+          description: "Switching to the existing window.",
+          duration: 3000,
+        })
+        await window.desktopApi.focusChatOwner(originalId)
+        return false
+      }
+
+      if (selectedChatId && selectedChatId !== originalId) {
+        await window.desktopApi.releaseChat(selectedChatId)
+      }
+    }
+
+    setSelectedChatId(originalId)
+    setSelectedChatIsRemote(isRemote)
+    setChatSourceMode(isRemote ? "sandbox" : "local")
+    setShowNewChatForm(false)
+    setDesktopView(null)
+    if (isMobileFullscreen && onChatSelect) {
+      onChatSelect()
+    }
+
+    return true
+  }, [
+    isMobileFullscreen,
+    onChatSelect,
+    selectedChatId,
+    setChatSourceMode,
+    setDesktopView,
+    setSelectedChatId,
+    setSelectedChatIsRemote,
+    setShowNewChatForm,
+  ])
+
+  const handleProjectSelect = useCallback(async (project: NonNullable<typeof projects>[number]) => {
+    triggerHaptic("light")
+    const projectChat = findReusableProjectChat(project, localChats)
+    setProjectEntryReturnProject(null)
+
+    if (projectChat) {
+      const opened = await openAgentChat(projectChat.id, { isRemote: false })
+      if (!opened) return
+      prevProjectIdRef.current = project.id
+    }
+
+    setSelectedProject(toSelectedProject(project))
+    setSelectedDraftId(null)
+
+    if (!projectChat) {
+      await clearAgentChatSelection()
+      setDesktopView(null)
+      setChatSourceMode("local")
+      if (isMobileFullscreen && onChatSelect) {
+        onChatSelect()
+      }
+    }
+  }, [
+    isMobileFullscreen,
+    localChats,
+    onChatSelect,
+    openAgentChat,
+    setChatSourceMode,
+    clearAgentChatSelection,
+    setDesktopView,
+    setSelectedChatId,
+    setSelectedChatIsRemote,
+    setSelectedDraftId,
+    setSelectedProject,
+    setShowNewChatForm,
+    setProjectEntryReturnProject,
+    triggerHaptic,
+  ])
 
   const handleChatClick = useCallback(async (
     chatId: string,
@@ -2623,40 +2763,8 @@ export function AgentsSidebar({
     // In multi-select mode, clicking on the item still navigates to the chat
     // Only clicking on the checkbox toggles selection
 
-    // Check if this is a remote chat (has remote_ prefix)
-    const isRemote = chatId.startsWith('remote_')
-    // Extract original ID for remote chats
-    const originalId = isRemote ? chatId.replace(/^remote_/, '') : chatId
-
-    // Prevent opening same chat in multiple windows.
-    // Claim new chat BEFORE releasing old one — if claim fails, we keep the current chat.
-    if (window.desktopApi?.claimChat) {
-      const result = await window.desktopApi.claimChat(originalId)
-      if (!result.ok) {
-        toast.info("This workspace is already open in another window", {
-          description: "Switching to the existing window.",
-          duration: 3000,
-        })
-        await window.desktopApi.focusChatOwner(originalId)
-        return
-      }
-      // Release old chat only after new one is successfully claimed
-      if (selectedChatId && selectedChatId !== originalId) {
-        await window.desktopApi.releaseChat(selectedChatId)
-      }
-    }
-
-    setSelectedChatId(originalId)
-    setSelectedChatIsRemote(isRemote)
-    // Sync chatSourceMode for ChatView to load data from correct source
-    setChatSourceMode(isRemote ? "sandbox" : "local")
-    setShowNewChatForm(false) // Clear new chat form state when selecting a workspace
-    setDesktopView(null) // Clear automations/inbox view when selecting a chat
-    // On mobile, notify parent to switch to chat mode
-    if (isMobileFullscreen && onChatSelect) {
-      onChatSelect()
-    }
-  }, [filteredChats, selectedChatId, selectedChatIds, toggleChatSelection, setSelectedChatIds, setSelectedChatId, setSelectedChatIsRemote, setChatSourceMode, setShowNewChatForm, setDesktopView, isMobileFullscreen, onChatSelect])
+    await openAgentChat(chatId)
+  }, [filteredChats, selectedChatIds, toggleChatSelection, setSelectedChatIds, openAgentChat])
 
   const handleCheckboxClick = useCallback((e: React.MouseEvent, chatId: string) => {
     e.stopPropagation()
@@ -2722,8 +2830,8 @@ export function AgentsSidebar({
           }])
         },
         onError: (error) => {
-          console.error('[handleArchiveSingle] Failed to archive remote workspace:', error)
-          toast.error("Failed to archive workspace")
+          console.error('[handleArchiveSingle] Failed to archive remote project:', error)
+          toast.error("Failed to archive project")
         },
       })
       return
@@ -3128,14 +3236,14 @@ export function AgentsSidebar({
         closeButtonRef={closeButtonRef}
       />
 
-      {/* Search and New Workspace */}
+      {/* Search and New Project */}
       <div className="px-2 pb-3 flex-shrink-0">
         <div className="space-y-2">
           {/* Search Input */}
           <div className="relative">
             <Input
               ref={searchInputRef}
-              placeholder="Search workspaces..."
+              placeholder="Search projects..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -3152,7 +3260,7 @@ export function AgentsSidebar({
                     // If no focus yet, start from first item
                     if (prev === -1) return 0
                     // Otherwise move down
-                    return prev < filteredChats.length - 1 ? prev + 1 : prev
+                    return prev < filteredProjectsForRail.length - 1 ? prev + 1 : prev
                   })
                   return
                 }
@@ -3161,7 +3269,7 @@ export function AgentsSidebar({
                   e.preventDefault()
                   setFocusedChatIndex((prev) => {
                     // If no focus yet, start from last item
-                    if (prev === -1) return filteredChats.length - 1
+                    if (prev === -1) return filteredProjectsForRail.length - 1
                     // Otherwise move up
                     return prev > 0 ? prev - 1 : prev
                   })
@@ -3172,9 +3280,9 @@ export function AgentsSidebar({
                   e.preventDefault()
                   // Only open if something is focused (not -1)
                   if (focusedChatIndex >= 0) {
-                    const focusedChat = filteredChats[focusedChatIndex]
-                    if (focusedChat) {
-                      handleChatClick(focusedChat.id)
+                    const focusedProject = filteredProjectsForRail[focusedChatIndex]
+                    if (focusedProject) {
+                      handleProjectSelect(focusedProject)
                       searchInputRef.current?.blur()
                       setFocusedChatIndex(-1) // Reset focus after selection
                     }
@@ -3188,7 +3296,7 @@ export function AgentsSidebar({
               )}
             />
           </div>
-          {/* New Workspace Button */}
+          {/* New Project Button */}
           <Tooltip delayDuration={500}>
             <TooltipTrigger asChild>
               <ButtonCustom
@@ -3200,11 +3308,11 @@ export function AgentsSidebar({
                   isMobileFullscreen ? "h-10" : "h-7",
                 )}
               >
-                <span className="text-sm font-medium">New Workspace</span>
+                <span className="text-sm font-medium">New Project</span>
               </ButtonCustom>
             </TooltipTrigger>
             <TooltipContent side="right" className="flex flex-col items-start gap-1">
-              <span>Start a new workspace</span>
+              <span>Create a new project</span>
               {newWorkspaceHotkey && (
                 <span className="flex items-center gap-1.5">
                   <Kbd>{newWorkspaceHotkey}</Kbd>
@@ -3232,8 +3340,69 @@ export function AgentsSidebar({
             isMultiSelectMode ? "px-0" : "px-2",
           )}
         >
+          {/* Projects Section */}
+          <div className={cn("mb-4", isMultiSelectMode ? "px-0" : "-mx-1")}>
+            <div
+              className={cn(
+                "flex items-center h-4 mb-3",
+                isMultiSelectMode ? "pl-3" : "pl-2",
+              )}
+            >
+              <h3 className="text-xs font-normal text-muted-foreground/70 whitespace-nowrap">
+                Projects
+              </h3>
+            </div>
+            <div className="list-none p-0 m-0 space-y-1">
+              {filteredProjectsForRail.map((project) => {
+                const isSelected = selectedProject?.id === project.id
+                return (
+                  <div
+                    key={project.id}
+                    className="group/project relative"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleProjectSelect(project)}
+                      className={cn(
+                        "w-full min-h-9 rounded-md py-2 pl-3 pr-10 text-left transition-colors duration-150 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70",
+                        isSelected
+                          ? "bg-foreground/5 text-foreground"
+                          : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                      )}
+                    >
+                      <div className="text-[13px] font-normal truncate">
+                        {project.name}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        archiveProjectMutation.mutate({ id: project.id })
+                      }}
+                      disabled={archiveProjectMutation.isPending}
+                      className={cn(
+                        "absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,opacity,transform] duration-150 ease-out hover:bg-foreground/10 hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
+                        "opacity-0 pointer-events-none group-hover/project:pointer-events-auto group-hover/project:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70",
+                      )}
+                      aria-label={`Archive ${project.name}`}
+                      title="Archive project"
+                    >
+                      <ArchiveIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )
+              })}
+              {filteredProjectsForRail.length === 0 && (
+                <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                  No projects found
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Drafts Section - always show regardless of chat source mode */}
-          {drafts.length > 0 && !searchQuery && (
+          {false && drafts.length > 0 && !searchQuery && (
             <div className={cn("mb-4", isMultiSelectMode ? "px-0" : "-mx-1")}>
               <div
                 className={cn(
@@ -3270,7 +3439,7 @@ export function AgentsSidebar({
           )}
 
           {/* Chats Section */}
-          {filteredChats.length > 0 ? (
+          {false && filteredChats.length > 0 ? (
             <div className={cn("mb-4", isMultiSelectMode ? "px-0" : "-mx-1")}>
               {/* Pinned section */}
               <ChatListSection
@@ -3317,7 +3486,7 @@ export function AgentsSidebar({
 
               {/* Unpinned section */}
               <ChatListSection
-                title={pinnedAgents.length > 0 ? "Recent workspaces" : "Workspaces"}
+                title={pinnedAgents.length > 0 ? "Recent projects" : "Projects"}
                 chats={unpinnedAgents}
                 selectedChatId={selectedChatId}
                 selectedChatIsRemote={selectedChatIsRemote}

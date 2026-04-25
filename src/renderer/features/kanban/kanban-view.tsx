@@ -335,7 +335,7 @@ export function KanbanView() {
       utils.chats.list.invalidate()
     },
     onError: () => {
-      toast.error("Failed to rename workspace")
+      toast.error("Failed to rename thread")
     },
   })
 
@@ -356,10 +356,10 @@ export function KanbanView() {
   const archiveChatMutation = trpc.chats.archive.useMutation({
     onSuccess: () => {
       utils.chats.list.invalidate()
-      toast.success("Workspace archived")
+      toast.success("Project archived")
     },
     onError: () => {
-      toast.error("Failed to archive workspace")
+      toast.error("Failed to archive project")
     },
   })
 

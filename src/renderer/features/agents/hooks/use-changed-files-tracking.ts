@@ -53,9 +53,9 @@ export function useChangedFilesTracking(
       }
     }
 
-    // Handle worktree paths: /Users/.../.21st/worktrees/{chatId}/{subChatId}/relativePath
+    // Handle hidden Ripple revision paths: /Users/.../.ripple/worktrees/{projectSlug}/{folder}/relativePath
     // Extract everything after the subChatId directory
-    const worktreeMatch = filePath.match(/\.21st\/worktrees\/[^/]+\/[^/]+\/(.+)$/)
+    const worktreeMatch = filePath.match(/\.ripple\/worktrees\/[^/]+\/[^/]+\/(.+)$/)
     if (worktreeMatch) {
       return worktreeMatch[1]
     }

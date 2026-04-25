@@ -8,13 +8,25 @@ export const projects = sqliteTable("projects", {
     .primaryKey()
     .$defaultFn(() => createId()),
   name: text("name").notNull(),
+  slug: text("slug"),
+  localPath: text("local_path").unique(),
   path: text("path").notNull().unique(),
+  aspectRatioPreset: text("aspect_ratio_preset"),
+  activeCompositionId: text("active_composition_id"),
+  templateId: text("template_id"),
+  setupStatus: text("setup_status")
+    .$type<"unknown" | "checking" | "ready" | "needs_environment" | "error">()
+    .notNull()
+    .default("unknown"),
+  setupError: text("setup_error"),
+  lastSetupCheckAt: integer("last_setup_check_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
     () => new Date(),
   ),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
     () => new Date(),
   ),
+  archivedAt: integer("archived_at", { mode: "timestamp" }),
   // Git remote info (extracted from local .git)
   gitRemoteUrl: text("git_remote_url"),
   gitProvider: text("git_provider"), // "github" | "gitlab" | "bitbucket" | null
@@ -26,6 +38,40 @@ export const projects = sqliteTable("projects", {
 
 export const projectsRelations = relations(projects, ({ many }) => ({
   chats: many(chats),
+  compositions: many(compositions),
+}))
+
+// ============ COMPOSITIONS ============
+export const compositions = sqliteTable("compositions", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  filePath: text("file_path").notNull(),
+  dataCompositionId: text("data_composition_id").notNull(),
+  width: integer("width").notNull(),
+  height: integer("height").notNull(),
+  parentCompositionId: text("parent_composition_id"),
+  kind: text("kind").notNull().default("root"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+}, (table) => [
+  index("compositions_project_id_idx").on(table.projectId),
+  index("compositions_project_file_idx").on(table.projectId, table.filePath),
+])
+
+export const compositionsRelations = relations(compositions, ({ one }) => ({
+  project: one(projects, {
+    fields: [compositions.projectId],
+    references: [projects.id],
+  }),
 }))
 
 // ============ CHATS ============
@@ -131,6 +177,8 @@ export const anthropicSettings = sqliteTable("anthropic_settings", {
 // ============ TYPE EXPORTS ============
 export type Project = typeof projects.$inferSelect
 export type NewProject = typeof projects.$inferInsert
+export type Composition = typeof compositions.$inferSelect
+export type NewComposition = typeof compositions.$inferInsert
 export type Chat = typeof chats.$inferSelect
 export type NewChat = typeof chats.$inferInsert
 export type SubChat = typeof subChats.$inferSelect

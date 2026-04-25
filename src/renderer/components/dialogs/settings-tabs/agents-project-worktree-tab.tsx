@@ -4,20 +4,15 @@ import { useAtomValue, useSetAtom } from "jotai"
 import { trpc } from "../../../lib/trpc"
 import { Button, buttonVariants } from "../../ui/button"
 import { Input } from "../../ui/input"
-import { Plus, Trash2, FolderOpen } from "lucide-react"
-import { AIPenIcon, ExternalLinkIcon, FolderFilledIcon, ImageIcon } from "../../ui/icons"
+import { Archive, RotateCcw, Trash2, FolderOpen, Plus } from "lucide-react"
+import { ExternalLinkIcon, FolderFilledIcon, ImageIcon } from "../../ui/icons"
 import { invalidateProjectIcon, useProjectIcon } from "../../../lib/hooks/use-project-icon"
-import { ProjectIcon } from "../../ui/project-icon"
+import { showProjectSetupNotice } from "../../../lib/project-setup-toast"
 import finderIcon from "../../../assets/app-icons/finder.png"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "../../ui/select"
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogBody,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -27,42 +22,63 @@ import {
   AlertDialogTrigger,
 } from "../../ui/alert-dialog"
 import { toast } from "sonner"
-import { COMMAND_PROMPTS } from "../../../features/agents/commands"
-import {
-  agentsSettingsDialogOpenAtom,
-  selectedAgentChatIdAtom,
-  selectedProjectAtom,
-} from "../../../lib/atoms"
 import { cn } from "../../../lib/utils"
 import { ResizableSidebar } from "../../ui/resizable-sidebar"
-import { settingsProjectsSidebarWidthAtom } from "../../../features/agents/atoms"
+import {
+  previousAgentChatIdAtom,
+  selectedAgentChatIdAtom,
+  selectedChatIsRemoteAtom,
+  selectedDraftIdAtom,
+  selectedProjectAtom,
+  settingsProjectsSidebarWidthAtom,
+  showNewChatFormAtom,
+  toSelectedProject,
+  type SelectedProject,
+} from "../../../features/agents/atoms"
+import { useAgentSubChatStore } from "../../../features/agents/stores/sub-chat-store"
+
+function useClearSelectedThreadState() {
+  const selectedChatId = useAtomValue(selectedAgentChatIdAtom)
+  const setSelectedChatId = useSetAtom(selectedAgentChatIdAtom)
+  const setSelectedChatIsRemote = useSetAtom(selectedChatIsRemoteAtom)
+  const setSelectedDraftId = useSetAtom(selectedDraftIdAtom)
+  const setPreviousChatId = useSetAtom(previousAgentChatIdAtom)
+  const setShowNewChatForm = useSetAtom(showNewChatFormAtom)
+
+  return useCallback(() => {
+    if (selectedChatId) {
+      window.desktopApi?.releaseChat?.(selectedChatId)
+    }
+    setSelectedChatId(null)
+    setSelectedChatIsRemote(false)
+    setSelectedDraftId(null)
+    setPreviousChatId(null)
+    setShowNewChatForm(true)
+    useAgentSubChatStore.getState().reset()
+  }, [
+    selectedChatId,
+    setPreviousChatId,
+    setSelectedChatId,
+    setSelectedChatIsRemote,
+    setSelectedDraftId,
+    setShowNewChatForm,
+  ])
+}
 
 // --- Detail Panel ---
-function ProjectDetail({ projectId }: { projectId: string }) {
-  // Get config for selected project
-  const { data: configData, refetch: refetchConfig } =
-    trpc.worktreeConfig.get.useQuery(
-      { projectId },
-      { enabled: !!projectId },
-    )
-
-  // Save mutation (auto-save, no toast on success — only on error)
-  const saveMutation = trpc.worktreeConfig.save.useMutation({
-    onError: (err) => {
-      toast.error(`Failed to save: ${err.message}`)
-    },
-  })
-
-  // For "Fill with AI" - create chat and close settings
-  const setSettingsDialogOpen = useSetAtom(agentsSettingsDialogOpenAtom)
-  const setSelectedChatId = useSetAtom(selectedAgentChatIdAtom)
+function ProjectDetail({
+  projectId,
+  onProjectUnavailable,
+  fallbackProject,
+}: {
+  projectId: string
+  onProjectUnavailable: () => void
+  fallbackProject: NonNullable<SelectedProject> | null
+}) {
+  const selectedProject = useAtomValue(selectedProjectAtom)
   const setSelectedProject = useSetAtom(selectedProjectAtom)
-  const createChatMutation = trpc.chats.create.useMutation({
-    onSuccess: (data) => {
-      setSettingsDialogOpen(false)
-      setSelectedChatId(data.id)
-    },
-  })
+  const clearSelectedThreadState = useClearSelectedThreadState()
+  const utils = trpc.useUtils()
 
   // Get project info
   const { data: project, refetch: refetchProject } = trpc.projects.get.useQuery(
@@ -84,19 +100,74 @@ function ProjectDetail({ projectId }: { projectId: string }) {
     },
   })
 
-  // Delete project mutation
-  const deleteMutation = trpc.projects.delete.useMutation({
+  const refreshProjectLists = () => {
+    utils.projects.list.invalidate()
+    utils.projects.listArchived.invalidate()
+    utils.chats.list.invalidate()
+    utils.chats.listArchived.invalidate()
+  }
+
+  const hideCurrentProject = useCallback(() => {
+    if (selectedProject?.id !== projectId) return
+
+    setSelectedProject(fallbackProject)
+    clearSelectedThreadState()
+  }, [
+    clearSelectedThreadState,
+    fallbackProject,
+    projectId,
+    selectedProject?.id,
+    setSelectedProject,
+  ])
+
+  const archiveMutation = trpc.projects.archive.useMutation({
     onSuccess: () => {
-      toast.success("Project removed from list")
-      setSelectedProject((current) => {
-        if (current?.id === projectId) {
-          return null
-        }
-        return current
-      })
+      toast.success("Project archived")
+      refreshProjectLists()
+      hideCurrentProject()
+      onProjectUnavailable()
     },
     onError: (err) => {
-      toast.error(`Failed to delete project: ${err.message}`)
+      toast.error(`Failed to archive project: ${err.message}`)
+    },
+  })
+
+  const restoreMutation = trpc.projects.restore.useMutation({
+    onSuccess: (restoredProject) => {
+      toast.success("Project restored")
+      if (restoredProject) {
+        setSelectedProject(toSelectedProject(restoredProject))
+      }
+      refetchProject()
+      refreshProjectLists()
+      onProjectUnavailable()
+    },
+    onError: (err) => {
+      toast.error(`Failed to restore project: ${err.message}`)
+    },
+  })
+
+  const removeMutation = trpc.projects.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Project removed from list")
+      refreshProjectLists()
+      hideCurrentProject()
+      onProjectUnavailable()
+    },
+    onError: (err) => {
+      toast.error(`Failed to remove project: ${err.message}`)
+    },
+  })
+
+  const deleteFilesMutation = trpc.projects.deleteFiles.useMutation({
+    onSuccess: () => {
+      toast.success("Project files moved to Trash")
+      refreshProjectLists()
+      hideCurrentProject()
+      onProjectUnavailable()
+    },
+    onError: (err) => {
+      toast.error(`Failed to delete project files: ${err.message}`)
     },
   })
 
@@ -121,7 +192,9 @@ function ProjectDetail({ projectId }: { projectId: string }) {
     },
   })
 
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showRemoveDialog, setShowRemoveDialog] = useState(false)
+  const [showDeleteFilesDialog, setShowDeleteFilesDialog] = useState(false)
+  const [deleteFilesConfirmation, setDeleteFilesConfirmation] = useState("")
 
   // Project name editing
   const [projectName, setProjectName] = useState("")
@@ -144,159 +217,19 @@ function ProjectDetail({ projectId }: { projectId: string }) {
     savedNameRef.current = trimmed
   }, [projectName, projectId, renameMutation])
 
-  // Local state
-  const [saveTarget, setSaveTarget] = useState<"cursor" | "1code">("1code")
-  const [commands, setCommands] = useState<string[]>([""])
-  const [unixCommands, setUnixCommands] = useState<string[]>([])
-  const [windowsCommands, setWindowsCommands] = useState<string[]>([])
-  const [showPlatformSpecific, setShowPlatformSpecific] = useState(false)
-
-  // Ref to track last saved state for dirty checking
-  const savedConfigRef = useRef<string>("")
-  const configReadyRef = useRef(false)
-
-  // Sync from server data
-  useEffect(() => {
-    if (configData) {
-      const newSaveTarget = configData.source === "cursor" ? "cursor" : "1code"
-      setSaveTarget(newSaveTarget)
-
-      let newCommands: string[] = [""]
-      let newUnix: string[] = []
-      let newWin: string[] = []
-
-      if (configData.config) {
-        const isComment = (s: string) => s.trimStart().startsWith("#")
-        const filterComments = (arr: string[]) => arr.filter((s) => !isComment(s))
-
-        const generic = configData.config["setup-worktree"]
-        const genericArr = Array.isArray(generic)
-          ? filterComments(generic)
-          : generic && !isComment(generic)
-            ? [generic]
-            : []
-        newCommands = genericArr.length > 0 ? [...genericArr, ""] : [""]
-
-        const unix = configData.config["setup-worktree-unix"]
-        const win = configData.config["setup-worktree-windows"]
-
-        newUnix = Array.isArray(unix) ? filterComments(unix) : unix && !isComment(unix) ? [unix] : []
-        newWin = Array.isArray(win) ? filterComments(win) : win && !isComment(win) ? [win] : []
-
-        if (unix || win) {
-          setShowPlatformSpecific(true)
-        }
-      }
-
-      setCommands(newCommands)
-      setUnixCommands(newUnix)
-      setWindowsCommands(newWin)
-
-      // Snapshot the initial state so doSave won't fire on first render
-      savedConfigRef.current = JSON.stringify({
-        commands: newCommands,
-        unixCommands: newUnix,
-        windowsCommands: newWin,
-        saveTarget: newSaveTarget,
-      })
-      configReadyRef.current = true
-    }
-  }, [configData])
-
-  const doSave = useCallback(() => {
-    if (!projectId || !configReadyRef.current) return
-
-    const currentState = JSON.stringify({ commands, unixCommands, windowsCommands, saveTarget })
-    if (currentState === savedConfigRef.current) return
-
-    const config: Record<string, string[]> = {}
-    const filteredCommands = commands.filter((c) => c.trim())
-    const filteredUnix = unixCommands.filter((c) => c.trim())
-    const filteredWin = windowsCommands.filter((c) => c.trim())
-
-    if (filteredCommands.length > 0) config["setup-worktree"] = filteredCommands
-    if (filteredUnix.length > 0) config["setup-worktree-unix"] = filteredUnix
-    if (filteredWin.length > 0) config["setup-worktree-windows"] = filteredWin
-
-    saveMutation.mutate({ projectId, config, target: saveTarget })
-    savedConfigRef.current = currentState
-  }, [projectId, commands, unixCommands, windowsCommands, saveTarget, saveMutation])
-
-  const updateCommand = (index: number, value: string, list: string[], setter: (v: string[]) => void) => {
-    const newList = [...list]
-    newList[index] = value
-    setter(newList)
-  }
-
-  const pendingSaveRef = useRef(false)
-
-  const removeCommand = (index: number, list: string[], setter: (v: string[]) => void, allowEmpty = false) => {
-    if (!allowEmpty && list.length <= 1) return
-    setter(list.filter((_, i) => i !== index))
-    pendingSaveRef.current = true
-  }
-
-  // Save after state updates from remove or saveTarget change
-  useEffect(() => {
-    if (pendingSaveRef.current) {
-      pendingSaveRef.current = false
-      doSave()
-    }
-  }, [commands, unixCommands, windowsCommands, saveTarget, doSave])
-
-  const addCommand = (list: string[], setter: (v: string[]) => void) => {
-    setter([...list, ""])
-  }
-
-
-  const cursorExists = configData?.available?.cursor?.exists ?? false
-
   const openInFinderMutation = trpc.external.openInFinder.useMutation()
 
   const handleOpenInFinder = () => {
-    if (project?.path) {
-      openInFinderMutation.mutate(project.path)
+    const projectPath = project?.localPath || project?.path
+    if (projectPath) {
+      openInFinderMutation.mutate(projectPath)
     }
   }
 
-  // Helper to render a command list with add/remove
-  const renderCommandList = (
-    list: string[],
-    setter: (v: string[]) => void,
-    placeholder: string,
-    allowEmpty = false,
-  ) => (
-    <div className="space-y-2">
-      {list.map((cmd, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <Input
-            value={cmd}
-            onChange={(e) => updateCommand(i, e.target.value, list, setter)}
-            onBlur={doSave}
-            placeholder={placeholder}
-            className="flex-1 font-mono text-sm"
-          />
-          {(allowEmpty || list.length > 1) && (
-            <button
-              type="button"
-              className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive transition-colors"
-              onClick={() => removeCommand(i, list, setter, allowEmpty)}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-      ))}
-      <button
-        type="button"
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        onClick={() => addCommand(list, setter)}
-      >
-        <Plus className="h-3.5 w-3.5" />
-        Add command
-      </button>
-    </div>
-  )
+  const isArchived = Boolean(project?.archivedAt)
+  const projectPath = project?.localPath || project?.path || ""
+  const deleteConfirmationMatches =
+    Boolean(project?.name) && deleteFilesConfirmation.trim() === project?.name
 
   return (
     <div className="h-full overflow-y-auto">
@@ -366,14 +299,14 @@ function ProjectDetail({ projectId }: { projectId: string }) {
             <div className="flex items-center justify-between p-4 border-t border-border">
               <div className="flex-1 min-w-0 mr-4">
                 <span className="text-sm font-medium text-foreground">Path</span>
-                <p className="text-sm text-muted-foreground truncate">{project?.path || "—"}</p>
+                <p className="text-sm text-muted-foreground truncate">{projectPath || "-"}</p>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 className="gap-1.5 flex-shrink-0 pl-2"
                 onClick={handleOpenInFinder}
-                disabled={!project?.path}
+                disabled={!projectPath}
               >
                 <img src={finderIcon} alt="" className="h-3.5 w-3.5" />
                 Finder
@@ -410,127 +343,57 @@ function ProjectDetail({ projectId }: { projectId: string }) {
           </div>
         </div>
 
-        {/* ── Config ── */}
+        {/* ── Visibility ── */}
         <div>
-          <h4 className="text-sm font-medium text-foreground mb-2">Config</h4>
+          <h4 className="text-sm font-medium text-foreground mb-2">Visibility</h4>
           <div className="bg-background rounded-lg border border-border overflow-hidden">
             <div className="flex items-center justify-between p-4">
               <div className="flex-1">
-                <span className="text-sm font-medium text-foreground">Config file</span>
-                <p className="text-sm text-muted-foreground">Where worktree setup is stored</p>
+                <span className="text-sm font-medium text-foreground">
+                  {isArchived ? "Archived project" : "Archive Project"}
+                </span>
+                <p className="text-sm text-muted-foreground">
+                  {isArchived
+                    ? "Restore this project to the left rail."
+                    : "Hide this project from the left rail. Files stay on disk."}
+                </p>
               </div>
-              <Select
-                value={saveTarget}
-                onValueChange={(v) => {
-                  setSaveTarget(v as "cursor" | "1code")
-                  pendingSaveRef.current = true
-                }}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() =>
+                  isArchived
+                    ? restoreMutation.mutate({ id: projectId })
+                    : archiveMutation.mutate({ id: projectId })
+                }
+                disabled={archiveMutation.isPending || restoreMutation.isPending}
               >
-                <SelectTrigger className="w-auto px-3">
-                  <span className="text-sm font-mono">
-                    {saveTarget === "cursor" ? ".cursor/worktrees.json" : ".1code/worktree.json"}
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1code">.1code/worktree.json</SelectItem>
-                  {cursorExists && (
-                    <SelectItem value="cursor">.cursor/worktrees.json</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                {isArchived ? (
+                  <RotateCcw className="h-3.5 w-3.5" />
+                ) : (
+                  <Archive className="h-3.5 w-3.5" />
+                )}
+                {isArchived
+                  ? restoreMutation.isPending ? "Restoring..." : "Restore"
+                  : archiveMutation.isPending ? "Archiving..." : "Archive"}
+              </Button>
             </div>
           </div>
         </div>
 
-        {/* ── Worktree ── */}
+        {/* ── Runtime ── */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-foreground">Worktree</h4>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5 shrink-0"
-              onClick={() => {
-                const prompt = COMMAND_PROMPTS["worktree-setup"]
-                if (prompt && projectId) {
-                  createChatMutation.mutate({
-                    projectId,
-                    name: "Worktree Setup",
-                    initialMessageParts: [{ type: "text", text: prompt }],
-                    useWorktree: false,
-                    mode: "agent",
-                  })
-                }
-              }}
-              disabled={!projectId || createChatMutation.isPending}
-            >
-              <AIPenIcon className="h-3.5 w-3.5" />
-              Fill with AI
-            </Button>
-          </div>
+          <h4 className="text-sm font-medium text-foreground mb-2">Runtime</h4>
           <div className="bg-background rounded-lg border border-border overflow-hidden">
-            {/* Setup commands */}
-            <div className="p-4 space-y-3">
-              <div>
-                <span className="text-sm font-medium text-foreground">Setup Commands</span>
+            <div className="flex items-center justify-between p-4">
+              <div className="flex-1">
+                <span className="text-sm font-medium text-foreground">Project setup</span>
                 <p className="text-sm text-muted-foreground">
-                  Run after worktree creation.{" "}
-                  <button
-                    type="button"
-                    className="font-mono text-xs bg-muted px-1 py-0.5 rounded hover:text-foreground transition-colors cursor-pointer"
-                    onClick={() => {
-                      navigator.clipboard.writeText("$ROOT_WORKTREE_PATH")
-                      toast.success("Copied to clipboard")
-                    }}
-                    title="Click to copy"
-                  >
-                    $ROOT_WORKTREE_PATH
-                  </button>
-                  {" "}for main repo.
+                  Ripple manages motion runtime files, project setup, preview, and export tooling for this project.
                 </p>
               </div>
-              {renderCommandList(commands, setCommands, "bun install && cp $ROOT_WORKTREE_PATH/.env .env")}
             </div>
-
-            {/* Platform overrides — macOS/Linux */}
-            {(unixCommands.length > 0 || showPlatformSpecific) && (
-              <div className="p-4 border-t border-border space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">macOS / Linux</span>
-                  {unixCommands.length === 0 && (
-                    <span className="text-sm text-muted-foreground">Falls back to commands above</span>
-                  )}
-                </div>
-                {renderCommandList(unixCommands, setUnixCommands, "brew install deps", true)}
-              </div>
-            )}
-
-            {/* Platform overrides — Windows */}
-            {(windowsCommands.length > 0 || showPlatformSpecific) && (
-              <div className="p-4 border-t border-border space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">Windows</span>
-                  {windowsCommands.length === 0 && (
-                    <span className="text-sm text-muted-foreground">Falls back to commands above</span>
-                  )}
-                </div>
-                {renderCommandList(windowsCommands, setWindowsCommands, "npm ci", true)}
-              </div>
-            )}
-
-            {/* Add platform overrides link */}
-            {!showPlatformSpecific && unixCommands.length === 0 && windowsCommands.length === 0 && (
-              <div className="p-4 border-t border-border">
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setShowPlatformSpecific(true)}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add platform-specific overrides
-                </button>
-              </div>
-            )}
           </div>
         </div>
 
@@ -538,44 +401,106 @@ function ProjectDetail({ projectId }: { projectId: string }) {
         <div>
           <h4 className="text-sm font-medium text-foreground mb-2">Danger Zone</h4>
           <div className="bg-background rounded-lg border border-border overflow-hidden">
-          <div className="flex items-center justify-between p-4">
-            <div className="flex-1">
-              <span className="text-sm font-medium text-foreground">Remove Project</span>
-              <p className="text-sm text-muted-foreground">
-                Remove from your list. Files on disk will not be deleted.
-              </p>
-            </div>
-            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 hover:text-destructive hover:border-destructive/30 hover:bg-destructive/10"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Remove
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Remove Project?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will remove &quot;{project?.name}&quot; from your project list. Your files will not be deleted.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => deleteMutation.mutate({ id: projectId })}
-                    disabled={deleteMutation.isPending}
-                    className={buttonVariants({ variant: "destructive" })}
+            <div className="flex items-center justify-between p-4">
+              <div className="flex-1">
+                <span className="text-sm font-medium text-foreground">Remove From Ripple</span>
+                <p className="text-sm text-muted-foreground">
+                  Remove this project from Ripple. Files on disk will not be deleted.
+                </p>
+              </div>
+              <AlertDialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 hover:text-destructive hover:border-destructive/30 hover:bg-destructive/10"
                   >
-                    {deleteMutation.isPending ? "Removing..." : "Remove"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader className="px-6 pt-6 pb-5 space-y-2">
+                    <AlertDialogTitle className="leading-6">Remove From Ripple?</AlertDialogTitle>
+                    <AlertDialogDescription className="leading-6">
+                      This will remove &quot;{project?.name}&quot; from your project list. Your files will not be deleted.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter className="px-6 py-4">
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => removeMutation.mutate({ id: projectId })}
+                      disabled={removeMutation.isPending}
+                      className={buttonVariants({ variant: "destructive" })}
+                    >
+                      {removeMutation.isPending ? "Removing..." : "Remove"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+
+            <div className="flex items-center justify-between p-4 border-t border-border">
+              <div className="flex-1 min-w-0 mr-4">
+                <span className="text-sm font-medium text-foreground">Delete Project Files</span>
+                <p className="text-sm text-muted-foreground">
+                  Move the local project folder to Trash and remove it from Ripple.
+                </p>
+              </div>
+              <AlertDialog
+                open={showDeleteFilesDialog}
+                onOpenChange={(open) => {
+                  setShowDeleteFilesDialog(open)
+                  if (!open) setDeleteFilesConfirmation("")
+                }}
+              >
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 hover:text-destructive hover:border-destructive/30 hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete Files
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader className="px-6 pt-6 pb-0 space-y-3">
+                    <AlertDialogTitle className="leading-6">Delete Project Files?</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3 leading-6">
+                      <span className="block">
+                        This will move the local folder for &quot;{project?.name}&quot; to Trash and remove it from Ripple.
+                      </span>
+                      <span className="block rounded-md bg-muted/60 px-3 py-2 font-mono text-xs leading-5 text-foreground break-all">
+                        {projectPath}
+                      </span>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogBody className="px-6 pt-5 pb-6 space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground" htmlFor="delete-project-confirmation">
+                      Type the project name to confirm
+                    </label>
+                    <Input
+                      id="delete-project-confirmation"
+                      value={deleteFilesConfirmation}
+                      onChange={(event) => setDeleteFilesConfirmation(event.target.value)}
+                      placeholder={project?.name ?? "Project name"}
+                      autoComplete="off"
+                    />
+                  </AlertDialogBody>
+                  <AlertDialogFooter className="px-6 py-4">
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => deleteFilesMutation.mutate({ id: projectId })}
+                      disabled={!deleteConfirmationMatches || deleteFilesMutation.isPending}
+                      className={buttonVariants({ variant: "destructive" })}
+                    >
+                      {deleteFilesMutation.isPending ? "Deleting..." : "Delete Files"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
         </div>
       </div>
@@ -586,9 +511,13 @@ function ProjectDetail({ projectId }: { projectId: string }) {
 // --- Main Two-Panel Component ---
 export function AgentsProjectsTab() {
   const selectedProject = useAtomValue(selectedProjectAtom)
+  const setSelectedProject = useSetAtom(selectedProjectAtom)
+  const clearSelectedThreadState = useClearSelectedThreadState()
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [showArchived, setShowArchived] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const utils = trpc.useUtils()
 
   // Focus search on "/" hotkey
   useEffect(() => {
@@ -604,13 +533,68 @@ export function AgentsProjectsTab() {
     return () => document.removeEventListener("keydown", handler)
   }, [])
 
-  const { data: projects, isLoading } = trpc.projects.list.useQuery()
+  const activeProjectsQuery = trpc.projects.list.useQuery()
+  const archivedProjectsQuery = trpc.projects.listArchived.useQuery()
+  const projects = showArchived ? archivedProjectsQuery.data : activeProjectsQuery.data
+  const isLoading = showArchived ? archivedProjectsQuery.isLoading : activeProjectsQuery.isLoading
+  const fallbackProject = useMemo(() => {
+    const nextActiveProject = activeProjectsQuery.data?.find(
+      (project) => project.id !== selectedProjectId,
+    )
+    return nextActiveProject ? toSelectedProject(nextActiveProject) : null
+  }, [activeProjectsQuery.data, selectedProjectId])
 
-  const openFolderMutation = trpc.projects.openFolder.useMutation({
-    onSuccess: (project) => {
-      if (project) {
-        setSelectedProjectId(project.id)
+  const archiveListProjectMutation = trpc.projects.archive.useMutation({
+    onSuccess: (_, variables) => {
+      toast.success("Project archived")
+      utils.projects.list.invalidate()
+      utils.projects.listArchived.invalidate()
+      utils.chats.list.invalidate()
+      utils.chats.listArchived.invalidate()
+
+      const nextActiveProject = activeProjectsQuery.data?.find(
+        (project) => project.id !== variables.id,
+      )
+      if (selectedProjectId === variables.id) {
+        setSelectedProjectId(nextActiveProject?.id ?? null)
       }
+      if (selectedProject?.id === variables.id) {
+        setSelectedProject(nextActiveProject ? toSelectedProject(nextActiveProject) : null)
+        clearSelectedThreadState()
+      }
+    },
+    onError: (err) => {
+      toast.error(`Failed to archive project: ${err.message}`)
+    },
+  })
+
+  const openFolderMutation = trpc.projects.openRippleProjectFolder.useMutation({
+    onSuccess: (result) => {
+      if (!result) return
+
+      const openedProject = result.project
+      utils.projects.list.setData(undefined, (oldData) => {
+        if (!oldData) return [openedProject]
+        const exists = oldData.some((project) => project.id === openedProject.id)
+        if (exists) {
+          return oldData.map((project) =>
+            project.id === openedProject.id ? openedProject : project,
+          )
+        }
+        return [openedProject, ...oldData]
+      })
+      utils.projects.listArchived.setData(undefined, (oldData) =>
+        oldData?.filter((project) => project.id !== openedProject.id) ?? oldData,
+      )
+      utils.projects.list.invalidate()
+      utils.projects.listArchived.invalidate()
+
+      setShowArchived(false)
+      setSelectedProjectId(openedProject.id)
+      showProjectSetupNotice(result)
+    },
+    onError: (error) => {
+      toast.error("Project was not opened", { description: error.message })
     },
   })
 
@@ -638,19 +622,24 @@ export function AgentsProjectsTab() {
     onSelect: setSelectedProjectId,
   })
 
-  // Auto-select first project
+  // Keep the detail selection available in the current active/archive view.
   useEffect(() => {
-    if (selectedProjectId || isLoading) return
-    if (projects && projects.length > 0) {
+    if (isLoading) return
+    if (!projects || projects.length === 0) {
+      if (selectedProjectId) setSelectedProjectId(null)
+      return
+    }
+    if (!selectedProjectId || !projects.some((project) => project.id === selectedProjectId)) {
       setSelectedProjectId(projects[0]!.id)
     }
   }, [projects, selectedProjectId, isLoading])
 
   // Sync selection from global selectedProject (e.g., toast action)
   useEffect(() => {
+    if (showArchived) return
     if (!selectedProject?.id) return
     setSelectedProjectId(selectedProject.id)
-  }, [selectedProject?.id])
+  }, [selectedProject?.id, showArchived])
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -687,50 +676,103 @@ export function AgentsProjectsTab() {
             </button>
           </div>
 
+          <div className="px-2 pt-2 flex-shrink-0">
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-0.5">
+              <button
+                type="button"
+                onClick={() => setShowArchived(false)}
+                className={cn(
+                  "h-6 rounded-md text-xs font-medium transition-colors",
+                  !showArchived
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                aria-pressed={!showArchived}
+              >
+                Active
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowArchived(true)}
+                className={cn(
+                  "h-6 rounded-md text-xs font-medium transition-colors",
+                  showArchived
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                aria-pressed={showArchived}
+              >
+                Archived
+              </button>
+            </div>
+          </div>
+
           {/* Project list */}
           <div ref={listRef} onKeyDown={listKeyDown} tabIndex={-1} className="flex-1 overflow-y-auto px-2 pt-2 pb-2 outline-none">
             {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <FolderFilledIcon className="h-5 w-5 text-muted-foreground animate-pulse" />
+              <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
+                Loading...
               </div>
             ) : !projects || projects.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                <FolderFilledIcon className="h-8 w-8 text-border mb-3" />
-                <p className="text-sm text-muted-foreground mb-1">No projects</p>
-                <button
-                  onClick={() => openFolderMutation.mutate()}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                >
-                  Add your first project
-                </button>
+                <p className="text-sm text-muted-foreground mb-1">
+                  {showArchived ? "No archived projects" : "No projects"}
+                </p>
+                {!showArchived && (
+                  <button
+                    onClick={() => openFolderMutation.mutate()}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    Add your first project
+                  </button>
+                )}
               </div>
             ) : filteredProjects.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 <p className="text-xs text-muted-foreground">No results found</p>
               </div>
             ) : (
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {filteredProjects.map((project) => {
                   const isSelected = selectedProjectId === project.id
                   return (
-                    <button
+                    <div
                       key={project.id}
-                      data-item-id={project.id}
-                      onClick={() => setSelectedProjectId(project.id)}
-                      className={cn(
-                        "w-full text-left py-1.5 px-2 rounded-md transition-colors duration-150 cursor-pointer outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70 focus-visible:-outline-offset-2",
-                        isSelected
-                          ? "bg-foreground/5 text-foreground"
-                          : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
-                      )}
+                      className="group/project relative"
                     >
-                      <div className="flex items-center gap-2">
-                        <ProjectIcon project={project} className="h-4 w-4" />
-                        <span className="text-sm truncate flex-1">
+                      <button
+                        data-item-id={project.id}
+                        onClick={() => setSelectedProjectId(project.id)}
+                        className={cn(
+                          "w-full min-h-9 text-left py-2 pl-3 pr-10 rounded-md transition-colors duration-150 cursor-pointer outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70 focus-visible:-outline-offset-2",
+                          isSelected
+                            ? "bg-foreground/5 text-foreground"
+                            : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                        )}
+                      >
+                        <span className="block text-sm truncate">
                           {project.name}
                         </span>
-                      </div>
-                    </button>
+                      </button>
+                      {!showArchived && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            archiveListProjectMutation.mutate({ id: project.id })
+                          }}
+                          disabled={archiveListProjectMutation.isPending}
+                          className={cn(
+                            "absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,opacity,transform] duration-150 ease-out hover:bg-foreground/10 hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
+                            "opacity-0 pointer-events-none group-hover/project:pointer-events-auto group-hover/project:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70",
+                          )}
+                          aria-label={`Archive ${project.name}`}
+                          title="Archive project"
+                        >
+                          <Archive className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   )
                 })}
               </div>
@@ -742,14 +784,20 @@ export function AgentsProjectsTab() {
       {/* Right content - detail panel */}
       <div className="flex-1 min-w-0 h-full overflow-hidden">
         {selectedProjectId ? (
-          <ProjectDetail projectId={selectedProjectId} />
+          <ProjectDetail
+            projectId={selectedProjectId}
+            onProjectUnavailable={() => setSelectedProjectId(null)}
+            fallbackProject={fallbackProject}
+          />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <FolderFilledIcon className="h-12 w-12 text-border mb-4" />
             <p className="text-sm text-muted-foreground">
               {projects && projects.length > 0
                 ? "Select a project to view settings"
-                : "No projects added yet"}
+                : showArchived
+                  ? "No archived projects"
+                  : "No projects added yet"}
             </p>
           </div>
         )}

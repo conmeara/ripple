@@ -5993,7 +5993,7 @@ export function ChatView({
   // Handle Create PR (Direct) - pushes branch and opens GitHub compare URL
   const handleCreatePrDirect = useCallback(async () => {
     if (!worktreePath) {
-      toast.error("No workspace path available", { position: "top-center" })
+      toast.error("No project path available", { position: "top-center" })
       return
     }
 
@@ -7631,14 +7631,14 @@ Make sure to preserve all functionality from both branches when resolving confli
                         onClick={handleRestoreWorkspace}
                         disabled={restoreWorkspaceMutation.isPending}
                         className="h-6 px-2 gap-1.5 hover:bg-foreground/10 transition-colors text-foreground flex-shrink-0 rounded-md ml-2 flex items-center"
-                        aria-label="Restore workspace"
+                        aria-label="Restore project"
                       >
                         <UnarchiveIcon className="h-4 w-4" />
                         <span className="text-xs">Restore</span>
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      Restore workspace
+                      Restore project
                       <Kbd>⇧⌘E</Kbd>
                     </TooltipContent>
                   </Tooltip>

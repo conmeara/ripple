@@ -54,7 +54,7 @@ export function AgentsWorktreesTab() {
   // Save mutation
   const saveMutation = trpc.worktreeConfig.save.useMutation({
     onSuccess: () => {
-      toast.success("Worktree config saved")
+      toast.success("Project setup saved")
       refetchConfig()
     },
     onError: (err) => {
@@ -73,7 +73,7 @@ export function AgentsWorktreesTab() {
   })
 
   // Local state
-  const [saveTarget, setSaveTarget] = useState<"cursor" | "1code">("1code")
+  const [saveTarget, setSaveTarget] = useState<"ripple" | "cursor" | "1code">("ripple")
   const [commands, setCommands] = useState<string[]>([""])
   const [unixCommands, setUnixCommands] = useState<string[]>([])
   const [windowsCommands, setWindowsCommands] = useState<string[]>([])
@@ -89,10 +89,12 @@ export function AgentsWorktreesTab() {
   // Sync from server data
   useEffect(() => {
     if (configData) {
-      if (configData.source === "cursor") {
+      if (configData.source === "ripple") {
+        setSaveTarget("ripple")
+      } else if (configData.source === "cursor") {
         setSaveTarget("cursor")
       } else {
-        setSaveTarget("1code")
+        setSaveTarget("ripple")
       }
 
       if (configData.config) {
@@ -186,9 +188,9 @@ export function AgentsWorktreesTab() {
       {/* Header */}
       {!isNarrowScreen && (
         <div className="flex flex-col space-y-1.5 text-center sm:text-left">
-          <h3 className="text-sm font-semibold text-foreground">Worktrees</h3>
+          <h3 className="text-sm font-semibold text-foreground">Advanced Project Setup</h3>
           <p className="text-xs text-muted-foreground">
-            Configure setup commands that run when a new worktree is created
+            Configure internal commands for hidden revision copies
           </p>
         </div>
       )}
@@ -256,18 +258,20 @@ export function AgentsWorktreesTab() {
                 <div className="flex-shrink-0 w-auto min-w-56 max-w-80">
                   <Select
                     value={saveTarget}
-                    onValueChange={(v) => setSaveTarget(v as "cursor" | "1code")}
+                    onValueChange={(v) => setSaveTarget(v as "ripple" | "cursor" | "1code")}
                   >
                     <SelectTrigger className="w-full">
                       <span className="text-sm font-mono truncate">
                         {saveTarget === "cursor"
                           ? ".cursor/worktrees.json"
-                          : ".1code/worktree.json"}
+                          : saveTarget === "1code"
+                            ? ".1code/worktree.json"
+                            : ".ripple/worktree.json"}
                       </span>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1code">
-                        .1code/worktree.json
+                      <SelectItem value="ripple">
+                        .ripple/worktree.json
                       </SelectItem>
                       {cursorExists && (
                         <SelectItem value="cursor">
@@ -289,7 +293,7 @@ export function AgentsWorktreesTab() {
                   Setup Commands
                 </h4>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Commands run in the worktree after creation
+                  Commands run in the hidden revision copy after creation
                 </p>
               </div>
               <Button
@@ -297,11 +301,11 @@ export function AgentsWorktreesTab() {
                 size="sm"
                 className="gap-1.5"
                 onClick={() => {
-                  const prompt = COMMAND_PROMPTS["worktree-setup"]
+                  const prompt = COMMAND_PROMPTS["project-setup"]
                   if (prompt && selectedProjectId) {
                     createChatMutation.mutate({
                       projectId: selectedProjectId,
-                      name: "Worktree Setup",
+                      name: "Project Setup",
                       initialMessageParts: [{ type: "text", text: prompt }],
                       useWorktree: false,
                       mode: "agent",
@@ -320,7 +324,7 @@ export function AgentsWorktreesTab() {
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">All Platforms</Label>
                   <span className="text-xs text-muted-foreground">
-                    use <code className="font-mono bg-muted px-1 py-0.5 rounded">$ROOT_WORKTREE_PATH</code> for main repo path
+                    use <code className="font-mono bg-muted px-1 py-0.5 rounded">$RIPPLE_PROJECT_PATH</code> for the primary project path
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -331,7 +335,7 @@ export function AgentsWorktreesTab() {
                         onChange={(e) =>
                           updateCommand(i, e.target.value, commands, setCommands)
                         }
-                        placeholder="bun install && cp $ROOT_WORKTREE_PATH/.env .env"
+                        placeholder="bun install && cp $RIPPLE_PROJECT_PATH/.env .env"
                         className="flex-1 font-mono text-sm"
                       />
                       {commands.length > 1 && (

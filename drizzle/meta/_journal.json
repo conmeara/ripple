@@ -57,6 +57,20 @@
       "when": 1769810815497,
       "tag": "0007_clammy_grim_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1777069465324,
+      "tag": "0008_small_vertigo",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1777138657688,
+      "tag": "0009_redundant_texas_twister",
+      "breakpoints": true
     }
   ]
 }

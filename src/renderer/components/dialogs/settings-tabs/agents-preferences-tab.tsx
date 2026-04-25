@@ -309,11 +309,11 @@ export function AgentsPreferencesTab() {
           >
             <SelectTrigger className="w-auto px-2">
               <span className="text-xs">
-                {ctrlTabTarget === "workspaces" ? "Workspaces" : "Agents"}
+                {ctrlTabTarget === "workspaces" ? "Projects" : "Agents"}
               </span>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="workspaces">Workspaces</SelectItem>
+              <SelectItem value="workspaces">Projects</SelectItem>
               <SelectItem value="agents">Agents</SelectItem>
             </SelectContent>
           </Select>
@@ -324,7 +324,7 @@ export function AgentsPreferencesTab() {
               Auto-advance
             </span>
             <span className="text-xs text-muted-foreground">
-              Where to go after archiving a workspace
+              Where to go after archiving a project thread
             </span>
           </div>
           <Select
@@ -334,16 +334,16 @@ export function AgentsPreferencesTab() {
             <SelectTrigger className="w-auto px-2">
               <span className="text-xs">
                 {autoAdvanceTarget === "next"
-                  ? "Go to next workspace"
+                  ? "Go to next project"
                   : autoAdvanceTarget === "previous"
-                    ? "Go to previous workspace"
-                    : "Close workspace"}
+                    ? "Go to previous project"
+                    : "Close project"}
               </span>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="next">Go to next workspace</SelectItem>
-              <SelectItem value="previous">Go to previous workspace</SelectItem>
-              <SelectItem value="close">Close workspace</SelectItem>
+              <SelectItem value="next">Go to next project</SelectItem>
+              <SelectItem value="previous">Go to previous project</SelectItem>
+              <SelectItem value="close">Close project</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -353,7 +353,7 @@ export function AgentsPreferencesTab() {
               Preferred Editor
             </span>
             <span className="text-xs text-muted-foreground">
-              Default app for opening workspaces
+              Default app for opening projects
             </span>
           </div>
           <DropdownMenu>

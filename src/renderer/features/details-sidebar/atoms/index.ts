@@ -20,7 +20,7 @@ export interface WidgetConfig {
 }
 
 export const WIDGET_REGISTRY: WidgetConfig[] = [
-  { id: "info", label: "Workspace", icon: Box, canExpand: false, defaultVisible: true },
+  { id: "info", label: "Project", icon: Box, canExpand: false, defaultVisible: true },
   { id: "todo", label: "To-dos", icon: ListTodo, canExpand: false, defaultVisible: true },
   { id: "plan", label: "Plan", icon: FileText, canExpand: true, defaultVisible: true },
   { id: "terminal", label: "Terminal", icon: Terminal, canExpand: true, defaultVisible: false },

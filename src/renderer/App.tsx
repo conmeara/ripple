@@ -8,7 +8,7 @@ import { WindowProvider, getInitialWindowParams } from "./contexts/WindowContext
 import { selectedProjectAtom, selectedAgentChatIdAtom } from "./features/agents/atoms"
 import { useAgentSubChatStore } from "./features/agents/stores/sub-chat-store"
 import { AgentsLayout } from "./features/layout/agents-layout"
-import { SelectRepoPage } from "./features/onboarding"
+import { ProjectEntryPage } from "./features/onboarding"
 import { identify, initAnalytics, shutdown } from "./lib/analytics"
 import { appStore } from "./lib/jotai-store"
 import { VSCodeThemeProvider } from "./lib/themes/theme-provider"
@@ -86,7 +86,7 @@ function AppContent() {
 
   // Local app entry only depends on whether the current project still exists.
   if (!validatedProject && !isLoadingProjects) {
-    return <SelectRepoPage />
+    return <ProjectEntryPage />
   }
 
   return <AgentsLayout />

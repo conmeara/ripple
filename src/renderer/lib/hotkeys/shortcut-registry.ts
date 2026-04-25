@@ -40,7 +40,7 @@ export const ALL_SHORTCUT_ACTIONS: ShortcutAction[] = [
   },
 
   // ============================================
-  // WORKSPACES
+  // PROJECTS
   // ============================================
   {
     id: "toggle-details",
@@ -50,26 +50,26 @@ export const ALL_SHORTCUT_ACTIONS: ShortcutAction[] = [
   },
   {
     id: "new-workspace",
-    label: "New workspace",
+    label: "New project",
     category: "workspaces",
     defaultKeys: ["cmd", "N"],
     altKeys: ["C"],
   },
   {
     id: "search-workspaces",
-    label: "Search workspaces",
+    label: "Search projects",
     category: "workspaces",
     defaultKeys: ["cmd", "K"],
   },
   {
     id: "archive-workspace",
-    label: "Archive current workspace",
+    label: "Archive current project thread",
     category: "workspaces",
     defaultKeys: ["cmd", "E"],
   },
   {
     id: "quick-switch-workspaces",
-    label: "Quick switch workspaces",
+    label: "Quick switch projects",
     category: "workspaces",
     defaultKeys: ["ctrl", "Tab"],
     isDynamic: true,
@@ -422,6 +422,6 @@ export function keysToDisplay(keys: string[]): string {
  */
 export const CATEGORY_LABELS: Record<ShortcutCategory, string> = {
   general: "General",
-  workspaces: "Workspaces",
+  workspaces: "Projects",
   agents: "Agents",
 }

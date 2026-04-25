@@ -1,8 +1,8 @@
 import { z } from "zod"
 import { router, publicProcedure } from "../index"
 import { getDatabase, projects } from "../../db"
-import { eq, desc } from "drizzle-orm"
-import { dialog, BrowserWindow, app } from "electron"
+import { eq, desc, isNotNull, isNull } from "drizzle-orm"
+import { dialog, BrowserWindow, app, shell } from "electron"
 import { basename, join } from "path"
 import { exec } from "node:child_process"
 import { promisify } from "node:util"
@@ -12,6 +12,19 @@ import { extname } from "node:path"
 import { getGitRemoteInfo } from "../../git"
 import { trackProjectOpened } from "../../analytics"
 import { getLaunchDirectory } from "../../cli"
+import {
+  createRippleProject,
+  getProjectSetupStatus,
+  listProjectCompositions,
+  openExistingRippleProject,
+  refreshProjectSetupStatus,
+  setActiveComposition,
+} from "../../ripple-projects/service"
+import { aspectRatioPresets } from "../../ripple-projects/types"
+import {
+  assertSafeProjectTrashPath,
+  resolveProjectPath,
+} from "../../ripple-projects/lifecycle"
 
 const execAsync = promisify(exec)
 
@@ -29,8 +42,97 @@ export const projectsRouter = router({
    */
   list: publicProcedure.query(() => {
     const db = getDatabase()
-    return db.select().from(projects).orderBy(desc(projects.updatedAt)).all()
+    return db
+      .select()
+      .from(projects)
+      .where(isNull(projects.archivedAt))
+      .orderBy(desc(projects.updatedAt))
+      .all()
   }),
+
+  /**
+   * List archived projects.
+   */
+  listArchived: publicProcedure.query(() => {
+    const db = getDatabase()
+    return db
+      .select()
+      .from(projects)
+      .where(isNotNull(projects.archivedAt))
+      .orderBy(desc(projects.archivedAt))
+      .all()
+  }),
+
+  /**
+   * Create a new Ripple project under ~/Ripple.
+   */
+  createRippleProject: publicProcedure
+    .input(
+      z.object({
+        name: z.string().min(1),
+        aspectRatioPreset: z.enum(aspectRatioPresets).optional(),
+        width: z.number().int().min(1).max(16384).optional(),
+        height: z.number().int().min(1).max(16384).optional(),
+        fps: z.number().int().min(1).max(240).optional(),
+        templateId: z.string().optional().nullable(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return createRippleProject(input)
+    }),
+
+  /**
+   * Open an existing Ripple or HyperFrames project from a trusted main-process dialog.
+   */
+  openRippleProjectFolder: publicProcedure.mutation(async ({ ctx }) => {
+    const window = ctx.getWindow?.() ?? BrowserWindow.getFocusedWindow()
+
+    if (!window) {
+      console.error("[Projects] No window available for Ripple project dialog")
+      return null
+    }
+
+    if (!window.isFocused()) {
+      window.focus()
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+
+    const result = await dialog.showOpenDialog(window, {
+      properties: ["openDirectory"],
+      title: "Open Ripple Project",
+      buttonLabel: "Open Project",
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null
+    }
+
+    return openExistingRippleProject({ projectPath: result.filePaths[0]! })
+  }),
+
+  getSetupStatus: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(({ input }) => {
+      return getProjectSetupStatus(input.projectId)
+    }),
+
+  refreshSetupStatus: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .mutation(({ input }) => {
+      return refreshProjectSetupStatus(input.projectId)
+    }),
+
+  listCompositions: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(({ input }) => {
+      return listProjectCompositions(input.projectId)
+    }),
+
+  setActiveComposition: publicProcedure
+    .input(z.object({ projectId: z.string(), compositionId: z.string() }))
+    .mutation(({ input }) => {
+      return setActiveComposition(input)
+    }),
 
   /**
    * Get a single project by ID
@@ -186,12 +288,73 @@ export const projectsRouter = router({
     }),
 
   /**
-   * Delete a project and all its chats
+   * Remove a project from Ripple without deleting local files.
    */
   delete: publicProcedure
     .input(z.object({ id: z.string() }))
     .mutation(({ input }) => {
       const db = getDatabase()
+      return db
+        .delete(projects)
+        .where(eq(projects.id, input.id))
+        .returning()
+        .get()
+    }),
+
+  /**
+   * Archive a project without deleting local files.
+   */
+  archive: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      return db
+        .update(projects)
+        .set({ archivedAt: new Date(), updatedAt: new Date() })
+        .where(eq(projects.id, input.id))
+        .returning()
+        .get()
+    }),
+
+  /**
+   * Restore an archived project.
+   */
+  restore: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      return db
+        .update(projects)
+        .set({ archivedAt: null, updatedAt: new Date() })
+        .where(eq(projects.id, input.id))
+        .returning()
+        .get()
+    }),
+
+  /**
+   * Move a project's local files to Trash and remove it from Ripple.
+   */
+  deleteFiles: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      const db = getDatabase()
+      const project = db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, input.id))
+        .get()
+
+      if (!project) {
+        throw new Error("Project not found.")
+      }
+
+      const projectPath = assertSafeProjectTrashPath(
+        resolveProjectPath(project),
+        app.getPath("home"),
+      )
+
+      await shell.trashItem(projectPath)
+
       return db
         .delete(projects)
         .where(eq(projects.id, input.id))

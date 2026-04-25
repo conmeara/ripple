@@ -424,7 +424,7 @@ export function DetailsSidebar({
             switch (widgetId) {
               case "info":
                 return (
-                  <WidgetCard key="info" widgetId="info" title="Workspace">
+                  <WidgetCard key="info" widgetId="info" title="Project">
                     <InfoSection
                       chatId={chatId}
                       worktreePath={worktreePath}

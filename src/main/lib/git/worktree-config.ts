@@ -11,7 +11,7 @@ export interface WorktreeConfig {
   "setup-worktree"?: string[] | string
 }
 
-export type WorktreeConfigSource = "custom" | "cursor" | "1code" | null
+export type WorktreeConfigSource = "custom" | "ripple" | "cursor" | "1code" | null
 
 export interface DetectedWorktreeConfig {
   config: WorktreeConfig | null
@@ -20,6 +20,7 @@ export interface DetectedWorktreeConfig {
 }
 
 const CURSOR_CONFIG_PATH = ".cursor/worktrees.json"
+const RIPPLE_CONFIG_PATH = ".ripple/worktree.json"
 const ONECODE_CONFIG_PATH = ".1code/worktree.json"
 
 async function fileExists(filePath: string): Promise<boolean> {
@@ -42,7 +43,7 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
 
 /**
  * Detect worktree config for a project
- * Priority: custom path > .cursor/worktrees.json > .1code/worktree.json
+ * Priority: custom path > .ripple/worktree.json > .cursor/worktrees.json > .1code/worktree.json
  */
 export async function detectWorktreeConfig(
   projectPath: string,
@@ -59,7 +60,16 @@ export async function detectWorktreeConfig(
     }
   }
 
-  // 2. Check .cursor/worktrees.json
+  // 2. Check .ripple/worktree.json
+  const ripplePath = join(projectPath, RIPPLE_CONFIG_PATH)
+  if (await fileExists(ripplePath)) {
+    const config = await readJsonFile<WorktreeConfig>(ripplePath)
+    if (config) {
+      return { config, path: ripplePath, source: "ripple" }
+    }
+  }
+
+  // 3. Check .cursor/worktrees.json
   const cursorPath = join(projectPath, CURSOR_CONFIG_PATH)
   if (await fileExists(cursorPath)) {
     const config = await readJsonFile<WorktreeConfig>(cursorPath)
@@ -68,7 +78,7 @@ export async function detectWorktreeConfig(
     }
   }
 
-  // 3. Check .1code/worktree.json
+  // 4. Check legacy .1code/worktree.json
   const onecodePath = join(projectPath, ONECODE_CONFIG_PATH)
   if (await fileExists(onecodePath)) {
     const config = await readJsonFile<WorktreeConfig>(onecodePath)
@@ -87,13 +97,19 @@ export async function detectWorktreeConfig(
 export async function getAvailableConfigPaths(
   projectPath: string,
 ): Promise<{
+  ripple: { exists: boolean; path: string }
   cursor: { exists: boolean; path: string }
   onecode: { exists: boolean; path: string }
 }> {
+  const ripplePath = join(projectPath, RIPPLE_CONFIG_PATH)
   const cursorPath = join(projectPath, CURSOR_CONFIG_PATH)
   const onecodePath = join(projectPath, ONECODE_CONFIG_PATH)
 
   return {
+    ripple: {
+      exists: await fileExists(ripplePath),
+      path: ripplePath,
+    },
     cursor: {
       exists: await fileExists(cursorPath),
       path: cursorPath,
@@ -112,11 +128,13 @@ export async function getAvailableConfigPaths(
 export async function saveWorktreeConfig(
   projectPath: string,
   config: WorktreeConfig,
-  target: "cursor" | "1code" | string = "1code",
+  target: "ripple" | "cursor" | "1code" | string = "ripple",
 ): Promise<{ success: boolean; path: string; error?: string }> {
   let targetPath: string
 
-  if (target === "cursor") {
+  if (target === "ripple") {
+    targetPath = join(projectPath, RIPPLE_CONFIG_PATH)
+  } else if (target === "cursor") {
     targetPath = join(projectPath, CURSOR_CONFIG_PATH)
   } else if (target === "1code") {
     targetPath = join(projectPath, ONECODE_CONFIG_PATH)
@@ -169,7 +187,7 @@ export interface WorktreeSetupResult {
 }
 
 /**
- * Execute worktree setup commands
+ * Execute hidden project setup commands for an isolated revision copy.
  * Runs after worktree creation to install deps, copy envs, etc.
  */
 export async function executeWorktreeSetup(
@@ -204,7 +222,7 @@ export async function executeWorktreeSetup(
     return result
   }
 
-  console.log(`[worktree-setup] Running ${commandList.length} setup commands in ${worktreePath}`)
+  console.log(`[ripple-setup] Running ${commandList.length} setup commands in ${worktreePath}`)
 
   // Execute each command
   for (const cmd of commandList) {
@@ -218,6 +236,7 @@ export async function executeWorktreeSetup(
         env: {
           ...process.env,
           ROOT_WORKTREE_PATH: mainRepoPath,
+          RIPPLE_PROJECT_PATH: mainRepoPath,
         },
         timeout: 300_000, // 5 minutes per command
       })
@@ -230,12 +249,12 @@ export async function executeWorktreeSetup(
       }
 
       result.commandsRun++
-      console.log(`[worktree-setup] ✓ ${cmd}`)
+      console.log(`[ripple-setup] ✓ ${cmd}`)
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       result.errors.push(errorMsg)
       result.output.push(`[error] ${errorMsg}`)
-      console.error(`[worktree-setup] ✗ ${cmd}: ${errorMsg}`)
+      console.error(`[ripple-setup] ✗ ${cmd}: ${errorMsg}`)
       // Continue with next command, don't fail entirely
     }
   }
@@ -243,7 +262,7 @@ export async function executeWorktreeSetup(
   result.success = result.errors.length === 0
 
   console.log(
-    `[worktree-setup] Completed: ${result.commandsRun}/${commandList.length} commands, ` +
+    `[ripple-setup] Completed: ${result.commandsRun}/${commandList.length} commands, ` +
     `${result.errors.length} errors`
   )
 

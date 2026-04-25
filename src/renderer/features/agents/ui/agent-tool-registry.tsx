@@ -74,8 +74,8 @@ export function getDisplayPath(filePath: string, projectPath?: string): string {
       return filePath.slice(prefix.length)
     }
   }
-  // Handle worktree paths: /.21st/worktrees/{chatId}/{subChatId}/relativePath
-  const worktreeMatch = filePath.match(/\.21st\/worktrees\/[^/]+\/[^/]+\/(.+)$/)
+  // Handle hidden Ripple revision paths: /.ripple/worktrees/{projectSlug}/{folder}/relativePath
+  const worktreeMatch = filePath.match(/\.ripple\/worktrees\/[^/]+\/[^/]+\/(.+)$/)
   if (worktreeMatch) {
     return worktreeMatch[1]
   }

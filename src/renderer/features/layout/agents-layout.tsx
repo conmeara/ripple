@@ -19,7 +19,7 @@ import {
   customHotkeysAtom,
   betaKanbanEnabledAtom,
 } from "../../lib/atoms"
-import { selectedAgentChatIdAtom, selectedProjectAtom, selectedDraftIdAtom, showNewChatFormAtom, desktopViewAtom, fileSearchDialogOpenAtom } from "../agents/atoms"
+import { selectedAgentChatIdAtom, selectedProjectAtom, selectedDraftIdAtom, showNewChatFormAtom, desktopViewAtom, fileSearchDialogOpenAtom, projectEntryReturnProjectAtom } from "../agents/atoms"
 import { trpc } from "../../lib/trpc"
 import { useAgentsHotkeys } from "../agents/lib/agents-hotkeys-manager"
 import { toggleSearchAtom } from "../agents/search"
@@ -99,6 +99,7 @@ export function AgentsLayout() {
   const setFileSearchDialogOpen = useSetAtom(fileSearchDialogOpenAtom)
   const [selectedChatId, setSelectedChatId] = useAtom(selectedAgentChatIdAtom)
   const [selectedProject, setSelectedProject] = useAtom(selectedProjectAtom)
+  const setProjectEntryReturnProject = useSetAtom(projectEntryReturnProjectAtom)
   const setSelectedDraftId = useSetAtom(selectedDraftIdAtom)
   const setShowNewChatForm = useSetAtom(showNewChatFormAtom)
   const betaKanbanEnabled = useAtomValue(betaKanbanEnabledAtom)
@@ -206,7 +207,7 @@ export function AgentsLayout() {
     }
   }, [validatedProject, projects, setSidebarOpen])
 
-  // Worktree setup failures from main process
+  // Hidden revision setup failures from the main process
   useEffect(() => {
     if (typeof window === "undefined") return
     const desktopApi = window.desktopApi as any
@@ -216,8 +217,8 @@ export function AgentsLayout() {
       const errorMessage = payload.message.replace(/\s+/g, " ").trim()
       const title =
         payload.kind === "create-failed"
-          ? "Worktree creation failed"
-          : "Worktree setup failed"
+          ? "Revision setup failed"
+          : "Project setup failed"
 
       toast.error(title, {
         description: errorMessage || undefined,
@@ -277,6 +278,8 @@ export function AgentsLayout() {
   // Initialize hotkeys manager
   useAgentsHotkeys({
     setSelectedChatId,
+    setSelectedProject,
+    setProjectEntryReturnProject,
     setSelectedDraftId,
     setShowNewChatForm,
     setDesktopView,
@@ -285,6 +288,10 @@ export function AgentsLayout() {
     setFileSearchDialogOpen,
     toggleChatSearch,
     selectedChatId,
+    selectedProject,
+    releaseSelectedChat: async (chatId) => {
+      await window.desktopApi?.releaseChat?.(chatId)
+    },
     customHotkeysConfig,
     betaKanbanEnabled,
   })

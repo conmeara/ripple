@@ -29,6 +29,7 @@ import {
 } from "./lib/cli"
 import { cleanupGitWatchers } from "./lib/git/watcher"
 import { cancelAllPendingOAuth, handleMcpOAuthCallback } from "./lib/mcp-auth"
+import { ensureRippleRuntimeOnLaunch } from "./lib/ripple-projects/service"
 import { getAllMcpConfigHandler, hasActiveClaudeSessions, abortAllClaudeSessions } from "./lib/trpc/routers/claude"
 import { getAllCodexMcpConfigHandler, hasActiveCodexStreams, abortAllCodexStreams } from "./lib/trpc/routers/codex"
 import {
@@ -940,6 +941,13 @@ if (gotTheLock) {
     try {
       initDatabase()
       console.log("[App] Database initialized")
+      void ensureRippleRuntimeOnLaunch()
+        .then((setup) => {
+          console.log(`[Ripple] Motion runtime check: ${setup.status}`)
+        })
+        .catch((error) => {
+          console.warn("[Ripple] Motion runtime check failed:", error)
+        })
     } catch (error) {
       console.error("[App] Failed to initialize database:", error)
     }

@@ -1,5 +1,6 @@
 import { BrowserWindow } from "electron"
 import { cleanupWindowSubscriptions } from "../lib/git/watcher/ipc-bridge"
+import { ChatOwnershipRegistry } from "./chat-ownership"
 
 /**
  * Manages multiple application windows
@@ -10,7 +11,7 @@ class WindowManager {
   private mainWindowId: number | null = null  // Track the "main" window
   private windowIdMap: Map<number, string> = new Map()  // Map Electron window.id to stable ID
   private nextSecondaryId = 2  // Counter for secondary windows
-  private chatOwnership: Map<string, number> = new Map()  // chatId -> electronWindowId
+  private chatOwnership = new ChatOwnershipRegistry()
 
   /**
    * Register a window with the manager and assign a stable ID
@@ -142,46 +143,27 @@ class WindowManager {
    * Returns { ok: true } if claimed, or { ok: false, ownerStableId } if already owned by another window.
    */
   claimChat(chatId: string, electronId: number): { ok: true } | { ok: false; ownerStableId: string } {
-    const existingOwner = this.chatOwnership.get(chatId)
-
-    // Already owned by this same window — idempotent success
-    if (existingOwner === electronId) {
-      return { ok: true }
-    }
-
-    // Owned by another window — check it still exists
-    if (existingOwner !== undefined) {
-      const ownerWindow = this.windows.get(existingOwner)
-      if (ownerWindow && !ownerWindow.isDestroyed()) {
-        const ownerStableId = this.windowIdMap.get(existingOwner) ?? "unknown"
-        return { ok: false, ownerStableId }
-      }
-      // Owner window is gone — stale entry, clean it up
-      this.chatOwnership.delete(chatId)
-    }
-
-    this.chatOwnership.set(chatId, electronId)
-    return { ok: true }
+    return this.chatOwnership.claim(chatId, electronId, {
+      isOwnerActive: (ownerId) => {
+        const ownerWindow = this.windows.get(ownerId)
+        return Boolean(ownerWindow && !ownerWindow.isDestroyed())
+      },
+      getOwnerStableId: (ownerId) => this.windowIdMap.get(ownerId) ?? "unknown",
+    })
   }
 
   /**
    * Release a chat owned by a specific window.
    */
   releaseChat(chatId: string, electronId: number): void {
-    if (this.chatOwnership.get(chatId) === electronId) {
-      this.chatOwnership.delete(chatId)
-    }
+    this.chatOwnership.releaseChat(chatId, electronId)
   }
 
   /**
    * Release all chats owned by a window (called on window close).
    */
   releaseAllChats(electronId: number): void {
-    for (const [chatId, owner] of this.chatOwnership.entries()) {
-      if (owner === electronId) {
-        this.chatOwnership.delete(chatId)
-      }
-    }
+    this.chatOwnership.releaseAllChats(electronId)
   }
 
   /**
@@ -189,12 +171,12 @@ class WindowManager {
    * Returns true if the window was found and focused.
    */
   focusChatOwner(chatId: string): boolean {
-    const ownerId = this.chatOwnership.get(chatId)
+    const ownerId = this.chatOwnership.getOwner(chatId)
     if (ownerId === undefined) return false
 
     const window = this.windows.get(ownerId)
     if (!window || window.isDestroyed()) {
-      this.chatOwnership.delete(chatId)
+      this.chatOwnership.clearOwner(chatId)
       return false
     }
 
@@ -207,7 +189,7 @@ class WindowManager {
    * Get the electron window ID that owns a chat, if any.
    */
   getChatOwner(chatId: string): number | undefined {
-    return this.chatOwnership.get(chatId)
+    return this.chatOwnership.getOwner(chatId)
   }
 }
 

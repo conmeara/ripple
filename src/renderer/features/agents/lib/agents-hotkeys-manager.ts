@@ -13,6 +13,7 @@ import {
 } from "./agents-actions"
 import type { SettingsTab, CustomHotkeysConfig } from "../../../lib/atoms"
 import { getResolvedHotkey, type ShortcutActionId } from "../../../lib/hotkeys"
+import type { SelectedProject } from "../atoms"
 
 // ============================================================================
 // ACTION ID MAPPING
@@ -106,6 +107,8 @@ function matchesHotkey(e: KeyboardEvent, hotkey: string): boolean {
 
 export interface AgentsHotkeysManagerConfig {
   setSelectedChatId?: (id: string | null) => void
+  setSelectedProject?: (project: SelectedProject) => void
+  setProjectEntryReturnProject?: (project: NonNullable<SelectedProject> | null) => void
   setSelectedDraftId?: (id: string | null) => void
   setShowNewChatForm?: (show: boolean) => void
   setDesktopView?: (view: import("../atoms").DesktopView) => void
@@ -114,6 +117,8 @@ export interface AgentsHotkeysManagerConfig {
   setFileSearchDialogOpen?: (open: boolean) => void
   toggleChatSearch?: () => void
   selectedChatId?: string | null
+  selectedProject?: SelectedProject
+  releaseSelectedChat?: (id: string) => Promise<void>
   customHotkeysConfig?: CustomHotkeysConfig
   // Feature flags
   betaKanbanEnabled?: boolean
@@ -140,6 +145,8 @@ export function useAgentsHotkeys(
   const createActionContext = useCallback(
     (): AgentActionContext => ({
       setSelectedChatId: config.setSelectedChatId,
+      setSelectedProject: config.setSelectedProject,
+      setProjectEntryReturnProject: config.setProjectEntryReturnProject,
       setSelectedDraftId: config.setSelectedDraftId,
       setShowNewChatForm: config.setShowNewChatForm,
       setDesktopView: config.setDesktopView,
@@ -148,9 +155,13 @@ export function useAgentsHotkeys(
       setFileSearchDialogOpen: config.setFileSearchDialogOpen,
       toggleChatSearch: config.toggleChatSearch,
       selectedChatId: config.selectedChatId,
+      selectedProject: config.selectedProject,
+      releaseSelectedChat: config.releaseSelectedChat,
     }),
     [
       config.setSelectedChatId,
+      config.setSelectedProject,
+      config.setProjectEntryReturnProject,
       config.setSelectedDraftId,
       config.setShowNewChatForm,
       config.setDesktopView,
@@ -159,6 +170,8 @@ export function useAgentsHotkeys(
       config.setFileSearchDialogOpen,
       config.toggleChatSearch,
       config.selectedChatId,
+      config.selectedProject,
+      config.releaseSelectedChat,
     ],
   )
 

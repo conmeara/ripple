@@ -70,6 +70,9 @@ rendering details while the user stays in creative language.
   advanced/debug surface.
 - The shipped product must remove primary-path `1Code`, `21st.dev`, upstream
   auth/update/service assumptions, and Remotion/generic app-preview assumptions.
+- Ripple does not need to migrate shipped 1Code users or their local databases.
+  Prefer clean Ripple-native schema, migrations, and naming over compatibility
+  with old local 1Code rows.
 - Agents must operate on HyperFrames HTML compositions, assets, timing data, and
   GSAP timelines, not React/Remotion scene abstractions.
 
@@ -100,6 +103,8 @@ Operational constraints:
 
 - Node.js 22+ and FFmpeg/FFprobe are required for the validated HyperFrames
   render path.
+- Ripple should satisfy render/runtime prerequisites through app-managed bundled
+  tools or guided app-level readiness, not per-project manual dependency setup.
 - Agent work must stay inside the active project or registered isolated
   revision context.
 - HyperFrames remains the source of truth for composition structure, timeline
@@ -165,12 +170,15 @@ Project creation should automatically handle:
 - top-level `~/Ripple` folder creation
 - project name sanitization
 - collision handling
-- default scaffold/template copying
+- default 1080p 30fps scaffold/template copying, while preserving metadata hooks
+  for later width, height, and FPS changes
 - background dependency setup
 - HyperFrames validation
 - optional hidden local git/snapshot initialization for revisions
 - initial composition discovery
 - opening the project shell with a previewable default composition
+- project lifecycle actions: archive/hide, remove from Ripple without deleting
+  files, and move project files to Trash with explicit confirmation
 
 The normal path must not require the user to pick a folder.
 
@@ -180,7 +188,8 @@ The normal path must not require the user to pick a folder.
 
 Fields:
 `id`, `name`, `slug`, `localPath`, `aspectRatioPreset`,
-`activeCompositionId`, `templateId`, `setupStatus`, `createdAt`, `updatedAt`.
+`activeCompositionId`, `templateId`, `setupStatus`, `archivedAt`, `createdAt`,
+`updatedAt`.
 
 Purpose:
 Top-level Ripple workspace stored by default at `~/Ripple/<project-name>`.
@@ -261,10 +270,14 @@ Verified official docs as of April 24, 2026:
 - `npx hyperframes compositions --json` can list compositions.
 - `npx hyperframes snapshot` can capture frames/stills.
 - `npx hyperframes render` renders final output.
-- `npx hyperframes init <name> --non-interactive --example blank` can scaffold
-  without interactive prompts.
+- Current CLI package docs use `npx hyperframes init <name> --example blank`
+  for agent-friendly scaffolding and describe agent mode as non-interactive by
+  default. The Quickstart still mentions `--non-interactive --example blank`, so
+  installed CLI flags must be verified with `--help` before implementation.
 - `npx skills add heygen-com/hyperframes` installs HyperFrames agent skills for
   composition authoring, CLI commands, and GSAP animation context.
+- HyperFrames calls built-in scaffolds "examples" in current CLI docs. Ripple
+  can still say templates/starters in user-facing UI.
 - Documented render formats include `mp4`, `mov`, and `webm`.
 - Documented render settings include format, fps, quality presets, CRF,
   bitrate, workers, max concurrent renders, GPU, HDR, and Docker mode.
@@ -273,6 +286,8 @@ Verified official docs as of April 24, 2026:
 - `@hyperframes/studio` exposes React components and hooks for layout,
   preview, player controls, timeline, source editor, property panel, file tree,
   element picking, and iframe/player state.
+- Studio preview uses the same runtime path as rendering and watches
+  `index.html` plus referenced sub-compositions for hot reload.
 - `@hyperframes/player` is a web component that runs a composition in a
   sandboxed iframe inside Shadow DOM; editor access should go through
   `iframeElement` or Studio's `resolveIframe`.
@@ -283,6 +298,9 @@ Open verification items:
 - Pin the exact HyperFrames package versions; docs and repo release labels may
   differ.
 - Verify current `hyperframes init` flags against installed `--help`.
+- Decide how Ripple bundles or copies an offline GSAP/runtime source for
+  generated scaffolds, because official examples commonly show CDN scripts but
+  Ripple must not fetch scripts at preview or render time.
 - Verify programmatic MOV export through `@hyperframes/producer`; CLI MOV is
   documented.
 - Decide whether Ripple should bundle HyperFrames skills itself, call
@@ -314,7 +332,9 @@ Reference links to preserve from the old docs:
 - Audio clips are invisible and should not use `class="clip"`.
 - Nested/external compositions use `data-composition-src`.
 - Reusable external compositions use `<template>` wrappers.
-- GSAP timelines must be paused and registered on `window.__timelines`.
+- Every composition should register a finite GSAP timeline on
+  `window.__timelines` with the exact `data-composition-id` key.
+- GSAP timelines must be paused.
 - Use GSAP's timeline positioning argument for absolute timing.
 - Do not manually control media playback.
 - Do not manually nest sub-composition timelines.
@@ -489,7 +509,12 @@ Done when:
 - Project is stored under `~/Ripple`.
 - Scaffold contains `index.html`, `compositions/`, `assets/`, config/metadata,
   and at least one immediately previewable composition.
+- Motion runtime setup is app-managed: normal users are not asked to install or
+  understand Node, FFmpeg, FFprobe, HyperFrames, or GSAP.
 - Import/open existing folder exists as secondary advanced path.
+- User can archive projects, restore archived projects, remove a project from
+  Ripple without deleting files, and move project files to Trash through a
+  guarded destructive action.
 
 ### Phase 3: HyperFrames Service Layer
 
@@ -498,7 +523,7 @@ Goals:
 - Add main-process HyperFrames orchestration.
 - Add typed tRPC router for environment checks, composition discovery, preview,
   snapshot, render/export, and cancellation.
-- Decide package/version pinning and project-local dependency strategy.
+- Decide package/version pinning and app-managed bundled runtime strategy.
 
 Candidate API:
 
@@ -514,7 +539,8 @@ Candidate API:
 
 Done when:
 
-- Main process can validate Node 22+, FFmpeg/FFprobe, and HyperFrames readiness.
+- Main process can validate Node 22+, FFmpeg/FFprobe, and HyperFrames readiness
+  from app-managed/bundled tools before falling back to system tools.
 - Main process can discover compositions with structured output.
 - Main process can start/stop preview per project/revision.
 - Main process can render at least MP4 from a test project.

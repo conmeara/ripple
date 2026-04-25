@@ -8,7 +8,7 @@ export type ShortcutActionId =
   | "toggle-sidebar"
   | "toggle-details"
   | "undo-archive"
-  // Workspaces
+  // Projects
   | "new-workspace"
   | "search-workspaces"
   | "archive-workspace"

@@ -55,7 +55,7 @@ export class PathValidationError extends Error {
  *
  * Accepts:
  * - Worktree paths (from chats.worktreePath)
- * - Project paths (from projects.path)
+ * - Project paths (from projects.localPath, with projects.path kept as a compatibility alias)
  *
  * @throws PathValidationError if path is not registered
  */
@@ -73,14 +73,25 @@ export function assertRegisteredWorktree(workspacePath: string): void {
 		return;
 	}
 
-	// Check projects.path for direct project access
-	const projectExists = db
+	// Check projects.localPath for direct project access
+	const projectByLocalPath = db
+		.select()
+		.from(projects)
+		.where(eq(projects.localPath, workspacePath))
+		.get();
+
+	if (projectByLocalPath) {
+		return;
+	}
+
+	// Compatibility while legacy surfaces still read projects.path.
+	const projectByPath = db
 		.select()
 		.from(projects)
 		.where(eq(projects.path, workspacePath))
 		.get();
 
-	if (projectExists) {
+	if (projectByPath) {
 		return;
 	}
 

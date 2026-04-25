@@ -99,7 +99,7 @@ export const KanbanCard = memo(function KanbanCard({
         {/* First row: name + status indicator (справа!) */}
         <div className="flex items-center gap-1">
           <span className="truncate block text-sm leading-tight flex-1">
-            {card.name || "New Workspace"}
+            {card.name || "New Project"}
           </span>
 
           {/* Status indicator container - справа от названия */}
@@ -173,7 +173,7 @@ export const KanbanCard = memo(function KanbanCard({
                   }}
                   tabIndex={-1}
                   className="absolute inset-0 flex items-center justify-center text-muted-foreground hover:text-foreground active:text-foreground transition-[opacity,transform,color] duration-150 ease-out opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto active:scale-[0.97]"
-                  aria-label="Archive workspace"
+                  aria-label="Archive thread"
                 >
                   <ArchiveIcon className="h-3.5 w-3.5" />
                 </button>
@@ -244,10 +244,10 @@ export const KanbanCard = memo(function KanbanCard({
       </ContextMenuTrigger>
       <ContextMenuContent className="w-48">
         <ContextMenuItem onClick={() => onTogglePin(card.chatId)}>
-          {card.isPinned ? "Unpin workspace" : "Pin workspace"}
+          {card.isPinned ? "Unpin thread" : "Pin thread"}
         </ContextMenuItem>
         <ContextMenuItem onClick={() => onRename({ id: card.chatId, name: card.name })}>
-          Rename workspace
+          Rename thread
         </ContextMenuItem>
         {card.branch && (
           <ContextMenuItem onClick={() => onCopyBranch(card.branch!)}>
@@ -255,7 +255,7 @@ export const KanbanCard = memo(function KanbanCard({
           </ContextMenuItem>
         )}
         <ContextMenuSub>
-          <ContextMenuSubTrigger>Export workspace</ContextMenuSubTrigger>
+          <ContextMenuSubTrigger>Export thread</ContextMenuSubTrigger>
           <ContextMenuSubContent sideOffset={6} alignOffset={-4}>
             <ContextMenuItem onClick={() => onExportChat({ chatId: card.chatId, format: "markdown" })}>
               Download as Markdown
@@ -285,7 +285,7 @@ export const KanbanCard = memo(function KanbanCard({
         )}
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => onArchive(card.chatId)}>
-          Archive workspace
+          Archive thread
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

@@ -16,7 +16,7 @@ interface TypewriterTextProps {
 
 export const TypewriterText = memo(function TypewriterText({
   text,
-  placeholder = "New workspace",
+  placeholder = "New project",
   id,
   className,
   isJustCreated = false,
