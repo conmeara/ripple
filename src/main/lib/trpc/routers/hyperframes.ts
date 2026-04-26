@@ -4,6 +4,8 @@ import { router, publicProcedure } from "../index"
 import { checkRippleEnvironment } from "../../ripple-projects/environment"
 import {
   captureHyperframesSnapshot,
+  assertHyperframesProjectFiles,
+  buildHyperframesPlayerSourceDocument,
   hyperframesRenderFormats,
   hyperframesRenderQualities,
   listSavedHyperframesCompositions,
@@ -12,6 +14,7 @@ import {
   renderManager,
   resolveHyperframesProjectContext,
   runHyperframesCommand,
+  selectHyperframesPlayerComposition,
   type HyperframesCommandResult,
 } from "../../hyperframes"
 
@@ -65,6 +68,42 @@ export const hyperframesRouter = router({
         projectId: input.projectId,
         repoRoot: getRepoRoot(),
       })
+    }),
+
+  getPlayerSource: publicProcedure
+    .input(z.object({
+      projectId: z.string(),
+      compositionId: z.string().nullable().optional(),
+    }))
+    .query(async ({ input }) => {
+      let context = await resolveHyperframesProjectContext({ projectId: input.projectId })
+      assertHyperframesProjectFiles(context.projectPath)
+
+      let compositions = await listSavedHyperframesCompositions(input.projectId)
+      if (compositions.length === 0) {
+        const refreshed = await refreshHyperframesCompositions({
+          projectId: input.projectId,
+          repoRoot: getRepoRoot(),
+        })
+        context = { ...context, project: refreshed.project }
+        compositions = refreshed.compositions
+      }
+
+      const composition = selectHyperframesPlayerComposition({
+        project: context.project,
+        compositions,
+        compositionId: input.compositionId,
+      })
+
+      if (!composition) {
+        throw new Error("No HyperFrames composition is available for this project.")
+      }
+
+      return {
+        project: context.project,
+        composition,
+        source: buildHyperframesPlayerSourceDocument({ context, composition }),
+      }
     }),
 
   startPreview: publicProcedure

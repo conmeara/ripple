@@ -28,7 +28,12 @@ import {
   parseLaunchDirectory,
 } from "./lib/cli"
 import { cleanupGitWatchers } from "./lib/git/watcher"
-import { previewManager, renderManager } from "./lib/hyperframes"
+import {
+  previewManager,
+  registerHyperframesPlayerProtocolPrivileges,
+  registerHyperframesPlayerSourceProtocol,
+  renderManager,
+} from "./lib/hyperframes"
 import { cancelAllPendingOAuth, handleMcpOAuthCallback } from "./lib/mcp-auth"
 import { ensureRippleRuntimeOnLaunch } from "./lib/ripple-projects/service"
 import { getAllMcpConfigHandler, hasActiveClaudeSessions, abortAllClaudeSessions } from "./lib/trpc/routers/claude"
@@ -60,6 +65,8 @@ if (IS_DEV) {
 // Increase V8 old-space limit for renderer/main processes to reduce OOM frequency
 // under heavy multi-chat workloads. Must be set before app readiness/window creation.
 app.commandLine.appendSwitch("js-flags", "--max-old-space-size=8192")
+
+registerHyperframesPlayerProtocolPrivileges()
 
 // Initialize Sentry before app is ready (production only)
 if (app.isPackaged && !IS_DEV) {
@@ -566,6 +573,7 @@ if (gotTheLock) {
 
     // Register protocol handler (must be after app is ready)
     initialRegistration = registerProtocol()
+    registerHyperframesPlayerSourceProtocol()
 
     // Handle deep link on macOS (app already running)
     app.on("open-url", (event, url) => {

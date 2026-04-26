@@ -4,146 +4,196 @@ This ExecPlan must be maintained according to `PLANS.md`.
 
 ## Purpose / Big Picture
 
-After this phase, Ripple has a usable HyperFrames preview player inside the
-existing preview-pane pattern. A user can open a Ripple project, ask to preview
-the active composition, and see the motion work play in an app-native player
-surface with clear loading, refresh, stop, and error states.
+After this phase, Ripple has a real HyperFrames preview player inside the
+existing preview-pane pattern. A user can open a Ripple project, preview the
+active composition, play and pause motion, scrub time, refresh the player, and
+see clear loading and error states without leaving the app.
 
-This phase intentionally steps back from the full Ripple shell redesign. It
-does not add the assets/compositions pane, the right chat/comment review rail,
-persistent comments, revisions, or export UX. Those are later phases. The goal
-is to make the preview player real first, because the rest of the shell should
-compose around a working motion preview instead of around a blank center panel.
+This phase intentionally does not add the assets/compositions pane, the
+right-side review rail, persistent comments, revisions, or export UX. Those are
+later phases. Phase 4 is only the player layer, because the rest of the Ripple
+shell should compose around a working motion preview.
 
-The player should borrow HyperFrames' runtime and preview semantics, but it
-should look and feel like the current Ripple app. That means compact panels,
-existing Radix/Tailwind components, familiar preview controls where reusable,
-and no wholesale copy of HyperFrames Studio's visual chrome.
+The player must use official HyperFrames player/runtime primitives behind a
+Ripple-owned adapter. Ripple owns the surrounding app chrome, controls, states,
+and placement. HyperFrames owns motion playback, timing, composition loading,
+and player semantics.
+
+The first implementation reaches that shape by wrapping `@hyperframes/player`
+and asking the main process for a prepared `srcdoc` document. The next
+architecture step is to lean further on HyperFrames without giving up Ripple's
+native UI: keep the Ripple player chrome, but move the composition document,
+runtime injection, asset resolution, nested composition behavior, and future
+timeline semantics behind a HyperFrames-prepared preview URL loaded by the
+official player.
 
 ## Progress
 
-- [x] 2026-04-26 / Codex: Re-scoped Phase 4 after the first broad shell
-  implementation screenshot showed the plan had moved too quickly. Phase 4 now
-  focuses only on a HyperFrames preview player built from the existing preview
-  pane pattern.
+- [x] 2026-04-26 / Codex: Re-scoped Phase 4 after the first broad shell pass
+  moved too quickly. Phase 4 now focuses only on the HyperFrames preview
+  player.
 - [x] 2026-04-26 / Codex: Inspected the existing preview path:
   `active-chat.tsx` opens a right `ResizableSidebar` when preview is available,
-  and `AgentPreview` already handles iframe loading, reload, viewport controls,
-  scale, device sizing, path persistence, and external open.
-- [x] 2026-04-26 / Codex: Ran parallel research on the official HyperFrames
-  packages, the existing Ripple preview-pane architecture, and the installed
-  local HyperFrames package. Verified the current npm package family is
-  `0.4.30`, while the checked-out app currently has `hyperframes@0.4.28`
-  installed from the lockfile.
-- [x] 2026-04-26 / Codex: Selected Option 4 as the target architecture:
-  official HyperFrames packages behind a Ripple-owned adapter, with the CLI
-  preview server retained as the local serving and hot-reload backbone until the
-  direct player path is validated.
-- [ ] Run the focused package integration spike and record exact install,
-  import, CSP, and package-smoke results.
-- [ ] Extract or adapt reusable preview-pane primitives from `AgentPreview`.
-- [ ] Implement `HyperFramesPreviewPlayer` for Ripple projects.
-- [ ] Wire HyperFrames preview availability into the existing preview-pane
-  trigger path.
-- [ ] Validate with a real scaffolded Ripple project and update this plan with
-  outcomes.
+  and `AgentPreview` already has useful UI patterns for load state, refresh,
+  viewport controls, scale, device sizing, and external-open affordances.
+- [x] 2026-04-26 / Codex: Ran package and runtime research. The checked-out
+  app currently installs `hyperframes@0.4.28` and does not install
+  `@hyperframes/player`, `@hyperframes/studio`, or `@hyperframes/core`.
+- [x] 2026-04-26 / Codex: Selected the official HyperFrames package path as
+  the only Phase 4 implementation architecture.
+- [x] 2026-04-26 / Codex: Removed the temporary non-player implementation from
+  the working tree and reset this plan to the official-player architecture.
+- [x] 2026-04-26 / Codex: Verified the current registry versions for `hyperframes`,
+  `@hyperframes/player`, `@hyperframes/core`, and `@hyperframes/studio`.
+- [x] 2026-04-26 / Codex: Pinned the HyperFrames package family to exact
+  `0.4.30` versions in `package.json` and `bun.lock`.
+- [x] 2026-04-26 / Codex: Implemented a main-process-approved player source
+  contract through `trpc.hyperframes.getPlayerSource`.
+- [x] 2026-04-26 / Codex: Registered a `ripple-preview:` Electron protocol for
+  validated project assets and the local HyperFrames runtime file.
+- [x] 2026-04-26 / Codex: Implemented
+  `src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx` around the
+  official `@hyperframes/player` custom element.
+- [x] 2026-04-26 / Codex: Wired Ripple project preview availability into the
+  existing desktop and mobile preview-pane entry points.
+- [x] 2026-04-26 / Codex: Ran focused source tests, `bun run test:ripple`,
+  `bun run build`, `bun run ts:check`, and `git diff --check`.
+- [x] 2026-04-26 / Codex: Completed live Electron QA against the existing
+  `~/Ripple/test1` starter project. The player reaches ready state, reports a
+  `0:06` duration after legacy timing normalization, plays through the
+  composition, and no longer logs the preview-load errors from the first smoke.
+- [x] 2026-04-26 / Codex: Recorded the next architecture direction after
+  implementation review: evolve from Ripple-built `srcdoc` toward a
+  HyperFrames-prepared preview URL while preserving Ripple-owned UI, comments,
+  chat, widgets, and future assets/compositions/timeline surfaces.
+- [ ] Spike the official player's `src` mode against a HyperFrames-prepared
+  local preview URL and document the exact ready/play/seek/timeupdate behavior
+  in Electron.
+- [ ] Prototype a main-process preview-serving adapter that uses HyperFrames
+  preview/core primitives without opening external Studio or exposing arbitrary
+  project files.
+- [ ] Decide whether the Phase 4 player should fully switch from `srcdoc` to
+  `src`, or keep `srcdoc` as a temporary fallback while the prepared preview
+  URL path hardens.
 
 ## Surprises & Discoveries
 
-- Observation: The current preview pane is already a good base for Phase 4.
+- Observation: The current preview pane is a good placement pattern for Phase 4.
   Evidence: `src/renderer/features/agents/main/active-chat.tsx` renders a right
-  `ResizableSidebar` for preview when `canOpenPreview` is true, and
-  `src/renderer/features/agents/ui/agent-preview.tsx` owns iframe load state,
-  reload, viewport mode, scale, device presets, resize handles, URL/path state,
-  and external-open controls.
+  `ResizableSidebar` for preview, and
+  `src/renderer/features/agents/ui/agent-preview.tsx` has compact controls that
+  can inform the Ripple player chrome.
 - Observation: The existing preview detector is coding-agent specific.
   Evidence: `AgentsContent` and `active-chat.tsx` decide preview availability
   from `chatData.sandbox_id` and `chatMeta.sandboxConfig.port`, then build a
   CodeSandbox-style URL.
-- Observation: Phase 3 already provides the safe main-process HyperFrames
-  lifecycle calls needed by a player.
+- Observation: Phase 3 already provides the main-process HyperFrames lifecycle
+  surface needed around the player.
   Evidence: `src/main/lib/trpc/routers/hyperframes.ts` exposes `doctor`,
   `listCompositions`, `startPreview`, `stopPreview`, `getPreviewStatus`,
   `snapshot`, `render`, `getRenderStatus`, and `cancelRender`.
-- Observation: The installed `hyperframes@0.4.28` package is CLI-first in this
-  checkout.
+- Observation: The installed local `hyperframes@0.4.28` package is CLI-first in
+  this checkout.
   Evidence: `package.json` lists `hyperframes` and `gsap`; there is no
-  installed `node_modules/@hyperframes` package directory. The package contains
-  CLI output, bundled runtime files, and a static Studio build under
-  `node_modules/hyperframes/dist/`.
-- Observation: The currently published HyperFrames package family is `0.4.30`.
-  Evidence: `npm view hyperframes version`,
-  `npm view @hyperframes/player version`,
-  `npm view @hyperframes/studio version`, and
-  `npm view @hyperframes/core version` all returned `0.4.30` on
-  2026-04-26.
-- Observation: `@hyperframes/player` is the right preview primitive for a
-  native Ripple player surface.
-  Evidence: Official docs describe a `<hyperframes-player>` custom element
-  with `play`, `pause`, `seek`, `currentTime`, `duration`, `ready`,
-  `timeupdate`, and an `iframeElement` bridge for editor/timeline integrations.
-- Observation: `@hyperframes/studio` should be used selectively, not embedded
-  wholesale in Phase 4.
+  installed `node_modules/@hyperframes` directory.
+- Observation: `@hyperframes/player` is the right preview primitive for this
+  phase.
+  Evidence: Official docs describe a custom-element player with `play`,
+  `pause`, `seek`, `currentTime`, `duration`, `ready`, and `timeupdate`.
+- Observation: The official player can consume a source document while Ripple
+  serves nested composition files, media, fonts, and the runtime through a
+  controlled local protocol.
+  Evidence: `@hyperframes/player` observes `srcdoc`; the implemented
+  `getPlayerSource` route returns `srcDoc`, and `ripple-preview:` serves only
+  paths validated against the selected project boundary.
+- Observation: `@hyperframes/studio` should be used selectively, not as the
+  full Studio app in Phase 4.
   Evidence: Official docs expose React components and hooks for player
   controls, timeline, file tree, source editor, element picking, and full
-  `StudioApp`; using the full app would fight Ripple's current UI style and
-  pull Phase 5 and later shell work into this phase.
+  `StudioApp`; using the full app would pull later shell work into this phase.
 - Observation: `@hyperframes/core` is the right source for structured metadata
   and future timeline/assets models.
-  Evidence: Official docs expose parsing, HTML generation, composition
-  metadata extraction, linting, runtime helpers, and schemas.
-- Observation: The current renderer CSP likely needs a `frame-src` entry before
-  an app-owned local preview iframe or player can reliably load
-  `http://localhost:<port>` content.
-  Evidence: `src/renderer/index.html` allows local `connect-src`, but does not
-  declare `frame-src`; fallback to `default-src 'self'` can block preview
-  frames.
-- Observation: The CLI preview server is still useful even with Option 4.
-  Evidence: The installed CLI bundle serves Studio assets, runtime endpoints,
-  SSE events, and project files from safe local routes. Direct `file://` loading
-  would bypass those routes and risks missing runtime injection, hot reload, and
-  path handling.
-- Observation: The broad shell implementation makes the center workspace feel
-  empty when the player is not real yet.
-  Evidence: The user-provided screenshot showed the attempted four-part shell
-  with composition cards and a chat/comment right rail, but the central preview
-  region was blank. The user requested splitting the work so Phase 4 starts
-  with the preview player only.
+  Evidence: Official docs expose parsing, HTML generation, composition metadata
+  extraction, linting, runtime helpers, and schemas.
+- Observation: The package root for `@hyperframes/core@0.4.30` should not be
+  imported directly from the Electron main process in this CJS build.
+  Evidence: production build externalizes main-process dependencies as
+  `require(...)`, while `require("@hyperframes/core")` fails because the
+  package root is import-only. The implementation reads the exported
+  `@hyperframes/core/runtime` file instead.
+- Observation: Electron custom protocols must be registered for the renderer's
+  actual session partition.
+  Evidence: the main BrowserWindow uses `partition: "persist:main"`. Registering
+  `ripple-preview:` only on the default protocol registry let tests pass but
+  produced `ERR_UNKNOWN_URL_SCHEME` in the live app. Registering the handler on
+  both default and `persist:main` resolves project assets and the local runtime.
+- Observation: Existing generated starter projects can carry an older
+  `gsap-lite.js` shim and frame-count timing values.
+  Evidence: `~/Ripple/test1` loaded `assets/vendor/gsap-lite.js` and
+  `data-start` / `data-duration` values like `72` and `180`. The official
+  runtime expects real GSAP timeline methods and seconds-based timings, so the
+  player initially crashed on load or play until the preview source upgraded
+  that legacy starter shape at load time.
+- Observation: The remaining live-console messages after the QA fixes are
+  warnings, not preview-load blockers.
+  Evidence: DevTools showed no `ERR_UNKNOWN_URL_SCHEME`, CDN CSP block,
+  `window.gsap.timeline` failure, play-time runtime error, or React
+  `transform-origin` warning. Remaining warnings are the official player iframe
+  sandbox warning, the existing Jotai `atomFamily` deprecation, and the Electron
+  development CSP warning.
+- Observation: The current implementation is a good first native player pass,
+  but Ripple still owns too much composition-document compatibility.
+  Evidence: `trpc.hyperframes.getPlayerSource` returns `srcDoc`, and
+  `buildHyperframesPlayerSourceDocument` injects the runtime, rewrites selected
+  references, and normalizes older starter-project timing before the official
+  player sees the composition.
+- Observation: The stronger long-term shape is a HyperFrames-prepared preview
+  URL, not a full Studio embed and not a Ripple-authored parallel runtime.
+  Evidence: `@hyperframes/player` supports loading a composition URL through
+  `src`, and HyperFrames owns preview routes, runtime behavior, nested
+  composition handling, Studio timeline/player semantics, and render-preview
+  consistency.
+- Observation: The HyperFrames CLI preview process is useful as a reference,
+  but it is not the ideal app-embedded interface.
+  Evidence: the CLI preview flow is designed to launch/open Studio externally.
+  Ripple needs a main-process adapter that serves the preview document for the
+  embedded player without opening the user's browser or exposing broad Studio
+  mutation routes.
+- Observation: The largest known blocker for the next step is player readiness
+  and origin behavior when using `src`.
+  Evidence: the official player can post play, pause, seek, and time messages
+  to an iframe, but its ready-state detection may inspect iframe internals. A
+  local URL with a different origin could play visually while still failing the
+  player's `ready` path unless the serving strategy preserves the expected
+  access pattern.
+- Observation: The same adapter direction should support Phase 5 assets,
+  compositions, and future timeline UI.
+  Evidence: the roadmap says HyperFrames remains the source of truth for
+  composition structure, timeline semantics, preview, and render behavior.
+  Ripple's panes should read structured HyperFrames/project data through
+  main-process tRPC APIs instead of each renderer surface parsing files on its
+  own.
 
 ## Decision Log
 
-- Decision: Phase 4 is now only the HyperFrames preview player.
+- Decision: Phase 4 is only the HyperFrames preview player.
   Rationale: A working motion preview is the foundation for assets,
   composition switching, comments, review, and export. Building the whole shell
   first produced too much UI before the central experience was ready.
   Date/Author: 2026-04-26 / User + Codex
 
-- Decision: Build on the existing `AgentPreview`/preview-sidebar pattern rather
-  than replacing the whole shell.
-  Rationale: 1Code already has a mature preview-pane interaction: iframe,
-  loading state, refresh, viewport/scale controls, resize behavior, and a
-  preview sidebar trigger. Ripple should adapt that proven local pattern for
-  HyperFrames.
+- Decision: Build on the existing preview-pane placement instead of replacing
+  the whole shell.
+  Rationale: The app already has a mature preview-pane interaction model.
+  Ripple should adapt the useful local UI pattern while replacing the preview
+  engine with HyperFrames-native playback.
   Date/Author: 2026-04-26 / User + Codex
 
-- Decision: Validate the Option 4 player stack through a prototype milestone
-  before committing to final implementation details.
-  Rationale: The target architecture is official HyperFrames packages behind a
-  Ripple-owned adapter, but the exact serving path still needs proof. The
-  player may load a URL from the Phase 3 managed preview server, a direct
-  runtime/player route, or a hybrid. The implementation should follow observed
-  behavior, not assumptions.
-  Date/Author: 2026-04-26 / User + Codex
-
-- Decision: Adopt Option 4 as the target Phase 4 architecture, but implement it
-  through a small adapter that can fall back to the managed CLI preview iframe.
-  Rationale: The official packages map directly to Ripple's future needs:
-  `@hyperframes/player` for the preview surface, `@hyperframes/core` for
-  composition/timeline metadata, and selected `@hyperframes/studio` primitives
-  for later timeline/editor behavior. The current app does not yet install
-  those scoped packages, and the installed CLI is `0.4.28` while current npm is
-  `0.4.30`, so the integration must prove exact-version compatibility before
-  the UI depends on it.
+- Decision: The Phase 4 implementation must use official HyperFrames player
+  primitives.
+  Rationale: The user rejected an implementation that looked and behaved like
+  an embedded Studio surface. Phase 4 should either deliver the ideal
+  player architecture or stop for a product/architecture decision.
   Date/Author: 2026-04-26 / User + Codex
 
 - Decision: Pin the HyperFrames package family exactly during the integration
@@ -158,20 +208,88 @@ and no wholesale copy of HyperFrames Studio's visual chrome.
   Rationale: HyperFrames should supply runtime, parsing, player, timeline, and
   editor primitives. Ripple should supply the app shell, buttons, tabs, loading
   and error states, composition terminology, comment/revision flows, and
-  current UI styling. This applies to the player now and to the future
-  assets/compositions pane and timeline.
+  current UI styling.
   Date/Author: 2026-04-26 / User + Codex
 
-- Decision: Keep Phase 5 for assets/compositions and defer the full shell and
-  review sidebar until after the player exists.
-  Rationale: The next useful layer after a working player is the composition
-  and asset browser that drives it. Chat/comments/widgets should be integrated
-  after those two surfaces are stable.
+- Decision: Use a Ripple-owned source contract instead of launching or embedding
+  HyperFrames Studio.
+  Rationale: The preview pane should open from selected Ripple project state,
+  not from a separate browser tab or a Studio workspace. The renderer asks the
+  main process for approved composition source data, then the official player
+  handles timing and playback.
+  Date/Author: 2026-04-26 / User + Codex
+
+- Decision: Serve player assets through `ripple-preview:` instead of exposing
+  absolute filesystem paths.
+  Rationale: Project files, nested compositions, media, and the local runtime
+  need browser-loadable URLs, but all path resolution must remain in the main
+  process and inside the project boundary.
+  Date/Author: 2026-04-26 / Codex
+
+- Decision: Preserve preview compatibility for older generated starter projects
+  inside the official player source adapter.
+  Rationale: The current scaffold writes `gsap.min.js` and seconds-based clip
+  timings, but projects already created during Phase 2/3 can still contain the
+  earlier `gsap-lite.js` shim and frame-count timings. Preview-load
+  normalization keeps those projects playable without changing the project files
+  or introducing another player architecture.
+  Date/Author: 2026-04-26 / Codex
+
+- Decision: Evolve Phase 4 toward the Level 2 architecture: Ripple UI around
+  `@hyperframes/player`, with the player loading a HyperFrames-prepared preview
+  URL.
+  Rationale: This keeps Ripple feeling like one native app while letting
+  HyperFrames own the moving pieces it is best positioned to evolve: runtime
+  injection, composition loading, nested compositions, asset resolution, timeline
+  semantics, and render-preview consistency.
+  Date/Author: 2026-04-26 / User + Codex
+
+- Decision: Treat a full HyperFrames Studio embed as an escape hatch, not the
+  default product direction.
+  Rationale: Full Studio embedding would inherit HyperFrames features fastest,
+  but it would also make Ripple feel like a wrapper around another app and make
+  frame comments, chat, widgets, revisions, and future native controls harder to
+  integrate cleanly.
+  Date/Author: 2026-04-26 / User + Codex
+
+- Decision: Leave a future framework-adapter seam conceptually open, but do not
+  optimize Phase 4 for Remotion or another framework.
+  Rationale: Ripple may support additional motion frameworks later, but
+  HyperFrames is the current source of truth. Over-generalizing now would add
+  abstraction before the HyperFrames product path is solid.
   Date/Author: 2026-04-26 / User + Codex
 
 ## Outcomes & Retrospective
 
-Architecture direction selected; implementation not started.
+The temporary non-player implementation has been removed. The current working
+tree contains an official-player Phase 4 implementation:
+
+- exact `0.4.30` HyperFrames package pins
+- `trpc.hyperframes.getPlayerSource` for project/composition-owned source data
+- `ripple-preview:` protocol serving validated project assets and local runtime
+- `ripple-preview:` registration for both the default Electron protocol scope
+  and the app renderer's `persist:main` session
+- preview-load compatibility for older generated starter projects that still
+  reference `gsap-lite.js` and frame-count clip timings
+- `HyperFramesPreviewPlayer` wrapping the official custom element with Ripple
+  controls and states
+- desktop and mobile preview-pane wiring from selected Ripple project state
+
+Automated validation passed for focused source tests, `bun run test:ripple`,
+`bun run build`, and `git diff --check`. `bun run ts:check` still fails on the
+existing baseline type errors in legacy/main agent surfaces; no new Phase 4
+files are implicated in that output. Live Electron QA passed against
+`~/Ripple/test1`: the preview reaches ready state, renders the composition,
+reports the normalized `0:06` duration, and plays through using the official
+player controls.
+
+The next iteration should not replace the Ripple-owned player UI. It should
+replace the way the player source is prepared. Today, Ripple creates an
+`srcdoc` document for the player. The target is for Ripple to ask a
+main-process adapter for an approved preview URL, and for that URL to serve a
+HyperFrames-prepared composition document. If that target works in Electron,
+Ripple keeps its native controls while HyperFrames owns more of the preview
+pipeline.
 
 ## Context and Orientation
 
@@ -186,166 +304,162 @@ The existing renderer still has 1Code preview machinery. In desktop chat,
 `src/renderer/features/agents/main/active-chat.tsx` can open a right
 `ResizableSidebar` containing `AgentPreview`. On mobile,
 `src/renderer/features/agents/ui/agents-content.tsx` has a full-screen preview
-mode. `AgentPreview` builds a CodeSandbox-style URL from `sandboxId` and
-`port`, then renders an iframe with app-native controls. It also uses helper
-components like `PreviewUrlInput`, `ViewportToggle`, `ScaleControl`,
-`DevicePresetsBar`, `ResizeHandle`, and `MobileCopyLinkButton`.
+mode. Those surfaces are the right entry points for Phase 4, but their current
+source of truth is coding-agent preview metadata rather than Ripple project
+state.
 
-The HyperFrames player should reuse that interaction model where it still
-fits, but change the source of truth. Instead of relying on
-`chatData.sandbox_id` and `sandboxConfig.port`, it should use the selected
-Ripple project and Phase 3 `hyperframes` routes. A Ripple project is
-previewable when the main process can resolve the project, find a valid
-HyperFrames entry/composition, and start or reuse a managed preview session.
-
-The phrase "native HyperFrames preview player" does not mean rewriting all of
-HyperFrames Studio in React in this phase. It means Ripple owns the player
-chrome, states, controls, and placement, while HyperFrames remains the source
-of truth for loading, timing, seeking, preview, and render behavior. If the only
-reliable first stack is an iframe backed by `hyperframes preview`, that is
-acceptable as long as the app chrome and lifecycle are Ripple-owned and the plan
-records what remains to make it more native later.
+The HyperFrames player should use the selected Ripple project and official
+HyperFrames player primitives. The renderer must not spawn shell commands or
+trust arbitrary absolute paths. Main-process routes should resolve selected
+projects, validate project/composition ownership, and return only structured
+data or approved source descriptors needed by the player.
 
 ## Plan of Work
 
-First, run a focused Option 4 integration spike. The preferred stack is:
+First, run the official-package integration spike. Verify the current package
+versions, then install or pin the HyperFrames package family as one exact
+version. The expected package set is:
 
-- `@hyperframes/player` for `HyperFramesPreviewPlayer`. Ripple should import
-  the custom element, provide a main-process-approved composition `src`, listen
-  for `ready`, `timeupdate`, `play`, `pause`, `ended`, and `error`, and build
-  app-owned controls around `play()`, `pause()`, `seek()`, `currentTime`, and
-  `duration`.
-- `@hyperframes/core` for metadata and future model extraction. Use it for
-  structured composition metadata, clip/timeline parsing, validation, and later
-  assets/compositions pane data where it is more reliable than ad hoc HTML
-  scraping.
-- `@hyperframes/studio` selectively, not as `StudioApp`. Use helpers such as
-  `resolveIframe`, timeline/player hooks, or the Timeline component only after
-  they are proven to work with the player iframe and can be styled within
-  Ripple's current UI.
-- `hyperframes` CLI preview server as the local serving and hot-reload
-  backbone unless the official player can load the project with equivalent
-  runtime injection, asset resolution, and local-first behavior. The player can
-  still point at a safe URL served by the managed preview server.
+- `hyperframes`
+- `@hyperframes/player`
+- `@hyperframes/core`
+- `@hyperframes/studio`, only if a focused primitive is required
 
-The spike must pin or upgrade the HyperFrames package family as one exact
-version. Current npm registry checks show `hyperframes`, `@hyperframes/player`,
-`@hyperframes/studio`, and `@hyperframes/core` at `0.4.30`; the existing
-lockfile currently installs `hyperframes@0.4.28`. Do not mix those versions.
+Second, prove the smallest renderer smoke. Import the official player
+primitive, load a scaffolded Ripple composition through a
+main-process-approved source, and prove `ready`, `timeupdate`, `play`,
+`pause`, `seek`, `currentTime`, and `duration` work in Electron.
 
-Keep the managed preview iframe as the recovery path. If the scoped packages
-fail to import, rely on CDN fallbacks, require same-origin access that the app
-cannot provide, or fail packaging, Phase 4 should still ship the existing
-main-process-managed preview URL inside Ripple-owned chrome and record what
-blocked the full native player path.
+Third, design the main-process source contract. The renderer should pass a
+`projectId` and optional `compositionId`. The main process should resolve the
+project, reject archived or missing projects, select a saved composition, and
+return the structured source data required by the official player. Do not
+expose arbitrary file paths.
 
-Second, extract reusable preview primitives if needed. `AgentPreview` may be
-split into a generic `PreviewFrame` plus CodeSandbox-specific and
-HyperFrames-specific wrappers, or it may remain intact while a new
-`HyperFramesPreviewPlayer` reuses the smaller controls. Do not break existing
-CodeSandbox/coding-agent preview behavior while doing this.
+Fourth, implement `src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx`.
+The component should be a Ripple wrapper around the official player primitive,
+not a copy of Studio and not a parallel timing engine. It should provide:
 
-Third, implement the HyperFrames player surface under
-`src/renderer/features/hyperframes/`. Likely files:
+- compact header with project/composition identity
+- loading, ready, stopped, and error states
+- play, pause, seek, restart, and reload controls
+- frame/time display
+- viewport, scale, and aspect-ratio controls where they still make sense
 
-- `HyperFramesPreviewPlayer.tsx`
-- `hyperframes-player-bridge.ts`
-- `hyperframes-preview-state.ts`
-- `hyperframes-preview-utils.ts`
-- `hyperframes-preview-utils.test.ts`
+Fifth, wire preview availability into the existing desktop and mobile preview
+entry points. Ripple projects should open the HyperFrames player; existing
+coding-agent preview behavior should remain unchanged.
 
-The player should accept a trusted `projectId` and optional active composition
-metadata, call `trpc.hyperframes.startPreview`, resolve a safe composition URL
-through the main process, show iframe/player loading state, call
-`trpc.hyperframes.getPreviewStatus` for health/errors, support reload/restart,
-and call `trpc.hyperframes.stopPreview` when the user closes or stops the
-managed preview. The renderer must never derive file paths or absolute
-composition URLs directly.
+Sixth, validate live in Electron. Phase 4 is not complete until a scaffolded
+project visibly plays in the app and the player controls work there.
 
-Fourth, wire preview availability into the existing preview trigger path.
-Where the old path checks `sandbox_id` and `sandboxConfig.port`, add a
-Ripple-project path that uses `selectedProjectAtom` and project setup state.
-The preview pane should still behave like the current app: it opens as a pane,
-can be resized, can be closed, and does not force the full shell layout.
+If the official player cannot be imported, packaged, loaded, or controlled in
+Electron, stop and record the exact blocker. Do not ship another substitute
+player path without an explicit user decision.
 
-Fifth, make the player feel like Ripple, not a pasted-in Studio page. Reuse the
-current app's buttons, tooltips, compact headers, loading patterns, and
-resizable panel behavior. Borrow only HyperFrames concepts: composition,
-preview, frame/time, play/pause/seek, aspect ratio, refresh, and Studio escape
-hatch.
+Next, run the Level 2 architecture spike. The goal is not to change the visual
+UI. The goal is to move from `@hyperframes/player` plus Ripple-built `srcdoc`
+to `@hyperframes/player` plus a HyperFrames-prepared local preview URL. Start
+with a throwaway smoke that compares three source modes in Electron:
 
-Sixth, preserve the architecture for later phases. The same boundary should be
-used for Phase 5 assets/compositions and the later timeline: main process
-validates the selected project and returns structured HyperFrames models;
-official HyperFrames packages provide parsing/player/editor primitives; Ripple
-renders the panes in the app's current UI style.
+- the current `srcdoc` path
+- a `ripple-preview:` prepared preview URL
+- a loopback `http://127.0.0.1:<port>` prepared preview URL, only if protocol
+  origin behavior blocks `ripple-preview:`
+
+For each mode, record whether the player reaches `ready`, reports `duration`,
+emits `timeupdate`, and responds to `play`, `pause`, and `seek`. Also record
+whether nested compositions, assets, media, fonts, and runtime scripts load
+without CDN requests.
+
+If `src` mode works, prototype the main-process preview-serving adapter. The
+adapter should resolve the Ripple `projectId` to a validated project directory,
+select the active composition, and serve only read-oriented preview assets
+needed by the player. It should reuse HyperFrames preview/core/studio-api
+primitives where possible. It should not shell out from the renderer, open
+external Studio, expose absolute filesystem paths, or mount broad Studio
+mutation routes.
+
+Once the adapter exists, update `HyperFramesPreviewPlayer` to prefer the
+prepared URL through the official player's `src` attribute. Keep the current
+`srcdoc` path behind a small fallback switch until the prepared URL path passes
+live Electron QA on starter projects and at least one nested-composition
+project.
+
+Use the same adapter shape as the foundation for Phase 5. The assets,
+compositions, and timeline panes should ask main-process APIs for structured
+HyperFrames/project data, then render Ripple-styled UI. HyperFrames should own
+composition structure, timing rules, preview-serving behavior, and future
+framework updates; Ripple should own the user-facing panels, controls, chat,
+comments, revisions, widgets, and export workflow.
 
 ## Concrete Steps
 
 Run commands from `/Users/comeara/Projects/ripple` unless noted otherwise.
 
-1. Inspect the existing preview implementation:
-   `src/renderer/features/agents/main/active-chat.tsx`,
-   `src/renderer/features/agents/ui/agents-content.tsx`,
-   `src/renderer/features/agents/ui/agent-preview.tsx`,
-   `src/renderer/features/agents/ui/preview-url-input.tsx`,
-   `src/renderer/features/agents/ui/viewport-toggle.tsx`, and
-   `src/renderer/features/agents/atoms/index.ts`.
-
-2. Inspect HyperFrames runtime/player possibilities in the installed package:
-   `node_modules/hyperframes/package.json`,
-   `node_modules/hyperframes/dist/cli.js`,
-   `node_modules/hyperframes/dist/hyperframe-runtime.js`,
-   `node_modules/hyperframes/dist/hyperframe.runtime.iife.js`, and
-   `node_modules/hyperframes/dist/studio/index.html`.
-
-3. Verify package availability and versioning:
+1. Completed. Re-check package availability:
    `npm view hyperframes version`,
    `npm view @hyperframes/player version`,
-   `npm view @hyperframes/studio version`, and
-   `npm view @hyperframes/core version`. Install or pin the package family only
-   as one exact version in the implementation step.
+   `npm view @hyperframes/core version`, and
+   `npm view @hyperframes/studio version`.
 
-4. Prototype the smallest official-player path against a scaffolded Ripple
-   project. Prove that `@hyperframes/player` imports in the renderer, can load a
-   main-process-approved local composition URL, emits ready/time/error events,
-   and supports app-owned play, pause, seek, reload, and aspect-ratio behavior.
+2. Completed. Inspect official package entry points after installation:
+   `node_modules/@hyperframes/player/package.json`,
+   `node_modules/@hyperframes/core/package.json`, and
+   `node_modules/@hyperframes/studio/package.json`.
 
-5. Prototype the managed-preview fallback against the same project. Start with
-   `trpc.hyperframes.startPreview` or the underlying Phase 3 service and prove
-   the iframe can show the default composition if the official-player path
-   fails.
+3. Completed. Pin the package family exactly in `package.json` and `bun.lock`.
 
-6. Add or adapt a main-process URL contract such as
-   `getPreviewCompositionUrl({ projectId, compositionId })`. It must resolve
-   root and external composition files safely, avoid confusing Ripple database
-   IDs with HyperFrames composition IDs, and return only URLs derived from a
-   validated project context.
+4. Completed in the renderer component path. Build a small local smoke for the official player. The smoke should load a
+   scaffolded Ripple composition, report readiness, expose duration, respond to
+   play/pause, and seek to a requested time.
 
-7. Record the selected stack in this ExecPlan with evidence: commands run,
-   files inspected, package versions, CSP changes, and what the player can and
-   cannot control.
+5. Completed. Add a main-process tRPC procedure for the official player source contract.
+   It must resolve project/composition ownership and return only the data the
+   official player needs.
 
-8. Implement `src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx`
-   and supporting utilities. Keep the component focused on project preview,
-   not assets, comments, chat, or export.
+6. Completed. Implement `HyperFramesPreviewPlayer` around the official player primitive.
 
-9. Adapt or reuse the current preview sidebar trigger so Ripple projects can
-   show `HyperFramesPreviewPlayer` in the existing preview pane. Keep existing
-   coding-agent preview behavior working.
+7. Completed. Wire `HyperFramesPreviewPlayer` into:
+   `src/renderer/features/agents/main/active-chat.tsx` and
+   `src/renderer/features/agents/ui/agents-content.tsx`.
 
-10. Add focused tests for utility decisions such as preview availability,
-   status-to-label mapping, aspect-ratio sizing, and URL/reload state.
+8. Completed. Add focused tests for pure utilities and main-process source selection.
 
-11. Run validation, update this ExecPlan, and leave Phase 5 assets/compositions
-   work clearly separate.
+9. Completed. Run automated validation and update this plan with exact results.
+
+10. Completed. Ran Electron smoke validation and updated this plan with live
+    player notes.
+
+11. Not started. Create a small local spike that exercises
+    `@hyperframes/player` with `src` against a prepared preview URL. Compare
+    `ripple-preview:`, loopback HTTP, and the current `srcdoc` path.
+
+12. Not started. Inspect the installed HyperFrames preview/core/studio-api
+    routes and identify the smallest read-only subset Ripple can reuse for
+    embedded preview serving.
+
+13. Not started. Prototype a main-process adapter that maps Ripple `projectId`
+    and `compositionId` to a HyperFrames-prepared preview document URL without
+    opening external Studio.
+
+14. Not started. Update CSP and protocol/session registration only as required
+    by the selected serving strategy. Keep the policy as narrow as practical.
+
+15. Not started. Teach `HyperFramesPreviewPlayer` to prefer the prepared URL
+    path and retain the current `srcdoc` path as a temporary fallback until the
+    URL path is proven.
+
+16. Not started. Add validation coverage for source selection, project-boundary
+    enforcement, no-CDN runtime loading, nested compositions, and player
+    readiness events.
 
 ## Validation and Acceptance
 
 Automated validation:
 
+- focused `bun test` for new preview/source utilities
 - `bun run test:ripple`
-- focused `bun test` for new HyperFrames preview utility tests
 - `bun run build`
 - `bun run ts:check`, recording the existing baseline failures if they remain
   and confirming no new Phase 4 files are implicated
@@ -355,68 +469,94 @@ Manual/Electron validation:
 
 - Start the app with `bun run dev`.
 - Create or open a Ripple project with the default scaffold.
-- Open the preview pane using the existing preview affordance/path.
-- Confirm the pane shows the HyperFrames preview player, not a blank center
-  workspace.
+- Open the preview pane using the existing preview affordance.
+- Confirm the pane shows the Ripple HyperFrames player, not a blank workspace
+  and not a copied Studio page.
 - Confirm the preview uses the selected project and active composition.
 - Confirm loading, ready, reload/restart, stopped, close, and error states.
-- Confirm player controls are Ripple-owned and driven through the
-  HyperFrames player/runtime API, not through hidden renderer shell commands.
-- Confirm any iframe/player content preserves the correct composition aspect
-  ratio and does not overlap controls at narrow or wide pane widths.
-- Confirm "Open in HyperFrames Studio" opens the managed preview URL when that
-  URL exists.
-- Confirm local preview frames are allowed by CSP and no required runtime/player
-  asset is loaded from a CDN during normal local use.
-- Confirm app-managed preview does not unexpectedly open the user's external
-  browser, or record the mitigation required before shipping.
-- Run a package smoke when practical and confirm HyperFrames package assets are
-  available in `app.asar.unpacked` or the selected packaged-app location.
-- Confirm existing non-Ripple coding-agent preview behavior still works or is
-  unaffected by the new path.
+- Confirm play, pause, seek, frame/time display, and duration are driven by the
+  official HyperFrames player API.
+- Confirm the player preserves the correct composition aspect ratio and does
+  not overlap controls at narrow or wide pane widths.
+- Confirm the implementation does not unexpectedly open the user's external
+  browser.
+- Confirm normal local use does not require CDN runtime assets.
+- Confirm existing non-Ripple coding-agent preview behavior is unaffected.
+
+Manual result, 2026-04-26:
+
+- Opened `~/Ripple/test1` in the live Electron app with DevTools attached.
+- Confirmed the player no longer logs `ERR_UNKNOWN_URL_SCHEME`, CDN CSP
+  runtime loading blocks, missing GSAP timeline errors, play-time runtime
+  errors, or React `transform-origin` warnings.
+- Confirmed the preview reaches ready state, plays, exposes a `0:06` duration,
+  and lets the user restart/pause through Ripple-owned controls.
+- Confirmed the remaining console warnings are the official player iframe
+  sandbox warning, existing Jotai deprecation, and Electron development CSP
+  warning.
 
 Acceptance for Phase 4:
 
 - Ripple projects can be previewed from the existing preview pane.
-- The preferred player path uses official HyperFrames packages through a
-  Ripple-owned adapter, with exact-version compatibility documented.
-- If the official package path is blocked, the player is powered by Phase 3
-  main-process HyperFrames routes and the managed preview iframe fallback, with
-  the blocker recorded in this plan.
+- The player is powered by official HyperFrames player/runtime primitives.
 - The player has app-owned controls and clear states in Ripple's current UI
   style.
 - The renderer does not spawn HyperFrames, FFmpeg, shell commands, or arbitrary
   filesystem operations.
-- The renderer receives only main-process-approved preview URLs and never
-  trusts absolute file paths for project or composition access.
+- The renderer receives only main-process-approved project/composition source
+  data.
 - The implementation does not introduce the assets/compositions pane, the
   right chat/comment review sidebar, persistent comments, revision workflow, or
   export UI.
+- If the official player architecture is blocked, Phase 4 stops at a documented
+  blocker and next-step decision.
+
+Acceptance for the next Level 2 architecture pass:
+
+- The user-visible player still looks and behaves like Ripple, not embedded
+  HyperFrames Studio.
+- `@hyperframes/player` loads an approved local preview URL through `src` and
+  reaches `ready` in Electron.
+- HyperFrames-owned preview preparation handles runtime loading, nested
+  compositions, asset references, and timeline semantics without Ripple
+  duplicating those rules in renderer code.
+- The app does not open an external browser or full Studio window during normal
+  preview.
+- The serving adapter exposes only preview-safe read paths for the selected
+  Ripple project and composition.
+- Normal preview does not request CDN scripts or other network runtime assets.
+- Phase 5 can reuse the adapter/project metadata path for the
+  assets/compositions pane and future timeline controls.
 
 ## Idempotence and Recovery
 
-Starting preview should be idempotent. If a managed preview already exists for
-the project, the player should reuse it unless the user explicitly restarts.
-Stopping preview should call the Phase 3 stop route and tolerate already
-stopped previews.
+The official player wrapper should be restartable without leaking listeners,
+timers, or player instances. Opening and closing the preview pane should not
+leave orphaned playback state.
 
-If a preview process is left running during development, stop it through the app
-route first. Use `hyperframes preview --kill-all` only as a last-resort manual
-recovery step because it can stop previews not launched by Ripple.
+If package installation creates a version mismatch, revert only the Phase 4
+dependency edits and either pin the entire HyperFrames family to one working
+version or stop with the exact incompatibility recorded.
 
-If the technology spike proves the official package path is not ready, record
-the evidence and proceed with the managed preview iframe as the Phase 4
-implementation. Do not block Phase 4 on a perfect native player if the app can
-ship a reliable preview pane first.
+If a refactor of `AgentPreview` risks existing coding-agent preview behavior,
+keep the HyperFrames player in a separate component until a shared abstraction
+is proven safe.
 
-If package installation or import creates a version mismatch, revert only the
-Phase 4 dependency edits and either pin the entire HyperFrames family to one
-working version or stay on the installed CLI package until the mismatch is
-understood.
+The Level 2 spike should be additive. Keep the current working `srcdoc` source
+path available until the prepared preview URL path is proven. If `src` mode
+fails because of player origin/readiness behavior, preserve the evidence,
+including console messages and event traces, and decide whether to keep
+`srcdoc`, adjust the serving origin, or upstream/patch the player readiness
+bridge.
 
-If a partial refactor of `AgentPreview` breaks existing preview behavior,
-restore the old CodeSandbox wrapper and keep the HyperFrames path in a separate
-component until the shared abstraction is safe.
+If a local HTTP serving adapter is introduced, it must have explicit lifecycle
+ownership in the main process. Starting, restarting, and stopping the adapter
+for the same project should be repeatable. It must not leave orphaned preview
+servers after the project changes, the preview pane closes, or the app quits.
+
+If HyperFrames changes package exports or preview route behavior, prefer
+adapting the small main-process adapter over pushing compatibility hacks into
+renderer UI components.
 
 ## Interfaces and Dependencies
 
@@ -424,26 +564,27 @@ Existing interfaces to use:
 
 - `selectedProjectAtom` from `src/renderer/features/agents/atoms`
 - `agentsPreviewSidebarOpenAtom` and `agentsPreviewSidebarWidthAtom`
-- `AgentPreview` and preview control helpers in
-  `src/renderer/features/agents/ui/`
+- preview-pane helpers in `src/renderer/features/agents/ui/`
 - `ResizableSidebar`
 - `trpc.hyperframes.doctor`
 - `trpc.hyperframes.listCompositions`
-- `trpc.hyperframes.startPreview`
-- `trpc.hyperframes.stopPreview`
-- `trpc.hyperframes.getPreviewStatus`
-- `window.desktopApi.openExternal`
+- `window.desktopApi.openExternal`, only for explicit user actions
 
-Likely new interfaces:
+New interfaces:
 
 - `HyperFramesPreviewPlayer`
-- `HyperFramesPlayerBridge`
-- `useHyperFramesPreview`
-- `getPreviewCompositionUrl` or equivalent tRPC route
-- `getHyperFramesPreviewAvailability`
-- `mapHyperFramesPreviewStatus`
-- optional shared `PreviewFrame` if extraction from `AgentPreview` is cleaner
-  than duplication
+- `trpc.hyperframes.getPlayerSource`
+- `ripple-preview:` Electron protocol
+- `buildHyperframesPlayerSourceDocument`
+- `selectHyperframesPlayerComposition`
+
+Candidate next interfaces:
+
+- `trpc.hyperframes.getPreparedPreviewSource` or an evolution of
+  `getPlayerSource` that returns an approved local preview URL
+- main-process HyperFrames preview-serving adapter
+- read-only project/composition/asset metadata APIs for Phase 5
+- narrow CSP/protocol allowances for the selected prepared-preview origin
 
 Dependencies and constraints:
 
@@ -451,39 +592,51 @@ Dependencies and constraints:
   icons already present in the app.
 - Prefer official HyperFrames packages for the player architecture:
   `hyperframes`, `@hyperframes/player`, `@hyperframes/core`, and optionally
-  `@hyperframes/studio`. Pin the package family to one exact version after the
-  spike verifies the version to use.
+  selected `@hyperframes/studio` primitives.
+- Pin the HyperFrames package family to exact `0.4.30` versions.
 - Keep filesystem and process orchestration in the main process.
 - Keep local-first usage free of mandatory auth, GitHub, repo setup, manual
   dependency installs, and provider selection.
 - Avoid normal-path CDN dependency for HyperFrames player/runtime assets.
+- For the next architecture pass, prefer HyperFrames-owned preparation through
+  `@hyperframes/core` / `@hyperframes/studio` preview primitives or the smallest
+  equivalent preview-serving subset. Avoid launching the full CLI preview flow
+  if it opens an external Studio/browser window.
+- Keep a future motion-framework adapter in mind, but do not introduce a broad
+  abstraction until the HyperFrames-backed path is stable.
 
 ## Artifacts and Notes
 
-Source inspection evidence gathered while creating this revised plan:
+Source inspection evidence gathered while creating this plan:
 
 - `src/renderer/features/agents/main/active-chat.tsx` already renders the
   preview pane as a right `ResizableSidebar`.
-- `src/renderer/features/agents/ui/agent-preview.tsx` already implements iframe
-  loading, reload, viewport, scale, device presets, resize handles, URL/path
-  display, and external open.
+- `src/renderer/features/agents/ui/agent-preview.tsx` already implements useful
+  preview UI patterns: loading, reload, viewport, scale, device presets,
+  sizing controls, URL/path display, and external open.
 - `src/renderer/features/agents/ui/agents-content.tsx` currently derives
   preview availability from CodeSandbox chat metadata.
 - `src/main/lib/trpc/routers/hyperframes.ts` exposes the Phase 3 service calls
-  the player should use.
-- Official docs inspected on 2026-04-26:
-  `@hyperframes/player` provides the custom-element player and iframe bridge;
-  `@hyperframes/studio` provides editor, player, timeline, and file-tree
-  primitives; `@hyperframes/core` provides parsing and metadata helpers; the
-  CLI provides preview, compositions, snapshot, render, lint, and doctor
-  commands.
-- Local package inspection confirmed `hyperframes@0.4.28` is installed,
+  the player-adjacent source contract should build on.
+- Local package inspection confirmed `hyperframes@0.4.28` is installed and
   `@hyperframes/player`, `@hyperframes/studio`, and `@hyperframes/core` are not
-  installed, and `src/renderer/index.html` lacks `frame-src`.
-- npm registry checks on 2026-04-26 confirmed `hyperframes`,
-  `@hyperframes/player`, `@hyperframes/studio`, and `@hyperframes/core` are all
-  currently published at `0.4.30`.
-- User-provided screenshot of the first broad Phase 4 implementation showed the
-  shell arrived before the preview player, leaving the central motion workspace
-  too empty. This plan narrows Phase 4 to the player so later shell phases have
-  something real to compose around.
+  installed in this checkout.
+- Registry checks on 2026-04-26 found `hyperframes`,
+  `@hyperframes/player`, `@hyperframes/studio`, and `@hyperframes/core` at
+  `0.4.30`; the package family is now pinned to that version.
+- User feedback on 2026-04-26 rejected the temporary non-player implementation
+  because it opened HyperFrames Studio externally and did not play in the app.
+  Phase 4 must now proceed through the official player architecture or stop for
+  discussion.
+- `@hyperframes/player` is imported only in the renderer. The main process does
+  not import the `@hyperframes/core` package root; it serves the exported
+  runtime file through the local protocol.
+- Architecture review on 2026-04-26 selected the middle path for the next pass:
+  Ripple remains the UI layer, `@hyperframes/player` remains the embedded
+  player, and HyperFrames should prepare/serve the preview document wherever
+  practical.
+- Known blockers to investigate before switching fully to `src`: official
+  player readiness across iframe origins, CSP for the selected preview origin,
+  avoiding external Studio/browser launches, limiting preview-server routes to
+  safe read operations, and proving nested compositions/assets/media work
+  without CDN runtime requests.

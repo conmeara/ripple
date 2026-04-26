@@ -97,6 +97,7 @@ import { FileSearchDialog } from "../../file-viewer/components/file-search-dialo
 import { terminalBottomHeightAtom, terminalDisplayModeAtom, terminalSidebarOpenAtomFamily } from "../../terminal/atoms"
 import { TerminalBottomPanelContent, TerminalSidebar } from "../../terminal/terminal-sidebar"
 import { getTerminalScopeKey } from "../../terminal/utils"
+import { HyperFramesPreviewPlayer } from "../../hyperframes/HyperFramesPreviewPlayer"
 import {
   agentsChangesPanelCollapsedAtom,
   agentsChangesPanelWidthAtom,
@@ -140,6 +141,7 @@ import {
   selectedAgentChatIdAtom,
   selectedCommitAtom,
   selectedDiffFilePathAtom,
+  selectedProjectAtom,
   setLoading,
   subChatFilesAtom,
   agentsSidebarOpenAtom,
@@ -4882,6 +4884,7 @@ export function ChatView({
   const setSubChatUnseenChanges = useSetAtom(agentsSubChatUnseenChangesAtom)
   const setJustCreatedIds = useSetAtom(justCreatedIdsAtom)
   const selectedChatId = useAtomValue(selectedAgentChatIdAtom)
+  const selectedProject = useAtomValue(selectedProjectAtom)
   const setUndoStack = useSetAtom(undoStackAtom)
   const setSelectedFilePath = useSetAtom(selectedDiffFilePathAtom)
   const setFilteredDiffFiles = useSetAtom(filteredDiffFilesAtom)
@@ -5694,12 +5697,13 @@ export function ChatView({
   const isQuickSetup = meta?.isQuickSetup || !meta?.sandboxConfig?.port
   const previewPort = meta?.sandboxConfig?.port ?? 3000
 
-  // Check if preview can be opened (sandbox with port exists and not quick setup)
-  const canOpenPreview = !!(
+  const canOpenSandboxPreview = !!(
     sandboxId &&
     !isQuickSetup &&
     meta?.sandboxConfig?.port
   )
+  const canOpenHyperframesPreview = chatSourceMode === "local" && !!selectedProject?.id
+  const canOpenPreview = canOpenHyperframesPreview || canOpenSandboxPreview
 
   // Check if diff button can be shown (stats available)
   // This shows the Changes button with stats in header
@@ -7543,7 +7547,7 @@ Make sure to preserve all functionality from both branches when resolving confli
                 {/* Open Preview Button - shows when preview is closed (desktop only, local mode only) */}
                 {!isMobileFullscreen &&
                   !isPreviewSidebarOpen &&
-                  sandboxId &&
+                  (sandboxId || canOpenHyperframesPreview) &&
                   chatSourceMode === "local" &&
                   (canOpenPreview ? (
                     <Tooltip delayDuration={500}>
@@ -8008,7 +8012,13 @@ Make sure to preserve all functionality from both branches when resolving confli
             className="bg-tl-background border-l"
             style={{ borderLeftWidth: "0.5px" }}
           >
-            {isQuickSetup ? (
+            {canOpenHyperframesPreview && selectedProject ? (
+              <HyperFramesPreviewPlayer
+                projectId={selectedProject.id}
+                compositionId={selectedProject.activeCompositionId}
+                onClose={() => setIsPreviewSidebarOpen(false)}
+              />
+            ) : isQuickSetup ? (
               <div className="flex flex-col h-full">
                 {/* Header with close button */}
                 <div className="flex items-center justify-end px-3 h-10 bg-tl-background flex-shrink-0 border-b border-border/50">

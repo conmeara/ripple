@@ -22,6 +22,7 @@ import {
   agentsSubChatsSidebarModeAtom,
   agentsSubChatsSidebarWidthAtom,
   desktopViewAtom,
+  selectedProjectAtom,
 } from "../atoms"
 import {
   selectedTeamIdAtom,
@@ -48,6 +49,7 @@ import { useIsMobile } from "../../../lib/hooks/use-mobile"
 import { AgentsSidebar } from "../../sidebar/agents-sidebar"
 import { AgentsSubChatsSidebar } from "../../sidebar/agents-subchats-sidebar"
 import { AgentPreview } from "./agent-preview"
+import { HyperFramesPreviewPlayer } from "../../hyperframes/HyperFramesPreviewPlayer"
 import { AgentDiffView } from "./agent-diff-view"
 import { TerminalSidebar, terminalSidebarOpenAtomFamily } from "../../terminal"
 import { getTerminalScopeKey } from "../../terminal/utils"
@@ -79,6 +81,7 @@ export function AgentsContent() {
   const setSelectedChatIsRemote = useSetAtom(selectedChatIsRemoteAtom)
   const setChatSourceMode = useSetAtom(chatSourceModeAtom)
   const chatSourceMode = useAtomValue(chatSourceModeAtom)
+  const selectedProject = useAtomValue(selectedProjectAtom)
   const selectedDraftId = useAtomValue(selectedDraftIdAtom)
   const showNewChatForm = useAtomValue(showNewChatFormAtom)
   const betaKanbanEnabled = useAtomValue(betaKanbanEnabledAtom)
@@ -830,11 +833,13 @@ export function AgentsContent() {
       }
     | undefined
   const isQuickSetup = chatMeta?.isQuickSetup === true
-  const canShowPreview = !!(
+  const canShowSandboxPreview = !!(
     chatData?.sandbox_id &&
     !isQuickSetup &&
     chatMeta?.sandboxConfig?.port
   )
+  const canShowHyperframesPreview = chatSourceMode === "local" && !!selectedProject?.id
+  const canShowPreview = canShowHyperframesPreview || canShowSandboxPreview
   // Check if diff can be shown (sandbox exists)
   const canShowDiff = !!chatData?.sandbox_id
 
@@ -881,13 +886,22 @@ export function AgentsContent() {
           />
         ) : mobileViewMode === "preview" && selectedChatId && canShowPreview ? (
           // Preview Mode
-          <AgentPreview
-            chatId={selectedChatId}
-            sandboxId={chatData!.sandbox_id!}
-            port={chatMeta?.sandboxConfig?.port!}
-            isMobile={true}
-            onClose={() => setMobileViewMode("chat")}
-          />
+          canShowHyperframesPreview && selectedProject ? (
+            <HyperFramesPreviewPlayer
+              projectId={selectedProject.id}
+              compositionId={selectedProject.activeCompositionId}
+              isMobile={true}
+              onClose={() => setMobileViewMode("chat")}
+            />
+          ) : (
+            <AgentPreview
+              chatId={selectedChatId}
+              sandboxId={chatData!.sandbox_id!}
+              port={chatMeta?.sandboxConfig?.port!}
+              isMobile={true}
+              onClose={() => setMobileViewMode("chat")}
+            />
+          )
         ) : mobileViewMode === "diff" && selectedChatId && canShowDiff ? (
           // Diff Mode - fullscreen diff view
           <AgentDiffView
