@@ -7,10 +7,14 @@ import {
   resolveProjectRelativePath,
 } from "./project-context"
 import {
+  HYPERFRAMES_PLAYER_GSAP_PATH,
   HYPERFRAMES_PLAYER_PROTOCOL,
+  HYPERFRAMES_PLAYER_PREVIEW_COMP_PREFIX,
+  HYPERFRAMES_PLAYER_PREVIEW_ROOT_PATH,
   HYPERFRAMES_PLAYER_RUNTIME_PATH,
+  buildHyperframesPreparedPreviewDocument,
   getHyperframesPlayerMimeType,
-  loadHyperframesPlayerLegacyGsapSource,
+  loadHyperframesPlayerBundledGsapSource,
   loadHyperframesPlayerRuntimeSource,
   upgradeLegacyRippleStarterHtmlForPreview,
 } from "./player-source"
@@ -32,15 +36,29 @@ function parsePreviewUrl(rawUrl: string): {
   projectId: string
   relativePath: string
   isRuntime: boolean
+  isBundledGsap: boolean
+  preparedFilePath: string | null
+  preparedKind: "root" | "external" | null
 } {
   const url = new URL(rawUrl)
   const projectId = decodeURIComponent(url.hostname)
   const relativePath = decodeURIComponent(url.pathname.replace(/^\/+/, "")) || "index.html"
+  const isPreparedRoot = relativePath === HYPERFRAMES_PLAYER_PREVIEW_ROOT_PATH
+  const isPreparedComposition = relativePath.startsWith(
+    HYPERFRAMES_PLAYER_PREVIEW_COMP_PREFIX,
+  )
 
   return {
     projectId,
     relativePath,
     isRuntime: relativePath === HYPERFRAMES_PLAYER_RUNTIME_PATH,
+    isBundledGsap: relativePath === HYPERFRAMES_PLAYER_GSAP_PATH,
+    preparedFilePath: isPreparedRoot
+      ? "index.html"
+      : isPreparedComposition
+        ? relativePath.slice(HYPERFRAMES_PLAYER_PREVIEW_COMP_PREFIX.length)
+        : null,
+    preparedKind: isPreparedRoot ? "root" : isPreparedComposition ? "external" : null,
   }
 }
 
@@ -112,7 +130,14 @@ async function handleHyperframesPlayerRequest(request: Request): Promise<Respons
   }
 
   try {
-    const { projectId, relativePath, isRuntime } = parsePreviewUrl(request.url)
+    const {
+      projectId,
+      relativePath,
+      isRuntime,
+      isBundledGsap,
+      preparedFilePath,
+      preparedKind,
+    } = parsePreviewUrl(request.url)
     if (!projectId) return response(404, "Project not found.")
 
     if (isRuntime) {
@@ -124,7 +149,35 @@ async function handleHyperframesPlayerRequest(request: Request): Promise<Respons
       })
     }
 
+    if (isBundledGsap) {
+      const gsap = loadHyperframesPlayerBundledGsapSource(HYPERFRAMES_PLAYER_GSAP_PATH)
+      if (!gsap) return response(404, "File not found.")
+
+      const buffer = Buffer.from(gsap, "utf-8")
+      return createStaticResponse({
+        request,
+        buffer,
+        contentType: "application/javascript; charset=utf-8",
+      })
+    }
+
     const context = await resolveHyperframesProjectContext({ projectId })
+
+    if (preparedFilePath && preparedKind) {
+      const html = await buildHyperframesPreparedPreviewDocument({
+        context,
+        filePath: preparedFilePath,
+        kind: preparedKind,
+      })
+      const buffer = Buffer.from(html, "utf-8")
+
+      return createStaticResponse({
+        request,
+        buffer,
+        contentType: "text/html; charset=utf-8",
+      })
+    }
+
     const normalizedPath = normalizeProjectRelativePath(relativePath)
     const absolutePath = resolveProjectRelativePath(context, normalizedPath)
 
@@ -132,7 +185,7 @@ async function handleHyperframesPlayerRequest(request: Request): Promise<Respons
       return response(404, "File not found.")
     }
 
-    const legacyGsap = loadHyperframesPlayerLegacyGsapSource(normalizedPath)
+    const legacyGsap = loadHyperframesPlayerBundledGsapSource(normalizedPath)
     if (legacyGsap) {
       const buffer = Buffer.from(legacyGsap, "utf-8")
       return createStaticResponse({

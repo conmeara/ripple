@@ -10,6 +10,16 @@ import { HyperframesError } from "./types"
 
 export const HYPERFRAMES_PLAYER_PROTOCOL = "ripple-preview"
 export const HYPERFRAMES_PLAYER_RUNTIME_PATH = "__hyperframes/runtime.js"
+export const HYPERFRAMES_PLAYER_GSAP_PATH = "__hyperframes/gsap.min.js"
+export const HYPERFRAMES_PLAYER_PREVIEW_ROOT_PATH =
+  "__hyperframes/preview/index.html"
+export const HYPERFRAMES_PLAYER_PREVIEW_COMP_PREFIX =
+  "__hyperframes/preview/comp/"
+
+const HYPERFRAMES_RUNTIME_CDN_PATTERN =
+  /https:\/\/cdn\.jsdelivr\.net\/npm\/@hyperframes\/core(?:@[^/"']+)?\/dist\/hyperframe\.runtime(?:\.iife)?\.js/g
+const GSAP_CDN_PATTERN =
+  /https:\/\/cdn\.jsdelivr\.net\/npm\/gsap(?:@[^/"']+)?\/dist\/gsap\.min\.js/g
 
 const mimeTypes: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -33,10 +43,11 @@ const mimeTypes: Record<string, string> = {
 }
 
 export interface HyperframesPlayerSource {
-  srcDoc: string
   sourceUrl: string
+  rawSourceUrl: string
   baseHref: string
   runtimeUrl: string
+  mode: "url"
   width: number
   height: number
 }
@@ -51,6 +62,20 @@ export function buildHyperframesPlayerSourceUrl(input: {
   filePath: string
 }): string {
   return `${HYPERFRAMES_PLAYER_PROTOCOL}://${encodeURIComponent(input.projectId)}/${encodeProjectRelativePath(input.filePath)}`
+}
+
+export function buildHyperframesPlayerPreparedPreviewUrl(input: {
+  projectId: string
+  filePath: string
+  kind?: Composition["kind"] | null
+}): string {
+  const filePath = normalizeProjectRelativePath(input.filePath)
+  const previewPath =
+    input.kind === "root" && filePath === "index.html"
+      ? HYPERFRAMES_PLAYER_PREVIEW_ROOT_PATH
+      : `${HYPERFRAMES_PLAYER_PREVIEW_COMP_PREFIX}${filePath}`
+
+  return `${HYPERFRAMES_PLAYER_PROTOCOL}://${encodeURIComponent(input.projectId)}/${encodeProjectRelativePath(previewPath)}`
 }
 
 export function buildHyperframesPlayerBaseHref(input: {
@@ -73,12 +98,28 @@ export function buildHyperframesPlayerRuntimeUrl(projectId: string): string {
   return `${HYPERFRAMES_PLAYER_PROTOCOL}://${encodeURIComponent(projectId)}/${HYPERFRAMES_PLAYER_RUNTIME_PATH}`
 }
 
+export function buildHyperframesPlayerGsapUrl(projectId: string): string {
+  return `${HYPERFRAMES_PLAYER_PROTOCOL}://${encodeURIComponent(projectId)}/${HYPERFRAMES_PLAYER_GSAP_PATH}`
+}
+
 export function getHyperframesPlayerMimeType(filePath: string): string {
   return mimeTypes[extname(filePath).toLowerCase()] ?? "application/octet-stream"
 }
 
 export function loadHyperframesPlayerRuntimeSource(): string {
   return readFileSync(require.resolve("@hyperframes/core/runtime"), "utf-8")
+}
+
+export function loadHyperframesPlayerBundledGsapSource(filePath: string): string | null {
+  const normalizedPath = normalizeProjectRelativePath(filePath)
+  if (
+    normalizedPath !== HYPERFRAMES_PLAYER_GSAP_PATH &&
+    normalizedPath !== "assets/vendor/gsap-lite.js"
+  ) {
+    return null
+  }
+
+  return readFileSync(require.resolve("gsap/dist/gsap.min.js"), "utf-8")
 }
 
 function formatLegacyFrameSeconds(frameValue: number): string {
@@ -104,10 +145,7 @@ export function upgradeLegacyRippleStarterHtmlForPreview(html: string): string {
 }
 
 export function loadHyperframesPlayerLegacyGsapSource(filePath: string): string | null {
-  const normalizedPath = normalizeProjectRelativePath(filePath)
-  if (normalizedPath !== "assets/vendor/gsap-lite.js") return null
-
-  return readFileSync(require.resolve("gsap/dist/gsap.min.js"), "utf-8")
+  return loadHyperframesPlayerBundledGsapSource(filePath)
 }
 
 export function selectHyperframesPlayerComposition(input: {
@@ -143,7 +181,7 @@ export function injectHyperframesPlayerDocumentChrome(input: {
   baseHref: string
   runtimeUrl: string
 }): string {
-  let html = input.html
+  let html = input.html.replace(HYPERFRAMES_RUNTIME_CDN_PATTERN, input.runtimeUrl)
   const baseTag = `<base href="${input.baseHref}">`
   const runtimeTag = `<script data-hyperframes-preview-runtime="1" src="${input.runtimeUrl}"></script>`
 
@@ -197,6 +235,29 @@ function rewriteCompositionHtmlReferences(html: string, filePath: string): strin
       }
     },
   )
+}
+
+function rewriteNestedCompositionSources(html: string, filePath: string): string {
+  return html.replace(
+    /\bdata-composition-src=(["'])([^"']+)\1/gi,
+    (_match, quote: string, value: string) => {
+      try {
+        return `data-composition-src=${quote}${rewriteCompositionRelativeUrl(value, filePath)}${quote}`
+      } catch {
+        return `data-composition-src=${quote}${value}${quote}`
+      }
+    },
+  )
+}
+
+function replaceKnownRemotePreviewDependencies(input: {
+  html: string
+  runtimeUrl: string
+  gsapUrl: string
+}): string {
+  return input.html
+    .replace(HYPERFRAMES_RUNTIME_CDN_PATTERN, input.runtimeUrl)
+    .replace(GSAP_CDN_PATTERN, input.gsapUrl)
 }
 
 function extractTemplateContent(html: string): string {
@@ -253,6 +314,101 @@ ${content}
   })
 }
 
+type HyperframesStudioApiModule = typeof import("@hyperframes/core/studio-api")
+
+let hyperframesStudioApiPromise: Promise<HyperframesStudioApiModule> | null = null
+
+function importHyperframesStudioApi(): Promise<HyperframesStudioApiModule> {
+  hyperframesStudioApiPromise ??= import("@hyperframes/core/studio-api")
+  return hyperframesStudioApiPromise
+}
+
+async function buildStudioPreparedCompositionDocument(input: {
+  projectPath: string
+  filePath: string
+  baseHref: string
+  runtimeUrl: string
+}): Promise<string | null> {
+  try {
+    const { buildSubCompositionHtml } = await importHyperframesStudioApi()
+    return buildSubCompositionHtml(
+      input.projectPath,
+      input.filePath,
+      input.runtimeUrl,
+      input.baseHref,
+    )
+  } catch (error) {
+    console.warn("[HyperFramesPlayerSource] Studio preview helper failed:", error)
+    return null
+  }
+}
+
+export async function buildHyperframesPreparedPreviewDocument(input: {
+  context: HyperframesProjectContext
+  filePath: string
+  kind?: Composition["kind"] | null
+}): Promise<string> {
+  const filePath = normalizeProjectRelativePath(input.filePath)
+  const absolutePath = resolveProjectRelativePath(input.context, filePath)
+
+  if (!existsSync(absolutePath) || !statSync(absolutePath).isFile()) {
+    throw new HyperframesError(
+      "This composition file is missing from the project.",
+      "COMPOSITION_FILE_MISSING",
+    )
+  }
+
+  const baseHref = buildHyperframesPlayerProjectBaseHref(input.context.projectId)
+  const runtimeUrl = buildHyperframesPlayerRuntimeUrl(input.context.projectId)
+  const gsapUrl = buildHyperframesPlayerGsapUrl(input.context.projectId)
+  const isRootDocument = input.kind === "root" && filePath === "index.html"
+
+  if (!isRootDocument) {
+    const studioPrepared = await buildStudioPreparedCompositionDocument({
+      projectPath: input.context.projectPath,
+      filePath,
+      baseHref,
+      runtimeUrl,
+    })
+
+    if (studioPrepared) {
+      return replaceKnownRemotePreviewDependencies({
+        html: rewriteNestedCompositionSources(
+          upgradeLegacyRippleStarterHtmlForPreview(studioPrepared),
+          filePath,
+        ),
+        runtimeUrl,
+        gsapUrl,
+      })
+    }
+
+    const standalone = buildStandaloneCompositionDocument({
+      projectPath: input.context.projectPath,
+      filePath,
+      baseHref,
+      runtimeUrl,
+    })
+
+    if (standalone) {
+      return replaceKnownRemotePreviewDependencies({
+        html: rewriteNestedCompositionSources(standalone, filePath),
+        runtimeUrl,
+        gsapUrl,
+      })
+    }
+  }
+
+  return replaceKnownRemotePreviewDependencies({
+    html: injectHyperframesPlayerDocumentChrome({
+      html: upgradeLegacyRippleStarterHtmlForPreview(readFileSync(absolutePath, "utf-8")),
+      baseHref,
+      runtimeUrl,
+    }),
+    runtimeUrl,
+    gsapUrl,
+  })
+}
+
 export function buildHyperframesPlayerSourceDocument(input: {
   context: HyperframesProjectContext
   composition: Composition
@@ -269,32 +425,22 @@ export function buildHyperframesPlayerSourceDocument(input: {
 
   const baseHref = buildHyperframesPlayerProjectBaseHref(input.context.projectId)
   const runtimeUrl = buildHyperframesPlayerRuntimeUrl(input.context.projectId)
-  const sourceUrl = buildHyperframesPlayerSourceUrl({
+  const rawSourceUrl = buildHyperframesPlayerSourceUrl({
     projectId: input.context.projectId,
     filePath,
   })
-
-  let srcDoc: string | null = null
-  if (input.composition.kind !== "root") {
-    srcDoc = buildStandaloneCompositionDocument({
-      projectPath: input.context.projectPath,
-      filePath,
-      baseHref,
-      runtimeUrl,
-    })
-  }
-
-  srcDoc ??= injectHyperframesPlayerDocumentChrome({
-    html: upgradeLegacyRippleStarterHtmlForPreview(readFileSync(absolutePath, "utf-8")),
-    baseHref,
-    runtimeUrl,
+  const sourceUrl = buildHyperframesPlayerPreparedPreviewUrl({
+    projectId: input.context.projectId,
+    filePath,
+    kind: input.composition.kind,
   })
 
   return {
-    srcDoc,
     sourceUrl,
+    rawSourceUrl,
     baseHref,
     runtimeUrl,
+    mode: "url",
     width: input.composition.width,
     height: input.composition.height,
   }

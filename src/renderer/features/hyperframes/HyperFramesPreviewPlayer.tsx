@@ -15,6 +15,10 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "../../components/ui/button"
 import { trpc } from "../../lib/trpc"
 import { cn } from "../../lib/utils"
+import {
+  buildHyperframesPlayerBlobDocument,
+  buildHyperframesPlayerFetchUrl,
+} from "./player-source-url"
 
 interface HyperFramesPreviewPlayerProps {
   projectId: string
@@ -50,6 +54,8 @@ export function HyperFramesPreviewPlayer({
   const [playerError, setPlayerError] = useState<string | null>(null)
   const [scale, setScale] = useState(100)
   const [reloadVersion, setReloadVersion] = useState(0)
+  const [playerSourceUrl, setPlayerSourceUrl] = useState<string | null>(null)
+  const [sourceLoadError, setSourceLoadError] = useState<string | null>(null)
 
   const sourceQuery = trpc.hyperframes.getPlayerSource.useQuery(
     { projectId, compositionId },
@@ -64,19 +70,23 @@ export function HyperFramesPreviewPlayer({
   const composition = sourceQuery.data?.composition
   const project = sourceQuery.data?.project
   const aspectRatio = source ? `${source.width} / ${source.height}` : "16 / 9"
-  const sourceDocument = useMemo(() => {
-    if (!source?.srcDoc) return null
-    return `${source.srcDoc}\n<!-- ripple-player-reload:${reloadVersion} -->`
-  }, [reloadVersion, source?.srcDoc])
+  const sourceUrl = useMemo(() => {
+    if (!source?.sourceUrl) return null
+    return buildHyperframesPlayerFetchUrl(source.sourceUrl, reloadVersion)
+  }, [reloadVersion, source?.sourceUrl])
+  const isPreparingSource = Boolean(sourceUrl && !playerSourceUrl && !sourceLoadError)
   const statusLabel = playerError
     ? "Error"
-    : sourceQuery.isLoading
+    : sourceLoadError
+      ? "Error"
+      : sourceQuery.isLoading || isPreparingSource
       ? "Loading"
       : isReady
         ? isPlaying ? "Playing" : "Ready"
         : "Preparing"
   const errorMessage =
     playerError ??
+    sourceLoadError ??
     (sourceQuery.error instanceof Error ? sourceQuery.error.message : null)
 
   useEffect(() => {
@@ -140,8 +150,65 @@ export function HyperFramesPreviewPlayer({
   }, [])
 
   useEffect(() => {
+    if (!sourceUrl) {
+      setPlayerSourceUrl(null)
+      setSourceLoadError(null)
+      return
+    }
+
+    let objectUrl: string | null = null
+    const abortController = new AbortController()
+
+    setPlayerSourceUrl(null)
+    setSourceLoadError(null)
+
+    setIsReady(false)
+    setIsPlaying(false)
+    setCurrentTime(0)
+    setDuration(0)
+    setPlayerError(null)
+    playerRef.current?.pause()
+
+    void (async () => {
+      try {
+        const response = await fetch(sourceUrl, {
+          cache: "no-store",
+          signal: abortController.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Preview source returned ${response.status}.`)
+        }
+
+        const html = await response.text()
+        if (abortController.signal.aborted) return
+
+        objectUrl = URL.createObjectURL(
+          new Blob(
+            [buildHyperframesPlayerBlobDocument({ html, sourceUrl })],
+            { type: "text/html" },
+          ),
+        )
+        setPlayerSourceUrl(objectUrl)
+      } catch (error) {
+        if (abortController.signal.aborted) return
+
+        const message = error instanceof Error ? error.message : String(error)
+        setSourceLoadError(`Preview source could not be loaded. ${message}`)
+      }
+    })()
+
+    return () => {
+      abortController.abort()
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl)
+      }
+    }
+  }, [sourceUrl])
+
+  useEffect(() => {
     const player = playerRef.current
-    if (!player || !source || !sourceDocument) return
+    if (!player || !source || !playerSourceUrl) return
 
     setIsReady(false)
     setIsPlaying(false)
@@ -151,9 +218,9 @@ export function HyperFramesPreviewPlayer({
     player.pause()
     player.setAttribute("width", String(source.width))
     player.setAttribute("height", String(source.height))
-    player.removeAttribute("src")
-    player.setAttribute("srcdoc", sourceDocument)
-  }, [source, sourceDocument])
+    player.removeAttribute("srcdoc")
+    player.setAttribute("src", playerSourceUrl)
+  }, [playerSourceUrl, source])
 
   const handleTogglePlayback = () => {
     const player = playerRef.current

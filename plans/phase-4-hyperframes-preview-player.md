@@ -19,13 +19,12 @@ Ripple-owned adapter. Ripple owns the surrounding app chrome, controls, states,
 and placement. HyperFrames owns motion playback, timing, composition loading,
 and player semantics.
 
-The first implementation reaches that shape by wrapping `@hyperframes/player`
-and asking the main process for a prepared `srcdoc` document. The next
-architecture step is to lean further on HyperFrames without giving up Ripple's
-native UI: keep the Ripple player chrome, but move the composition document,
-runtime injection, asset resolution, nested composition behavior, and future
-timeline semantics behind a HyperFrames-prepared preview URL loaded by the
-official player.
+The current implementation reaches that shape by wrapping `@hyperframes/player`
+with Ripple-owned chrome and asking the main process for a HyperFrames-prepared
+preview URL. The renderer does not build or pass a `srcdoc` fallback. It fetches
+the approved prepared document, turns it into a same-origin object URL, and
+passes that URL to the official player's `src` attribute so the player can keep
+using its own ready, play, pause, seek, duration, and timeupdate semantics.
 
 ## Progress
 
@@ -66,15 +65,45 @@ official player.
   implementation review: evolve from Ripple-built `srcdoc` toward a
   HyperFrames-prepared preview URL while preserving Ripple-owned UI, comments,
   chat, widgets, and future assets/compositions/timeline surfaces.
-- [ ] Spike the official player's `src` mode against a HyperFrames-prepared
+- [x] 2026-04-26 / Codex: Spiked the official player's `src` mode against a
+  direct `ripple-preview:` prepared URL. The document rendered visually, but
+  the player stayed in `Preparing` and emitted `Composition timeline not found
+  after 8s`, confirming the expected origin/readiness blocker.
+- [x] 2026-04-26 / Codex: Switched the renderer from `srcdoc` to `src` only.
+  It now fetches the main-process-approved prepared preview document and passes
+  a same-origin `blob:` URL to `@hyperframes/player`, while all project assets
+  and the runtime still resolve through `ripple-preview:`.
+- [x] 2026-04-26 / Codex: Prototyped a main-process preview-serving adapter
+  using HyperFrames core/studio preview helpers where available, without
+  launching external Studio or exposing arbitrary filesystem paths.
+- [x] 2026-04-26 / Codex: Decided to fully switch Phase 4 from `srcdoc` to
+  `src`. There is no renderer `srcdoc` fallback path after the Level 2 update.
+- [x] 2026-04-26 / Codex: Re-ran final validation after the Level 2 update.
+  Focused player-source tests, `bun run test:ripple`, `bun run build`, and
+  `git diff --check` passed. `bun run ts:check` still fails on the existing
+  repo-wide baseline errors outside the Phase 4 player files.
+- [x] 2026-04-26 / Codex: Re-ran live Electron QA after the Level 2 update.
+  The player reaches `Ready`, play changes status to `Playing`, the time slider
+  advances, reload returns to `Ready`, and DevTools no longer shows the prior
+  preview-load errors.
+- [x] 2026-04-26 / Codex: Added broader Phase 4 automated QA coverage for
+  nested composition references, media assets, font URLs, no-CDN runtime and
+  GSAP behavior, reload-after-edit semantics, renderer reload URL behavior, and
+  packaged-app dependency configuration.
+- [x] 2026-04-26 / Codex: Re-ran the broadened QA suite. Focused HyperFrames
+  tests passed 17/17, `bun run test:ripple` passed 69/69, `bun run build`
+  passed, `bun run package` produced `release/mac-arm64/1Code.app`, packaged
+  runtime files were present in `app.asar.unpacked`, and `git diff --check`
+  passed. `bun run ts:check` still fails only on the known repo-wide baseline
+  outside the Phase 4 player/source files.
+- [x] Spike the official player's `src` mode against a HyperFrames-prepared
   local preview URL and document the exact ready/play/seek/timeupdate behavior
   in Electron.
-- [ ] Prototype a main-process preview-serving adapter that uses HyperFrames
+- [x] Prototype a main-process preview-serving adapter that uses HyperFrames
   preview/core primitives without opening external Studio or exposing arbitrary
   project files.
-- [ ] Decide whether the Phase 4 player should fully switch from `srcdoc` to
-  `src`, or keep `srcdoc` as a temporary fallback while the prepared preview
-  URL path hardens.
+- [x] Decide that the Phase 4 player fully switches from `srcdoc` to `src`
+  through the HyperFrames-prepared preview URL path.
 
 ## Surprises & Discoveries
 
@@ -100,12 +129,13 @@ official player.
   phase.
   Evidence: Official docs describe a custom-element player with `play`,
   `pause`, `seek`, `currentTime`, `duration`, `ready`, and `timeupdate`.
-- Observation: The official player can consume a source document while Ripple
-  serves nested composition files, media, fonts, and the runtime through a
-  controlled local protocol.
-  Evidence: `@hyperframes/player` observes `srcdoc`; the implemented
-  `getPlayerSource` route returns `srcDoc`, and `ripple-preview:` serves only
-  paths validated against the selected project boundary.
+- Observation: The official player can consume a prepared source URL while
+  Ripple serves nested composition files, media, fonts, and the runtime through
+  a controlled local protocol.
+  Evidence: `getPlayerSource` returns a `ripple-preview:` prepared preview URL,
+  `ripple-preview:` serves only paths validated against the selected project
+  boundary, and the renderer passes a same-origin object URL to
+  `@hyperframes/player` through `src`.
 - Observation: `@hyperframes/studio` should be used selectively, not as the
   full Studio app in Phase 4.
   Evidence: Official docs expose React components and hooks for player
@@ -141,11 +171,11 @@ official player.
   `transform-origin` warning. Remaining warnings are the official player iframe
   sandbox warning, the existing Jotai `atomFamily` deprecation, and the Electron
   development CSP warning.
-- Observation: The current implementation is a good first native player pass,
-  but Ripple still owns too much composition-document compatibility.
-  Evidence: `trpc.hyperframes.getPlayerSource` returns `srcDoc`, and
-  `buildHyperframesPlayerSourceDocument` injects the runtime, rewrites selected
-  references, and normalizes older starter-project timing before the official
+- Observation: The Level 2 player path removes the renderer `srcdoc` fallback
+  but still keeps compatibility logic in the main-process adapter.
+  Evidence: `trpc.hyperframes.getPlayerSource` now returns URL source metadata,
+  while the `ripple-preview:` handler builds the prepared document, injects the
+  local runtime, and normalizes older starter-project timing before the official
   player sees the composition.
 - Observation: The stronger long-term shape is a HyperFrames-prepared preview
   URL, not a full Studio embed and not a Ripple-authored parallel runtime.
@@ -166,6 +196,13 @@ official player.
   local URL with a different origin could play visually while still failing the
   player's `ready` path unless the serving strategy preserves the expected
   access pattern.
+- Observation: Direct `ripple-preview:` `src` mode hits that origin/readiness
+  blocker in Electron.
+  Evidence: the prepared URL rendered the starter composition visually, but the
+  official player timed out with `Composition timeline not found after 8s`.
+  Fetching the same approved document and passing a same-origin `blob:` URL to
+  the official player made the player reach `Ready`, report `0:06`, play,
+  update time, and reload cleanly.
 - Observation: The same adapter direction should support Phase 5 assets,
   compositions, and future timeline UI.
   Evidence: the roadmap says HyperFrames remains the source of truth for
@@ -173,6 +210,19 @@ official player.
   Ripple's panes should read structured HyperFrames/project data through
   main-process tRPC APIs instead of each renderer surface parsing files on its
   own.
+- Observation: HyperFrames preview helpers can introduce CDN fallback scripts
+  when the project head does not already include GSAP.
+  Evidence: `@hyperframes/core`'s `buildSubCompositionHtml` can emit a
+  jsDelivr GSAP URL. Ripple's player-source adapter now rewrites known
+  HyperFrames runtime and GSAP CDN URLs to bundled `ripple-preview:` resources,
+  and the focused tests cover both project-authored remote scripts and helper
+  fallback injection.
+- Observation: Nested composition sources need explicit handling beyond the
+  helper's media/CSS URL rewriting.
+  Evidence: source inspection showed HyperFrames rewrites many `src`, `href`,
+  and CSS `url(...)` references for sub-compositions, but
+  `data-composition-src` still needed Ripple-side normalization to remain
+  project-root-relative in the prepared document.
 
 ## Decision Log
 
@@ -244,6 +294,16 @@ official player.
   semantics, and render-preview consistency.
   Date/Author: 2026-04-26 / User + Codex
 
+- Decision: Fully switch the Phase 4 player away from renderer `srcdoc` and
+  use `@hyperframes/player` `src` mode.
+  Rationale: The user explicitly rejected a fallback iframe-style path. Direct
+  `ripple-preview:` loading renders but does not satisfy the official player's
+  same-origin readiness checks, so the renderer fetches the main-approved
+  prepared preview document, creates a same-origin `blob:` URL, and passes that
+  URL to the player. Project files and runtime code still load through the
+  validated `ripple-preview:` protocol.
+  Date/Author: 2026-04-26 / User + Codex
+
 - Decision: Treat a full HyperFrames Studio embed as an escape hatch, not the
   default product direction.
   Rationale: Full Studio embedding would inherit HyperFrames features fastest,
@@ -283,13 +343,11 @@ files are implicated in that output. Live Electron QA passed against
 reports the normalized `0:06` duration, and plays through using the official
 player controls.
 
-The next iteration should not replace the Ripple-owned player UI. It should
-replace the way the player source is prepared. Today, Ripple creates an
-`srcdoc` document for the player. The target is for Ripple to ask a
-main-process adapter for an approved preview URL, and for that URL to serve a
-HyperFrames-prepared composition document. If that target works in Electron,
-Ripple keeps its native controls while HyperFrames owns more of the preview
-pipeline.
+The current iteration keeps the Ripple-owned player UI and moves source
+preparation behind a main-process adapter. Ripple asks for an approved preview
+URL, fetches that prepared document, and gives the official player a
+same-origin object URL through `src`. Ripple keeps its native controls while
+HyperFrames owns more of the preview pipeline.
 
 ## Context and Orientation
 
@@ -358,11 +416,10 @@ Electron, stop and record the exact blocker. Do not ship another substitute
 player path without an explicit user decision.
 
 Next, run the Level 2 architecture spike. The goal is not to change the visual
-UI. The goal is to move from `@hyperframes/player` plus Ripple-built `srcdoc`
-to `@hyperframes/player` plus a HyperFrames-prepared local preview URL. Start
-with a throwaway smoke that compares three source modes in Electron:
+UI. The goal is to run `@hyperframes/player` from a HyperFrames-prepared local
+preview URL. Start with a throwaway smoke that compares local URL options in
+Electron:
 
-- the current `srcdoc` path
 - a `ripple-preview:` prepared preview URL
 - a loopback `http://127.0.0.1:<port>` prepared preview URL, only if protocol
   origin behavior blocks `ripple-preview:`
@@ -380,11 +437,11 @@ primitives where possible. It should not shell out from the renderer, open
 external Studio, expose absolute filesystem paths, or mount broad Studio
 mutation routes.
 
-Once the adapter exists, update `HyperFramesPreviewPlayer` to prefer the
-prepared URL through the official player's `src` attribute. Keep the current
-`srcdoc` path behind a small fallback switch until the prepared URL path passes
-live Electron QA on starter projects and at least one nested-composition
-project.
+Once the adapter exists, update `HyperFramesPreviewPlayer` to use the prepared
+URL through the official player's `src` attribute. Do not keep a renderer
+`srcdoc` fallback switch. If the prepared URL path fails in Electron, record
+the blocker and stop for an architecture decision rather than shipping a second
+player path.
 
 Use the same adapter shape as the foundation for Phase 5. The assets,
 compositions, and timeline panes should ask main-process APIs for structured
@@ -431,28 +488,32 @@ Run commands from `/Users/comeara/Projects/ripple` unless noted otherwise.
 10. Completed. Ran Electron smoke validation and updated this plan with live
     player notes.
 
-11. Not started. Create a small local spike that exercises
-    `@hyperframes/player` with `src` against a prepared preview URL. Compare
-    `ripple-preview:`, loopback HTTP, and the current `srcdoc` path.
+11. Completed. Create a small local spike that exercises
+    `@hyperframes/player` with `src` against a prepared preview URL and records
+    the `ripple-preview:` origin/readiness behavior.
 
-12. Not started. Inspect the installed HyperFrames preview/core/studio-api
+12. Completed. Inspect the installed HyperFrames preview/core/studio-api
     routes and identify the smallest read-only subset Ripple can reuse for
     embedded preview serving.
 
-13. Not started. Prototype a main-process adapter that maps Ripple `projectId`
+13. Completed. Prototype a main-process adapter that maps Ripple `projectId`
     and `compositionId` to a HyperFrames-prepared preview document URL without
     opening external Studio.
 
-14. Not started. Update CSP and protocol/session registration only as required
+14. Completed. Update CSP and protocol/session registration only as required
     by the selected serving strategy. Keep the policy as narrow as practical.
 
-15. Not started. Teach `HyperFramesPreviewPlayer` to prefer the prepared URL
-    path and retain the current `srcdoc` path as a temporary fallback until the
-    URL path is proven.
+15. Completed. Teach `HyperFramesPreviewPlayer` to use the prepared URL path
+    through the official player's `src` attribute, with no renderer `srcdoc`
+    fallback.
 
-16. Not started. Add validation coverage for source selection, project-boundary
+16. Completed. Add validation coverage for source selection, project-boundary
     enforcement, no-CDN runtime loading, nested compositions, and player
     readiness events.
+
+17. Completed. Extend QA coverage around nested compositions, media, fonts,
+    reload-after-edit behavior, bundled runtime/GSAP loading, renderer reload
+    cache busting, and packaged-app dependency configuration.
 
 ## Validation and Acceptance
 
@@ -464,6 +525,8 @@ Automated validation:
 - `bun run ts:check`, recording the existing baseline failures if they remain
   and confirming no new Phase 4 files are implicated
 - `git diff --check`
+- package configuration smoke for HyperFrames package pinning and unpacked
+  runtime packages used by packaged preview
 
 Manual/Electron validation:
 
@@ -482,6 +545,12 @@ Manual/Electron validation:
   browser.
 - Confirm normal local use does not require CDN runtime assets.
 - Confirm existing non-Ripple coding-agent preview behavior is unaffected.
+- Confirm nested compositions resolve their own nested composition sources,
+  images, video, audio, and font URLs from the selected project.
+- Confirm reload fetches a freshly prepared document after an agent edits the
+  active composition file.
+- Confirm packaged app configuration includes the HyperFrames packages, GSAP,
+  and CLI/runtime assets outside `app.asar` where Electron can load them.
 
 Manual result, 2026-04-26:
 
@@ -494,6 +563,29 @@ Manual result, 2026-04-26:
 - Confirmed the remaining console warnings are the official player iframe
   sandbox warning, existing Jotai deprecation, and Electron development CSP
   warning.
+
+Broadened QA result, 2026-04-26:
+
+- Focused HyperFrames tests passed 17/17. They now cover approved preview URLs,
+  project-boundary path rejection, media/font MIME mapping, bundled runtime and
+  GSAP loading, legacy starter timing normalization, HyperFrames-prepared
+  source documents, no-CDN runtime/GSAP replacement, helper-injected GSAP CDN
+  replacement, nested composition/media/font rebasing, reload after project-file
+  edits, renderer reload cache busting, blob source diagnostics, CSP support for
+  local player channels, and packaged-app dependency configuration.
+- `bun run test:ripple` passed 69/69.
+- `bun run build` passed.
+- `bun run package` passed after the Electron runtime download was allowed. It
+  produced `release/mac-arm64/1Code.app`; `@hyperframes/core`,
+  `@hyperframes/player`, `@hyperframes/studio`,
+  `@hyperframes/core/dist/hyperframe.runtime.iife.js`, and
+  `gsap/dist/gsap.min.js` were present under `app.asar.unpacked`.
+- `git diff --check` passed.
+- `bun run ts:check` still fails on the existing repo-wide baseline in legacy
+  credential/auth imports, Claude/router typing, agent/chat preview surfaces,
+  plugin source unions, terminal/mention utilities, and remote API typing. No
+  new Phase 4 player/source/protocol/helper/package-config test files appeared
+  in that failure output.
 
 Acceptance for Phase 4:
 
@@ -542,12 +634,11 @@ If a refactor of `AgentPreview` risks existing coding-agent preview behavior,
 keep the HyperFrames player in a separate component until a shared abstraction
 is proven safe.
 
-The Level 2 spike should be additive. Keep the current working `srcdoc` source
-path available until the prepared preview URL path is proven. If `src` mode
-fails because of player origin/readiness behavior, preserve the evidence,
-including console messages and event traces, and decide whether to keep
-`srcdoc`, adjust the serving origin, or upstream/patch the player readiness
-bridge.
+The Level 2 spike should stay focused on the prepared URL path. Do not restore
+the renderer `srcdoc` fallback. If `src` mode fails because of player
+origin/readiness behavior, preserve the evidence, including console messages
+and event traces, then decide whether to adjust the serving origin or
+upstream/patch the player readiness bridge.
 
 If a local HTTP serving adapter is introduced, it must have explicit lifecycle
 ownership in the main process. Starting, restarting, and stopping the adapter
