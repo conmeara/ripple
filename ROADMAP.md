@@ -378,19 +378,21 @@ Four primary regions:
    - project files where useful
    - inspired by HyperFrames Studio `FileTree`, but styled as Ripple
 
-3. Chat/comment pane
-   - modes: `Chat` and `Comment`
-   - prompting
-   - frame/time revision requests
-   - review context for accept/reject
-
-4. Right editor region
+3. Main editor region
    - HyperFrames preview/player
    - timeline
    - composition switcher
    - source/properties where appropriate
    - export controls
    - "Open in HyperFrames Studio" escape hatch
+
+4. Right chat/comment and widgets sidebar
+   - Frame.io-style mode switcher for `Chat` and `Comments`
+   - chat history selection
+   - prompting and frame/time comments
+   - review context for accept/reject
+   - existing details, files, changes, plan, terminal, MCP, and other widgets
+     retained as a secondary sidebar layer
 
 ## Comment And Revision Workflow
 
@@ -549,12 +551,16 @@ Done when:
 
 ### Phase 4: Ripple Shell
 
+ExecPlan: `plans/phase-4-ripple-shell.md`
+
 Goals:
 
-- Rework shell from workspace/chat/dev-preview to project/assets/chat-comment/
-  HyperFrames editor.
+- Rework shell from workspace/chat/dev-preview to project/assets/main
+  HyperFrames preview and right chat-comment/widget sidebar.
 - Replace or supersede sub-chat sidebar with assets/compositions/templates pane.
 - Replace generic `AgentPreview` with `HyperFramesStudioPane`.
+- Move chat/comment UX into the right sidebar while preserving chat history and
+  existing details/files/widgets.
 - Add active composition switching and preview refresh states.
 
 Key files:
@@ -572,6 +578,8 @@ Done when:
 - Four-part layout is visible and usable.
 - Preview/editor region is HyperFrames-native.
 - Composition switching works.
+- Right sidebar can switch between chat and comments while retaining existing
+  widgets/details surfaces.
 - Preview refresh/error/sync states are clear.
 - "Open in HyperFrames Studio" escape hatch exists.
 
