@@ -649,7 +649,7 @@ Done when:
 Goals:
 
 - Replace or supersede the current chat/sub-chat list pane with
-  assets/compositions/templates for the selected Ripple project.
+  assets and compositions for the selected Ripple project.
 - Build from HyperFrames composition discovery and project-local asset data.
 - Add active composition switching that drives the Phase 4 preview player and
   Phase 5 timeline.
@@ -667,8 +667,7 @@ Key files:
 
 Done when:
 
-- The left/middle list area shows compositions, assets, and templates in Ripple
-  language.
+- The left/middle list area shows compositions and assets in Ripple language.
 - Selecting a composition updates project state and refreshes the preview
   player and timeline.
 - Project file and asset reads are resolved by project ID in the main process,

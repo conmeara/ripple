@@ -41,15 +41,39 @@ Phase 5 assets/compositions work is now Phase 6.
   timeline UI and adapter state; HyperFrames runtime/player owns timeline
   semantics; do not embed full Studio or make iframe DOM access the
   architecture.
-- [ ] Implement a shared `RippleTimelinePlayerAdapter` around the Phase 4
-  player wrapper.
-- [ ] Capture the runtime `hf-preview` timeline manifest and normalize it into
-  a Ripple timeline model.
-- [ ] Add a main-process static `getTimelineModel` fallback for fast
-  source-derived timeline data.
-- [ ] Build the read-only Ripple timeline under the Phase 4 player.
-- [ ] Validate in Electron against the default `~/Ripple/test1` project and a
-  nested-composition fixture.
+- [x] 2026-04-26 / Codex: Implemented a shared
+  `RippleTimelinePlayerAdapter` around the Phase 4 player wrapper.
+- [x] 2026-04-26 / Codex: Captured runtime `hf-preview` timeline manifests
+  and normalized them into a Ripple timeline model.
+- [x] 2026-04-26 / Codex: Added a main-process static `getTimelineModel`
+  fallback for fast source-derived timeline data.
+- [x] 2026-04-26 / Codex: Built the read-only Ripple timeline under the Phase
+  4 player with clip selection, range data, ruler, tracks, playhead, and zoom
+  controls.
+- [x] 2026-04-26 / Codex: Validated in Electron against the default
+  `~/Ripple/test1` project, with nested-composition coverage in the static
+  model tests.
+- [x] 2026-04-26 / Codex: Compared Ripple's timeline to HyperFrames Studio
+  and aligned the displayed clip rows and lane styling while keeping Ripple's
+  app color tokens for light/dark appearance.
+- [x] 2026-04-26 / Codex: Refined the preview/timeline chrome so the control
+  bar sits above the optional timeline, the timeline toggle is icon-only, and
+  redundant runtime/duration labels are removed from the timeline header.
+- [x] 2026-04-26 / Codex: Removed the detailed timeline's outer card frame and
+  bottom time footer so it sits as an integrated editor band.
+- [x] 2026-04-26 / Codex: Matched Studio's live-time pattern so preview
+  scrubber motion, timecode, and detailed timeline playhead update on
+  `requestAnimationFrame` without forcing React re-renders every frame.
+- [x] 2026-04-26 / Codex: Refined preview scrub seeking to match
+  HyperFrames' single-thumb control behavior and remove the near-playhead
+  hover-marker flicker.
+- [x] 2026-04-26 / Codex: Expanded the Phase 5 regression suite to cover
+  preview scrub math, adapter runtime-clock selection, runtime manifest
+  filtering, duplicate host suppression, fps/frame math, static duration
+  clipping, media metadata, and nested asset path rebasing.
+- [x] 2026-04-26 / Codex: Fixed code-review issues for stale runtime timeline
+  state during source changes, long timelines hidden by Fit mode, and
+  duplicate composition refresh races.
 
 ## Surprises & Discoveries
 
@@ -95,6 +119,48 @@ Phase 5 assets/compositions work is now Phase 6.
   must re-resolve all write targets in the main process before mutating project
   files.
 
+- Observation: Importing `linkedom` directly in the Electron main bundle pulls
+  its optional `canvas` dependency at runtime.
+  Evidence: the first live `bun run dev` QA failed to load the main process
+  with a `Could not resolve "canvas"` error from `linkedom`. Switching the
+  static parser to `linkedom/worker` fixed live dev and production build.
+
+- Observation: The existing local `~/Ripple/test1` folder predates the current
+  scaffold's HyperFrames timing attributes.
+  Evidence: HyperFrames Studio preview for that folder warned that the
+  lower-third composition host was missing `data-composition-id` and roots were
+  missing `data-start`, while the current repo scaffold now includes those
+  attributes for newly generated projects.
+
+- Observation: Studio keeps useful structural rows, but it does not need to
+  show a generic duplicate host when a named composition row is present.
+  Evidence: Studio's timeline for `~/Ripple/test1` showed a section row,
+  `__NODE__INDEX_2`, `__NODE__INDEX_3`, and `LOWER-THIRD`; Ripple's earlier
+  timeline also showed an extra generic lower-third host row as `Node Index 4`.
+
+- Observation: Studio's layout mechanics are useful, but its dark theme is not
+  the Ripple appearance contract.
+  Evidence: Studio's timeline components hard-code dark surface and clip
+  colors. Ripple now uses the same compact gutter/lane/badge structure with
+  `bg-background`, `bg-muted`, `border-border`, `text-foreground`,
+  `text-muted-foreground`, and `primary` token accents so app color appearance
+  controls remain authoritative.
+
+- Observation: Studio keeps timeline motion smooth by separating live playback
+  time from React render state.
+  Evidence: `@hyperframes/studio/src/player/store/playerStore.ts` exposes a
+  lightweight `liveTime` pub-sub, and
+  `@hyperframes/studio/src/player/hooks/useTimelinePlayer.ts` notifies it from
+  a `requestAnimationFrame` loop. The `Timeline` component then writes the
+  playhead position directly to the DOM.
+
+- Observation: HyperFrames' preview scrubber does not draw a second hover
+  playhead beside the real thumb.
+  Evidence: `@hyperframes/studio/src/player/components/PlayerControls.tsx`
+  resolves seek position from `clientX`, immediately writes fill/thumb DOM
+  positions, then calls `onSeek`, leaving one visible scrubber thumb instead
+  of a hover marker plus a live marker.
+
 ## Decision Log
 
 - Decision: Phase 5 is the timeline under the preview player; assets and
@@ -130,9 +196,83 @@ Phase 5 assets/compositions work is now Phase 6.
   rather than renderer DOM access as the main architecture.
   Date/Author: 2026-04-26 / User + Codex
 
+- Decision: Use `linkedom/worker` for main-process static timeline parsing.
+  Rationale: It provides the DOM APIs needed for source inspection without
+  pulling the optional native canvas dependency into Electron's main bundle.
+  Date/Author: 2026-04-26 / Codex
+
 ## Outcomes & Retrospective
 
-Not started.
+Phase 5 is implemented. Ripple now renders a native embedded timeline directly
+under the HyperFrames preview player. The preview and timeline share one
+adapter-backed playback state, so the Phase 4 scrubber, play/pause/restart
+controls, timeline playhead, clip selection, and timeline seeks stay
+synchronized.
+
+The renderer receives an authoritative runtime model when the player emits the
+`hf-preview` timeline manifest and falls back to
+`trpc.hyperframes.getTimelineModel` static source parsing while runtime data is
+loading or unavailable. The timeline UI shows source/live confidence, ruler
+ticks, tracks, clip blocks, selected clip timing, range-selection data for
+future comments/revisions, fit/manual zoom controls, and loading/empty/error
+states without embedding HyperFrames Studio chrome.
+
+Live QA found two adapter edge cases and both were fixed before final
+validation: playing from the end now restarts from zero, and a composition that
+reaches its duration without an `ended` event now returns the control state to
+Play when loop is off.
+
+Validation completed:
+
+- `bun test src/renderer/features/hyperframes src/main/lib/hyperframes`
+  passed: 59 tests.
+- `bun run test:ripple` passed: 97 tests.
+- `bun run build` passed.
+- `git diff --check` passed.
+- `bun run ts:check` was run and still fails on the existing repo-wide
+  baseline in non-Phase-5 files such as Claude routing, credential manager,
+  agents chat UI, mentions, terminal, and remote TRPC surfaces.
+
+Computer Use QA completed against the live Electron app on
+`localhost:5173/?windowId=main`: the `test1` project showed `Timeline LIVE`,
+runtime-derived tracks/clips, synchronized playhead/scrubber time, clip
+selection seeking to the lower-third at `00:00:02:12`, selected clip range
+metadata, zoom controls, restart behavior, and end-of-playback state recovery.
+
+HyperFrames Studio comparison completed against the same local `test1` folder:
+Studio showed the reference information architecture Ripple is matching:
+preview, scrubber, timeline toggle, Fit/zoom controls, ruler, section/clip
+rows, and range-edit affordance. Ripple intentionally keeps that timeline
+shape while omitting Studio's sidebar/editor chrome and continuing to resolve
+all write authority through main-process routes.
+
+Follow-up Studio comparison work removed the duplicate generic composition
+host row from Ripple's displayed runtime model and reshaped the timeline lanes
+to match Studio's compact gutter, row, clip, and clip-badge hierarchy. The UI
+intentionally uses Ripple tokens rather than Studio's hard-coded dark palette,
+so it follows the app's light/dark color appearance.
+
+The preview chrome now follows the HyperFrames layout order more closely:
+scrub strip, playback/control bar, then the optional detailed timeline. The
+timeline toggle lives as an icon-only control in the main button bar, and the
+timeline itself no longer repeats a `LIVE` badge or a duration label in the
+left gutter before the ruler begins. The detailed timeline also no longer has
+an outer rounded card border or a bottom `00:00:00:00` footer, so it reads as a
+native part of the app surface instead of a framed widget.
+
+Smooth playback refinement: Ripple's adapter now mirrors Studio's live-time
+approach. The adapter reads the same-origin HyperFrames runtime clock during
+playback and publishes a frame-synchronous live-time stream. The preview
+scrubber fill, preview handle, centered timecode, and detailed timeline
+playhead subscribe to that stream and update DOM position/text directly, while
+React state remains responsible for stable product state such as play/pause,
+seek, duration, selection, and source changes.
+
+Scrub refinement: Ripple's preview scrubber now follows HyperFrames' own
+single-thumb behavior. Seeking resolves the pointer position with edge
+snapping, immediately syncs the preview fill/thumb/timecode, clears hover
+preview state during pointer capture, and leaves the hover timecode tooltip
+without drawing a second near-overlapping playhead marker.
 
 ## Context and Orientation
 

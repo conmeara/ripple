@@ -6,6 +6,7 @@ import {
   captureHyperframesSnapshot,
   assertHyperframesProjectFiles,
   buildHyperframesPlayerSourceDocument,
+  buildHyperframesStaticTimelineModel,
   hyperframesRenderFormats,
   hyperframesRenderQualities,
   listSavedHyperframesCompositions,
@@ -33,6 +34,34 @@ function commandResultFromError(error: unknown): HyperframesCommandResult {
 }
 
 const renderFpsInput = z.union([z.literal(24), z.literal(30), z.literal(60)])
+
+function hasDuplicateCompositionFileRows(
+  compositions: Array<{ filePath: string }>,
+): boolean {
+  const seen = new Set<string>()
+  return compositions.some((composition) => {
+    if (seen.has(composition.filePath)) return true
+    seen.add(composition.filePath)
+    return false
+  })
+}
+
+async function resolvePreviewCompositions(projectId: string) {
+  let context = await resolveHyperframesProjectContext({ projectId })
+  assertHyperframesProjectFiles(context.projectPath)
+
+  let compositions = await listSavedHyperframesCompositions(projectId)
+  if (compositions.length === 0 || hasDuplicateCompositionFileRows(compositions)) {
+    const refreshed = await refreshHyperframesCompositions({
+      projectId,
+      repoRoot: getRepoRoot(),
+    })
+    context = { ...context, project: refreshed.project }
+    compositions = refreshed.compositions
+  }
+
+  return { context, compositions }
+}
 
 export const hyperframesRouter = router({
   doctor: publicProcedure
@@ -76,18 +105,7 @@ export const hyperframesRouter = router({
       compositionId: z.string().nullable().optional(),
     }))
     .query(async ({ input }) => {
-      let context = await resolveHyperframesProjectContext({ projectId: input.projectId })
-      assertHyperframesProjectFiles(context.projectPath)
-
-      let compositions = await listSavedHyperframesCompositions(input.projectId)
-      if (compositions.length === 0) {
-        const refreshed = await refreshHyperframesCompositions({
-          projectId: input.projectId,
-          repoRoot: getRepoRoot(),
-        })
-        context = { ...context, project: refreshed.project }
-        compositions = refreshed.compositions
-      }
+      const { context, compositions } = await resolvePreviewCompositions(input.projectId)
 
       const composition = selectHyperframesPlayerComposition({
         project: context.project,
@@ -103,6 +121,31 @@ export const hyperframesRouter = router({
         project: context.project,
         composition,
         source: buildHyperframesPlayerSourceDocument({ context, composition }),
+      }
+    }),
+
+  getTimelineModel: publicProcedure
+    .input(z.object({
+      projectId: z.string(),
+      compositionId: z.string().nullable().optional(),
+    }))
+    .query(async ({ input }) => {
+      const { context, compositions } = await resolvePreviewCompositions(input.projectId)
+
+      const composition = selectHyperframesPlayerComposition({
+        project: context.project,
+        compositions,
+        compositionId: input.compositionId,
+      })
+
+      if (!composition) {
+        throw new Error("No HyperFrames composition is available for this project.")
+      }
+
+      return {
+        project: context.project,
+        composition,
+        model: buildHyperframesStaticTimelineModel({ context, composition }),
       }
     }),
 

@@ -1,7 +1,5 @@
 "use client"
 
-import "@hyperframes/player"
-import type { HyperframesPlayer } from "@hyperframes/player"
 import {
   Gauge,
   Maximize2,
@@ -10,6 +8,7 @@ import {
   Play,
   RefreshCw,
   Repeat2,
+  Rows2,
   Settings,
   Volume2,
   VolumeX,
@@ -22,7 +21,7 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
 } from "react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,10 +42,7 @@ import {
 } from "../../components/ui/tooltip"
 import { trpc } from "../../lib/trpc"
 import { cn } from "../../lib/utils"
-import {
-  buildHyperframesPlayerBlobDocument,
-  buildHyperframesPlayerFetchUrl,
-} from "./player-source-url"
+import { HyperFramesTimeline } from "./HyperFramesTimeline"
 import {
   PLAYBACK_SPEEDS,
   PREVIEW_SETTINGS_CONTROLS,
@@ -54,6 +50,8 @@ import {
   type ZoomValue,
   shouldRenderPreviewCloseControl,
 } from "./preview-player-controls"
+import { resolvePreviewSeekRatio } from "./preview-scrubber"
+import { useRippleTimelinePlayerAdapter } from "./timeline-player-adapter"
 
 interface HyperFramesPreviewPlayerProps {
   projectId: string
@@ -71,6 +69,7 @@ const timelineThemeStyle = {
     "color-mix(in srgb, hsl(var(--foreground)) 32%, hsl(var(--tl-background)))",
   "--preview-timeline-handle":
     "color-mix(in srgb, hsl(var(--foreground)) 84%, hsl(var(--tl-background)))",
+  touchAction: "none",
 } as CSSProperties
 
 function clamp(value: number, min: number, max: number): number {
@@ -133,7 +132,7 @@ function PlayerIconButton({
           type="button"
           className={cn(
             "flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70 disabled:pointer-events-none disabled:opacity-40",
-            active && "text-foreground",
+            active && "bg-foreground/5 text-foreground",
             className,
           )}
           {...props}
@@ -153,29 +152,24 @@ export function HyperFramesPreviewPlayer({
   onClose,
 }: HyperFramesPreviewPlayerProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
   const timelineRef = useRef<HTMLDivElement | null>(null)
-  const playerRef = useRef<HyperframesPlayer | null>(null)
-  const [isReady, setIsReady] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [playerError, setPlayerError] = useState<string | null>(null)
-  const [playbackSpeed, setPlaybackSpeed] = useState(1)
-  const [isLooping, setIsLooping] = useState(false)
-  const [isMuted, setIsMuted] = useState(false)
+  const timelineProgressRef = useRef<HTMLDivElement | null>(null)
+  const timelineHandleRef = useRef<HTMLDivElement | null>(null)
+  const timecodeRef = useRef<HTMLDivElement | null>(null)
+  const durationRef = useRef(0)
   const [zoom, setZoom] = useState<ZoomValue>("fit")
   const [isElementFullscreen, setIsElementFullscreen] = useState(false)
-  const [reloadVersion, setReloadVersion] = useState(0)
-  const [playerSourceUrl, setPlayerSourceUrl] = useState<string | null>(null)
-  const [sourceLoadError, setSourceLoadError] = useState<string | null>(null)
+  const [isTimelineVisible, setIsTimelineVisible] = useState(true)
   const [timelineHover, setTimelineHover] = useState<{
     percent: number
     time: number
   } | null>(null)
   const [isScrubbing, setIsScrubbing] = useState(false)
-
-  const sourceQuery = trpc.hyperframes.getPlayerSource.useQuery(
+  const adapter = useRippleTimelinePlayerAdapter({
+    projectId,
+    compositionId,
+  })
+  const timelineQuery = trpc.hyperframes.getTimelineModel.useQuery(
     { projectId, compositionId },
     {
       enabled: Boolean(projectId),
@@ -184,7 +178,25 @@ export function HyperFramesPreviewPlayer({
     },
   )
 
-  const source = sourceQuery.data?.source
+  const {
+    containerRef,
+    state: playerState,
+    sourceQuery,
+    source,
+    timelineModel: runtimeTimelineModel,
+    subscribeLiveTime,
+    errorMessage,
+  } = adapter
+  const {
+    isReady,
+    isPlaying,
+    currentTime,
+    duration,
+    playbackSpeed,
+    isLooping,
+    isMuted,
+  } = playerState
+  const timelineModel = runtimeTimelineModel ?? timelineQuery.data?.model ?? null
   const aspectRatio = source ? `${source.width} / ${source.height}` : "16 / 9"
   const scale = zoom === "fit" ? 100 : Number(zoom)
   const progress = duration > 0 ? clamp((currentTime / duration) * 100, 0, 100) : 0
@@ -194,14 +206,10 @@ export function HyperFramesPreviewPlayer({
   const timelinePreviewLeft = timelinePreview
     ? clamp(timelinePreview.percent, 4, 96)
     : 0
-  const sourceUrl = useMemo(() => {
-    if (!source?.sourceUrl) return null
-    return buildHyperframesPlayerFetchUrl(source.sourceUrl, reloadVersion)
-  }, [reloadVersion, source?.sourceUrl])
-  const errorMessage =
-    playerError ??
-    sourceLoadError ??
-    (sourceQuery.error instanceof Error ? sourceQuery.error.message : null)
+  const timelineError =
+    timelineQuery.error instanceof Error && !runtimeTimelineModel
+      ? timelineQuery.error.message
+      : null
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -212,188 +220,56 @@ export function HyperFramesPreviewPlayer({
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
   }, [])
 
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
+  const syncLivePreviewTime = useCallback((time: number) => {
+    const liveDuration = durationRef.current
+    const liveProgress = liveDuration > 0 ? clamp((time / liveDuration) * 100, 0, 100) : 0
 
-    const player = document.createElement("hyperframes-player") as HyperframesPlayer
-    player.className = "block h-full w-full"
-    player.style.width = "100%"
-    player.style.height = "100%"
-    player.playbackRate = 1
-    player.loop = false
-    player.muted = false
-    playerRef.current = player
-    container.appendChild(player)
-
-    const handleReady = (event: Event) => {
-      const readyEvent = event as CustomEvent<{ duration?: number }>
-      const nextDuration =
-        typeof readyEvent.detail?.duration === "number"
-          ? readyEvent.detail.duration
-          : player.duration
-      setDuration(nextDuration)
-      setCurrentTime(player.currentTime)
-      setIsReady(true)
-      setPlayerError(null)
+    if (timelineProgressRef.current) {
+      timelineProgressRef.current.style.width = `${liveProgress}%`
     }
-    const handlePlay = () => setIsPlaying(true)
-    const handlePause = () => setIsPlaying(false)
-    const handleEnded = () => setIsPlaying(false)
-    const handleTimeUpdate = (event: Event) => {
-      const timeEvent = event as CustomEvent<{ currentTime?: number }>
-      setCurrentTime(
-        typeof timeEvent.detail?.currentTime === "number"
-          ? timeEvent.detail.currentTime
-          : player.currentTime,
+    if (timelineHandleRef.current) {
+      timelineHandleRef.current.style.left = `${liveProgress}%`
+    }
+    if (timecodeRef.current) {
+      timecodeRef.current.textContent = formatTimecode(time)
+    }
+    if (timelineRef.current) {
+      timelineRef.current.setAttribute("aria-valuenow", String(Math.min(time, liveDuration || 0)))
+      timelineRef.current.setAttribute(
+        "aria-valuetext",
+        `${formatTime(time)} of ${formatTime(liveDuration)}`,
       )
-      setDuration(player.duration)
-    }
-    const handleError = (event: Event) => {
-      const errorEvent = event as CustomEvent<{ message?: string }>
-      setPlayerError(errorEvent.detail?.message ?? "The composition could not be loaded.")
-      setIsReady(false)
-      setIsPlaying(false)
-    }
-
-    player.addEventListener("ready", handleReady)
-    player.addEventListener("play", handlePlay)
-    player.addEventListener("pause", handlePause)
-    player.addEventListener("ended", handleEnded)
-    player.addEventListener("timeupdate", handleTimeUpdate)
-    player.addEventListener("error", handleError)
-
-    return () => {
-      player.removeEventListener("ready", handleReady)
-      player.removeEventListener("play", handlePlay)
-      player.removeEventListener("pause", handlePause)
-      player.removeEventListener("ended", handleEnded)
-      player.removeEventListener("timeupdate", handleTimeUpdate)
-      player.removeEventListener("error", handleError)
-      player.remove()
-      playerRef.current = null
     }
   }, [])
 
   useEffect(() => {
-    if (playerRef.current) {
-      playerRef.current.playbackRate = playbackSpeed
-    }
-  }, [playbackSpeed])
+    durationRef.current = duration
+    syncLivePreviewTime(currentTime)
+  }, [currentTime, duration, syncLivePreviewTime])
 
-  useEffect(() => {
-    if (playerRef.current) {
-      playerRef.current.loop = isLooping
-    }
-  }, [isLooping])
-
-  useEffect(() => {
-    if (playerRef.current) {
-      playerRef.current.muted = isMuted
-    }
-  }, [isMuted])
-
-  useEffect(() => {
-    if (!sourceUrl) {
-      setPlayerSourceUrl(null)
-      setSourceLoadError(null)
-      return
-    }
-
-    let objectUrl: string | null = null
-    const abortController = new AbortController()
-
-    setPlayerSourceUrl(null)
-    setSourceLoadError(null)
-
-    setIsReady(false)
-    setIsPlaying(false)
-    setCurrentTime(0)
-    setDuration(0)
-    setPlayerError(null)
-    playerRef.current?.pause()
-
-    void (async () => {
-      try {
-        const response = await fetch(sourceUrl, {
-          cache: "no-store",
-          signal: abortController.signal,
-        })
-
-        if (!response.ok) {
-          throw new Error(`Preview source returned ${response.status}.`)
-        }
-
-        const html = await response.text()
-        if (abortController.signal.aborted) return
-
-        objectUrl = URL.createObjectURL(
-          new Blob(
-            [buildHyperframesPlayerBlobDocument({ html, sourceUrl })],
-            { type: "text/html" },
-          ),
-        )
-        setPlayerSourceUrl(objectUrl)
-      } catch (error) {
-        if (abortController.signal.aborted) return
-
-        const message = error instanceof Error ? error.message : String(error)
-        setSourceLoadError(`Preview source could not be loaded. ${message}`)
-      }
-    })()
-
-    return () => {
-      abortController.abort()
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl)
-      }
-    }
-  }, [sourceUrl])
-
-  useEffect(() => {
-    const player = playerRef.current
-    if (!player || !source || !playerSourceUrl) return
-
-    setIsReady(false)
-    setIsPlaying(false)
-    setCurrentTime(0)
-    setDuration(0)
-    setPlayerError(null)
-    player.pause()
-    player.setAttribute("width", String(source.width))
-    player.setAttribute("height", String(source.height))
-    player.removeAttribute("srcdoc")
-    player.setAttribute("src", playerSourceUrl)
-  }, [playerSourceUrl, source])
+  useEffect(() => subscribeLiveTime(syncLivePreviewTime), [subscribeLiveTime, syncLivePreviewTime])
 
   const handleTogglePlayback = () => {
-    const player = playerRef.current
-    if (!player || !isReady) return
     if (isPlaying) {
-      player.pause()
+      adapter.pause()
     } else {
-      player.play()
+      adapter.play()
     }
   }
 
   const handleRestart = () => {
-    const player = playerRef.current
-    if (!player || !isReady) return
-    player.seek(0)
-    setCurrentTime(0)
+    adapter.restart()
   }
 
   const handleReload = () => {
-    setReloadVersion((version) => version + 1)
-    void sourceQuery.refetch()
+    adapter.reload()
+    void timelineQuery.refetch()
   }
 
   const handleSeek = (value: number) => {
-    const player = playerRef.current
-    if (!player || !isReady) return
     const nextTime = clamp(value, 0, duration || 0)
-    player.seek(nextTime)
-    setCurrentTime(nextTime)
+    syncLivePreviewTime(nextTime)
+    adapter.seek(nextTime)
   }
 
   const readTimelinePoint = (clientX: number) => {
@@ -401,7 +277,11 @@ export function HyperFramesPreviewPlayer({
     if (!timeline || !isReady || duration <= 0) return null
 
     const rect = timeline.getBoundingClientRect()
-    const ratio = clamp((clientX - rect.left) / rect.width, 0, 1)
+    const ratio = resolvePreviewSeekRatio({
+      clientX,
+      rectLeft: rect.left,
+      rectWidth: rect.width,
+    })
     return {
       percent: ratio * 100,
       time: duration * ratio,
@@ -420,10 +300,18 @@ export function HyperFramesPreviewPlayer({
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
     if (!isReady || duration <= 0) return
+    if (event.button !== 0) return
 
-    event.currentTarget.setPointerCapture(event.pointerId)
+    event.preventDefault()
+    event.currentTarget.focus()
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // Older WebViews may not support pointer capture on every input type.
+    }
     setIsScrubbing(true)
-    const point = updateTimelineHover(event.clientX)
+    setTimelineHover(null)
+    const point = readTimelinePoint(event.clientX)
     if (point) {
       handleSeek(point.time)
     }
@@ -434,26 +322,36 @@ export function HyperFramesPreviewPlayer({
   ) => {
     if (!isReady || duration <= 0) return
 
-    const point = updateTimelineHover(event.clientX)
-    if (point && isScrubbing) {
+    if (isScrubbing) {
+      const point = readTimelinePoint(event.clientX)
+      setTimelineHover(null)
+      if (!point) return
       handleSeek(point.time)
+      return
     }
+
+    updateTimelineHover(event.clientX)
   }
 
   const handleTimelinePointerUp = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
     if (isScrubbing) {
-      const point = updateTimelineHover(event.clientX)
+      const point = readTimelinePoint(event.clientX)
       if (point) {
         handleSeek(point.time)
       }
     }
 
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      } catch {
+        // The capture may already be released by the browser.
+      }
     }
     setIsScrubbing(false)
+    setTimelineHover(null)
   }
 
   const handleTimelinePointerLeave = () => {
@@ -501,30 +399,15 @@ export function HyperFramesPreviewPlayer({
   }
 
   const handleSpeedChange = (nextSpeed: number) => {
-    setPlaybackSpeed(nextSpeed)
-    if (playerRef.current) {
-      playerRef.current.playbackRate = nextSpeed
-    }
+    adapter.setPlaybackSpeed(nextSpeed)
   }
 
   const handleLoopChange = () => {
-    setIsLooping((current) => {
-      const next = !current
-      if (playerRef.current) {
-        playerRef.current.loop = next
-      }
-      return next
-    })
+    adapter.setLooping(!isLooping)
   }
 
   const handleMuteChange = () => {
-    setIsMuted((current) => {
-      const next = !current
-      if (playerRef.current) {
-        playerRef.current.muted = next
-      }
-      return next
-    })
+    adapter.setMuted(!isMuted)
   }
 
   const handleToggleFullscreen = () => {
@@ -604,26 +487,22 @@ export function HyperFramesPreviewPlayer({
             <div className="relative h-5 w-full">
               <div className="absolute inset-x-0 top-1/2 h-[5px] -translate-y-1/2 bg-[var(--preview-timeline-rail)] transition-[height,background-color] duration-150 group-hover/timeline:h-2 group-hover/timeline:bg-[var(--preview-timeline-rail-hover)] group-data-[scrubbing=true]/timeline:h-2 group-data-[scrubbing=true]/timeline:bg-[var(--preview-timeline-rail-hover)]" />
               <div
+                ref={timelineProgressRef}
                 className="absolute left-0 top-1/2 h-[5px] -translate-y-1/2 bg-primary transition-[height] duration-150 group-hover/timeline:h-2 group-data-[scrubbing=true]/timeline:h-2"
                 style={{ width: `${progress}%` }}
               />
               <div
+                ref={timelineHandleRef}
                 className="absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-[var(--preview-timeline-handle)] transition-[height] duration-150 group-hover/timeline:h-5 group-data-[scrubbing=true]/timeline:h-5"
                 style={{ left: `${progress}%` }}
               />
               {timelinePreview ? (
-                <>
-                  <div
-                    className="absolute top-1/2 h-5 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-[var(--preview-timeline-handle)]"
-                    style={{ left: `${timelinePreview.percent}%` }}
-                  />
-                  <div
-                    className="pointer-events-none absolute bottom-full mb-2 -translate-x-1/2 rounded-md bg-popover px-2 py-1 text-[11px] tabular-nums text-popover-foreground shadow-sm ring-1 ring-border/60"
-                    style={{ left: `${timelinePreviewLeft}%` }}
-                  >
-                    {formatTimecode(timelinePreview.time)}
-                  </div>
-                </>
+                <div
+                  className="pointer-events-none absolute bottom-full mb-2 -translate-x-1/2 rounded-md bg-popover px-2 py-1 text-[11px] tabular-nums text-popover-foreground shadow-sm ring-1 ring-border/60"
+                  style={{ left: `${timelinePreviewLeft}%` }}
+                >
+                  {formatTimecode(timelinePreview.time)}
+                </div>
               ) : null}
             </div>
           </div>
@@ -699,12 +578,25 @@ export function HyperFramesPreviewPlayer({
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </PlayerIconButton>
-            <div className="min-w-[7.75rem] rounded-md bg-muted/40 px-2.5 py-1 text-center text-sm tabular-nums tracking-normal text-foreground shadow-sm ring-1 ring-border/50">
+            <div
+              ref={timecodeRef}
+              className="min-w-[7.75rem] rounded-md bg-muted/40 px-2.5 py-1 text-center text-sm tabular-nums tracking-normal text-foreground shadow-sm ring-1 ring-border/50"
+            >
               {formatTimecode(currentTime)}
             </div>
           </div>
 
           <div className="ml-auto flex min-w-fit items-center gap-1">
+            <PlayerIconButton
+              label={isTimelineVisible ? "Hide timeline" : "Show timeline"}
+              active={isTimelineVisible}
+              aria-pressed={isTimelineVisible}
+              onClick={() => setIsTimelineVisible((visible) => !visible)}
+              className={isTimelineVisible ? "text-primary hover:text-primary" : undefined}
+            >
+              <Rows2 className="h-4 w-4" />
+            </PlayerIconButton>
+
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -774,6 +666,19 @@ export function HyperFramesPreviewPlayer({
             ) : null}
           </div>
         </div>
+
+        {isTimelineVisible ? (
+          <HyperFramesTimeline
+            model={timelineModel}
+            isLoading={timelineQuery.isLoading && !runtimeTimelineModel}
+            error={timelineError}
+            isReady={isReady}
+            currentTime={currentTime}
+            duration={duration}
+            subscribeLiveTime={subscribeLiveTime}
+            onSeek={handleSeek}
+          />
+        ) : null}
       </div>
     </div>
   )

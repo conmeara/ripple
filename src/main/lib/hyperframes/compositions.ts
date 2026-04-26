@@ -212,11 +212,29 @@ async function upsertCompositionRows(input: {
     .from(compositions)
     .where(eq(compositions.projectId, input.project.id))
     .all()
-  const existingByFilePath = new Map(
-    existingRows.map((composition) => [composition.filePath, composition]),
-  )
+  const existingByFilePath = new Map<string, Composition>()
+  const duplicateRows: Composition[] = []
+
+  for (const row of existingRows) {
+    const existing = existingByFilePath.get(row.filePath)
+    if (!existing) {
+      existingByFilePath.set(row.filePath, row)
+      continue
+    }
+
+    const preferred = row.id === input.project.activeCompositionId ? row : existing
+    const duplicate = preferred.id === row.id ? existing : row
+    existingByFilePath.set(row.filePath, preferred)
+    duplicateRows.push(duplicate)
+  }
+
+  for (const duplicate of duplicateRows) {
+    db.delete(compositions).where(eq(compositions.id, duplicate.id)).run()
+  }
+
+  const uniqueExistingRows = Array.from(existingByFilePath.values())
   const compositionIdsByDataId = new Map(
-    existingRows.map((composition) => [
+    uniqueExistingRows.map((composition) => [
       composition.dataCompositionId,
       composition.id,
     ]),
@@ -226,7 +244,7 @@ async function upsertCompositionRows(input: {
   )
   const saved: Composition[] = []
 
-  for (const existing of existingRows) {
+  for (const existing of uniqueExistingRows) {
     if (!discoveredFilePaths.has(existing.filePath)) {
       db.delete(compositions).where(eq(compositions.id, existing.id)).run()
       compositionIdsByDataId.delete(existing.dataCompositionId)
@@ -308,6 +326,31 @@ export async function listSavedHyperframesCompositions(projectId: string): Promi
 }
 
 export async function refreshHyperframesCompositions(input: {
+  projectId: string
+  repoRoot?: string
+  execFile?: HyperframesRuntimeOptions["execFile"]
+}): Promise<HyperframesCompositionRefreshResult> {
+  const existingRefresh = compositionRefreshesByProjectId.get(input.projectId)
+  if (existingRefresh) return existingRefresh
+
+  const refresh = refreshHyperframesCompositionsOnce(input)
+  compositionRefreshesByProjectId.set(input.projectId, refresh)
+
+  try {
+    return await refresh
+  } finally {
+    if (compositionRefreshesByProjectId.get(input.projectId) === refresh) {
+      compositionRefreshesByProjectId.delete(input.projectId)
+    }
+  }
+}
+
+const compositionRefreshesByProjectId = new Map<
+  string,
+  Promise<HyperframesCompositionRefreshResult>
+>()
+
+async function refreshHyperframesCompositionsOnce(input: {
   projectId: string
   repoRoot?: string
   execFile?: HyperframesRuntimeOptions["execFile"]
