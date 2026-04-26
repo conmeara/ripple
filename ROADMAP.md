@@ -261,7 +261,7 @@ Preserved chat/agent foundation adapted to Ripple Chat and Comment workflows.
 
 ## HyperFrames Integration Facts
 
-Verified official docs as of April 24, 2026:
+Verified official docs as of April 26, 2026:
 
 - HyperFrames requires Node.js 22+.
 - Local rendering requires FFmpeg and FFprobe.
@@ -291,12 +291,20 @@ Verified official docs as of April 24, 2026:
 - `@hyperframes/player` is a web component that runs a composition in a
   sandboxed iframe inside Shadow DOM; editor access should go through
   `iframeElement` or Studio's `resolveIframe`.
+- `@hyperframes/core` provides parsing, HTML generation, composition metadata
+  extraction, validation/linting, runtime helpers, and schemas that can support
+  Ripple's assets/compositions pane and future timeline models.
 - `@hyperframes/producer` can support programmatic render pipelines.
+- Current npm registry checks on April 26, 2026 showed `hyperframes`,
+  `@hyperframes/player`, `@hyperframes/studio`, and `@hyperframes/core` all at
+  `0.4.30`; Ripple should pin the HyperFrames package family to one exact
+  version when adopting the scoped packages.
 
 Open verification items:
 
-- Pin the exact HyperFrames package versions; docs and repo release labels may
-  differ.
+- Verify the installed lockfile package versions before each implementation
+  pass; this checkout previously had `hyperframes@0.4.28` installed while npm
+  had advanced to `0.4.30`.
 - Verify current `hyperframes init` flags against installed `--help`.
 - Decide how Ripple bundles or copies an offline GSAP/runtime source for
   generated scaffolds, because official examples commonly show CDN scripts but
@@ -319,6 +327,7 @@ Reference links to preserve from the old docs:
 - [HyperFrames Examples](https://hyperframes.heygen.com/examples)
 - [@hyperframes/studio](https://hyperframes.heygen.com/packages/studio)
 - [@hyperframes/player](https://hyperframes.heygen.com/packages/player)
+- [@hyperframes/core](https://hyperframes.heygen.com/packages/core)
 - [@hyperframes/producer](https://hyperframes.heygen.com/packages/producer)
 - [HyperFrames GitHub Repo](https://github.com/heygen-com/hyperframes)
 
@@ -549,41 +558,101 @@ Done when:
 - Main process can start/stop preview per project/revision.
 - Main process can render at least MP4 from a test project.
 
-### Phase 4: Ripple Shell
+### Phase 4: HyperFrames Preview Player
 
-ExecPlan: `plans/phase-4-ripple-shell.md`
+ExecPlan: `plans/phase-4-hyperframes-preview-player.md`
 
 Goals:
 
-- Rework shell from workspace/chat/dev-preview to project/assets/main
-  HyperFrames preview and right chat-comment/widget sidebar.
-- Replace or supersede sub-chat sidebar with assets/compositions/templates pane.
-- Replace generic `AgentPreview` with `HyperFramesStudioPane`.
-- Move chat/comment UX into the right sidebar while preserving chat history and
-  existing details/files/widgets.
-- Add active composition switching and preview refresh states.
+- Build a HyperFrames-native preview player inside the existing preview-pane
+  pattern, instead of replacing the whole shell at once.
+- Adopt official HyperFrames packages as the target architecture through a
+  Ripple-owned adapter: `@hyperframes/player` for preview,
+  `@hyperframes/core` for metadata, selective `@hyperframes/studio` primitives
+  for later timeline/editor behavior, and the CLI preview server as the local
+  serving/hot-reload backbone until the direct player path is validated.
+- Replace generic CodeSandbox-style `AgentPreview` assumptions for Ripple
+  projects with `HyperFramesPreviewPlayer`.
+- Show clear loading, ready, refresh, stopped, and error states using Ripple's
+  current UI style.
+- Keep assets/compositions pane, right chat/comment sidebar, and full shell
+  migration out of this phase.
+
+Key files:
+
+- `src/renderer/features/agents/main/active-chat.tsx`
+- `src/renderer/features/agents/ui/agent-preview.tsx`
+- `src/renderer/features/agents/ui/preview-url-input.tsx`
+- `src/renderer/features/agents/ui/viewport-toggle.tsx`
+- `src/renderer/features/agents/atoms/index.ts`
+- `src/main/lib/trpc/routers/hyperframes.ts`
+- new `src/renderer/features/hyperframes/*`
+
+Done when:
+
+- The existing preview pane can open a Ripple/HyperFrames project preview.
+- The player shows the active HyperFrames composition with the correct aspect
+  ratio and app-native preview controls.
+- The selected HyperFrames package family version is documented and not mixed
+  across CLI/player/core/studio packages.
+- Preview start, reload, stop, and error states use Phase 3 main-process
+  HyperFrames routes rather than renderer shell commands.
+- The UI follows Ripple's existing component/style language.
+- The implementation does not introduce the assets/compositions pane or the
+  full four-part shell yet.
+
+### Phase 5: Assets And Compositions Pane
+
+Goals:
+
+- Replace or supersede the current chat/sub-chat list pane with
+  assets/compositions/templates for the selected Ripple project.
+- Build from HyperFrames composition discovery and project-local asset data.
+- Add active composition switching that drives the Phase 4 preview player.
+- Keep the current chat and right details/widgets surfaces available while this
+  pane is introduced.
 
 Key files:
 
 - `src/renderer/features/layout/agents-layout.tsx`
 - `src/renderer/features/agents/ui/agents-content.tsx`
-- `src/renderer/features/agents/main/active-chat.tsx`
 - `src/renderer/features/sidebar/*`
-- `src/renderer/features/details-sidebar/sections/files-tab.tsx`
+- `src/main/lib/trpc/routers/hyperframes.ts`
 - new `src/renderer/features/hyperframes/*`
-- new `src/renderer/features/ripple-shell/*` if useful
+- new project-ID-safe file/asset router if needed
+
+Done when:
+
+- The left/middle list area shows compositions, assets, and templates in Ripple
+  language.
+- Selecting a composition updates project state and refreshes the preview
+  player.
+- Project file and asset reads are resolved by project ID in the main process,
+  not by renderer-supplied absolute paths.
+- The UI still feels like the existing app, borrowing HyperFrames structure
+  without copying HyperFrames Studio styling wholesale.
+
+### Phase 6: Ripple Shell And Review Sidebar
+
+Goals:
+
+- Rework the broader shell from workspace/chat/dev-preview to project/assets,
+  main HyperFrames preview/timeline, and right chat-comment/widget sidebar.
+- Move chat/comment UX into the right sidebar while preserving chat history and
+  existing details/files/widgets.
+- Add the Frame.io-style `Chat` / `Comments` switcher and keep widgets as a
+  secondary right-sidebar layer.
 
 Done when:
 
 - Four-part layout is visible and usable.
-- Preview/editor region is HyperFrames-native.
-- Composition switching works.
 - Right sidebar can switch between chat and comments while retaining existing
   widgets/details surfaces.
-- Preview refresh/error/sync states are clear.
+- The preview player and assets/compositions pane from Phases 4 and 5 work
+  together in the shell.
 - "Open in HyperFrames Studio" escape hatch exists.
 
-### Phase 5: Comments And Revisions
+### Phase 7: Comments And Revisions
 
 Goals:
 
@@ -616,7 +685,7 @@ Done when:
 - Accept applies changes; reject discards them.
 - Primary UX does not expose worktree/branch language.
 
-### Phase 6: Export
+### Phase 8: Export
 
 Goals:
 
@@ -632,7 +701,7 @@ Done when:
 - Output path is recorded.
 - Export can be cancelled or safely recovered from failure.
 
-### Phase 7: Agent Prompting And Skills
+### Phase 9: Agent Prompting And Skills
 
 Goals:
 
@@ -650,7 +719,7 @@ Done when:
 - Provider setup is optional until the first agent action that needs it.
 - Agent filesystem access is bounded to project or revision context.
 
-### Phase 8: Rebrand And Service Decoupling
+### Phase 10: Rebrand And Service Decoupling
 
 Goals:
 
@@ -682,7 +751,7 @@ Done when:
 - Product name, app id, protocol, update channel, menus, and packaging identity
   are Ripple-owned.
 
-### Phase 9: Hardening And Release Readiness
+### Phase 11: Hardening And Release Readiness
 
 Goals:
 
