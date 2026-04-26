@@ -96,6 +96,36 @@ using its own ready, play, pause, seek, duration, and timeupdate semantics.
   runtime files were present in `app.asar.unpacked`, and `git diff --check`
   passed. `bun run ts:check` still fails only on the known repo-wide baseline
   outside the Phase 4 player/source files.
+- [x] 2026-04-26 / Codex: Refined the player chrome after Frame.io reference
+  review. The preview no longer has a top composition/status bar, uses the app
+  theme background around the player, and moves player controls into a
+  floating-feeling bottom chrome with scrubber, timecode, play, loop, speed,
+  mute, settings, reload, and fullscreen.
+- [x] 2026-04-26 / Codex: Re-ran `bun run build`, `bun run test:ripple`,
+  `git diff --check`, and live Computer Use QA against the dev Electron app.
+  Playback, restart, speed selection, settings submenus, and element fullscreen
+  all worked in the new control layout.
+- [x] 2026-04-26 / Codex: Tightened the Frame.io-inspired player chrome. The
+  bottom controls now use smaller icon targets and glyphs, the timecode pill is
+  more compact, and the scrubber reads as a thin subtle line instead of a chunky
+  slider.
+- [x] 2026-04-26 / Codex: Rebuilt the scrubber as a custom Frame.io-style
+  timeline. The at-rest line is hairline-thin, it expands on hover/scrub with a
+  pointer timecode bubble, endpoint time labels were removed, and the preview
+  stage padding was reduced so the composition sits closer to the pane edges.
+- [x] 2026-04-26 / Codex: Adjusted the final timeline reference match. The
+  scrubber now keeps a visible theme-adaptive rail at rest, uses the app primary
+  accent for played progress, uses app popover colors for the hover timecode,
+  and gives the preview stage an almost edge-to-edge fit with only a small
+  app-surface margin.
+- [x] 2026-04-26 / Codex: Addressed review follow-ups on the refined player
+  chrome. The close affordance now renders anywhere the host supplies
+  `onClose`, including the desktop preview sidebar, and the no-op quality
+  setting was removed until a real preview-source or render-quality path exists.
+- [x] 2026-04-26 / Codex: Added focused renderer regression coverage for the
+  preview-player control policy: close visibility follows `onClose`, settings
+  stay limited to real behavior, and zoom remains available as an actual preview
+  control.
 - [x] Spike the official player's `src` mode against a HyperFrames-prepared
   local preview URL and document the exact ready/play/seek/timeupdate behavior
   in Electron.
@@ -203,8 +233,8 @@ using its own ready, play, pause, seek, duration, and timeupdate semantics.
   Fetching the same approved document and passing a same-origin `blob:` URL to
   the official player made the player reach `Ready`, report `0:06`, play,
   update time, and reload cleanly.
-- Observation: The same adapter direction should support Phase 5 assets,
-  compositions, and future timeline UI.
+- Observation: The same adapter direction should support the Phase 5 timeline
+  and Phase 6 assets/compositions pane.
   Evidence: the roadmap says HyperFrames remains the source of truth for
   composition structure, timeline semantics, preview, and render behavior.
   Ripple's panes should read structured HyperFrames/project data through
@@ -223,6 +253,12 @@ using its own ready, play, pause, seek, duration, and timeupdate semantics.
   and CSS `url(...)` references for sub-compositions, but
   `data-composition-src` still needed Ripple-side normalization to remain
   project-root-relative in the prepared document.
+- Observation: Computer Use can see both the stale packaged `1Code` app and the
+  current dev Electron app during local QA.
+  Evidence: the packaged window reported a
+  `file://.../release/mac-arm64/1Code.app/.../app.asar` renderer URL and old
+  player chrome, while the actual dev target was `com.github.Electron` with
+  `localhost:5173` and the updated player controls.
 
 ## Decision Log
 
@@ -304,6 +340,15 @@ using its own ready, play, pause, seek, duration, and timeupdate semantics.
   validated `ripple-preview:` protocol.
   Date/Author: 2026-04-26 / User + Codex
 
+- Decision: Use Frame.io-style floating player chrome for the Phase 4 preview
+  surface.
+  Rationale: The preview should feel like a motion-review tool rather than a
+  developer preview pane. Removing the composition/status header and using
+  icon-first controls against the app background gives the shell more room and
+  keeps zoom, reload, close, and fullscreen available without persistent button
+  chrome.
+  Date/Author: 2026-04-26 / User + Codex
+
 - Decision: Treat a full HyperFrames Studio embed as an escape hatch, not the
   default product direction.
   Rationale: Full Studio embedding would inherit HyperFrames features fastest,
@@ -348,6 +393,39 @@ preparation behind a main-process adapter. Ripple asks for an approved preview
 URL, fetches that prepared document, and gives the official player a
 same-origin object URL through `src`. Ripple keeps its native controls while
 HyperFrames owns more of the preview pipeline.
+
+The latest visual refinement removes the Phase 4 preview header entirely.
+Controls now sit below the player as a scrubber plus floating icon row: play,
+loop, playback speed, mute, restart, timecode, settings, and fullscreen.
+Settings owns zoom and reload. The surrounding preview background is
+`bg-tl-background`, so light and dark themes use the app surface instead of a
+hard-coded black stage.
+
+The follow-up polish pass reduced the bottom chrome height further. The scrubber
+now uses a three-pixel visual track with quieter time labels and a slim playhead,
+and the icon row uses smaller 28px touch targets so the preview gets more
+vertical breathing room.
+
+The final scrubber pass removes the endpoint time labels and replaces the native
+range control with a custom accessible slider. At rest the timeline is a
+hairline; on hover or scrub it expands like the Frame.io reference and shows a
+small timecode bubble at the pointer. The preview stage uses tighter padding so
+the composition reaches closer to the player pane border while still leaving a
+small app-surface margin.
+
+The latest reference pass keeps the Frame.io-style behavior but makes the rail
+more legible and theme-native. The inactive timeline rail is a gray mixed from
+the active appearance's foreground and `--tl-background`, the completed segment
+uses `--primary`, the playhead uses the active foreground mix, and the hover
+timecode uses the app's popover surface. This preserves the Frame.io layout
+without hard-coding Frame.io's purple or dark chrome.
+
+The review follow-up keeps only controls that have real behavior in the current
+HTML player. Zoom stays because it changes the preview scale immediately, while
+quality is omitted until Ripple can connect it to a preview-source, render, or
+reload path. The close affordance is tied to the host-provided `onClose`
+callback, so both desktop sidebars and mobile preview mode can expose the same
+product action without restoring the old top header.
 
 ## Context and Orientation
 
@@ -398,11 +476,11 @@ Fourth, implement `src/renderer/features/hyperframes/HyperFramesPreviewPlayer.ts
 The component should be a Ripple wrapper around the official player primitive,
 not a copy of Studio and not a parallel timing engine. It should provide:
 
-- compact header with project/composition identity
+- no persistent top preview header in the normal player surface
 - loading, ready, stopped, and error states
-- play, pause, seek, restart, and reload controls
-- frame/time display
-- viewport, scale, and aspect-ratio controls where they still make sense
+- play, pause, seek, restart, loop, speed, mute, reload, and fullscreen controls
+- frame/time display with a central timecode
+- zoom settings where they still make sense
 
 Fifth, wire preview availability into the existing desktop and mobile preview
 entry points. Ripple projects should open the HyperFrames player; existing
@@ -443,12 +521,12 @@ URL through the official player's `src` attribute. Do not keep a renderer
 the blocker and stop for an architecture decision rather than shipping a second
 player path.
 
-Use the same adapter shape as the foundation for Phase 5. The assets,
-compositions, and timeline panes should ask main-process APIs for structured
-HyperFrames/project data, then render Ripple-styled UI. HyperFrames should own
-composition structure, timing rules, preview-serving behavior, and future
-framework updates; Ripple should own the user-facing panels, controls, chat,
-comments, revisions, widgets, and export workflow.
+Use the same adapter shape as the foundation for Phase 5 and Phase 6. The
+timeline, assets, and compositions panes should ask main-process APIs for
+structured HyperFrames/project data, then render Ripple-styled UI. HyperFrames
+should own composition structure, timing rules, preview-serving behavior, and
+future framework updates; Ripple should own the user-facing panels, controls,
+chat, comments, revisions, widgets, and export workflow.
 
 ## Concrete Steps
 
@@ -551,6 +629,12 @@ Manual/Electron validation:
   active composition file.
 - Confirm packaged app configuration includes the HyperFrames packages, GSAP,
   and CLI/runtime assets outside `app.asar` where Electron can load them.
+- Confirm the normal player surface has no persistent top composition/status
+  header.
+- Confirm zoom lives inside settings, while playback speed is a direct player
+  control.
+- Confirm fullscreen expands the player surface and keeps the floating control
+  row available.
 
 Manual result, 2026-04-26:
 
@@ -563,6 +647,70 @@ Manual result, 2026-04-26:
 - Confirmed the remaining console warnings are the official player iframe
   sandbox warning, existing Jotai deprecation, and Electron development CSP
   warning.
+
+Manual result, 2026-04-26 visual refinement:
+
+- Started the dev Electron app with `bun run dev` and used Computer Use against
+  `com.github.Electron` / `localhost:5173`.
+- Confirmed the old `Main` / project / status / reload / close header is gone
+  in the dev player surface.
+- Confirmed the preview area uses the light app background around the player
+  instead of a hard-coded black pane.
+- Confirmed play changes to pause, advances the scrubber and timecode, restart
+  returns to `00:00:00:00`, and the playback-speed menu updates the visible
+  value to `1.5x`.
+- Confirmed settings opens quality and zoom submenus, zoom selection updated
+  the visible setting to `125%`, and reload remained available inside settings
+  during this visual pass. Quality was later removed as a review follow-up until
+  it controls a real preview or render path.
+- Confirmed fullscreen expands the player surface and the same control row stays
+  available with an exit-fullscreen button.
+
+Manual result, 2026-04-26 compact controls refinement:
+
+- Started the dev Electron app and used Computer Use against
+  `com.github.Electron` / `localhost:5173`.
+- Confirmed the smaller player controls render without overlap in the desktop
+  preview pane.
+- Confirmed the timeline reads as a thin scrubber with quieter endpoint labels
+  and a slim playhead.
+- Confirmed play advanced the official player time, restart returned to
+  `00:00:00:00`, settings still opened, and fullscreen kept the compact control
+  row available.
+
+Manual result, 2026-04-26 Frame.io timeline refinement:
+
+- Replaced the native slider with a custom accessible timeline that supports
+  pointer scrubbing, keyboard seek, a hover/scrub timecode bubble, and a
+  hairline-to-expanded hover state.
+- Removed the small current-time and duration labels on either side of the
+  timeline.
+- Reduced stage padding so the composition sits closer to the pane border.
+- Live Computer Use QA confirmed the endpoint labels are gone, the preview
+  sits closer to the pane border with only a small margin, and pointer scrubbing
+  expands the timeline while showing a timecode bubble.
+
+Manual result, 2026-04-26 theme-native timeline refinement:
+
+- Increased the timeline rail from the too-thin hairline to a visible
+  Frame.io-like track while keeping the hover/scrub expansion behavior.
+- Switched timeline rail, playhead, completed progress, and hover timecode to
+  active app appearance tokens rather than fixed Frame.io colors.
+- Further tightened preview-stage padding so the player reaches almost to the
+  pane edges while preserving a small visible app-surface margin.
+- Live Computer Use QA confirmed the rail is visible in the current light
+  appearance, the preview nearly reaches the right-pane borders, and drag
+  scrubbing still updates the central timecode with the hover bubble visible.
+
+Manual result, 2026-04-26 review follow-up:
+
+- Restored the visible close affordance for desktop preview sidebars by
+  rendering it whenever the host passes `onClose`.
+- Removed the preview quality submenu because it only updated local label state
+  and did not affect `getPlayerSource`, the fetched blob source, player state,
+  or render output.
+- Added `preview-player-controls.test.ts` to keep close visibility, settings
+  membership, and zoom options covered by `bun run test:ripple`.
 
 Broadened QA result, 2026-04-26:
 
@@ -617,8 +765,8 @@ Acceptance for the next Level 2 architecture pass:
 - The serving adapter exposes only preview-safe read paths for the selected
   Ripple project and composition.
 - Normal preview does not request CDN scripts or other network runtime assets.
-- Phase 5 can reuse the adapter/project metadata path for the
-  assets/compositions pane and future timeline controls.
+- Phase 5 can reuse the adapter/project metadata path for timeline controls,
+  and Phase 6 can reuse it for the assets/compositions pane.
 
 ## Idempotence and Recovery
 
@@ -674,7 +822,8 @@ Candidate next interfaces:
 - `trpc.hyperframes.getPreparedPreviewSource` or an evolution of
   `getPlayerSource` that returns an approved local preview URL
 - main-process HyperFrames preview-serving adapter
-- read-only project/composition/asset metadata APIs for Phase 5
+- read-only timeline/project/composition/asset metadata APIs for Phase 5 and
+  Phase 6
 - narrow CSP/protocol allowances for the selected prepared-preview origin
 
 Dependencies and constraints:

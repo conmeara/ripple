@@ -601,14 +601,58 @@ Done when:
 - The implementation does not introduce the assets/compositions pane or the
   full four-part shell yet.
 
-### Phase 5: Assets And Compositions Pane
+### Phase 5: HyperFrames Timeline
+
+Goals:
+
+- Add a HyperFrames-native timeline under the Phase 4 preview player.
+- Reuse official HyperFrames Studio timeline/player primitives where practical,
+  while keeping Ripple-owned layout, controls, visual chrome, comments, chat,
+  widgets, and project language.
+- Show clips, sections/scenes, tracks, ruler ticks, playhead, duration, zoom,
+  and selected range using HyperFrames composition semantics.
+- Drive seek/playhead state from the same preview player source as Phase 4
+  instead of parsing or timing the composition independently in the renderer.
+- Start read-only if that is the safest first milestone, then add guarded
+  move/trim/select affordances only after source patching and project-boundary
+  validation are proven.
+
+Key files:
+
+- `src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx`
+- new `src/renderer/features/hyperframes/HyperFramesTimeline.tsx`
+- new `src/renderer/features/hyperframes/timeline-*`
+- `src/main/lib/trpc/routers/hyperframes.ts`
+- `src/main/lib/hyperframes/player-source.ts`
+- `src/main/lib/hyperframes/player-source-protocol.ts`
+- selected `@hyperframes/studio` exports such as `Timeline`,
+  `useTimelinePlayer`, `resolveIframe`, `usePlayerStore`, `liveTime`, and
+  timeline helper logic if those APIs stay stable enough to consume directly
+
+Done when:
+
+- The preview pane shows the active composition above a Ripple-styled timeline
+  similar to HyperFrames Studio's timeline surface.
+- The timeline renders clips/tracks/ruler/playhead from HyperFrames runtime or
+  Studio-derived metadata and stays synchronized with Phase 4 play, pause,
+  seek, duration, reload, speed, and selected composition state.
+- Timeline zoom and fit controls work without shifting or overlapping the
+  preview player controls.
+- Project file, asset, and source-patching operations, if introduced, resolve
+  through project ID in the main process and never through renderer-supplied
+  absolute paths.
+- The implementation does not embed the full HyperFrames Studio app as the
+  normal product surface.
+
+### Phase 6: Assets And Compositions Pane
 
 Goals:
 
 - Replace or supersede the current chat/sub-chat list pane with
   assets/compositions/templates for the selected Ripple project.
 - Build from HyperFrames composition discovery and project-local asset data.
-- Add active composition switching that drives the Phase 4 preview player.
+- Add active composition switching that drives the Phase 4 preview player and
+  Phase 5 timeline.
 - Keep the current chat and right details/widgets surfaces available while this
   pane is introduced.
 
@@ -618,7 +662,7 @@ Key files:
 - `src/renderer/features/agents/ui/agents-content.tsx`
 - `src/renderer/features/sidebar/*`
 - `src/main/lib/trpc/routers/hyperframes.ts`
-- new `src/renderer/features/hyperframes/*`
+- `src/renderer/features/hyperframes/*`
 - new project-ID-safe file/asset router if needed
 
 Done when:
@@ -626,13 +670,13 @@ Done when:
 - The left/middle list area shows compositions, assets, and templates in Ripple
   language.
 - Selecting a composition updates project state and refreshes the preview
-  player.
+  player and timeline.
 - Project file and asset reads are resolved by project ID in the main process,
   not by renderer-supplied absolute paths.
 - The UI still feels like the existing app, borrowing HyperFrames structure
   without copying HyperFrames Studio styling wholesale.
 
-### Phase 6: Ripple Shell And Review Sidebar
+### Phase 7: Ripple Shell And Review Sidebar
 
 Goals:
 
@@ -648,11 +692,11 @@ Done when:
 - Four-part layout is visible and usable.
 - Right sidebar can switch between chat and comments while retaining existing
   widgets/details surfaces.
-- The preview player and assets/compositions pane from Phases 4 and 5 work
-  together in the shell.
+- The preview player, timeline, and assets/compositions pane from Phases 4, 5,
+  and 6 work together in the shell.
 - "Open in HyperFrames Studio" escape hatch exists.
 
-### Phase 7: Comments And Revisions
+### Phase 8: Comments And Revisions
 
 Goals:
 
@@ -685,7 +729,7 @@ Done when:
 - Accept applies changes; reject discards them.
 - Primary UX does not expose worktree/branch language.
 
-### Phase 8: Export
+### Phase 9: Export
 
 Goals:
 
@@ -701,7 +745,7 @@ Done when:
 - Output path is recorded.
 - Export can be cancelled or safely recovered from failure.
 
-### Phase 9: Agent Prompting And Skills
+### Phase 10: Agent Prompting And Skills
 
 Goals:
 
@@ -719,7 +763,7 @@ Done when:
 - Provider setup is optional until the first agent action that needs it.
 - Agent filesystem access is bounded to project or revision context.
 
-### Phase 10: Rebrand And Service Decoupling
+### Phase 11: Rebrand And Service Decoupling
 
 Goals:
 
@@ -751,7 +795,7 @@ Done when:
 - Product name, app id, protocol, update channel, menus, and packaging identity
   are Ripple-owned.
 
-### Phase 11: Hardening And Release Readiness
+### Phase 12: Hardening And Release Readiness
 
 Goals:
 

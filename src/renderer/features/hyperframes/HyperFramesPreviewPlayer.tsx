@@ -3,28 +3,78 @@
 import "@hyperframes/player"
 import type { HyperframesPlayer } from "@hyperframes/player"
 import {
+  Gauge,
+  Maximize2,
+  Minimize2,
   Pause,
   Play,
   RefreshCw,
-  RotateCcw,
+  Repeat2,
+  Settings,
+  Volume2,
+  VolumeX,
   X,
   ZoomIn,
-  ZoomOut,
 } from "lucide-react"
+import type {
+  ButtonHTMLAttributes,
+  CSSProperties,
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Button } from "../../components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "../../components/ui/tooltip"
 import { trpc } from "../../lib/trpc"
 import { cn } from "../../lib/utils"
 import {
   buildHyperframesPlayerBlobDocument,
   buildHyperframesPlayerFetchUrl,
 } from "./player-source-url"
+import {
+  PLAYBACK_SPEEDS,
+  PREVIEW_SETTINGS_CONTROLS,
+  ZOOM_OPTIONS,
+  type ZoomValue,
+  shouldRenderPreviewCloseControl,
+} from "./preview-player-controls"
 
 interface HyperFramesPreviewPlayerProps {
   projectId: string
   compositionId?: string | null
   isMobile?: boolean
   onClose?: () => void
+}
+
+const PREVIEW_FPS = 30
+
+const timelineThemeStyle = {
+  "--preview-timeline-rail":
+    "color-mix(in srgb, hsl(var(--foreground)) 24%, hsl(var(--tl-background)))",
+  "--preview-timeline-rail-hover":
+    "color-mix(in srgb, hsl(var(--foreground)) 32%, hsl(var(--tl-background)))",
+  "--preview-timeline-handle":
+    "color-mix(in srgb, hsl(var(--foreground)) 84%, hsl(var(--tl-background)))",
+} as CSSProperties
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
 }
 
 function formatTime(seconds: number): string {
@@ -35,27 +85,95 @@ function formatTime(seconds: number): string {
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`
 }
 
-function clampScale(value: number): number {
-  return Math.min(150, Math.max(35, value))
+function formatTimecode(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "00:00:00:00"
+  const totalFrames = Math.max(0, Math.floor(seconds * PREVIEW_FPS))
+  const frames = totalFrames % PREVIEW_FPS
+  const totalSeconds = Math.floor(totalFrames / PREVIEW_FPS)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const remainingSeconds = totalSeconds % 60
+
+  return [
+    hours,
+    minutes,
+    remainingSeconds,
+    frames,
+  ]
+    .map((part) => part.toString().padStart(2, "0"))
+    .join(":")
+}
+
+function formatPlaybackSpeed(speed: number): string {
+  if (Number.isInteger(speed)) return `${speed.toFixed(1)}x`
+  return `${speed}x`
+}
+
+function optionLabel<TValue extends string>(
+  options: readonly { value: TValue; label: string }[],
+  value: TValue,
+): string {
+  return options.find((option) => option.value === value)?.label ?? value
+}
+
+function PlayerIconButton({
+  label,
+  active = false,
+  className,
+  children,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  label: string
+  active?: boolean
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70 disabled:pointer-events-none disabled:opacity-40",
+            active && "text-foreground",
+            className,
+          )}
+          {...props}
+        >
+          {children}
+          <span className="sr-only">{label}</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  )
 }
 
 export function HyperFramesPreviewPlayer({
   projectId,
   compositionId,
-  isMobile = false,
   onClose,
 }: HyperFramesPreviewPlayerProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const timelineRef = useRef<HTMLDivElement | null>(null)
   const playerRef = useRef<HyperframesPlayer | null>(null)
   const [isReady, setIsReady] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [playerError, setPlayerError] = useState<string | null>(null)
-  const [scale, setScale] = useState(100)
+  const [playbackSpeed, setPlaybackSpeed] = useState(1)
+  const [isLooping, setIsLooping] = useState(false)
+  const [isMuted, setIsMuted] = useState(false)
+  const [zoom, setZoom] = useState<ZoomValue>("fit")
+  const [isElementFullscreen, setIsElementFullscreen] = useState(false)
   const [reloadVersion, setReloadVersion] = useState(0)
   const [playerSourceUrl, setPlayerSourceUrl] = useState<string | null>(null)
   const [sourceLoadError, setSourceLoadError] = useState<string | null>(null)
+  const [timelineHover, setTimelineHover] = useState<{
+    percent: number
+    time: number
+  } | null>(null)
+  const [isScrubbing, setIsScrubbing] = useState(false)
 
   const sourceQuery = trpc.hyperframes.getPlayerSource.useQuery(
     { projectId, compositionId },
@@ -67,27 +185,32 @@ export function HyperFramesPreviewPlayer({
   )
 
   const source = sourceQuery.data?.source
-  const composition = sourceQuery.data?.composition
-  const project = sourceQuery.data?.project
   const aspectRatio = source ? `${source.width} / ${source.height}` : "16 / 9"
+  const scale = zoom === "fit" ? 100 : Number(zoom)
+  const progress = duration > 0 ? clamp((currentTime / duration) * 100, 0, 100) : 0
+  const zoomLabel = optionLabel(ZOOM_OPTIONS, zoom)
+  const showCloseControl = shouldRenderPreviewCloseControl(onClose)
+  const timelinePreview = timelineHover
+  const timelinePreviewLeft = timelinePreview
+    ? clamp(timelinePreview.percent, 4, 96)
+    : 0
   const sourceUrl = useMemo(() => {
     if (!source?.sourceUrl) return null
     return buildHyperframesPlayerFetchUrl(source.sourceUrl, reloadVersion)
   }, [reloadVersion, source?.sourceUrl])
-  const isPreparingSource = Boolean(sourceUrl && !playerSourceUrl && !sourceLoadError)
-  const statusLabel = playerError
-    ? "Error"
-    : sourceLoadError
-      ? "Error"
-      : sourceQuery.isLoading || isPreparingSource
-      ? "Loading"
-      : isReady
-        ? isPlaying ? "Playing" : "Ready"
-        : "Preparing"
   const errorMessage =
     playerError ??
     sourceLoadError ??
     (sourceQuery.error instanceof Error ? sourceQuery.error.message : null)
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsElementFullscreen(document.fullscreenElement === rootRef.current)
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange)
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
+  }, [])
 
   useEffect(() => {
     const container = containerRef.current
@@ -97,6 +220,9 @@ export function HyperFramesPreviewPlayer({
     player.className = "block h-full w-full"
     player.style.width = "100%"
     player.style.height = "100%"
+    player.playbackRate = 1
+    player.loop = false
+    player.muted = false
     playerRef.current = player
     container.appendChild(player)
 
@@ -148,6 +274,24 @@ export function HyperFramesPreviewPlayer({
       playerRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    if (playerRef.current) {
+      playerRef.current.playbackRate = playbackSpeed
+    }
+  }, [playbackSpeed])
+
+  useEffect(() => {
+    if (playerRef.current) {
+      playerRef.current.loop = isLooping
+    }
+  }, [isLooping])
+
+  useEffect(() => {
+    if (playerRef.current) {
+      playerRef.current.muted = isMuted
+    }
+  }, [isMuted])
 
   useEffect(() => {
     if (!sourceUrl) {
@@ -247,76 +391,186 @@ export function HyperFramesPreviewPlayer({
   const handleSeek = (value: number) => {
     const player = playerRef.current
     if (!player || !isReady) return
-    player.seek(value)
-    setCurrentTime(value)
+    const nextTime = clamp(value, 0, duration || 0)
+    player.seek(nextTime)
+    setCurrentTime(nextTime)
+  }
+
+  const readTimelinePoint = (clientX: number) => {
+    const timeline = timelineRef.current
+    if (!timeline || !isReady || duration <= 0) return null
+
+    const rect = timeline.getBoundingClientRect()
+    const ratio = clamp((clientX - rect.left) / rect.width, 0, 1)
+    return {
+      percent: ratio * 100,
+      time: duration * ratio,
+    }
+  }
+
+  const updateTimelineHover = (clientX: number) => {
+    const point = readTimelinePoint(clientX)
+    if (point) {
+      setTimelineHover(point)
+    }
+    return point
+  }
+
+  const handleTimelinePointerDown = (
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    if (!isReady || duration <= 0) return
+
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setIsScrubbing(true)
+    const point = updateTimelineHover(event.clientX)
+    if (point) {
+      handleSeek(point.time)
+    }
+  }
+
+  const handleTimelinePointerMove = (
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    if (!isReady || duration <= 0) return
+
+    const point = updateTimelineHover(event.clientX)
+    if (point && isScrubbing) {
+      handleSeek(point.time)
+    }
+  }
+
+  const handleTimelinePointerUp = (
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    if (isScrubbing) {
+      const point = updateTimelineHover(event.clientX)
+      if (point) {
+        handleSeek(point.time)
+      }
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    setIsScrubbing(false)
+  }
+
+  const handleTimelinePointerLeave = () => {
+    if (!isScrubbing) {
+      setTimelineHover(null)
+    }
+  }
+
+  const handleTimelineKeyDown = (
+    event: ReactKeyboardEvent<HTMLDivElement>,
+  ) => {
+    if (!isReady || duration <= 0) return
+
+    const frameStep = 1 / PREVIEW_FPS
+    const step = event.shiftKey ? 1 : frameStep
+    let nextTime = currentTime
+
+    switch (event.key) {
+      case "ArrowLeft":
+      case "ArrowDown":
+        nextTime = currentTime - step
+        break
+      case "ArrowRight":
+      case "ArrowUp":
+        nextTime = currentTime + step
+        break
+      case "PageDown":
+        nextTime = currentTime - 1
+        break
+      case "PageUp":
+        nextTime = currentTime + 1
+        break
+      case "Home":
+        nextTime = 0
+        break
+      case "End":
+        nextTime = duration
+        break
+      default:
+        return
+    }
+
+    event.preventDefault()
+    handleSeek(nextTime)
+  }
+
+  const handleSpeedChange = (nextSpeed: number) => {
+    setPlaybackSpeed(nextSpeed)
+    if (playerRef.current) {
+      playerRef.current.playbackRate = nextSpeed
+    }
+  }
+
+  const handleLoopChange = () => {
+    setIsLooping((current) => {
+      const next = !current
+      if (playerRef.current) {
+        playerRef.current.loop = next
+      }
+      return next
+    })
+  }
+
+  const handleMuteChange = () => {
+    setIsMuted((current) => {
+      const next = !current
+      if (playerRef.current) {
+        playerRef.current.muted = next
+      }
+      return next
+    })
+  }
+
+  const handleToggleFullscreen = () => {
+    const root = rootRef.current
+    if (!root) return
+
+    if (document.fullscreenElement === root) {
+      void document.exitFullscreen()
+      return
+    }
+
+    if (root.requestFullscreen) {
+      void root.requestFullscreen().catch(() => {
+        void window.desktopApi?.windowToggleFullscreen?.()
+      })
+      return
+    }
+
+    void window.desktopApi?.windowToggleFullscreen?.()
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-tl-background text-foreground">
-      <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border/60 px-3">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-medium">
-            {composition?.name ?? project?.name ?? "Preview"}
-          </div>
-          <div className="truncate text-xs text-muted-foreground">
-            {project?.name ?? "Ripple project"}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <span
-            className={cn(
-              "rounded-full px-2 py-0.5 text-[11px] font-medium",
-              errorMessage
-                ? "bg-destructive/10 text-destructive"
-                : isReady
-                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                  : "bg-muted text-muted-foreground",
-            )}
-          >
-            {statusLabel}
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-md"
-            onClick={handleReload}
-            disabled={sourceQuery.isFetching}
-            aria-label="Reload preview"
-          >
-            <RefreshCw className={cn("h-4 w-4", sourceQuery.isFetching && "animate-spin")} />
-          </Button>
-          {onClose ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-md"
-              onClick={onClose}
-              aria-label="Close preview"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-zinc-950 p-4">
+    <div
+      ref={rootRef}
+      className="flex h-full min-h-0 flex-col bg-tl-background text-foreground [&:fullscreen]:h-screen [&:fullscreen]:w-screen"
+    >
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-tl-background p-1">
         <div
-          className="relative max-h-full max-w-full overflow-hidden rounded-md bg-black shadow-2xl ring-1 ring-white/10"
+          className={cn(
+            "relative max-h-full overflow-hidden rounded-md bg-black shadow-sm ring-1 ring-border/70",
+            zoom === "fit" && "max-w-full",
+          )}
           style={{
             aspectRatio,
             width: `${scale}%`,
+            maxWidth: zoom === "fit" ? "100%" : "none",
           }}
         >
           <div ref={containerRef} className="absolute inset-0" />
           {!isReady || errorMessage ? (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/70 p-6 text-center">
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/85 p-6 text-center backdrop-blur-sm">
               <div className="max-w-xs">
-                <div className="text-sm font-medium text-white">
+                <div className="text-sm font-medium text-foreground">
                   {errorMessage ? "Preview failed" : "Preparing preview"}
                 </div>
-                <div className="mt-1 text-xs text-white/60">
+                <div className="mt-1 text-xs text-muted-foreground">
                   {errorMessage ?? "Loading the HyperFrames player."}
                 </div>
               </div>
@@ -325,74 +579,200 @@ export function HyperFramesPreviewPlayer({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-border/60 px-3 py-2">
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon"
-            className="h-9 w-9 rounded-md"
-            onClick={handleTogglePlayback}
-            disabled={!isReady}
-            aria-label={isPlaying ? "Pause" : "Play"}
-          >
-            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-md"
-            onClick={handleRestart}
-            disabled={!isReady}
-            aria-label="Restart"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-          <div className="min-w-[68px] text-center text-xs tabular-nums text-muted-foreground">
-            {formatTime(currentTime)}
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={duration || 0}
-            step={1 / 30}
-            value={Math.min(currentTime, duration || 0)}
-            disabled={!isReady || duration <= 0}
-            onChange={(event) => handleSeek(Number(event.currentTarget.value))}
-            className="h-2 min-w-0 flex-1 accent-primary"
+      <div className="shrink-0 px-3 pb-2 pt-1.5">
+        <div className="flex items-center">
+          <div
+            ref={timelineRef}
+            role="slider"
+            tabIndex={isReady && duration > 0 ? 0 : -1}
+            aria-disabled={!isReady || duration <= 0}
             aria-label="Preview time"
-          />
-          <div className="min-w-[68px] text-center text-xs tabular-nums text-muted-foreground">
-            {formatTime(duration)}
-          </div>
-          {!isMobile ? (
-            <div className="ml-1 flex items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-md"
-                onClick={() => setScale((value) => clampScale(value - 10))}
-                aria-label="Zoom out"
-              >
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-              <div className="w-11 text-center text-xs tabular-nums text-muted-foreground">
-                {scale}%
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-md"
-                onClick={() => setScale((value) => clampScale(value + 10))}
-                aria-label="Zoom in"
-              >
-                <ZoomIn className="h-4 w-4" />
-              </Button>
+            aria-valuemin={0}
+            aria-valuemax={duration || 0}
+            aria-valuenow={Math.min(currentTime, duration || 0)}
+            aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+            data-scrubbing={isScrubbing}
+            onPointerDown={handleTimelinePointerDown}
+            onPointerMove={handleTimelinePointerMove}
+            onPointerUp={handleTimelinePointerUp}
+            onPointerCancel={handleTimelinePointerUp}
+            onPointerLeave={handleTimelinePointerLeave}
+            onKeyDown={handleTimelineKeyDown}
+            style={timelineThemeStyle}
+            className="group/timeline relative flex h-8 min-w-0 flex-1 cursor-pointer items-center outline-none data-[scrubbing=false]:focus-visible:ring-2 data-[scrubbing=false]:focus-visible:ring-primary/40 data-[scrubbing=false]:focus-visible:ring-offset-2 data-[scrubbing=false]:focus-visible:ring-offset-background aria-disabled:cursor-default aria-disabled:opacity-40"
+          >
+            <div className="relative h-5 w-full">
+              <div className="absolute inset-x-0 top-1/2 h-[5px] -translate-y-1/2 bg-[var(--preview-timeline-rail)] transition-[height,background-color] duration-150 group-hover/timeline:h-2 group-hover/timeline:bg-[var(--preview-timeline-rail-hover)] group-data-[scrubbing=true]/timeline:h-2 group-data-[scrubbing=true]/timeline:bg-[var(--preview-timeline-rail-hover)]" />
+              <div
+                className="absolute left-0 top-1/2 h-[5px] -translate-y-1/2 bg-primary transition-[height] duration-150 group-hover/timeline:h-2 group-data-[scrubbing=true]/timeline:h-2"
+                style={{ width: `${progress}%` }}
+              />
+              <div
+                className="absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-[var(--preview-timeline-handle)] transition-[height] duration-150 group-hover/timeline:h-5 group-data-[scrubbing=true]/timeline:h-5"
+                style={{ left: `${progress}%` }}
+              />
+              {timelinePreview ? (
+                <>
+                  <div
+                    className="absolute top-1/2 h-5 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-[var(--preview-timeline-handle)]"
+                    style={{ left: `${timelinePreview.percent}%` }}
+                  />
+                  <div
+                    className="pointer-events-none absolute bottom-full mb-2 -translate-x-1/2 rounded-md bg-popover px-2 py-1 text-[11px] tabular-nums text-popover-foreground shadow-sm ring-1 ring-border/60"
+                    style={{ left: `${timelinePreviewLeft}%` }}
+                  >
+                    {formatTimecode(timelinePreview.time)}
+                  </div>
+                </>
+              ) : null}
             </div>
-          ) : null}
+          </div>
+        </div>
+
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <div className="flex min-w-fit items-center gap-1">
+            <PlayerIconButton
+              label={isPlaying ? "Pause" : "Play"}
+              onClick={handleTogglePlayback}
+              disabled={!isReady}
+            >
+              {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
+            </PlayerIconButton>
+
+            <PlayerIconButton
+              label={isLooping ? "Loop on" : "Loop off"}
+              active={isLooping}
+              onClick={handleLoopChange}
+              disabled={!isReady}
+              aria-pressed={isLooping}
+            >
+              <Repeat2 className="h-4 w-4" />
+            </PlayerIconButton>
+
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-7 items-center gap-1 rounded-full px-1.5 text-xs tabular-nums text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70 disabled:pointer-events-none disabled:opacity-40"
+                      disabled={!isReady}
+                    >
+                      <Gauge className="h-3.5 w-3.5" />
+                      {formatPlaybackSpeed(playbackSpeed)}
+                      <span className="sr-only">Playback speed</span>
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top">Playback speed</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="start" side="top" sideOffset={10} className="w-32">
+                <DropdownMenuRadioGroup
+                  value={String(playbackSpeed)}
+                  onValueChange={(value) => handleSpeedChange(Number(value))}
+                >
+                  {PLAYBACK_SPEEDS.map((speed) => (
+                    <DropdownMenuRadioItem key={speed} value={String(speed)}>
+                      {formatPlaybackSpeed(speed)}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <PlayerIconButton
+              label={isMuted ? "Unmute preview" : "Mute preview"}
+              active={isMuted}
+              onClick={handleMuteChange}
+              disabled={!isReady}
+              aria-pressed={isMuted}
+            >
+              {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </PlayerIconButton>
+          </div>
+
+          <div className="mx-auto flex min-w-fit items-center gap-1.5">
+            <PlayerIconButton
+              label="Restart"
+              onClick={handleRestart}
+              disabled={!isReady}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </PlayerIconButton>
+            <div className="min-w-[7.75rem] rounded-md bg-muted/40 px-2.5 py-1 text-center text-sm tabular-nums tracking-normal text-foreground shadow-sm ring-1 ring-border/50">
+              {formatTimecode(currentTime)}
+            </div>
+          </div>
+
+          <div className="ml-auto flex min-w-fit items-center gap-1">
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70"
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span className="sr-only">Preview settings</span>
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top">Preview settings</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end" side="top" sideOffset={10} className="w-56">
+                <DropdownMenuLabel>Preview settings</DropdownMenuLabel>
+                {PREVIEW_SETTINGS_CONTROLS.includes("zoom") ? (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <ZoomIn className="h-4 w-4" />
+                      <span>Zoom</span>
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {zoomLabel}
+                      </span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-32">
+                      <DropdownMenuRadioGroup
+                        value={zoom}
+                        onValueChange={(value) => setZoom(value as ZoomValue)}
+                      >
+                        {ZOOM_OPTIONS.map((option) => (
+                          <DropdownMenuRadioItem key={option.value} value={option.value}>
+                            {option.label}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ) : null}
+                {PREVIEW_SETTINGS_CONTROLS.includes("reload-preview") ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={handleReload}
+                      disabled={sourceQuery.isFetching}
+                    >
+                      <RefreshCw className={cn("h-4 w-4", sourceQuery.isFetching && "animate-spin")} />
+                      Reload preview
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <PlayerIconButton
+              label={isElementFullscreen ? "Exit fullscreen" : "Open fullscreen"}
+              onClick={handleToggleFullscreen}
+            >
+              {isElementFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </PlayerIconButton>
+
+            {showCloseControl ? (
+              <PlayerIconButton label="Close preview" onClick={onClose}>
+                <X className="h-4 w-4" />
+              </PlayerIconButton>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
