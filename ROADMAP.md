@@ -518,6 +518,8 @@ Done when:
 
 ### Phase 3: HyperFrames Service Layer
 
+ExecPlan: `plans/phase-3-hyperframes-service-layer.md`
+
 Goals:
 
 - Add main-process HyperFrames orchestration.

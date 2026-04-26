@@ -30,7 +30,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "test": "bun test",
-    "test:ripple": "bun test src/main/lib/ripple-projects src/main/lib/git/worktree-config.test.ts src/main/windows/chat-ownership.test.ts src/renderer/features/sidebar/project-chat-selection.test.ts src/renderer/features/agents/lib/agents-actions.test.ts src/renderer/features/agents/utils/selected-project.test.ts",
+    "test:ripple": "bun test src/main/lib/ripple-projects src/main/lib/hyperframes src/main/lib/git/worktree-config.test.ts src/main/windows/chat-ownership.test.ts src/renderer/features/sidebar/project-chat-selection.test.ts src/renderer/features/agents/lib/agents-actions.test.ts src/renderer/features/agents/utils/selected-project.test.ts",
     "ts:check": "tsgo --noEmit",
     "postinstall": "node -e \"if(!process.env.VERCEL){require('child_process').execSync('electron-rebuild -f -w better-sqlite3,node-pty',{stdio:'inherit'})}\" && node scripts/patch-electron-dev.mjs"
   },

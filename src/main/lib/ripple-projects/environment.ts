@@ -1,8 +1,13 @@
-import { execFile } from "node:child_process"
-import { readFileSync } from "node:fs"
 import { stat } from "node:fs/promises"
-import { createRequire } from "node:module"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
+import {
+  execFileSafe as execHyperframesFileSafe,
+  firstLine,
+  getAppManagedCommandCandidates,
+  getBundledCommandCandidates,
+  getHyperframesCommandCandidates,
+  resolvePackageJsonPath,
+} from "../hyperframes/runtime"
 import type { EnvironmentCheck, SetupReport, SetupStatus } from "./types"
 
 interface CommandResult {
@@ -20,18 +25,6 @@ export interface EnvironmentProbe {
     env?: NodeJS.ProcessEnv,
   ) => Promise<CommandResult>
   hasPath: (path: string) => Promise<boolean>
-}
-
-interface CommandCandidate {
-  command: string
-  args: string[]
-  env?: NodeJS.ProcessEnv
-}
-
-const requireFromHere = createRequire(import.meta.url)
-const HYPERFRAMES_APP_ENV: NodeJS.ProcessEnv = {
-  HYPERFRAMES_NO_TELEMETRY: "1",
-  HYPERFRAMES_NO_UPDATE_CHECK: "1",
 }
 
 const defaultProbe: EnvironmentProbe = {
@@ -53,23 +46,9 @@ export function execFileSafe(
   timeout = 4000,
   env?: NodeJS.ProcessEnv,
 ): Promise<CommandResult> {
-  return new Promise((resolve) => {
-    execFile(
-      command,
-      args,
-      {
-        timeout,
-        env: env ? { ...process.env, ...env } : process.env,
-      },
-      (error, stdout, stderr) => {
-        resolve({
-          ok: !error,
-          stdout: String(stdout || ""),
-          stderr: String(stderr || ""),
-          error: error ?? undefined,
-        })
-      },
-    )
+  return execHyperframesFileSafe(command, args, {
+    timeout,
+    env: env ? { ...process.env, ...env } : process.env,
   })
 }
 
@@ -77,92 +56,6 @@ export function parseNodeMajor(version: string): number | null {
   const match = version.trim().match(/^v?(\d+)/)
   if (!match) return null
   return Number(match[1])
-}
-
-function firstLine(value: string): string {
-  return value.split(/\r?\n/).find(Boolean)?.trim() ?? ""
-}
-
-function getPlatformBinName(command: string): string {
-  return process.platform === "win32" ? `${command}.exe` : command
-}
-
-function normalizeExecutablePath(path: string): string {
-  return path.replace("app.asar", "app.asar.unpacked")
-}
-
-function resolveRequiredPackage(packageName: string): unknown | null {
-  try {
-    return requireFromHere(packageName)
-  } catch {
-    return null
-  }
-}
-
-function resolvePackageJsonPath(packageName: string): string | null {
-  try {
-    return normalizeExecutablePath(requireFromHere.resolve(`${packageName}/package.json`))
-  } catch {
-    return null
-  }
-}
-
-function getPackageBinScript(packageName: string, binName: string): string | null {
-  const packageJsonPath = resolvePackageJsonPath(packageName)
-  if (!packageJsonPath) return null
-
-  try {
-    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
-      bin?: string | Record<string, string>
-    }
-    const binPath =
-      typeof packageJson.bin === "string"
-        ? packageJson.bin
-        : packageJson.bin?.[binName]
-
-    return binPath ? normalizeExecutablePath(join(dirname(packageJsonPath), binPath)) : null
-  } catch {
-    return null
-  }
-}
-
-function getBundledCommandCandidates(
-  command: string,
-  repoRoot: string | undefined,
-): string[] {
-  const platformArch = `${process.platform}-${process.arch}`
-  const binaryName = getPlatformBinName(command)
-  const candidates: string[] = []
-
-  if (repoRoot) {
-    candidates.push(join(repoRoot, "resources", "bin", platformArch, binaryName))
-    candidates.push(join(repoRoot, "node_modules", ".bin", binaryName))
-  }
-
-  const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
-  if (typeof resourcesPath === "string") {
-    candidates.push(join(resourcesPath, "bin", binaryName))
-  }
-
-  return candidates
-}
-
-function getInstallerPackagePath(packageName: string): string | null {
-  const packageValue = resolveRequiredPackage(packageName) as { path?: unknown } | null
-  return typeof packageValue?.path === "string"
-    ? normalizeExecutablePath(packageValue.path)
-    : null
-}
-
-function getAppManagedCommandCandidates(
-  command: "ffmpeg" | "ffprobe",
-): string[] {
-  const packagePath =
-    command === "ffmpeg"
-      ? getInstallerPackagePath("@ffmpeg-installer/ffmpeg")
-      : getInstallerPackagePath("@ffprobe-installer/ffprobe")
-
-  return packagePath ? [packagePath] : []
 }
 
 function getEmbeddedNodeVersion(): string | null {
@@ -261,19 +154,10 @@ async function checkHyperFrames(
   repoRoot: string | undefined,
   probe: EnvironmentProbe,
 ): Promise<EnvironmentCheck> {
-  const packageCliPath = getPackageBinScript("hyperframes", "hyperframes")
-  const candidates: CommandCandidate[] = [
-    ...getBundledCommandCandidates("hyperframes", repoRoot).map((command) => ({
-      command,
-      args: ["--version"],
-      env: HYPERFRAMES_APP_ENV,
-    })),
-  ]
-
-  for (const candidate of candidates) {
+  for (const candidate of getHyperframesCommandCandidates(repoRoot)) {
     const result = await probe.execFile(
       candidate.command,
-      candidate.args,
+      [...candidate.argsPrefix, "--version"],
       2500,
       candidate.env,
     )
@@ -285,56 +169,6 @@ async function checkHyperFrames(
         version: firstLine(result.stdout || result.stderr),
         message: "HyperFrames CLI is available locally.",
       }
-    }
-  }
-
-  if (packageCliPath) {
-    const result = await probe.execFile(
-      process.execPath,
-      [packageCliPath, "--version"],
-      2500,
-      { ...HYPERFRAMES_APP_ENV, ELECTRON_RUN_AS_NODE: "1" },
-    )
-    if (result.ok) {
-      return {
-        name: "hyperframes",
-        status: "ready",
-        label: "HyperFrames",
-        version: firstLine(result.stdout || result.stderr),
-        message: "Ripple's bundled motion CLI is available.",
-      }
-    }
-
-    const directResult = await probe.execFile(
-      packageCliPath,
-      ["--version"],
-      2500,
-      HYPERFRAMES_APP_ENV,
-    )
-    if (directResult.ok) {
-      return {
-        name: "hyperframes",
-        status: "ready",
-        label: "HyperFrames",
-        version: firstLine(directResult.stdout || directResult.stderr),
-        message: "Ripple's bundled motion CLI is available.",
-      }
-    }
-  }
-
-  const globalResult = await probe.execFile(
-    "hyperframes",
-    ["--version"],
-    2500,
-    HYPERFRAMES_APP_ENV,
-  )
-  if (globalResult.ok) {
-    return {
-      name: "hyperframes",
-      status: "ready",
-      label: "HyperFrames",
-      version: firstLine(globalResult.stdout || globalResult.stderr),
-      message: "Motion CLI is available locally.",
     }
   }
 

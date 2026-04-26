@@ -89,6 +89,7 @@ function getIndexHtml(metadata: ScaffoldMetadata): string {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
     <title>${projectName}</title>
     <style>
       :root {
@@ -162,18 +163,18 @@ function getIndexHtml(metadata: ScaffoldMetadata): string {
       data-start="0"
       data-width="${metadata.width}"
       data-height="${metadata.height}"
-      data-duration="180"
+      data-duration="6"
     >
-      <section class="clip title-card" data-start="0" data-duration="180" data-track-index="1">
+      <section class="clip title-card" data-start="0" data-duration="6" data-track-index="1">
         <div>
-          <p class="clip eyebrow" data-start="0" data-duration="90" data-track-index="2">Ripple starter</p>
-          <h1 class="clip title" data-start="0" data-duration="150" data-track-index="3">${projectName}</h1>
+          <p class="clip eyebrow" data-start="0" data-duration="3" data-track-index="2">Ripple starter</p>
+          <h1 class="clip title" data-start="0" data-duration="5" data-track-index="3">${projectName}</h1>
         </div>
       </section>
       <div
         class="clip lower-third-host"
-        data-start="72"
-        data-duration="90"
+        data-start="2.4"
+        data-duration="3.2"
         data-track-index="4"
         data-composition-id="lower-third"
         data-width="${metadata.width}"
@@ -208,7 +209,7 @@ function getLowerThirdHtml(metadata: ScaffoldMetadata): string {
     data-start="0"
     data-width="${metadata.width}"
     data-height="220"
-    data-duration="90"
+    data-duration="3"
   >
     <style>
       .lower-third {
@@ -246,9 +247,9 @@ function getLowerThirdHtml(metadata: ScaffoldMetadata): string {
       }
     </style>
 
-    <div class="clip lower-third-panel" data-start="0" data-duration="90" data-track-index="1">
-      <h2 class="clip lower-third-title" data-start="0" data-duration="80" data-track-index="2">Hello, Ripple</h2>
-      <p class="clip lower-third-subtitle" data-start="8" data-duration="72" data-track-index="3">Motion project ready</p>
+    <div class="clip lower-third-panel" data-start="0" data-duration="3" data-track-index="1">
+      <h2 class="clip lower-third-title" data-start="0" data-duration="2.7" data-track-index="2">Hello, Ripple</h2>
+      <p class="clip lower-third-subtitle" data-start="0.25" data-duration="2.4" data-track-index="3">Motion project ready</p>
     </div>
 
     <script src="../assets/vendor/gsap.min.js"></script>
@@ -257,8 +258,7 @@ function getLowerThirdHtml(metadata: ScaffoldMetadata): string {
       const lowerThirdTimeline = window.gsap.timeline({ paused: true });
       lowerThirdTimeline
         .fromTo(".lower-third-panel", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.45 }, 0)
-        .to(".lower-third-panel", { opacity: 0, y: 12, duration: 0.35 }, 2.65)
-        .set("#lower-third", { duration: 3 }, 0);
+        .to(".lower-third-panel", { opacity: 0, y: 12, duration: 0.35 }, 2.65);
       window.__timelines["lower-third"] = lowerThirdTimeline;
     </script>
   </section>
@@ -274,7 +274,7 @@ function getHyperframesJson(metadata: ScaffoldMetadata): string {
       width: metadata.width,
       height: metadata.height,
       fps: metadata.fps,
-      duration: 180,
+      duration: 6,
       compositions: ["index.html", "compositions/lower-third.html"],
     },
     null,
