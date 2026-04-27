@@ -14,6 +14,7 @@ interface ChatTitleEditorProps {
   disabled?: boolean
   chatId?: string
   hasMessages?: boolean
+  isReviewPaneLayout?: boolean
 }
 
 // Custom comparison to prevent re-renders during streaming
@@ -27,7 +28,8 @@ function areTitlePropsEqual(
     prev.isMobile === next.isMobile &&
     prev.disabled === next.disabled &&
     prev.chatId === next.chatId &&
-    prev.hasMessages === next.hasMessages
+    prev.hasMessages === next.hasMessages &&
+    prev.isReviewPaneLayout === next.isReviewPaneLayout
   )
 }
 
@@ -39,6 +41,7 @@ export const ChatTitleEditor = memo(function ChatTitleEditor({
   disabled = false,
   chatId,
   hasMessages = false,
+  isReviewPaneLayout = false,
 }: ChatTitleEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(name)
@@ -147,7 +150,10 @@ export const ChatTitleEditor = memo(function ChatTitleEditor({
   return (
     <div
       ref={containerRef}
-      className={cn("max-w-2xl mx-auto px-4", heightClass)}
+      className={cn(
+        heightClass,
+        isReviewPaneLayout ? "max-w-none px-3" : "max-w-2xl mx-auto px-4",
+      )}
     >
       {isEditing ? (
         <input

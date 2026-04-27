@@ -53,6 +53,8 @@ import { AgentsSubChatsSidebar } from "../../sidebar/agents-subchats-sidebar"
 import { AgentPreview } from "./agent-preview"
 import { HyperFramesPreviewPlayer } from "../../hyperframes/HyperFramesPreviewPlayer"
 import { HyperFramesProjectPane } from "../../hyperframes/HyperFramesProjectPane"
+import { RippleShell } from "../../ripple-shell/RippleShell"
+import { shouldRenderRippleShell } from "../../ripple-shell/ripple-shell-routing"
 import { AgentDiffView } from "./agent-diff-view"
 import { TerminalSidebar, terminalSidebarOpenAtomFamily } from "../../terminal"
 import { getTerminalScopeKey } from "../../terminal/utils"
@@ -856,6 +858,13 @@ export function AgentsContent() {
     isSubChatsSidebarOpen: Boolean(isSubChatsSidebarOpen),
     projectPaneOpen,
   })
+  const shouldUseRippleShell =
+    shouldRenderRippleShell({
+      canUseHyperframesProjectPane,
+      hasSelectedProject: Boolean(selectedProject?.id),
+      hasSelectedChat: Boolean(selectedChatId),
+      hasDesktopView: Boolean(desktopView),
+    })
   const canShowPreview = canShowHyperframesPreview || canShowSandboxPreview
   // Check if diff can be shown (sandbox exists)
   const canShowDiff = !!chatData?.sandbox_id
@@ -999,7 +1008,7 @@ export function AgentsContent() {
       <div className="flex h-full">
         {/* Ripple project browser replaces the old chat-adjacent sidebar for local motion projects. */}
         <ResizableSidebar
-          isOpen={isHyperframesProjectPaneOpen || shouldShowSubChatsSidebar}
+          isOpen={!shouldUseRippleShell && (isHyperframesProjectPaneOpen || shouldShowSubChatsSidebar)}
           onClose={() => {
             if (canUseHyperframesProjectPane) {
               setProjectPaneOpen(false)
@@ -1063,16 +1072,28 @@ export function AgentsContent() {
           ) : betaAutomationsEnabled && desktopView === "inbox" ? (
             <InboxView />
           ) : selectedChatId ? (
-            <div className="h-full flex flex-col relative overflow-hidden">
-              <ChatView
+            shouldUseRippleShell && selectedProject ? (
+              <RippleShell
                 key={`${chatSourceMode}-${selectedChatId}`}
+                selectedProject={selectedProject}
                 chatId={selectedChatId}
                 isSidebarOpen={sidebarOpen}
                 onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
                 selectedTeamName={selectedTeam?.name}
                 selectedTeamImageUrl={selectedTeam?.image_url}
               />
-            </div>
+            ) : (
+              <div className="h-full flex flex-col relative overflow-hidden">
+                <ChatView
+                  key={`${chatSourceMode}-${selectedChatId}`}
+                  chatId={selectedChatId}
+                  isSidebarOpen={sidebarOpen}
+                  onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+                  selectedTeamName={selectedTeam?.name}
+                  selectedTeamImageUrl={selectedTeam?.image_url}
+                />
+              </div>
+            )
           ) : selectedDraftId || showNewChatForm ? (
             <div className="h-full flex flex-col relative overflow-hidden">
               <NewChatForm key={`new-chat-${newChatFormKeyRef.current}`} />

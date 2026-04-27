@@ -24,6 +24,17 @@ import { windowManager } from "./window-manager"
 
 // Flag to bypass close confirmation when app.quit() has already been confirmed
 let isQuitting = false
+const TRAFFIC_LIGHT_POSITION = { x: 15, y: 12 }
+
+function applyTrafficLightPosition(win: BrowserWindow): void {
+  if (process.platform !== "darwin" || win.isDestroyed()) return
+  win.setWindowButtonPosition(TRAFFIC_LIGHT_POSITION)
+}
+
+function applyTrafficLightPositionAfterLayout(win: BrowserWindow): void {
+  if (process.platform !== "darwin" || win.isDestroyed()) return
+  setTimeout(() => applyTrafficLightPosition(win), 0)
+}
 
 export function setIsQuitting(value: boolean): void {
   isQuitting = value
@@ -280,9 +291,15 @@ function registerIpcHandlers(): void {
       if (win && process.platform === "darwin") {
         // In fullscreen, always show native traffic lights (don't let React hide them)
         if (win.isFullScreen()) {
+          applyTrafficLightPosition(win)
           win.setWindowButtonVisibility(true)
+          applyTrafficLightPositionAfterLayout(win)
         } else {
+          applyTrafficLightPosition(win)
           win.setWindowButtonVisibility(visible)
+          if (visible) {
+            applyTrafficLightPositionAfterLayout(win)
+          }
         }
       }
     },
@@ -740,7 +757,7 @@ export function createWindow(options?: { chatId?: string; subChatId?: string }):
     // hiddenInset hides the native title bar but keeps traffic lights visible
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     trafficLightPosition:
-      process.platform === "darwin" ? { x: 15, y: 12 } : undefined,
+      process.platform === "darwin" ? TRAFFIC_LIGHT_POSITION : undefined,
     // Windows: Use native frame or frameless based on user preference
     ...(process.platform === "win32" && {
       frame: useNativeFrame,
@@ -783,6 +800,7 @@ export function createWindow(options?: { chatId?: string; subChatId?: string }):
     // Start with traffic lights hidden - the renderer will show them
     // after hydration based on the persisted sidebar state
     if (process.platform === "darwin") {
+      applyTrafficLightPosition(window)
       window.setWindowButtonVisibility(false)
     }
     window.show()
@@ -792,7 +810,9 @@ export function createWindow(options?: { chatId?: string; subChatId?: string }):
   window.on("enter-full-screen", () => {
     // Always show native traffic lights in fullscreen
     if (process.platform === "darwin") {
+      applyTrafficLightPosition(window)
       window.setWindowButtonVisibility(true)
+      applyTrafficLightPositionAfterLayout(window)
     }
     window.webContents.send("window:fullscreen-change", true)
   })
@@ -800,6 +820,9 @@ export function createWindow(options?: { chatId?: string; subChatId?: string }):
     // Don't force traffic lights visible here - the renderer will
     // restore the correct visibility based on sidebar state when
     // it receives the fullscreen-change event
+    if (process.platform === "darwin") {
+      applyTrafficLightPosition(window)
+    }
     window.webContents.send("window:fullscreen-change", false)
   })
 

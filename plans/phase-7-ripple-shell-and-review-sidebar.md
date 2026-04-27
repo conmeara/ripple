@@ -18,7 +18,8 @@ The visible product change is a new shell hierarchy:
   toggles and keyboard shortcuts
 - the main editor region owns the HyperFrames preview, player controls,
   timeline, composition context, export entry point, and "Open in HyperFrames
-  Studio" escape hatch
+  Studio" escape hatch; it also has a top-right panel toggle matching
+  Frame.io's asset-viewer panel control
 - the right review pane switches between `Chat`, `Comments`, and utility modes
   such as Details, Files, Changes, Plan, Terminal, and MCP through a vertical
   three-dot control next to the `Comments` tab
@@ -38,11 +39,63 @@ comments, and utility context into a disciplined right-pane model.
 - [x] 2026-04-27 / User + Codex: Chose the Phase 7 shell direction: center-stage
   preview/timeline, Codex-inspired left app sidebar, no assets drawer, top-right
   panel toggles, and a right pane with `Chat`, `Comments`, and utility modes.
-- [ ] Inspect current renderer layout and identify the smallest safe extraction
-  point for the Ripple-specific shell.
-- [ ] Implement the center-stage desktop shell for selected local Ripple
-  projects while preserving the existing non-Ripple agent workspace.
-- [ ] Validate layout behavior, keyboard recovery, and visual fit in Electron.
+- [x] 2026-04-27 / Codex: Inspected the current renderer layout and chose a new
+  `src/renderer/features/ripple-shell/` boundary rather than moving the full
+  legacy `ChatView` layout.
+- [x] 2026-04-27 / Codex: Implemented a first center-stage desktop shell for
+  selected local Ripple projects while preserving the existing non-Ripple agent
+  workspace.
+- [x] 2026-04-27 / Codex: Added pure layout-state tests for panel visibility,
+  right-pane modes, and keyboard recovery.
+- [x] 2026-04-27 / Codex: Smoke-tested the built Electron preview against a
+  local Ripple project and verified assets/review panel toggles, Comments mode,
+  utility menu selection, and center-stage preview expansion.
+- [x] 2026-04-27 / Codex: Reverted the hard rail-specific color tokens and
+  switched the global app rail experiment to existing surfaces with lowered
+  alpha and backdrop blur.
+- [x] 2026-04-27 / Codex: Added the missing center-stage panel toggle so the
+  top-right panel controls now cover assets, preview/player, and review.
+- [x] 2026-04-27 / Codex: Added a top-left project-rail recovery button,
+  simplified the project title area, and restyled the panel toggles toward the
+  Frame.io rounded-square control style.
+- [x] 2026-04-27 / Codex: Replaced the heavy VS Code pane-toggle glyphs with
+  neutral Tabler outline layout icons from `react-icons/tb` and removed the
+  purple active treatment from the top-bar panel buttons.
+- [x] 2026-04-27 / User + Codex: Chose the top-bar project identity option that
+  treats the left square as a rail-control button, with a subtle divider before
+  the project name rather than a project thumbnail/avatar.
+- [x] 2026-04-27 / User + Codex: Refined the rail-control behavior so the
+  top-bar button only appears when the project rail is closed, the open rail
+  uses its own close button, and the close affordance uses the same panel icon
+  instead of double chevrons.
+- [x] 2026-04-27 / User + Codex: Kept the project rail close control visible at
+  all times instead of revealing it only on sidebar hover.
+- [x] 2026-04-27 / User + Codex: Restored the macOS traffic-light hit area in
+  the Ripple top bar when the project rail is closed and offset the reopen
+  control so it does not collide with the native window buttons.
+- [x] 2026-04-27 / User + Codex: Updated the root traffic-light visibility rule
+  so native macOS controls stay visible for the Ripple shell even when the
+  project rail is closed.
+- [x] 2026-04-27 / User + Codex: Refined the Codex-inspired top chrome with a
+  shorter Ripple top bar, smaller panel-control icons, and smoother project
+  rail open/close animation.
+- [x] 2026-04-27 / Codex: Fixed the expanded review-pane chat body so hiding
+  the center preview no longer leaves the chat/input shrink-wrapped with a large
+  empty gutter on the right.
+- [x] 2026-04-27 / Codex: Replaced the temporary right-pane utility placeholders
+  with the existing Details, Files, Changes, Plan, Terminal, and MCP surfaces.
+- [x] 2026-04-27 / Codex: Added a compact MCP settings layout for the Ripple
+  right pane so the server list and empty-state actions fit the locked review
+  width without changing the normal Settings dialog.
+- [x] 2026-04-27 / Codex: Fixed review findings from the utility transfer:
+  "Open in HyperFrames Studio" now waits for a running preview state before
+  opening the external URL, and the embedded Files utility mode now renders the
+  existing file viewer when a file is selected.
+- [x] 2026-04-27 / Codex: Moved the Ripple embedded chat toolbar and utility
+  pane adapters out of legacy `active-chat.tsx` and into
+  `src/renderer/features/ripple-shell/`, keeping behavior the same while making
+  the right-pane code a Ripple-owned extension point for later comments and
+  revisions.
 
 ## Surprises & Discoveries
 
@@ -64,6 +117,59 @@ comments, and utility context into a disciplined right-pane model.
   diff, file viewer, plan, details, and terminal side/bottom surfaces, while
   `src/renderer/features/agents/ui/agents-content.tsx` decides whether the
   Ripple project pane replaces the old sub-chat pane.
+
+- Observation: The safest first pass is to suppress legacy secondary sidebars
+  inside the Ripple review pane rather than extracting every utility surface at
+  once.
+  Evidence: `ChatView` still owns details, files, changes, plan, terminal,
+  preview, and diff behavior. The new `suppressSecondarySidebars` prop keeps
+  those surfaces available in non-Ripple workspaces while the Ripple shell
+  provides utility-mode placeholders for follow-up extraction.
+
+- Observation: `bun run dev` built successfully but launched Electron's default
+  app screen in this environment, while `bun run preview` launched the built
+  Ripple app correctly.
+  Evidence: The dev command showed the default Electron welcome window. The
+  preview command loaded `out/renderer/index.html#windowId=main` and displayed
+  the selected local Ripple project shell.
+
+- Observation: Frame.io V4's public docs describe the workspace as a
+  three-panel system controlled by three square top-right icons.
+  Evidence: Frame.io's Panel Overview names the Project Navigation Panel, Asset
+  Viewer Panel, and Asset Details Panel, and says each top-right icon expands
+  or collapses the corresponding panel.
+
+- Observation: The Frame.io player/commenting direction favors keeping tools in
+  consistent, low-distraction positions while the media remains the focus.
+  Evidence: Frame.io's V4 player article says playback/commenting/zoom tools
+  are pinned in the same bottom player position across media types to minimize
+  visual distraction.
+
+- Observation: The apparent right-side padding in the expanded Chat pane was
+  caused by the embedded `ChatView` shrink-wrapping inside a flex row slot, not
+  by the chat message/input padding itself.
+  Evidence: With the center preview hidden, the `Chat` / `Comments` switcher
+  stretched across the expanded pane, while the chat title and input stopped at
+  the child view's intrinsic width.
+
+- Observation: The MCP settings page was already reusable, but its normal
+  two-column settings width clipped empty-state actions inside the right review
+  pane.
+  Evidence: The live preview showed the `Add your first server` action cut off
+  in MCP utility mode until `AgentsMcpTab` gained a compact width and shorter
+  empty-state label for embedded use.
+
+- Observation: The built preview can auto-resume a previous agent chat and emit
+  Claude authentication noise unrelated to shell rendering.
+  Evidence: `bun run preview` loaded the selected local Ripple project and the
+  utility panes, while the log also showed `Not logged in · Please run /login`
+  from an existing Claude Code session.
+
+- Observation: The utility transfer exposed two lifecycle seams that tests did
+  not cover on the first pass.
+  Evidence: `startPreview` returned while HyperFrames Studio was still in the
+  `starting` state, and the embedded Files mode updated `fileViewerPath` while
+  all legacy file-viewer surfaces were suppressed inside `ChatView`.
 
 ## Decision Log
 
@@ -97,7 +203,69 @@ comments, and utility context into a disciplined right-pane model.
 
 ## Outcomes & Retrospective
 
-Not started.
+First Phase 7 shell pass is implemented for selected local Ripple projects.
+The app now has a Ripple-specific desktop workspace boundary that places the
+HyperFrames preview and timeline in the center, keeps the assets/compositions
+pane as a connected hideable panel, and moves Chat/Comments/utility context
+into a disciplined right review pane.
+
+The new right pane has a compact Chat/Comments switcher and a vertical utility
+menu for Details, Files, Changes, Plan, Terminal, and MCP. Those utility modes
+now mount the existing built surfaces inside the Ripple review pane: Details
+uses the project, task, plan, terminal, changes, and MCP widgets; Files uses the
+file tree and opens selected files in the same embedded pane; Changes uses the
+changes panel; Plan and Terminal use their expanded surfaces; and MCP uses the
+server settings page in compact embedded mode. The
+legacy surfaces are not removed; they are suppressed only inside the Ripple
+review pane, so non-Ripple agent workspaces keep their existing preview, diff,
+files, details, plan, and terminal behavior.
+
+The shell includes top-right panel toggles plus keyboard-driven recovery
+through the shared layout-state helper. The built Electron preview smoke
+verified that hiding assets expands the center stage, hiding review expands the
+stage to the right, Comments mode renders the Frame.io-inspired empty comment
+pane, and selecting a utility mode changes the same right pane rather than
+opening another permanent column.
+
+After the Frame.io panel pass, the top-right controls now represent all three
+major panels: assets/compositions, preview/player, and review. The hard
+rail-specific color experiment was reverted; the current rail experiment keeps
+the original app surfaces but lowers the background alpha and adds backdrop blur
+for a lighter, more glass-like feel.
+
+The shell top bar now keeps the project rail recovery affordance at the far
+left, removes the decorative primary-color marker before the project name, and
+drops the redundant `/ Preview` breadcrumb text. Panel toggles are larger
+rounded-square controls with monochrome active states, closer to the Frame.io
+reference than the earlier purple-accented treatment.
+
+Validation:
+
+- `bun test src/renderer/features/ripple-shell` passed.
+- `bun run test:ripple` passed.
+- `bun run build` passed.
+- `git diff --check` passed.
+- `bun run ts:check` still fails on the known repo-wide baseline. No
+  `src/renderer/features/ripple-shell/*` files appear in the failure list.
+- `bun run preview` launched the built Electron app and supported the live
+  shell smoke. `bun run dev` opened Electron's default welcome screen in this
+  environment and was not useful for visual QA.
+- After the expanded-chat fix, `bun test src/renderer/features/ripple-shell`
+  passed, `git diff --check` passed, and `bun run preview` plus Computer Use
+  verified the chat title/input stretch across the expanded review pane with
+  the center preview hidden.
+- After the utility-page transfer, `bun test src/renderer/features/ripple-shell`
+  passed, `bun run test:ripple` passed, `bun run build` passed, and
+  `git diff --check` passed. `bun run preview` plus Computer Use verified the
+  Details, Files, and MCP utility modes in the locked review-pane layout.
+- After the review-findings fix, `bun test
+  src/main/lib/hyperframes/preview-manager.test.ts
+  src/renderer/features/ripple-shell` passed, `bun run test:ripple` passed,
+  `bun run build` passed, and `git diff --check` passed.
+- After the organization pass, `bun test src/renderer/features/ripple-shell
+  src/main/lib/hyperframes/preview-manager.test.ts
+  src/renderer/components/ui/resizable-sidebar.test.ts` passed and
+  `git diff --check` passed.
 
 ## Context and Orientation
 
@@ -140,6 +308,7 @@ First, define the new shell state model in a small pure module before moving UI.
 The model should describe:
 
 - whether the assets/compositions panel is visible
+- whether the center preview/player panel is visible
 - whether the right pane is visible
 - the current right-pane mode, such as `chat`, `comments`, `details`, `files`,
   `changes`, `plan`, `terminal`, or `mcp`
@@ -157,7 +326,7 @@ commands or trust absolute project paths.
 Third, move the HyperFrames preview/timeline into the center editor region for
 selected local Ripple projects. In this path, `HyperFramesPreviewPlayer` should
 not be opened as a right `ResizableSidebar`. It should occupy the main central
-workspace and resize as panels are hidden or shown.
+workspace by default and be controlled by the middle top-right panel toggle.
 
 Fourth, adapt the Phase 6 assets/compositions pane into a true layout panel. It
 should be visible or hidden, not overlaid as a drawer. When hidden, the center
@@ -237,8 +406,9 @@ Run commands from `/Users/comeara/Projects/ripple` unless noted otherwise.
    `ChatView`, add a placeholder utility mode with a clear empty state and record
    the extraction follow-up in this plan before expanding scope.
 
-10. Add top-right panel toggle buttons with tooltips and keyboard shortcuts.
-    The same reducer/helper should drive clicks and shortcuts.
+10. Add top-right panel toggle buttons with tooltips and keyboard shortcuts for
+    assets, preview/player, and review. The same reducer/helper should drive
+    clicks and shortcuts.
 
 11. Run focused tests for layout helpers and any extracted utilities. Then run
     `bun run test:ripple`, `bun run build`, `git diff --check`, and
@@ -253,8 +423,9 @@ Run commands from `/Users/comeara/Projects/ripple` unless noted otherwise.
 
 Automated validation:
 
-- Pure layout tests cover panel visibility, no-drawer behavior, right-pane mode
-  transitions, utility-to-chat return behavior, and keyboard shortcut recovery.
+- Pure layout tests cover panel visibility, no-drawer behavior, center-stage
+  visibility, right-pane mode transitions, utility-to-chat return behavior, and
+  keyboard shortcut recovery.
 - Existing Phase 4-6 HyperFrames tests continue to pass.
 - `bun run test:ripple` passes.
 - `bun run build` passes.
@@ -271,6 +442,8 @@ Manual/Electron acceptance:
   edge rail.
 - The assets/compositions panel can be restored by a top-right panel toggle and
   keyboard shortcut.
+- The center preview/player panel can be hidden and restored by the middle
+  top-right panel toggle and keyboard shortcut.
 - The right pane can switch between `Chat` and `Comments`.
 - The vertical three-dot utility control next to `Comments` can switch the same
   right pane into utility views such as Details, Files, Changes, Plan, Terminal,
@@ -294,8 +467,10 @@ Manual/Electron acceptance:
 
 Panel state changes must be safe to repeat. Toggling the assets/compositions
 panel on and off should not reload the selected composition, lose active
-composition state, or clear chat input. Toggling the right pane should not stop
-or restart preview playback unless the user explicitly reloads the preview.
+composition state, or clear chat input. Toggling the center preview/player pane
+should hide or reveal that panel without changing the selected composition.
+Toggling the right pane should not stop or restart preview playback unless the
+user explicitly reloads the preview.
 
 If the user hides both contextual panels, the top bar must remain visible so the
 panels can be restored. Keyboard shortcuts must use the same state transitions
@@ -371,3 +546,23 @@ This phase should keep future Phase 8 comments and revisions in mind. The right
 pane should be ready to show frame/time comment threads later, but it should not
 fake persistence or isolated revision behavior before Phase 8 implements those
 data and execution paths.
+
+2026-04-27 first-pass artifacts:
+
+- Added `src/renderer/features/ripple-shell/ripple-shell-layout.ts` and
+  `ripple-shell-layout.test.ts` for panel and right-pane state transitions.
+- Added `src/renderer/features/ripple-shell/ripple-shell-atoms.ts` for
+  persisted window-scoped shell panel preferences.
+- Added `src/renderer/features/ripple-shell/RippleShell.tsx` and
+  `RippleReviewPane.tsx` for the center-stage shell and review sidebar.
+- Added `src/renderer/features/ripple-shell/RippleEmbeddedChatToolbar.tsx` and
+  `RippleEmbeddedUtilityPane.tsx` for the Ripple-owned adapters that let the
+  legacy chat engine render inside the new right-pane shell without keeping
+  utility-page UI inside `active-chat.tsx`.
+- Updated `src/renderer/features/agents/ui/agents-content.tsx` so selected
+  local Ripple projects render `RippleShell`, while settings, automations,
+  mobile, new-chat, and non-Ripple chat paths stay on the existing layout.
+- Updated `src/renderer/features/agents/main/active-chat.tsx` with
+  `suppressSecondarySidebars` so embedded Chat can live inside the right review
+  pane without spawning legacy sidebars.
+- Added `src/renderer/features/ripple-shell` to `bun run test:ripple`.

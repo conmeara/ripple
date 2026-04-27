@@ -1060,6 +1060,7 @@ export const inboxMobileViewModeAtom = atom<InboxMobileViewMode>("list")
 // Settings inner sidebar widths (for MCP, Skills, Agents two-panel layouts)
 // Non-persisted — resets to default on re-render
 export const settingsMcpSidebarWidthAtom = atom(240)
+export const rippleCompactMcpSidebarWidthAtom = atom(160)
 export const settingsSkillsSidebarWidthAtom = atom(240)
 export const settingsAgentsSidebarWidthAtom = atom(240)
 export const settingsPluginsSidebarWidthAtom = atom(240)

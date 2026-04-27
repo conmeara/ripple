@@ -51,6 +51,83 @@ export class PreviewManager {
     return this.previews.get(key)?.state ?? null
   }
 
+  waitUntilRunning(
+    key: string,
+    options: { timeoutMs?: number; intervalMs?: number } = {},
+  ): Promise<HyperframesPreviewState> {
+    const timeoutMs = options.timeoutMs ?? 10000
+    const intervalMs = options.intervalMs ?? 50
+    const startedAt = Date.now()
+
+    return new Promise((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout> | null = null
+
+      const finish = (callback: () => void) => {
+        if (timer) {
+          clearTimeout(timer)
+          timer = null
+        }
+        callback()
+      }
+
+      const check = () => {
+        const state = this.getStatus(key)
+
+        if (!state) {
+          finish(() => reject(
+            new HyperframesError(
+              "Ripple could not find the preview process.",
+              "PREVIEW_NOT_FOUND",
+            ),
+          ))
+          return
+        }
+
+        if (state.status === "running") {
+          finish(() => resolve(state))
+          return
+        }
+
+        if (state.status === "error") {
+          finish(() => reject(
+            new HyperframesError(
+              "Ripple could not start the preview.",
+              "PREVIEW_START_FAILED",
+              state,
+            ),
+          ))
+          return
+        }
+
+        if (state.status === "stopped") {
+          finish(() => reject(
+            new HyperframesError(
+              "Ripple preview stopped before it was ready.",
+              "PREVIEW_STOPPED",
+              state,
+            ),
+          ))
+          return
+        }
+
+        if (Date.now() - startedAt >= timeoutMs) {
+          finish(() => reject(
+            new HyperframesError(
+              "Ripple preview did not finish starting in time.",
+              "PREVIEW_START_TIMEOUT",
+              state,
+            ),
+          ))
+          return
+        }
+
+        timer = setTimeout(check, intervalMs)
+      }
+
+      check()
+    })
+  }
+
   async start(input: {
     context: HyperframesProjectContext
     forceRestart?: boolean

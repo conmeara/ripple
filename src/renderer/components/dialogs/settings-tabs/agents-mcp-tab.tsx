@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
   lastSelectedAgentIdAtom,
+  rippleCompactMcpSidebarWidthAtom,
   selectedProjectAtom,
   settingsMcpSidebarWidthAtom,
 } from "../../../features/agents/atoms"
@@ -455,7 +456,7 @@ function CreateMcpServerForm({
 }
 
 // --- Main Component ---
-export function AgentsMcpTab() {
+export function AgentsMcpTab({ compact = false }: { compact?: boolean } = {}) {
   const lastSelectedAgentId = useAtomValue(lastSelectedAgentIdAtom)
   const defaultAddProvider: McpProvider =
     lastSelectedAgentId === "codex" ? "codex" : "claude-code"
@@ -775,13 +776,15 @@ export function AgentsMcpTab() {
       <ResizableSidebar
         isOpen={true}
         onClose={() => {}}
-        widthAtom={settingsMcpSidebarWidthAtom}
-        minWidth={200}
-        maxWidth={400}
+        widthAtom={
+          compact ? rippleCompactMcpSidebarWidthAtom : settingsMcpSidebarWidthAtom
+        }
+        minWidth={compact ? 150 : 200}
+        maxWidth={compact ? 180 : 400}
         side="left"
         animationDuration={0}
-        initialWidth={240}
-        exitWidth={240}
+        initialWidth={compact ? 160 : 240}
+        exitWidth={compact ? 160 : 240}
         disableClickToClose={true}
       >
         <div className="flex flex-col h-full bg-background border-r overflow-hidden" style={{ borderRightWidth: "0.5px" }}>
@@ -975,7 +978,7 @@ export function AgentsMcpTab() {
                 onClick={() => setShowAddForm(true)}
               >
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Add your first server
+                {compact ? "Add server" : "Add your first server"}
               </Button>
             )}
           </div>

@@ -711,6 +711,8 @@ Done when:
 
 ### Phase 8: Comments And Revisions
 
+ExecPlan: `plans/phase-8-comments-and-revisions.md`
+
 Goals:
 
 - Add comment thread and revision persistence.

@@ -18,6 +18,7 @@ import {
   anthropicOnboardingCompletedAtom,
   customHotkeysAtom,
   betaKanbanEnabledAtom,
+  chatSourceModeAtom,
 } from "../../lib/atoms"
 import { selectedAgentChatIdAtom, selectedProjectAtom, selectedDraftIdAtom, showNewChatFormAtom, desktopViewAtom, fileSearchDialogOpenAtom, projectEntryReturnProjectAtom } from "../agents/atoms"
 import { trpc } from "../../lib/trpc"
@@ -35,6 +36,10 @@ import { useUpdateChecker } from "../../lib/hooks/use-update-checker"
 import { useAgentSubChatStore } from "../agents/stores/sub-chat-store"
 import { QueueProcessor } from "../agents/components/queue-processor"
 import { SettingsSidebar } from "../settings/settings-sidebar"
+import {
+  shouldRenderRippleShell,
+  shouldShowTrafficLightsForRippleShell,
+} from "../ripple-shell/ripple-shell-routing"
 
 // ============================================================================
 // Constants
@@ -42,7 +47,7 @@ import { SettingsSidebar } from "../settings/settings-sidebar"
 
 const SIDEBAR_MIN_WIDTH = 160
 const SIDEBAR_MAX_WIDTH = 300
-const SIDEBAR_ANIMATION_DURATION = 0
+const SIDEBAR_ANIMATION_DURATION = 0.18
 const SIDEBAR_CLOSE_HOTKEY = "⌘\\"
 
 // ============================================================================
@@ -96,6 +101,7 @@ export function AgentsLayout() {
   const setSettingsActiveTab = useSetAtom(agentsSettingsDialogActiveTabAtom)
   const setSettingsDialogOpen = useSetAtom(agentsSettingsDialogOpenAtom)
   const desktopView = useAtomValue(desktopViewAtom)
+  const chatSourceMode = useAtomValue(chatSourceModeAtom)
   const setFileSearchDialogOpen = useSetAtom(fileSearchDialogOpenAtom)
   const [selectedChatId, setSelectedChatId] = useAtom(selectedAgentChatIdAtom)
   const [selectedProject, setSelectedProject] = useAtom(selectedProjectAtom)
@@ -151,6 +157,13 @@ export function AgentsLayout() {
   // When settings view is active, don't control traffic lights here —
   // SettingsSidebar manages its own visibility (always hidden).
   const isSettingsView = desktopView === "settings"
+  const shouldUseRippleShell =
+    shouldRenderRippleShell({
+      canUseHyperframesProjectPane: chatSourceMode === "local",
+      hasSelectedProject: Boolean(validatedProject?.id),
+      hasSelectedChat: Boolean(selectedChatId),
+      hasDesktopView: Boolean(desktopView),
+    })
   useEffect(() => {
     if (!isDesktop) return
     if (isSettingsView) return // SettingsSidebar handles its own traffic light state
@@ -160,8 +173,13 @@ export function AgentsLayout() {
     )
       return
 
-    window.desktopApi.setTrafficLightVisibility(sidebarOpen)
-  }, [sidebarOpen, isDesktop, isFullscreen, isSettingsView])
+    window.desktopApi.setTrafficLightVisibility(
+      shouldShowTrafficLightsForRippleShell({
+        sidebarOpen,
+        shouldUseRippleShell,
+      }),
+    )
+  }, [sidebarOpen, isDesktop, isFullscreen, isSettingsView, shouldUseRippleShell])
 
   const setChatId = useAgentSubChatStore((state) => state.setChatId)
 
@@ -328,7 +346,7 @@ export function AgentsLayout() {
           initialWidth={0}
           exitWidth={0}
           showResizeTooltip={!isSettingsView}
-          className="overflow-hidden bg-background border-r"
+          className="overflow-hidden border-r border-border/50 bg-[hsl(var(--background)/0.72)] backdrop-blur-2xl"
           style={{ borderRightWidth: "0.5px" }}
         >
           {isSettingsView ? (

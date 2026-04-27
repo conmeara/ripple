@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  ExternalLink,
   Gauge,
   Maximize2,
   Minimize2,
@@ -22,6 +23,7 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -169,6 +171,7 @@ export function HyperFramesPreviewPlayer({
     projectId,
     compositionId,
   })
+  const startStudioPreviewMutation = trpc.hyperframes.startPreview.useMutation()
   const timelineQuery = trpc.hyperframes.getTimelineModel.useQuery(
     { projectId, compositionId },
     {
@@ -265,6 +268,25 @@ export function HyperFramesPreviewPlayer({
   const handleReload = () => {
     adapter.reload()
     void timelineQuery.refetch()
+  }
+
+  const handleOpenStudio = async () => {
+    try {
+      const preview = await startStudioPreviewMutation.mutateAsync({
+        projectId,
+      })
+      if (preview.url) {
+        if (window.desktopApi?.openExternal) {
+          await window.desktopApi.openExternal(preview.url)
+        } else {
+          window.open(preview.url, "_blank")
+        }
+      }
+    } catch (error) {
+      toast.error("HyperFrames Studio did not open", {
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
   }
 
   const handleSeek = (value: number) => {
@@ -638,6 +660,14 @@ export function HyperFramesPreviewPlayer({
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>
                 ) : null}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => void handleOpenStudio()}
+                  disabled={startStudioPreviewMutation.isPending}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Open in HyperFrames Studio
+                </DropdownMenuItem>
                 {PREVIEW_SETTINGS_CONTROLS.includes("reload-preview") ? (
                   <>
                     <DropdownMenuSeparator />

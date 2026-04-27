@@ -42,6 +42,7 @@ import {
 import { usePrefetchLocalChat } from "../../lib/hooks/use-prefetch-local-chat"
 import { ArchivePopover } from "../agents/ui/archive-popover"
 import { ChevronDown, MoreHorizontal, Columns3 } from "lucide-react"
+import { TbLayoutSidebar } from "react-icons/tb"
 import { useQuery } from "@tanstack/react-query"
 import { remoteTrpc } from "../../lib/remote-trpc"
 // import { useRouter } from "next/navigation" // Desktop doesn't use next/navigation
@@ -85,7 +86,6 @@ import {
   ContextMenuSubContent,
 } from "../../components/ui/context-menu"
 import {
-  IconDoubleChevronLeft,
   SettingsIcon,
   PlusIcon,
   ProfileIcon,
@@ -1339,11 +1339,10 @@ const SidebarHeader = memo(function SidebarHeader({
         <div
           ref={closeButtonRef}
           className={cn(
-            "absolute right-2 z-20 transition-opacity duration-150",
+            "absolute right-2 z-20",
             "top-2",
           )}
           style={{
-            opacity: isDropdownOpen ? 1 : 0,
             // @ts-expect-error - WebKit-specific property
             WebkitAppRegion: "no-drag",
           }}
@@ -1355,10 +1354,10 @@ const SidebarHeader = memo(function SidebarHeader({
                 size="icon"
                 onClick={onToggleSidebar}
                 tabIndex={-1}
-                className="h-6 w-6 p-0 hover:bg-foreground/10 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] text-foreground flex-shrink-0 rounded-md"
+                className="h-7 w-7 rounded-md border border-transparent bg-transparent p-0 text-primary shadow-none transition-colors hover:bg-transparent hover:text-primary"
                 aria-label="Close sidebar"
               >
-                <IconDoubleChevronLeft className="h-4 w-4" />
+                <TbLayoutSidebar className="h-3.5 w-3.5" />
               </ButtonCustom>
             </TooltipTrigger>
             <TooltipContent>
@@ -2999,14 +2998,13 @@ export function AgentsSidebar({
     }
   }, [])
 
-  // Update sidebar hover UI - DOM manipulation for close button, state for TrafficLights
+  // Update sidebar hover UI for traffic lights.
   // TrafficLights component handles native traffic light visibility via its own effect
   // Update sidebar hover UI via DOM manipulation (no state update to avoid re-renders)
   const updateSidebarHoverUI = useCallback((hovered: boolean) => {
     isSidebarHoveredRef.current = hovered
-    // Update close button opacity
     if (closeButtonRef.current) {
-      closeButtonRef.current.style.opacity = hovered ? "1" : "0"
+      closeButtonRef.current.style.opacity = "1"
     }
   }, [])
 
@@ -3212,7 +3210,7 @@ export function AgentsSidebar({
         "group/sidebar flex flex-col gap-0 overflow-hidden select-none",
         isMobileFullscreen
           ? "h-full w-full bg-background"
-          : "h-full bg-tl-background",
+          : "h-full bg-[hsl(var(--tl-background)/0.78)] backdrop-blur-2xl",
       )}
       onMouseEnter={handleSidebarMouseEnter}
       onMouseLeave={handleSidebarMouseLeave}
@@ -3534,13 +3532,13 @@ export function AgentsSidebar({
         {/* Top gradient fade (appears when scrolled down) */}
         <div
           ref={topGradientRef}
-          className="absolute top-0 left-0 right-0 h-10 pointer-events-none bg-gradient-to-b from-tl-background via-tl-background/50 to-transparent transition-opacity duration-200 opacity-0"
+          className="absolute top-0 left-0 right-0 h-10 pointer-events-none bg-gradient-to-b from-[hsl(var(--tl-background)/0.78)] via-[hsl(var(--tl-background)/0.38)] to-transparent transition-opacity duration-200 opacity-0"
         />
 
         {/* Bottom gradient fade */}
         <div
           ref={bottomGradientRef}
-          className="absolute bottom-0 left-0 right-0 h-12 pointer-events-none bg-gradient-to-t from-tl-background via-tl-background/50 to-transparent transition-opacity duration-200 opacity-0"
+          className="absolute bottom-0 left-0 right-0 h-12 pointer-events-none bg-gradient-to-t from-[hsl(var(--tl-background)/0.78)] via-[hsl(var(--tl-background)/0.38)] to-transparent transition-opacity duration-200 opacity-0"
         />
       </div>
 

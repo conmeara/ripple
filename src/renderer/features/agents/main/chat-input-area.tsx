@@ -205,6 +205,8 @@ export interface ChatInputAreaProps {
   onContinueWithProvider?: (provider: "claude-code" | "codex") => void
   // Whether this sub-chat tab is the active/visible one (prevents window-level hotkeys in background tabs)
   isActive?: boolean
+  // Removes the normal centered chat cap when the input is embedded in Ripple's review pane.
+  isReviewPaneLayout?: boolean
 }
 
 /**
@@ -227,7 +229,8 @@ function arePropsEqual(prevProps: ChatInputAreaProps, nextProps: ChatInputAreaPr
     prevProps.isMobile !== nextProps.isMobile ||
     prevProps.queueLength !== nextProps.queueLength ||
     prevProps.firstQueueItemId !== nextProps.firstQueueItemId ||
-    prevProps.isActive !== nextProps.isActive
+    prevProps.isActive !== nextProps.isActive ||
+    prevProps.isReviewPaneLayout !== nextProps.isReviewPaneLayout
   ) {
     return false
   }
@@ -411,6 +414,7 @@ export const ChatInputArea = memo(function ChatInputArea({
   onProviderChange,
   onContinueWithProvider,
   isActive = true,
+  isReviewPaneLayout = false,
 }: ChatInputAreaProps) {
   // Local state - changes here don't re-render parent
   const [hasContent, setHasContent] = useState(false)
@@ -1245,9 +1249,17 @@ export const ChatInputArea = memo(function ChatInputArea({
         })
         observer.observe(el)
       }}
-      className="px-2 pb-2 shadow-sm shadow-background relative z-10"
+      className={cn(
+        "pb-2 shadow-sm shadow-background relative z-10",
+        isReviewPaneLayout ? "px-3" : "px-2",
+      )}
     >
-      <div className="w-full max-w-2xl mx-auto">
+      <div
+        className={cn(
+          "w-full mx-auto",
+          isReviewPaneLayout ? "max-w-none" : "max-w-2xl",
+        )}
+      >
         <div
           className="relative w-full"
           onDragOver={handleDragOver}

@@ -98,6 +98,12 @@ import { terminalBottomHeightAtom, terminalDisplayModeAtom, terminalSidebarOpenA
 import { TerminalBottomPanelContent, TerminalSidebar } from "../../terminal/terminal-sidebar"
 import { getTerminalScopeKey } from "../../terminal/utils"
 import { HyperFramesPreviewPlayer } from "../../hyperframes/HyperFramesPreviewPlayer"
+import { RippleEmbeddedChatToolbar } from "../../ripple-shell/RippleEmbeddedChatToolbar"
+import { RippleEmbeddedUtilityPane } from "../../ripple-shell/RippleEmbeddedUtilityPane"
+import {
+  isRippleUtilityMode,
+  type RippleRightPaneMode,
+} from "../../ripple-shell/ripple-shell-layout"
 import {
   agentsChangesPanelCollapsedAtom,
   agentsChangesPanelWidthAtom,
@@ -1935,6 +1941,7 @@ const ChatViewInner = memo(function ChatViewInner({
   existingPrUrl,
   isActive = true,
   isSplitPane = false,
+  isReviewPaneLayout = false,
   workspaceName,
   workspaceBranch,
   workspaceRepoName,
@@ -1966,6 +1973,7 @@ const ChatViewInner = memo(function ChatViewInner({
   existingPrUrl?: string | null
   isActive?: boolean
   isSplitPane?: boolean
+  isReviewPaneLayout?: boolean
   workspaceName?: string | null
   workspaceBranch?: string | null
   workspaceRepoName?: string | null
@@ -4635,8 +4643,9 @@ const ChatViewInner = memo(function ChatViewInner({
         {!isMobile && (
         <div
           className={cn(
-            "flex-shrink-0 pb-2",
-            isSubChatsSidebarOpen ? "pt-[52px]" : "pt-2",
+            "flex-shrink-0",
+            isReviewPaneLayout ? "pb-1 pt-0" : "pb-2",
+            !isReviewPaneLayout && (isSubChatsSidebarOpen ? "pt-[52px]" : "pt-2"),
           )}
         >
           <ChatTitleEditor
@@ -4646,10 +4655,15 @@ const ChatViewInner = memo(function ChatViewInner({
             isMobile={false}
             chatId={subChatId}
             hasMessages={true} /* Always show "New Chat" placeholder when name is empty */
+            isReviewPaneLayout={isReviewPaneLayout}
           />
           {/* Workspace subtitle: repo • branch */}
           {(workspaceRepoName || workspaceBranch) && (
-            <div className="max-w-2xl mx-auto px-4">
+            <div
+              className={cn(
+                isReviewPaneLayout ? "max-w-none px-3" : "max-w-2xl mx-auto px-4",
+              )}
+            >
               <span className="text-xs text-muted-foreground/50 truncate block">
                 {[workspaceRepoName, workspaceBranch].filter(Boolean).join(" • ")}
               </span>
@@ -4694,7 +4708,10 @@ const ChatViewInner = memo(function ChatViewInner({
       >
         <div
           ref={contentWrapperRef}
-          className="px-2 max-w-2xl mx-auto -mb-4 space-y-4"
+          className={cn(
+            "-mb-4 space-y-4",
+            isReviewPaneLayout ? "max-w-none px-3" : "max-w-2xl mx-auto px-2",
+          )}
           style={{
             paddingBottom: "32px",
           }}
@@ -4725,8 +4742,13 @@ const ChatViewInner = memo(function ChatViewInner({
 
       {/* User questions panel - shows for both live (pending) and expired (timed out) questions */}
       {displayQuestions && (
-        <div className="px-4 relative z-20">
-          <div className="w-full px-2 max-w-2xl mx-auto">
+        <div className={cn("relative z-20", isReviewPaneLayout ? "px-3" : "px-4")}>
+          <div
+            className={cn(
+              "w-full",
+              isReviewPaneLayout ? "max-w-none" : "max-w-2xl mx-auto px-2",
+            )}
+          >
             <AgentUserQuestion
               ref={questionRef}
               pendingQuestions={displayQuestions}
@@ -4740,8 +4762,13 @@ const ChatViewInner = memo(function ChatViewInner({
 
       {/* Stacked cards container - queue + status */}
       {shouldShowStackedCards && (
-          <div className="px-2 -mb-6 relative z-10">
-            <div className="w-full max-w-2xl mx-auto px-2">
+          <div className={cn("-mb-6 relative z-10", isReviewPaneLayout ? "px-3" : "px-2")}>
+            <div
+              className={cn(
+                "w-full",
+                isReviewPaneLayout ? "max-w-none" : "max-w-2xl mx-auto px-2",
+              )}
+            >
               {/* Queue indicator card - top card */}
               {queue.length > 0 && (
                 <AgentQueueIndicator
@@ -4813,6 +4840,7 @@ const ChatViewInner = memo(function ChatViewInner({
         onProviderChange={handleInputProviderChange}
         onContinueWithProvider={handleContinueWithProvider}
         isActive={isActive}
+        isReviewPaneLayout={isReviewPaneLayout}
       />
 
         {/* Scroll to bottom button - isolated component to avoid re-renders during streaming */}
@@ -4842,6 +4870,9 @@ export function ChatView({
   onOpenDiff,
   onOpenTerminal,
   hideHeader = false,
+  suppressSecondarySidebars = false,
+  rightPaneMode,
+  onRightPaneModeChange,
 }: {
   chatId: string
   isSidebarOpen: boolean
@@ -4854,6 +4885,9 @@ export function ChatView({
   onOpenDiff?: () => void
   onOpenTerminal?: () => void
   hideHeader?: boolean
+  suppressSecondarySidebars?: boolean
+  rightPaneMode?: RippleRightPaneMode
+  onRightPaneModeChange?: (mode: RippleRightPaneMode) => void
 }) {
   const [selectedTeamId] = useAtom(selectedTeamIdAtom)
 
@@ -4886,7 +4920,7 @@ export function ChatView({
   const selectedChatId = useAtomValue(selectedAgentChatIdAtom)
   const selectedProject = useAtomValue(selectedProjectAtom)
   const setUndoStack = useSetAtom(undoStackAtom)
-  const setSelectedFilePath = useSetAtom(selectedDiffFilePathAtom)
+  const [selectedFilePath, setSelectedFilePath] = useAtom(selectedDiffFilePathAtom)
   const setFilteredDiffFiles = useSetAtom(filteredDiffFilesAtom)
   const { notifyAgentComplete } = useDesktopNotifications()
 
@@ -4931,6 +4965,11 @@ export function ChatView({
   // Details sidebar state (unified sidebar that combines all right sidebars)
   const isUnifiedSidebarEnabled = useAtomValue(unifiedSidebarEnabledAtom)
   const [isDetailsSidebarOpen, setIsDetailsSidebarOpen] = useAtom(detailsSidebarOpenAtom)
+  const rippleUtilityMode =
+    suppressSecondarySidebars &&
+    isRippleUtilityMode(rightPaneMode)
+      ? rightPaneMode
+      : null
 
   // Resolved hotkeys for tooltips
   const toggleDetailsHotkey = useResolvedHotkeyDisplay("toggle-details")
@@ -6159,7 +6198,12 @@ Make sure to preserve all functionality from both branches when resolving confli
   // Fetch git status for sync counts (pushCount, pullCount, hasUpstream)
   const { data: gitStatus, refetch: refetchGitStatus, isLoading: isGitStatusLoading } = trpc.changes.getStatus.useQuery(
     { worktreePath: worktreePath || "" },
-    { enabled: !!worktreePath && (isDiffSidebarOpen || isDetailsSidebarOpen), staleTime: 30000 }
+    {
+      enabled:
+        !!worktreePath &&
+        (isDiffSidebarOpen || isDetailsSidebarOpen || !!rippleUtilityMode),
+      staleTime: 30000,
+    }
   )
 
   const handleCommitChangesRefresh = useCallback(() => {
@@ -7651,8 +7695,48 @@ Make sure to preserve all functionality from both branches when resolving confli
             </div>
           )}
 
+          {suppressSecondarySidebars && !rippleUtilityMode && (
+            <RippleEmbeddedChatToolbar onCreateNew={handleCreateNewSubChat} />
+          )}
+
           {/* Chat Content - Keep-alive: render all open tabs, hide inactive with CSS */}
-          {tabsToRender.length > 0 && agentChat ? (
+          {rippleUtilityMode ? (
+            <div className="min-h-0 flex-1">
+              <RippleEmbeddedUtilityPane
+                mode={rippleUtilityMode}
+                chatId={chatId}
+                worktreePath={worktreePath}
+                remoteInfo={remoteInfo}
+                currentMode={currentMode}
+                activeSubChatId={activeSubChatIdForPlan}
+                currentPlanPath={currentPlanPath}
+                planEditRefetchTrigger={planEditRefetchTrigger}
+                fileViewerPath={fileViewerPath}
+                canOpenDiff={canOpenDiff}
+                diffStats={diffStats}
+                diffContent={diffContent}
+                parsedFileDiffs={parsedFileDiffs}
+                prefetchedFileContents={prefetchedFileContents}
+                selectedDiffFilePath={selectedFilePath}
+                gitStatus={gitStatus}
+                isGitStatusLoading={isGitStatusLoading}
+                branchName={branchData?.current}
+                subChatsWithFiles={subChatsWithFiles}
+                onBuildPlan={handleApprovePlanFromSidebar}
+                onCommit={worktreePath ? handleCommitChanges : undefined}
+                onCommitAndPush={worktreePath ? handleCommitAndPush : undefined}
+                isCommitting={isCommittingCombined}
+                onOpenFile={setFileViewerPath}
+                onSelectDiffFile={(filePath) => {
+                  setSelectedFilePath(filePath)
+                  setFilteredDiffFiles([filePath])
+                }}
+                onModeChange={onRightPaneModeChange}
+                onRefreshDiff={scheduleDiffRefresh}
+                onDiffStatsChange={setDiffStats}
+              />
+            </div>
+          ) : tabsToRender.length > 0 && agentChat ? (
             <div className="relative flex-1 min-h-0">
               {/* Loading gate: prevent getOrCreateChat() from caching empty messages before data is ready */}
               {isLocalChatLoading ? (
@@ -7706,6 +7790,7 @@ Make sure to preserve all functionality from both branches when resolving confli
                             existingPrUrl={agentChat?.prUrl}
                             isActive={paneId === activeSubChatId}
                             isSplitPane={true}
+                            isReviewPaneLayout={suppressSecondarySidebars}
                             workspaceName={agentChat?.name ?? null}
                             workspaceBranch={agentChat?.branch ?? null}
                             workspaceRepoName={(agentChat as any)?.project?.gitRepo || (agentChat as any)?.project?.name || null}
@@ -7756,6 +7841,7 @@ Make sure to preserve all functionality from both branches when resolving confli
                                 existingPrUrl={agentChat?.prUrl}
                                 isActive={false}
                                 isSplitPane={false}
+                                isReviewPaneLayout={suppressSecondarySidebars}
                                 workspaceName={agentChat?.name ?? null}
                                 workspaceBranch={agentChat?.branch ?? null}
                                 workspaceRepoName={(agentChat as any)?.project?.gitRepo || (agentChat as any)?.project?.name || null}
@@ -7819,6 +7905,7 @@ Make sure to preserve all functionality from both branches when resolving confli
                       existingPrUrl={agentChat?.prUrl}
                       isActive={isActive}
                       isSplitPane={false}
+                      isReviewPaneLayout={suppressSecondarySidebars}
                       workspaceName={agentChat?.name ?? null}
                       workspaceBranch={agentChat?.branch ?? null}
                       workspaceRepoName={(agentChat as any)?.project?.gitRepo || (agentChat as any)?.project?.name || null}
@@ -7835,7 +7922,12 @@ Make sure to preserve all functionality from both branches when resolving confli
 
               {/* Disabled input while loading */}
               <div className="px-2 pb-2">
-                <div className="w-full max-w-2xl mx-auto">
+                <div
+                  className={cn(
+                    "w-full mx-auto",
+                    suppressSecondarySidebars ? "max-w-none" : "max-w-2xl",
+                  )}
+                >
                   <div className="relative w-full">
                     <PromptInput
                       className="border bg-input-background relative z-10 p-2 rounded-xl opacity-50 pointer-events-none"
@@ -7907,7 +7999,7 @@ Make sure to preserve all functionality from both branches when resolving confli
 
         {/* Plan Sidebar - shows plan files on the right (leftmost right sidebar) */}
         {/* Only show when we have an active sub-chat with a plan */}
-        {!isMobileFullscreen && activeSubChatIdForPlan && (
+        {!suppressSecondarySidebars && !isMobileFullscreen && activeSubChatIdForPlan && (
           <ResizableSidebar
             isOpen={isPlanSidebarOpen && !!currentPlanPath}
             onClose={() => setIsPlanSidebarOpen(false)}
@@ -7936,7 +8028,7 @@ Make sure to preserve all functionality from both branches when resolving confli
         {/* Diff View - hidden on mobile fullscreen and when diff is not available */}
         {/* Supports three display modes: side-peek (sidebar), center-peek (dialog), full-page */}
         {/* Wrapped in DiffStateProvider to isolate diff state and prevent ChatView re-renders */}
-        {canOpenDiff && !isMobileFullscreen && (
+        {!suppressSecondarySidebars && canOpenDiff && !isMobileFullscreen && (
           <DiffStateProvider
             isDiffSidebarOpen={isDiffSidebarOpen}
             parsedFileDiffs={parsedFileDiffs}
@@ -7998,7 +8090,7 @@ Make sure to preserve all functionality from both branches when resolving confli
         )}
 
         {/* Preview Sidebar - hidden on mobile fullscreen and when preview is not available */}
-        {canOpenPreview && !isMobileFullscreen && (
+        {!suppressSecondarySidebars && canOpenPreview && !isMobileFullscreen && (
           <ResizableSidebar
             isOpen={isPreviewSidebarOpen}
             onClose={() => setIsPreviewSidebarOpen(false)}
@@ -8072,7 +8164,7 @@ Make sure to preserve all functionality from both branches when resolving confli
         )}
 
         {/* File Viewer - opens when a file is clicked */}
-        {!isMobileFullscreen && fileViewerPath && worktreePath && fileViewerDisplayMode === "side-peek" && (
+        {!suppressSecondarySidebars && !isMobileFullscreen && fileViewerPath && worktreePath && fileViewerDisplayMode === "side-peek" && (
           <ResizableSidebar
             isOpen={!!fileViewerPath}
             onClose={() => setFileViewerPath(null)}
@@ -8094,7 +8186,7 @@ Make sure to preserve all functionality from both branches when resolving confli
             />
           </ResizableSidebar>
         )}
-        {fileViewerPath && worktreePath && fileViewerDisplayMode === "center-peek" && (
+        {!suppressSecondarySidebars && fileViewerPath && worktreePath && fileViewerDisplayMode === "center-peek" && (
           <DiffCenterPeekDialog
             isOpen={!!fileViewerPath}
             onClose={() => setFileViewerPath(null)}
@@ -8106,7 +8198,7 @@ Make sure to preserve all functionality from both branches when resolving confli
             />
           </DiffCenterPeekDialog>
         )}
-        {fileViewerPath && worktreePath && fileViewerDisplayMode === "full-page" && (
+        {!suppressSecondarySidebars && fileViewerPath && worktreePath && fileViewerDisplayMode === "full-page" && (
           <DiffFullPageView
             isOpen={!!fileViewerPath}
             onClose={() => setFileViewerPath(null)}
@@ -8120,7 +8212,7 @@ Make sure to preserve all functionality from both branches when resolving confli
         )}
 
         {/* Terminal Sidebar - shows when worktree exists (desktop only) */}
-        {worktreePath && (
+        {!suppressSecondarySidebars && worktreePath && (
           <TerminalSidebar
             chatId={chatId}
             scopeKey={terminalScopeKey}
@@ -8141,7 +8233,7 @@ Make sure to preserve all functionality from both branches when resolving confli
 
         {/* Unified Details Sidebar - combines all right sidebars into one (rightmost) */}
         {/* Show for both local (worktreePath) and remote (sandboxId) chats */}
-        {isUnifiedSidebarEnabled && !isMobileFullscreen && (worktreePath || sandboxId) && (
+        {!suppressSecondarySidebars && isUnifiedSidebarEnabled && !isMobileFullscreen && (worktreePath || sandboxId) && (
           <DetailsSidebar
             chatId={chatId}
             worktreePath={worktreePath}
@@ -8183,7 +8275,7 @@ Make sure to preserve all functionality from both branches when resolving confli
       </div>
 
       {/* Terminal Bottom Panel — renders below the main row when displayMode is "bottom" */}
-      {terminalDisplayMode === "bottom" && worktreePath && !isMobileFullscreen && (
+      {!suppressSecondarySidebars && terminalDisplayMode === "bottom" && worktreePath && !isMobileFullscreen && (
         <ResizableBottomPanel
           isOpen={isTerminalSidebarOpen}
           onClose={() => setIsTerminalSidebarOpen(false)}

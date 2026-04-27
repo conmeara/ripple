@@ -34,6 +34,18 @@ const DEFAULT_MAX_WIDTH = 9999 // Effectively no limit - CSS constraints handle 
 const DEFAULT_ANIMATION_DURATION = 0 // Disabled for performance
 const EXTENDED_HOVER_AREA_WIDTH = 8
 
+export function clampResizableSidebarOpenWidth({
+  width,
+  minWidth,
+  maxWidth,
+}: {
+  width: number
+  minWidth: number
+  maxWidth: number
+}): number {
+  return Math.max(minWidth, Math.min(maxWidth, width))
+}
+
 export function ResizableSidebar({
   isOpen,
   onClose,
@@ -73,6 +85,11 @@ export function ResizableSidebar({
 
   // Use local width during resize, otherwise use persisted width
   const currentWidth = localWidth ?? sidebarWidth
+  const openWidth = clampResizableSidebarOpenWidth({
+    width: currentWidth,
+    minWidth,
+    maxWidth,
+  })
 
   // Calculate tooltip position dynamically based on sidebar position
   const tooltipPosition = useMemo(() => {
@@ -350,7 +367,7 @@ export function ResizableSidebar({
             initial={
               !shouldAnimate
                 ? {
-                    width: currentWidth,
+                    width: openWidth,
                     opacity: 1,
                   }
                 : {
@@ -359,7 +376,7 @@ export function ResizableSidebar({
                   }
             }
             animate={{
-              width: currentWidth,
+              width: openWidth,
               opacity: 1,
             }}
             exit={{
@@ -371,7 +388,11 @@ export function ResizableSidebar({
               ease: [0.4, 0, 0.2, 1],
             }}
             className={`bg-transparent flex flex-col text-xs h-full relative ${className}`}
-            style={{ minWidth: minWidth, overflow: "hidden", ...style }}
+            style={{
+              minWidth: isResizing ? minWidth : 0,
+              overflow: "hidden",
+              ...style,
+            }}
             {...(dataAttributes ? Object.fromEntries(
               Object.entries(dataAttributes).map(([key, value]) => [`data-${key}`, value])
             ) : {})}

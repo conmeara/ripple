@@ -212,11 +212,12 @@ export const hyperframesRouter = router({
     }))
     .mutation(async ({ input }) => {
       const context = await resolveHyperframesProjectContext({ projectId: input.projectId })
-      return previewManager.start({
+      const preview = await previewManager.start({
         context,
         forceRestart: input.forceRestart,
         repoRoot: getRepoRoot(),
       })
+      return previewManager.waitUntilRunning(preview.key)
     }),
 
   stopPreview: publicProcedure
