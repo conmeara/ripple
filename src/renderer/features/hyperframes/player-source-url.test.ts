@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs"
 import {
   buildHyperframesPlayerBlobDocument,
   buildHyperframesPlayerFetchUrl,
+  buildHyperframesThumbnailBlobDocument,
 } from "./player-source-url"
 
 describe("HyperFrames player source URLs", () => {
@@ -34,6 +35,22 @@ describe("HyperFrames player source URLs", () => {
       "<!-- ripple-player-source:ripple-preview://project_1/__hyperframes/preview/index.html?rippleReload=3 -->",
     )
     expect(document).not.toContain("srcdoc")
+  })
+
+  test("builds self-sampling thumbnail documents for isolated sandbox iframes", () => {
+    const document = buildHyperframesThumbnailBlobDocument({
+      html: "<!doctype html><html><body><main></main></body></html>",
+      sourceUrl:
+        "ripple-preview://project_1/__hyperframes/preview/index.html?rippleReload=3",
+      sampleTime: 2,
+    })
+
+    expect(document).toContain('data-ripple-thumbnail-sampler="1"')
+    expect(document).toContain("window.__player")
+    expect(document).toContain("window.__timelines")
+    expect(document).toContain("<main></main><script")
+    expect(document).not.toContain("window.parent")
+    expect(document).not.toContain("allow-same-origin")
   })
 
   test("keeps renderer CSP open only to local player source channels", () => {

@@ -6,9 +6,11 @@ import {
   captureHyperframesSnapshot,
   assertHyperframesProjectFiles,
   buildHyperframesPlayerSourceDocument,
+  buildHyperframesProjectBrowserModel,
   buildHyperframesStaticTimelineModel,
   hyperframesRenderFormats,
   hyperframesRenderQualities,
+  importHyperframesProjectAssets,
   listSavedHyperframesCompositions,
   previewManager,
   refreshHyperframesCompositions,
@@ -97,6 +99,60 @@ export const hyperframesRouter = router({
         projectId: input.projectId,
         repoRoot: getRepoRoot(),
       })
+    }),
+
+  getProjectBrowserModel: publicProcedure
+    .input(z.object({
+      projectId: z.string(),
+      refreshCompositions: z.boolean().optional(),
+    }))
+    .query(async ({ input }) => {
+      let context = await resolveHyperframesProjectContext({
+        projectId: input.projectId,
+        allowArchived: true,
+      })
+      assertHyperframesProjectFiles(context.projectPath)
+
+      let compositions = await listSavedHyperframesCompositions(input.projectId)
+      if (input.refreshCompositions || compositions.length === 0) {
+        const refreshed = await refreshHyperframesCompositions({
+          projectId: input.projectId,
+          repoRoot: getRepoRoot(),
+        })
+        context = { ...context, project: refreshed.project }
+        compositions = refreshed.compositions
+      }
+
+      return buildHyperframesProjectBrowserModel({
+        context,
+        compositions,
+      })
+    }),
+
+  importAssets: publicProcedure
+    .input(z.object({
+      projectId: z.string(),
+      sourcePaths: z.array(z.string().min(1)).min(1).max(100),
+    }))
+    .mutation(async ({ input }) => {
+      const context = await resolveHyperframesProjectContext({
+        projectId: input.projectId,
+      })
+      assertHyperframesProjectFiles(context.projectPath)
+
+      const result = await importHyperframesProjectAssets({
+        context,
+        sourcePaths: input.sourcePaths,
+      })
+      const compositions = await listSavedHyperframesCompositions(input.projectId)
+
+      return {
+        ...result,
+        model: await buildHyperframesProjectBrowserModel({
+          context,
+          compositions,
+        }),
+      }
     }),
 
   getPlayerSource: publicProcedure

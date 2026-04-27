@@ -6,7 +6,9 @@ import {
   loadingSubChatsAtom,
   agentsSubChatUnseenChangesAtom,
   agentsSubChatsSidebarModeAtom,
+  hyperframesProjectPaneOpenAtom,
   pendingUserQuestionsAtom,
+  selectedProjectAtom,
 } from "../atoms"
 import {
   widgetVisibilityAtomFamily,
@@ -32,6 +34,7 @@ import {
   useAgentSubChatStore,
   type SubChatMeta,
 } from "../stores/sub-chat-store"
+import { resolveRippleProjectPaneHeaderControls } from "../utils/project-pane-layout"
 import { useShallow } from "zustand/react/shallow"
 import { PopoverTrigger } from "../../../components/ui/popover"
 import {
@@ -228,11 +231,27 @@ export function SubChatSelector({
   const [subChatsSidebarMode, setSubChatsSidebarMode] = useAtom(
     agentsSubChatsSidebarModeAtom,
   )
+  const [projectPaneOpen, setProjectPaneOpen] = useAtom(
+    hyperframesProjectPaneOpenAtom,
+  )
+  const selectedProject = useAtomValue(selectedProjectAtom)
   const pendingQuestionsMap = useAtomValue(pendingUserQuestionsAtom)
 
   // Overview sidebar state - to check if widgets are visible
   const isUnifiedSidebarEnabled = useAtomValue(unifiedSidebarEnabledAtom)
   const chatSourceMode = useAtomValue(chatSourceModeAtom)
+  const {
+    showChatTabControls,
+    showProjectPaneOpenButton,
+    showSubChatsPaneOpenButton,
+  } =
+    resolveRippleProjectPaneHeaderControls({
+      chatSourceMode,
+      hasSelectedProject: Boolean(selectedProject?.id),
+      isMobile,
+      projectPaneOpen,
+      subChatsSidebarMode,
+    })
   const widgetVisibilityAtom = useMemo(
     () => widgetVisibilityAtomFamily(chatId || ""),
     [chatId],
@@ -657,7 +676,7 @@ export function SubChatSelector({
       )}
 
       {/* Open sidebar button - only on desktop when in tabs mode */}
-      {!isMobile && subChatsSidebarMode === "tabs" && (
+      {showSubChatsPaneOpenButton && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -674,6 +693,27 @@ export function SubChatSelector({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">Open chats pane</TooltipContent>
+        </Tooltip>
+      )}
+
+      {showProjectPaneOpenButton && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setProjectPaneOpen(true)}
+              className="h-6 w-6 p-0 hover:bg-foreground/10 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] flex-shrink-0 rounded-md flex items-center justify-center"
+              aria-label="Open project pane"
+              style={{
+                // @ts-expect-error - WebKit-specific property
+                WebkitAppRegion: "no-drag",
+              }}
+            >
+              <IconOpenSidebarRight className="h-4 w-4 scale-x-[-1]" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Open project pane</TooltipContent>
         </Tooltip>
       )}
 
@@ -696,8 +736,9 @@ export function SubChatSelector({
           ref={tabsContainerRef}
           className={cn(
             "flex items-center px-1 py-1 -my-1 gap-1 flex-1 min-w-0 overflow-x-auto scrollbar-hide pr-12",
-            // Hide tabs when sidebar is open (desktop) or when only one chat exists
-            (subChatsSidebarMode === "sidebar" && !isMobile) && "hidden",
+            // Hide tabs when a real chats sidebar owns them; keep them visible
+            // when Ripple's project pane replaces that sidebar.
+            !showChatTabControls && "hidden",
             hasSingleChat && "invisible",
           )}
         >
@@ -913,7 +954,7 @@ export function SubChatSelector({
         </div>
 
         {/* Plus button - absolute positioned on right with gradient cover */}
-        {(isMobile || (!isMobile && subChatsSidebarMode === "tabs")) && (
+        {showChatTabControls && (
           <div className="absolute right-0 top-0 bottom-0 flex items-center z-20">
             {/* Gradient to cover content peeking from the left */}
             <div className="w-6 h-full bg-gradient-to-r from-transparent to-background" />
@@ -940,7 +981,7 @@ export function SubChatSelector({
       </div>
 
       {/* Action buttons - always visible on mobile, on desktop only in tabs mode */}
-      {(isMobile || (!isMobile && subChatsSidebarMode === "tabs")) && (
+      {showChatTabControls && (
         <div
           className="flex items-center gap-1"
           style={{

@@ -29,14 +29,37 @@ browser model and a concise native pane that fits the existing app shell.
 - [x] 2026-04-26 / Codex: Created this Phase 6 ExecPlan around the Phase 5
   adapter pattern: main-process project/file truth plus Ripple-owned renderer
   UI.
-- [ ] Implement a main-process project browser model for compositions and
-  assets.
-- [ ] Implement the Ripple project browser pane and wire active composition
-  switching into selected project state.
-- [ ] Add guarded asset import and refresh behavior if the listing/switching
-  milestone is stable.
-- [ ] Validate with focused tests, `bun run test:ripple`, `bun run build`, and
-  live Electron QA against a local Ripple project.
+- [x] 2026-04-26 / Codex: Implemented a main-process project browser model for
+  compositions and assets.
+- [x] 2026-04-26 / Codex: Implemented the Ripple project browser pane and wired
+  active composition switching into selected project state.
+- [x] 2026-04-26 / Codex: Added guarded image, video, and audio import plus
+  asset-pane drop handling through a main-process copy route. Rename, delete,
+  and timeline drag/drop remain later guarded flows.
+- [x] 2026-04-26 / Codex: Validated with focused tests, `bun run test:ripple`,
+  `bun run build`, `git diff --check`, and live Electron QA against a local
+  Ripple project.
+- [x] 2026-04-26 / Codex: Replaced placeholder composition thumbnails with
+  sampled, scaled prepared HyperFrames preview iframes and loosened pane
+  spacing.
+- [x] 2026-04-26 / Codex: Restored the old chats-pane collapse pattern for
+  the Ripple project pane: a close button in the pane and a matching reopen
+  control in the chat header, without adding a collapsed edge rail.
+- [x] 2026-04-26 / Codex: Added focused pure regressions for the closed
+  Ripple pane state and stable active-composition selection, then wired the
+  new agents utility test into `bun run test:ripple`.
+- [x] 2026-04-26 / Codex: Fixed follow-up review findings: thumbnail preview
+  source narrowing, thumbnail iframe origin isolation, and archived-project
+  media import guarding.
+- [x] 2026-04-26 / Codex: Added a project-rail recovery control to the project
+  pane header so hiding the far-left rail is reversible from the visible
+  Ripple workspace.
+- [x] 2026-04-26 / Codex: Fixed follow-up review findings for media imports
+  through symlinked destination asset folders and stale runtime timeline data
+  after preview source changes.
+- [x] 2026-04-26 / Codex: Fixed final preview source handoff findings by
+  pausing/detaching the active player before new source fetches and revoking
+  stale preview blob URLs after source swaps.
 
 ## Surprises & Discoveries
 
@@ -74,6 +97,44 @@ browser model and a concise native pane that fits the existing app shell.
   visible asset set. Ripple should avoid showing generated runtime/vendor
   files as primary assets.
 
+- Observation: The existing preview and timeline path already reloads cleanly
+  when `projects.activeCompositionId` changes.
+  Evidence: Live Electron QA against `~/Ripple/test1` switched from `Main`
+  (`index.html`, six-second timeline) to `Lower Third`
+  (`compositions/lower-third.html`, three-second timeline), and both the
+  preview frame and Phase 5 timeline updated without opening HyperFrames Studio.
+
+- Observation: Asset listing can ship before asset mutation.
+  Evidence: The model and pane can show project-local media from `assets/`
+  through `ripple-preview:` URLs, while import/delete/rename require additional
+  collision, size, extension, and source-patching rules.
+
+- Observation: HyperFrames Studio does not reorder compositions on selection.
+  Evidence: `CompositionsTab.tsx` maps the `compositions` array as-is and marks
+  the active item with `bg-studio-accent/10 border-l-2 border-studio-accent`.
+  Ripple now uses stable file-path ordering plus a soft selected-row highlight
+  instead of moving the active row to the top, showing a checkmark, or adding a
+  separate left accent.
+
+- Observation: Selection should not force a full preview/timeline invalidation.
+  Evidence: Studio's composition handler explicitly avoids incrementing the
+  preview refresh key. Ripple now lets the `compositionId` query key select the
+  next source, keeps previous source/timeline data while the next document is
+  fetched, and avoids broad preview/timeline invalidations from the pane click.
+
+- Observation: Composition thumbnails can reuse Ripple's prepared preview source
+  instead of inventing a separate snapshot path.
+  Evidence: `HyperFramesProjectPane` now requests `hyperframes.getPlayerSource`
+  for each visible composition, fetches the prepared `ripple-preview:` document,
+  wraps it as a local blob document, and scales it inside the row thumbnail.
+
+- Observation: Studio's visible thumbnails are sampled after the opening frame.
+  Evidence: Studio's sidebar asks for `/thumbnail/<composition>?t=2`, and the
+  HyperFrames thumbnail route seeks `window.__player` or the registered GSAP
+  timeline before screenshotting. Ripple now mirrors that behavior in miniature
+  by seeking the row preview iframe to a representative sample frame before
+  fading it in.
+
 ## Decision Log
 
 - Decision: Build a Ripple-owned `HyperFramesProjectPane` instead of importing
@@ -95,18 +156,92 @@ browser model and a concise native pane that fits the existing app shell.
   asset mutation work.
   Date/Author: 2026-04-26 / Codex
 
-- Decision: Treat asset import, rename, delete, and timeline drag/drop as
-  guarded follow-on milestones inside or after Phase 6.
-  Rationale: Listing assets is read-oriented and can safely reuse
-  `ripple-preview:`. Mutations need collision handling, extension validation,
-  symlink/path checks, and future timeline/source patching rules.
+- Decision: Treat asset rename, delete, timeline drag/drop, and source patching
+  as guarded follow-on milestones after Phase 6.
+  Rationale: Listing and copying media assets can be bounded safely. Editing
+  existing asset references or inserting assets into timelines needs additional
+  source-patching and accept/reject rules.
+  Date/Author: 2026-04-26 / Codex
+
+- Decision: Include media import in Phase 6, but keep it as a bounded
+  main-process copy operation.
+  Rationale: The pane looked incomplete without the Studio-style import/drop
+  affordance. Import can be guarded safely now by validating Electron-provided
+  source file paths in the main process, rejecting symlinks and unsupported
+  extensions, resolving collisions, and copying only into project `assets/`.
   Date/Author: 2026-04-26 / Codex
 
 ## Outcomes & Retrospective
 
-Not started. Update this section after implementation with the actual behavior,
-validation output, Electron QA observations, and any scope moved to Phase 7 or
-later.
+Implemented the Phase 6 read/select milestone. Ripple now has a native
+project-browser pane for local Ripple projects in the selected-project workspace
+route. The pane replaces the old chat-adjacent secondary navigation for that
+route, keeps chat available next to it, and exposes Compositions and Assets tabs
+with compact Ripple UI rather than importing HyperFrames Studio.
+
+The main process now owns the project browser model. The renderer asks for facts
+by `projectId`; the route resolves the project, validates HyperFrames project
+files, returns saved or refreshed compositions, scans only the project `assets/`
+directory, filters generated/vendor files, classifies visible media, and serves
+asset preview URLs through `ripple-preview:`.
+
+Composition switching is wired end to end with Studio-like selection behavior.
+Selecting a composition calls `projects.setActiveComposition`, updates
+`selectedProjectAtom`, keeps the list order stable, highlights the selected row
+with a soft row state, and lets the Phase 4 preview plus Phase 5 timeline switch
+by `compositionId` without broad query invalidation from the pane.
+
+Composition rows now show actual miniature previews from the same prepared
+HyperFrames player-source path as the main preview, replacing the starter
+placeholder art. The miniature previews seek to a sampled frame so compositions
+with black first frames still reveal their visible lower-thirds/title content.
+The row sizing, tab height, list padding, and assets import zone spacing were
+loosened to keep the pane from feeling cramped or top-heavy.
+
+The project pane can be closed and reopened using the same interaction pattern
+as the old chats pane. The pane owns a small close button in its tab header, and
+the closed state shows a matching reopen button in the chat header rather than
+inserting a new collapsed rail between panes.
+
+The Assets tab now has an Import media button and drop handling. Imports copy
+image, video, and audio files into project-local `assets/` subfolders from the
+main process after validating source paths, rejecting symlinks/unsupported
+extensions, and resolving destination collisions. Rename, delete, timeline
+drag/drop, and source patching remain later guarded flows.
+
+Validation:
+
+- `bun run test:hyperframes` passed.
+- `bun run test:ripple` passed.
+- `bun run build` passed.
+- `git diff --check` passed.
+- Follow-up thumbnail/spacing polish was revalidated with
+  `bun run test:hyperframes` and `bun run build`.
+- Sampled thumbnails and restored pane close/reopen controls were revalidated
+  with `bun run test:hyperframes`, `bun run test:ripple`, `bun run build`, and
+  `git diff --check`.
+- Follow-up pure regression tests for pane close/reopen state and stable active
+  composition marking were added to the durable `bun run test:ripple` suite.
+- Follow-up review fixes were revalidated with `bun run test:hyperframes`,
+  `bun run test:ripple`, `bun run build`, `bun run ts:check`, and
+  `git diff --check`. `ts:check` still reports the repo's existing baseline
+  errors outside `HyperFramesProjectPane.tsx`; the new thumbnail source
+  narrowing error is gone.
+- The project-rail recovery control was covered by the pure project-pane layout
+  regression and revalidated with the focused Ripple suite.
+- The symlinked asset-destination guard and runtime timeline source-change
+  reset were revalidated with focused regressions, `bun run test:ripple`,
+  `bun run build`, `bun run ts:check`, and `git diff --check`. `ts:check`
+  still reports the repo's existing broad baseline errors; the latest
+  guard/reset files do not appear in that failure list.
+- The final preview handoff fixes were covered by focused
+  `timeline-player-adapter` regressions and revalidated with
+  `bun run test:ripple`.
+- Live Electron QA against `~/Ripple/test1` verified the headerless pane,
+  Studio-like selected composition rows, stable ordering, asset import/drop
+  affordances, asset count state, and switching from `index` to `lower-third`.
+- `bun run ts:check` still fails on the repo's known baseline type errors
+  outside this Phase 6 surface; no new Phase 6 file errors were observed.
 
 ## Context and Orientation
 
@@ -282,9 +417,10 @@ Automated validation:
 - Main-process tests cover project-ID resolution, asset scanning under
   `assets/`, path normalization, symlink/path-boundary rejection, unsupported
   file handling, composition refresh behavior, and active composition stability.
-- Renderer tests cover tab selection, active composition display, asset filter
-  display, disabled states, and composition-click mutation behavior where the
-  existing test stack supports it.
+- Renderer-side tests cover the local Ripple pane close/reopen decision,
+  legacy chats-pane suppression, stable active composition marking, asset
+  filter display, and composition ordering where the existing pure test stack
+  supports it.
 - `bun run test:ripple` passes.
 - `bun run build` passes.
 - `git diff --check` passes.

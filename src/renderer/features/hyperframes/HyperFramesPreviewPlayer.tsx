@@ -174,6 +174,7 @@ export function HyperFramesPreviewPlayer({
     {
       enabled: Boolean(projectId),
       refetchOnWindowFocus: false,
+      placeholderData: (previousData) => previousData,
       retry: 1,
     },
   )

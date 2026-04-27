@@ -372,22 +372,26 @@ Reference links to preserve from the old docs:
 
 ## Target Shell
 
-Four primary regions:
+Center-stage shell with toggleable context panels:
 
-1. Far-left project rail
+1. Far-left app sidebar
    - search
    - new project
    - project list
    - settings/help/profile/footer actions
+   - Codex-inspired project/chat navigation density
 
-2. Assets/compositions/templates pane
+2. Assets/compositions/templates panel
    - assets
    - composition structure
    - templates
    - project files where useful
    - inspired by HyperFrames Studio `FileTree`, but styled as Ripple
+   - visible or hidden through top-right panel toggles and keyboard shortcuts
+   - when hidden, disappears and lets the center editor expand rather than
+     becoming an overlay drawer
 
-3. Main editor region
+3. Center editor region
    - HyperFrames preview/player
    - timeline
    - composition switcher
@@ -395,13 +399,15 @@ Four primary regions:
    - export controls
    - "Open in HyperFrames Studio" escape hatch
 
-4. Right chat/comment and widgets sidebar
+4. Right review pane
    - Frame.io-style mode switcher for `Chat` and `Comments`
+   - vertical three-dot utility control next to `Comments`
    - chat history selection
    - prompting and frame/time comments
    - review context for accept/reject
    - existing details, files, changes, plan, terminal, MCP, and other widgets
-     retained as a secondary sidebar layer
+     retained as secondary utility modes inside the same right pane, not as
+     equal permanent columns
 
 ## Comment And Revision Workflow
 
@@ -677,20 +683,28 @@ Done when:
 
 ### Phase 7: Ripple Shell And Review Sidebar
 
+ExecPlan: `plans/phase-7-ripple-shell-and-review-sidebar.md`
+
 Goals:
 
 - Rework the broader shell from workspace/chat/dev-preview to project/assets,
-  main HyperFrames preview/timeline, and right chat-comment/widget sidebar.
+  center-stage HyperFrames preview/timeline, and right chat-comment review pane.
 - Move chat/comment UX into the right sidebar while preserving chat history and
   existing details/files/widgets.
-- Add the Frame.io-style `Chat` / `Comments` switcher and keep widgets as a
-  secondary right-sidebar layer.
+- Add the Frame.io-style top-right panel toggles for assets/compositions and
+  the right review pane.
+- Add the right-pane `Chat` / `Comments` switcher plus a vertical three-dot
+  utility control for Details, Files, Changes, Plan, Terminal, MCP, and similar
+  secondary surfaces.
 
 Done when:
 
-- Four-part layout is visible and usable.
-- Right sidebar can switch between chat and comments while retaining existing
-  widgets/details surfaces.
+- The HyperFrames preview player and timeline are the center-stage default for
+  selected local Ripple projects, not a right preview sidebar.
+- The assets/compositions panel can disappear and be restored with top-right
+  panel toggles and keyboard shortcuts; hiding it expands the center editor.
+- Right pane can switch between chat, comments, and secondary utility modes
+  while retaining existing widgets/details surfaces.
 - The preview player, timeline, and assets/compositions pane from Phases 4, 5,
   and 6 work together in the shell.
 - "Open in HyperFrames Studio" escape hatch exists.

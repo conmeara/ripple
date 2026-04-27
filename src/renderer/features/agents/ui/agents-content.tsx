@@ -22,6 +22,8 @@ import {
   agentsSubChatsSidebarModeAtom,
   agentsSubChatsSidebarWidthAtom,
   desktopViewAtom,
+  hyperframesProjectPaneOpenAtom,
+  hyperframesProjectPaneWidthAtom,
   selectedProjectAtom,
 } from "../atoms"
 import {
@@ -50,6 +52,7 @@ import { AgentsSidebar } from "../../sidebar/agents-sidebar"
 import { AgentsSubChatsSidebar } from "../../sidebar/agents-subchats-sidebar"
 import { AgentPreview } from "./agent-preview"
 import { HyperFramesPreviewPlayer } from "../../hyperframes/HyperFramesPreviewPlayer"
+import { HyperFramesProjectPane } from "../../hyperframes/HyperFramesProjectPane"
 import { AgentDiffView } from "./agent-diff-view"
 import { TerminalSidebar, terminalSidebarOpenAtomFamily } from "../../terminal"
 import { getTerminalScopeKey } from "../../terminal/utils"
@@ -57,6 +60,7 @@ import {
   useAgentSubChatStore,
   type SubChatMeta,
 } from "../stores/sub-chat-store"
+import { resolveRippleProjectPaneLayout } from "../utils/project-pane-layout"
 import { useShallow } from "zustand/react/shallow"
 import { motion, AnimatePresence } from "motion/react"
 // import { ResizableSidebar } from "@/app/(alpha)/canvas/[id]/{components}/resizable-sidebar"
@@ -64,8 +68,6 @@ import { ResizableSidebar } from "../../../components/ui/resizable-sidebar"
 // import { useClerk, useUser } from "@clerk/nextjs"
 // import { useCombinedAuth } from "@/lib/hooks/use-combined-auth"
 const useCombinedAuth = () => ({ userId: null }) // Desktop mock
-import { Button } from "../../../components/ui/button"
-import { AlignJustify } from "lucide-react"
 import { AgentsQuickSwitchDialog } from "../components/agents-quick-switch-dialog"
 import { SubChatsQuickSwitchDialog } from "../components/subchats-quick-switch-dialog"
 import { isDesktopApp } from "../../../lib/utils/platform"
@@ -74,7 +76,6 @@ import { SettingsContent } from "../../settings/settings-content"
 // Desktop mock
 const useIsAdmin = () => false
 
-// Main Component
 export function AgentsContent() {
   const [selectedChatId, setSelectedChatId] = useAtom(selectedAgentChatIdAtom)
   const desktopView = useAtomValue(desktopViewAtom)
@@ -100,6 +101,9 @@ export function AgentsContent() {
   const [mobileViewMode, setMobileViewMode] = useAtom(agentsMobileViewModeAtom)
   const [subChatsSidebarMode, setSubChatsSidebarMode] = useAtom(
     agentsSubChatsSidebarModeAtom,
+  )
+  const [projectPaneOpen, setProjectPaneOpen] = useAtom(
+    hyperframesProjectPaneOpenAtom,
   )
   // Per-chat terminal sidebar state
   const terminalSidebarAtom = useMemo(
@@ -839,6 +843,19 @@ export function AgentsContent() {
     chatMeta?.sandboxConfig?.port
   )
   const canShowHyperframesPreview = chatSourceMode === "local" && !!selectedProject?.id
+  const {
+    canUseHyperframesProjectPane,
+    isHyperframesProjectPaneOpen,
+    showProjectRailOpenButton,
+    shouldShowSubChatsSidebar,
+  } = resolveRippleProjectPaneLayout({
+    canShowHyperframesPreview,
+    hasDesktopView: Boolean(desktopView),
+    isProjectRailOpen: sidebarOpen,
+    isMobile,
+    isSubChatsSidebarOpen: Boolean(isSubChatsSidebarOpen),
+    projectPaneOpen,
+  })
   const canShowPreview = canShowHyperframesPreview || canShowSandboxPreview
   // Check if diff can be shown (sandbox exists)
   const canShowDiff = !!chatData?.sandbox_id
@@ -980,33 +997,56 @@ export function AgentsContent() {
   return (
     <>
       <div className="flex h-full">
-        {/* Sub-chats sidebar - only show in sidebar mode when viewing a chat */}
+        {/* Ripple project browser replaces the old chat-adjacent sidebar for local motion projects. */}
         <ResizableSidebar
-          isOpen={!!isSubChatsSidebarOpen}
+          isOpen={isHyperframesProjectPaneOpen || shouldShowSubChatsSidebar}
           onClose={() => {
-            setShouldAnimateSubChatsSidebar(true)
-            setSubChatsSidebarMode("tabs")
+            if (canUseHyperframesProjectPane) {
+              setProjectPaneOpen(false)
+            } else {
+              setShouldAnimateSubChatsSidebar(true)
+              setSubChatsSidebarMode("tabs")
+            }
           }}
-          widthAtom={agentsSubChatsSidebarWidthAtom}
-          minWidth={160}
-          maxWidth={300}
+          widthAtom={
+            isHyperframesProjectPaneOpen
+              ? hyperframesProjectPaneWidthAtom
+              : agentsSubChatsSidebarWidthAtom
+          }
+          minWidth={isHyperframesProjectPaneOpen ? 240 : 160}
+          maxWidth={isHyperframesProjectPaneOpen ? 380 : 300}
           side="left"
           animationDuration={0}
           initialWidth={0}
           exitWidth={0}
           disableClickToClose={true}
+          className="border-r bg-tl-background"
+          style={{ borderRightWidth: "0.5px" }}
         >
-          <AgentsSubChatsSidebar
-            onClose={() => {
-              setShouldAnimateSubChatsSidebar(true)
-              setSubChatsSidebarMode("tabs")
-            }}
-            isMobile={isMobile}
-            isSidebarOpen={sidebarOpen}
-            onBackToChats={() => setSidebarOpen((prev) => !prev)}
-            isLoading={isLoadingSubChats}
-            agentName={chatData?.name}
-          />
+          {isHyperframesProjectPaneOpen && selectedProject ? (
+            <HyperFramesProjectPane
+              projectId={selectedProject.id}
+              activeCompositionId={selectedProject.activeCompositionId}
+              onClose={() => setProjectPaneOpen(false)}
+              onOpenProjectRail={
+                showProjectRailOpenButton
+                  ? () => setSidebarOpen(true)
+                  : undefined
+              }
+            />
+          ) : (
+            <AgentsSubChatsSidebar
+              onClose={() => {
+                setShouldAnimateSubChatsSidebar(true)
+                setSubChatsSidebarMode("tabs")
+              }}
+              isMobile={isMobile}
+              isSidebarOpen={sidebarOpen}
+              onBackToChats={() => setSidebarOpen((prev) => !prev)}
+              isLoading={isLoadingSubChats}
+              agentName={chatData?.name ?? undefined}
+            />
+          )}
         </ResizableSidebar>
 
         {/* Main content */}

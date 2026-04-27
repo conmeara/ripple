@@ -78,9 +78,13 @@ export function useRippleTimelinePlayerAdapter({
   const liveTimeLoopActiveRef = useRef(false)
   const durationRef = useRef(0)
   const isPlayingRef = useRef(false)
+  const objectUrlsRef = useRef(new Set<string>())
   const [state, setState] = useState<RippleTimelinePlayerState>(initialState)
   const [reloadVersion, setReloadVersion] = useState(0)
-  const [playerSourceUrl, setPlayerSourceUrl] = useState<string | null>(null)
+  const [playerDocument, setPlayerDocument] = useState<{
+    sourceUrl: string
+    objectUrl: string
+  } | null>(null)
   const [timelineModel, setTimelineModel] = useState<RippleTimelineModel | null>(null)
 
   const sourceQuery = trpc.hyperframes.getPlayerSource.useQuery(
@@ -88,6 +92,7 @@ export function useRippleTimelinePlayerAdapter({
     {
       enabled: Boolean(projectId),
       refetchOnWindowFocus: false,
+      placeholderData: (previousData) => previousData,
       retry: 1,
     },
   )
@@ -98,6 +103,20 @@ export function useRippleTimelinePlayerAdapter({
     if (!source?.sourceUrl) return null
     return buildHyperframesPlayerFetchUrl(source.sourceUrl, reloadVersion)
   }, [reloadVersion, source?.sourceUrl])
+  const playerSourceUrl = playerDocument?.sourceUrl === sourceUrl ? playerDocument.objectUrl : null
+
+  const revokeObjectUrl = useCallback((objectUrl: string) => {
+    if (objectUrlsRef.current.delete(objectUrl)) {
+      URL.revokeObjectURL(objectUrl)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      objectUrlsRef.current.forEach((objectUrl) => URL.revokeObjectURL(objectUrl))
+      objectUrlsRef.current.clear()
+    }
+  }, [])
 
   useEffect(() => {
     timelineContextRef.current =
@@ -332,17 +351,21 @@ export function useRippleTimelinePlayerAdapter({
   }, [state.isMuted])
 
   useEffect(() => {
+    setTimelineModel(null)
+    notifyLiveTime(0)
+    stopLiveTimeLoop()
+    isPlayingRef.current = false
+    const player = playerRef.current
+    if (player) {
+      player.pause()
+      player.removeAttribute("src")
+    }
+    setPlayerDocument((current) => {
+      if (current) revokeObjectUrl(current.objectUrl)
+      return null
+    })
+
     if (!sourceUrl) {
-      setPlayerSourceUrl(null)
-      setTimelineModel(null)
-      notifyLiveTime(0)
-      stopLiveTimeLoop()
-      isPlayingRef.current = false
-      const player = playerRef.current
-      if (player) {
-        player.pause()
-        player.removeAttribute("src")
-      }
       setState((current) => ({
         ...current,
         isReady: false,
@@ -355,14 +378,8 @@ export function useRippleTimelinePlayerAdapter({
       return
     }
 
-    let objectUrl: string | null = null
     const abortController = new AbortController()
 
-    setPlayerSourceUrl(null)
-    setTimelineModel(null)
-    notifyLiveTime(0)
-    stopLiveTimeLoop()
-    isPlayingRef.current = false
     setState((current) => ({
       ...current,
       isReady: false,
@@ -372,7 +389,6 @@ export function useRippleTimelinePlayerAdapter({
       playerError: null,
       sourceLoadError: null,
     }))
-    playerRef.current?.pause()
 
     void (async () => {
       try {
@@ -388,13 +404,17 @@ export function useRippleTimelinePlayerAdapter({
         const html = await response.text()
         if (abortController.signal.aborted) return
 
-        objectUrl = URL.createObjectURL(
+        const objectUrl = URL.createObjectURL(
           new Blob(
             [buildHyperframesPlayerBlobDocument({ html, sourceUrl })],
             { type: "text/html" },
           ),
         )
-        setPlayerSourceUrl(objectUrl)
+        objectUrlsRef.current.add(objectUrl)
+        setPlayerDocument((current) => {
+          if (current) revokeObjectUrl(current.objectUrl)
+          return { sourceUrl, objectUrl }
+        })
       } catch (error) {
         if (abortController.signal.aborted) return
 
@@ -408,11 +428,8 @@ export function useRippleTimelinePlayerAdapter({
 
     return () => {
       abortController.abort()
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl)
-      }
     }
-  }, [notifyLiveTime, sourceUrl, stopLiveTimeLoop])
+  }, [notifyLiveTime, revokeObjectUrl, sourceUrl, stopLiveTimeLoop])
 
   useEffect(() => {
     const player = playerRef.current
@@ -420,10 +437,10 @@ export function useRippleTimelinePlayerAdapter({
 
     setState((current) => ({
       ...current,
-      isReady: false,
+      isReady: current.isReady,
       isPlaying: false,
       currentTime: 0,
-      duration: 0,
+      duration: current.isReady ? current.duration : 0,
       playerError: null,
     }))
     notifyLiveTime(0)

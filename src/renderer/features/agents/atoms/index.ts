@@ -516,6 +516,19 @@ export const agentsSubChatsSidebarWidthAtom = atomWithStorage<number>(
   { getOnInit: true },
 )
 
+export const hyperframesProjectPaneWidthAtom = atomWithStorage<number>(
+  "hyperframes-project-pane-width",
+  300,
+  undefined,
+  { getOnInit: true },
+)
+
+export const hyperframesProjectPaneOpenAtom = atomWithWindowStorage<boolean>(
+  "hyperframes-project-pane-open",
+  true,
+  { getOnInit: true },
+)
+
 // Track chats with unseen changes (finished streaming but user hasn't opened them)
 // Updated by onFinish callback in Chat instances
 export const agentsUnseenChangesAtom = atom<Set<string>>(new Set<string>())
