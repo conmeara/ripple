@@ -19,8 +19,11 @@ plan, product specification, release criteria, and testing strategy, read
 - Replace the primary product model with HyperFrames-native motion creation:
   project, composition, asset, timeline, frame, comment, revision, preview, and
   export.
-- Local use must not require account creation, provider selection, GitHub, repo
-  setup, branch knowledge, manual dependency installation, or mandatory auth.
+- Core local use must not require account creation, provider selection, GitHub,
+  repo setup, branch knowledge, manual dependency installation, or mandatory
+  app-wide auth. Agent-backed creation and editing may require the user to
+  configure a Codex or Claude connection, but that setup belongs in settings or
+  the first agent action, not as an app launch gate.
 - The normal create-project path should create `~/Ripple/<project-name>` and
   hide setup work behind app language.
 - Shipped Ripple paths must remove `1Code`, `21st.dev`, upstream auth/update
@@ -183,7 +186,9 @@ Notes:
   primary project when isolation fails.
 - Accept/reject must be explicit product actions.
 - Render destinations and imported assets must be validated before writing.
-- Optional auth, analytics, sync, or account features must not block local use.
+- Provider auth may be required for agent execution, but auth, analytics, sync,
+  or account features must not block project creation/opening, preview,
+  comments and review, asset import, or export.
 
 ## File Naming
 
@@ -200,7 +205,7 @@ Notes:
 - Relevant type checks, tests, or smoke checks were run, or the reason they were
   not run is reported.
 - User-facing language follows Ripple terminology.
-- No new primary-path `1Code`, `21st.dev`, repo-first, auth-gated, or
+- No new primary-path `1Code`, `21st.dev`, repo-first, app-entry auth-gated, or
   Remotion-style assumptions were introduced.
 - Risky filesystem, process, provider, preview, render, or export behavior is
   validated from the main process.

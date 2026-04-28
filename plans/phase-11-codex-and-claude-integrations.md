@@ -16,11 +16,11 @@ project or isolated generated-change workspace. The Chat and Comments panes
 show one persisted transcript and one persisted run status. Closing a pane,
 switching filters, or restarting the app cannot duplicate or orphan work.
 
-The architectural center of the phase is a main-process provider-run service.
-Renderer components become viewers and controllers. Main owns provider setup
-checks, working-directory validation, launch, stream persistence,
-cancellation, approval handling, queue claiming, restart recovery, and terminal
-run state.
+The architectural center of the phase is a main-process `AgentRuntimeService`.
+Renderer components become viewers and controllers. Main owns provider
+connection setup checks, working-directory validation, launch, stream
+persistence, cancellation, approval handling, queue claiming, restart recovery,
+and terminal run state.
 
 This phase chooses the long-term provider paths now:
 
@@ -35,10 +35,11 @@ This phase chooses the long-term provider paths now:
 Ripple standardizes above those provider protocols, not below them. The shared
 contract is an agent execution domain: workspace contexts, agent threads, agent
 runs, run events, approvals, transcript projections, provider-native ids,
-status, cancellation, errors, and generated-change completion. Existing
-`chats`, `sub_chats`, and Phase 8 `revisions` can be bridged during migration,
-but they should not remain the canonical execution log if they fight Codex App
-Server threads/turns or Claude Agent SDK sessions/messages.
+status, cancellation, errors, generated-change completion, and named provider
+connections. Existing `chats`, `sub_chats`, and Phase 8 `revisions` can be
+bridged during migration, but they should not remain the canonical execution
+log if they fight Codex App Server threads/turns or Claude Agent SDK
+sessions/messages.
 
 ## Progress
 
@@ -72,10 +73,15 @@ Server threads/turns or Claude Agent SDK sessions/messages.
   guarantees, but allow Phase 11 to replace Phase 8's hidden chat/sub-chat
   execution architecture with provider-native agent threads, agent runs,
   events, approvals, workspace contexts, and transcript projection.
+- [x] 2026-04-28 / User + Codex: Incorporated follow-up research on Claudian,
+  OpenClaw, Harness CLI, leashd, Happy, GitHub/VS Code, and Craft. Tightened
+  Phase 11 around `AgentRuntimeService`, named provider connections,
+  connection-locked agent threads, a backend factory, and explicit provider
+  auth for agent-backed editing.
 - [ ] Implement Milestone 0: compatibility matrix, current-code audit, and
   provider-native prototypes for Codex App Server and Claude Agent SDK.
 - [ ] Implement Milestone 1: canonical agent execution model, persistence,
-  fake adapter, and transcript projection.
+  named provider connections, fake adapter, and transcript projection.
 - [ ] Implement Milestone 2: workspace/context resolver, explicit provider
   persistence, and run idempotency/active-run guardrails.
 - [ ] Implement Milestone 3: generated-change scheduler bridge using the fake
@@ -152,13 +158,13 @@ Server threads/turns or Claude Agent SDK sessions/messages.
   replace this temporary shell-level worker with a durable main-process
   Claude/Codex runner.
 
-- Observation: The Phase 8 handoff shape is compatible with the provider-run
+- Observation: The Phase 8 handoff shape is compatible with the agent runtime
   service.
   Evidence: `src/main/lib/revisions/revision-queue.ts` exposes
   `RevisionQueueRun` with `revisionId`, `threadId`, `chatId`, `subChatId`,
   `projectId`, `projectPath`, `worktreePath`, `mode`, `messages`, and
-  `streamId`. Those fields are the seed for `ProviderRunInput` when Phase 11
-  starts queued generated-change work in main.
+  `streamId`. Those fields are the seed for `createAgentRun(...)` when Phase
+  11 starts queued generated-change work in main.
 
 - Observation: Phase 8's durable domain state should survive Phase 11 rather
   than be folded into provider-specific state.
@@ -166,7 +172,7 @@ Server threads/turns or Claude Agent SDK sessions/messages.
   `running`, `updating`, `proposed`, `accepted`, `rejected`, `superseded`, and
   `failed`; guarded accept flows in
   `src/main/lib/revisions/isolated-workspace-acceptance.ts`; and stale update
-  handling in `src/main/lib/revisions/comment-revisions.ts`. Provider runs
+  handling in `src/main/lib/revisions/comment-revisions.ts`. Agent runs
   should drive those states, not replace the comment/generated-change domain.
 
 - Observation: The remaining Phase 8 risk is provider execution ownership, not
@@ -197,11 +203,27 @@ Server threads/turns or Claude Agent SDK sessions/messages.
   canonical execution log.
 
 - Observation: Explicit provider selection is required before reliable
-  provider-run migration.
+  agent-run migration.
   Evidence: Phase 8 currently recovers provider choice from hidden message or
   model metadata in the renderer worker path. Phase 11 needs provider to be a
   durable field on generated-change/chat intent and agent-run records so model
   names do not decide whether Codex or Claude launches.
+
+- Observation: The strongest industry precedent is named connection resolution
+  plus a provider-neutral runtime control plane above provider-native adapters.
+  Evidence: The new research examples, including Claudian, OpenClaw Code Agent,
+  Harness CLI, leashd, Happy, GitHub/VS Code, and Craft, converge on persisted
+  sessions/runs/events/approvals with Claude and Codex using their own native
+  substrates underneath. They also reinforce that UI surfaces should observe
+  persisted runs instead of owning provider execution.
+
+- Observation: Ripple's local-first requirement should not be read as "users
+  cannot log in."
+  Evidence: Codex App Server and Claude Agent SDK both require provider account
+  or credential setup for real agent-backed editing. The correct product rule
+  is that provider auth must not block app entry, project creation/opening,
+  preview, comments and review, asset import, or export. First agent action and
+  settings may prompt for Codex or Claude connection setup.
 
 ## Decision Log
 
@@ -221,8 +243,8 @@ Server threads/turns or Claude Agent SDK sessions/messages.
 
 - Decision: Do not force both providers through the same low-level protocol.
   Rationale: Codex App Server and Claude Agent SDK are each the strongest
-  native path for their platform. Ripple should normalize at its own provider
-  run boundary, where product needs are stable, instead of reducing both
+  native path for their platform. Ripple should normalize at its own
+  agent-runtime boundary, where product needs are stable, instead of reducing both
   providers to a common-denominator protocol.
   Date/Author: 2026-04-28 / User + Codex
 
@@ -237,20 +259,21 @@ Server threads/turns or Claude Agent SDK sessions/messages.
   Date/Author: 2026-04-28 / User + Codex
 
 - Decision: Main process owns provider execution.
-  Rationale: Provider runs perform privileged filesystem, process, terminal,
+  Rationale: Agent runs perform privileged filesystem, process, terminal,
   network, and credential-sensitive work. Renderer state should not be the
   source of truth for launch, queue ownership, cancellation, acceptance,
   recovery, or whether a hidden generated-change thread starts.
   Date/Author: 2026-04-28 / Codex
 
-- Decision: Chat and comment-generated changes share one provider-run contract.
-  Rationale: A generated change is just a provider run with project/comment
+- Decision: Chat and comment-generated changes share one agent-runtime run
+  contract.
+  Rationale: A generated change is just an agent run with project/comment
   context and an isolated workspace. Separate execution models caused duplicate
   starts, hidden renderer coupling, and handoff ambiguity in Phase 8. One run
   contract lets Chat and Comments observe the same transcript and status.
   Date/Author: 2026-04-28 / Codex
 
-- Decision: Treat Phase 8 as paused at the provider-run boundary until Phase 11
+- Decision: Treat Phase 8 as paused at the agent-runtime boundary until Phase 11
   lands.
   Rationale: Phase 8 has enough of the comment/revision domain, queue,
   recovery, stale-update, and acceptance model in place to reveal the real
@@ -262,7 +285,7 @@ Server threads/turns or Claude Agent SDK sessions/messages.
 - Decision: Phase 11 must consume Phase 8 revision queue and acceptance
   services instead of recreating them.
   Rationale: The queue, isolated workspace, accept/delete/update semantics, and
-  product language are the valuable Phase 8 work. Provider runs should become
+  product language are the valuable Phase 8 work. Agent runs should become
   the execution engine underneath those services, leaving Comments as the
   review surface and acceptance as a separate explicit product action.
   Date/Author: 2026-04-28 / Codex
@@ -286,7 +309,7 @@ Server threads/turns or Claude Agent SDK sessions/messages.
   Chat or Comments.
   Date/Author: 2026-04-28 / User + Oracle + Codex
 
-- Decision: Provider-run context must be target/id based, not path based.
+- Decision: Agent-run context must be target/id based, not path based.
   Rationale: Renderer and queue callers should never provide authoritative
   `cwd`, `projectPath`, or `worktreePath`. They should provide project,
   generated-change, chat-workspace, or agent-thread ids. Main resolves the
@@ -311,6 +334,22 @@ Server threads/turns or Claude Agent SDK sessions/messages.
   aliases.
   Date/Author: 2026-04-28 / Oracle + Codex
 
+- Decision: Model provider setup as named `AgentConnection` records.
+  Rationale: A named connection can hold provider, runtime, auth mode, default
+  model, model-selection mode, safe account status, and capability metadata.
+  Agent threads should lock to one connection after the first run so follow-ups,
+  generated-change recovery, and stale-resolution runs do not accidentally
+  switch from Claude to Codex or from one auth context to another.
+  Date/Author: 2026-04-28 / User + Codex
+
+- Decision: Agent auth is optional for local project work but required for
+  provider-backed agent execution.
+  Rationale: Ripple should open, create, preview, review, import assets, and
+  export without sign-in. When a user asks Codex or Claude to create or edit
+  motion work, Ripple should require a configured provider connection and route
+  missing setup into a recoverable first-agent-action flow.
+  Date/Author: 2026-04-28 / User + Codex
+
 ## Outcomes & Retrospective
 
 Not started. This plan currently captures the research-backed implementation
@@ -326,10 +365,13 @@ product model is now Ripple projects, HyperFrames compositions, assets,
 timeline, frame comments, generated changes, preview, and export.
 
 Provider means the external agent runtime used to perform project edits. In
-Phase 11 the supported providers are Codex and Claude. An agent thread is the
-durable Ripple conversation/work context above provider-native Codex threads
-or Claude sessions. An agent run is one execution attempt or turn inside that
-thread. It stores provider, target workspace, mode, model, request id, provider
+Phase 11 the supported providers are Codex and Claude. An agent connection is a
+named local configuration for one provider runtime, auth mode, model defaults,
+safe account status, and capability metadata. An agent thread is the durable
+Ripple conversation/work context above provider-native Codex threads or Claude
+sessions, and it locks to one agent connection after the first run. An agent run
+is one execution attempt or turn inside that thread. It stores provider,
+connection id, target workspace, mode, model, request id, provider
 thread/turn/session ids, event sequence, approvals, status, errors,
 cancellation state, and optional generated-change links.
 
@@ -341,17 +383,22 @@ Worktree where appropriate.
 
 Canonical Phase 11 domain records:
 
+- `agent_connections`: named provider setup records. A connection records
+  provider, runtime, auth mode, default model, model-selection mode,
+  capabilities, safe account status, and lifecycle timestamps. Credentials stay
+  in the existing secure credential/auth storage rather than plain rows.
 - `workspaces`: registered project editing contexts. A workspace can be Main, a
   normal Chat worktree, or a generated-change workspace. It records project id,
   kind, path, base Main commit where relevant, isolation state, and lifecycle
   timestamps.
 - `agent_threads`: Ripple-owned conversation/work threads. A thread has a
-  provider, purpose such as normal Chat or generated change, project id,
-  workspace id, and provider-native thread/session ids.
+  provider, connection id, purpose such as normal Chat or generated change,
+  project id, workspace id, and provider-native thread/session ids.
 - `agent_runs`: one execution attempt inside an agent thread. A run has a
-  request id for idempotency, provider, mode, model, run kind, workspace id,
-  optional generated-change/comment links, provider turn/session ids, status,
-  timestamps, heartbeat, cancellation state, auth method, and error fields.
+  request id for idempotency, provider, connection id, mode, model, run kind,
+  workspace id, optional generated-change/comment links, provider
+  turn/session ids, status, timestamps, heartbeat, cancellation state, auth
+  method, and error fields.
 - `agent_run_events`: the canonical execution log. Each event has a run id,
   sequence number, normalized type, provider type/id, provider payload, and
   created time.
@@ -395,14 +442,14 @@ Current provider files and behavior:
 - `src/main/lib/revisions/` and
   `src/main/lib/trpc/routers/revisions.ts` own comment/generated-change queue,
   recovery, acceptance, cleanup, and revision context logic. These should call
-  the new provider-run service instead of relying on a mounted renderer worker.
+  the new agent runtime service instead of relying on a mounted renderer worker.
 - `src/main/lib/revisions/revision-queue.ts` is the current Phase 8 handoff
   point. `claimNextRevisionRun()` returns enough information to start the
   transitional renderer worker today. Phase 11 may map this into
   `agent_runs`, or replace the shape with a generated-change scheduler that
   creates/resumes an agent run directly.
 - `src/main/lib/revisions/isolated-workspace-acceptance.ts` is out of scope for
-  provider adapters except as a post-run acceptance dependency. Provider runs
+  provider adapters except as a post-run acceptance dependency. Agent runs
   produce generated work and summaries; they do not automatically apply work to
   Main.
 - `src/renderer/components/dialogs/settings-tabs/agents-models-tab.tsx`,
@@ -443,10 +490,12 @@ small file-edit temp workspace run, permission callback behavior, and session
 id capture/resume where supported. The prototypes should not be product UI.
 
 Milestone 1 creates the canonical agent execution model. Add main-process
-types and a service namespace such as `src/main/lib/agent-runs/` or
-`src/main/lib/provider-runs/`. Add durable persistence for `workspaces`,
-`agent_threads`, `agent_runs`, `agent_run_events`, `agent_approvals`, and a
-transcript projection. A fake adapter should emit assistant text, tool events,
+types and a service namespace such as `src/main/lib/agent-runtime/`. Add
+durable persistence for `agent_connections`, `workspaces`, `agent_threads`,
+`agent_runs`, `agent_run_events`, `agent_approvals`, and a transcript
+projection. Add a connection registry and backend factory that resolves a
+connection to either the Codex App Server adapter or the Claude Agent SDK
+adapter. A fake adapter should emit assistant text, tool events,
 file-change events, approval requests, usage, completion, failure,
 cancellation, and recoverable states so the service can be tested before
 provider-specific noise. `sub_chats.messages` remains a compatibility
@@ -508,11 +557,12 @@ terminal states and never silently fall back to Main when isolated context
 launch fails.
 
 Milestone 8 cleans up setup UX and terms. Update settings, onboarding, and
-login modals so provider setup is optional until first agent action. Codex
-should use App Server account state and login flows. Claude should stop relying
-on hosted 1Code OAuth as the normal path and should describe local Enterprise
-Claude Code login as an advanced/local mode. Public-safe Claude setup should be
-API key, supported cloud provider, or enterprise gateway.
+login modals so provider setup is expected for agent-backed editing but never
+blocks app entry or non-agent local project work. Codex should use App Server
+account state and login flows. Claude should stop relying on hosted 1Code OAuth
+as the normal path and should describe local Enterprise Claude Code login as an
+advanced/local mode. Public-safe Claude setup should be API key, supported
+cloud provider, or enterprise gateway.
 
 Milestone 9 hardens validation, restart recovery, packaging, and manual QA. Add
 focused unit tests around run state transitions, context validation,
@@ -534,21 +584,23 @@ Run commands from `/Users/comeara/Projects/ripple` unless noted otherwise.
    transcript projection helpers, and tests.
 4. Implement persistence. Update `src/main/lib/db/schema/index.ts`, add Drizzle
    migration files, and add recovery-friendly indexes for project id, workspace
-   id, agent thread id, provider, status, generated-change/revision id,
-   request id, active run uniqueness, and event sequence uniqueness.
+   id, agent connection id, agent thread id, provider, status,
+   generated-change/revision id, request id, active run uniqueness, and event
+   sequence uniqueness.
 5. Add a fake adapter and use it to test state transitions, approvals,
    transcript projection, cancellation, recovery, duplicate request ids, and
    stale completion guards before real provider adapters.
 6. Add a generated-change scheduler bridge from Phase 8's current queue into
    agent runs, then prove it with the fake adapter.
-7. Add `src/main/lib/provider-runs/codex-app-server-adapter.ts` and a small
-   Codex App Server process/client wrapper. Generate or check in the protocol
-   types for the pinned Codex binary if stable enough.
-8. Add `src/main/lib/provider-runs/claude-agent-sdk-adapter.ts` and migrate the
-   direct SDK launch behavior from `src/main/lib/trpc/routers/claude.ts` behind
-   the agent-run adapter interface.
-9. Add tRPC routes under an agent-runs/provider-runs router, or extend existing
-   chat routes with agent-run procedures, for create/start, subscribe, cancel,
+7. Add `src/main/lib/agent-runtime/providers/codex-app-server-adapter.ts` and
+   a small Codex App Server process/client wrapper. Generate or check in the
+   protocol types for the pinned Codex binary if stable enough.
+8. Add `src/main/lib/agent-runtime/providers/claude-agent-sdk-adapter.ts` and
+   migrate the direct SDK launch behavior from
+   `src/main/lib/trpc/routers/claude.ts` behind the agent-run adapter
+   interface.
+9. Add tRPC routes under an agent-runtime router, or extend existing chat
+   routes with agent-run procedures, for create/start, subscribe, cancel,
    continue, approve/deny, get status, and recover.
 10. Migrate normal Chat UI to subscribe to agent-run state while preserving
    message rendering and selected-provider controls.
@@ -567,7 +619,7 @@ Validation commands:
 - `bun run test:ripple`
 - `bun run build`
 - `git diff --check`
-- Focused agent-run/provider-run unit tests added during this phase.
+- Focused agent-runtime unit tests added during this phase.
 - Packaged-binary checks for bundled Codex App Server and bundled Claude Agent
   SDK CLI behavior.
 
@@ -612,14 +664,13 @@ Phase 8 regression smoke after Phase 11:
 3. Confirm the second generated change moves into the quiet updating/resolving
    flow and does not expose Git/rebase language.
 4. Confirm a clean update becomes acceptable, and a non-clean update continues
-   the existing hidden thread/workspace through the provider-run service.
+   the existing hidden thread/workspace through the agent runtime service.
 5. Confirm failed generated changes keep their workspace and can still open in
    Chat for recovery.
 
 Acceptance criteria:
 
-- Codex and Claude both run through the main-process agent-run/provider-run
-  service.
+- Codex and Claude both run through the main-process `AgentRuntimeService`.
 - Codex user-visible Chat/Comments execution uses Codex App Server, not ACP, as
   the primary path.
 - Claude user-visible Chat/Comments execution uses Claude Agent SDK, not the
@@ -634,9 +685,12 @@ Acceptance criteria:
 - Active-run uniqueness and request-id idempotency prevent duplicate active
   runs for the same agent thread/generated change.
 - Provider setup is optional until first agent action and uses Ripple language.
+- Provider-backed agent execution requires an explicit Codex or Claude
+  connection, but missing setup never blocks app entry or non-agent local
+  project work.
 - Renderer panes can mount, unmount, filter, and switch without starting,
-  restarting, or orphaning provider runs.
-- App restart marks or recovers queued/running provider runs without needing a
+  restarting, or orphaning agent runs.
+- App restart marks or recovers queued/running agent runs without needing a
   renderer worker to be mounted.
 - Main validates all project and generated-change working directories before
   launch.
@@ -675,7 +729,7 @@ and preserve transcripts and generated changes for later retry.
 Phase 8 recovery behavior should become provider-aware, not weaker. The current
 startup path requeues interrupted `preparing` / `running` generated changes
 when their hidden chat and isolated workspace exist. Phase 11 should first ask
-whether a provider run can be resumed or reconciled; if not, it may requeue the
+whether an agent run can be resumed or reconciled; if not, it may requeue the
 same hidden thread/workspace using the saved transcript and context.
 
 Schema migrations must be additive where possible. Keep old chat/sub-chat and
@@ -686,11 +740,16 @@ agent execution tables as canonical once a surface migrates.
 
 New or changed internal interfaces:
 
-- `AgentRunService` / `ProviderRunService`: main-process entry point for
+- `AgentRuntimeService`: main-process entry point for resolving connections,
   creating, starting, subscribing to, cancelling, resuming, and recovering
   agent runs.
-- `AgentRunAdapter` / `ProviderRunAdapter`: provider-specific interface
-  implemented by Codex App Server and Claude Agent SDK adapters.
+- `AgentConnectionRegistry`: stores and resolves named Codex and Claude
+  connections, auth modes, model defaults, safe account status, and capability
+  metadata.
+- `AgentProviderFactory`: creates the provider-native adapter for a resolved
+  connection.
+- `AgentProviderAdapter`: provider-specific interface implemented by Codex App
+  Server and Claude Agent SDK adapters.
 - `WorkspaceContextResolver`: main-owned resolver from target ids to project
   path, workspace path, writable root, and isolation status.
 - `AgentRunEvent`: normalized event stream for assistant text, reasoning, tool
@@ -708,6 +767,7 @@ New or changed internal interfaces:
 
 Required new or revised persistence:
 
+- `agent_connections`
 - `workspaces`
 - `agent_threads`
 - `agent_runs`
@@ -800,6 +860,9 @@ Oracle review amendments from 2026-04-28:
 - Treat Codex App Server and Claude Agent SDK as provider-native foundations.
   The shared Ripple model is agent threads, agent runs, events, approvals,
   workspace contexts, generated changes, and transcript projections.
+- Add named provider connections, a connection registry, a backend factory, a
+  capability model, and one connection per agent thread. This follows the
+  closest precedent apps without copying their broader provider breadth.
 - Keep explicitly out of scope: renderer-owned provider execution, mandatory
   provider setup on app entry, hosted/cloud run services, auto-accept into Main,
   full Codex desktop app parity, generalized multi-agent orchestration, MCP

@@ -60,8 +60,12 @@ rendering details while the user stays in creative language.
 ## Non-Negotiables
 
 - HyperFrames is the video framework and source of truth.
-- Local use must not require sign-in, provider selection, GitHub, repo setup, or
-  manual dependency installation.
+- Core local use must not require sign-in, provider selection, GitHub, repo
+  setup, or manual dependency installation. Agent-backed creation and editing
+  may require the user to configure a Codex or Claude connection, but that setup
+  must happen from settings or the first agent action instead of blocking app
+  launch, project creation/opening, preview, comments and review, asset import,
+  or export.
 - The primary path is Create project or Open project, not Connect repo,
   Clone repo, or Select repository.
 - Default projects live at `~/Ripple/<project-name>`.
@@ -96,8 +100,8 @@ Out of scope for MVP:
 - multi-user realtime collaboration
 - mobile apps
 - full After Effects project export
-- forcing users through GitHub, hosted auth, repo setup, or dependency setup
-  before they can create locally
+- forcing users through GitHub, hosted auth, repo setup, provider setup, or
+  dependency setup before they can create, preview, review, or export locally
 
 Operational constraints:
 
@@ -147,7 +151,7 @@ The codebase still conflicts with Ripple in major ways:
 | Video | HyperFrames CLI, Studio, Player, Producer/Core where useful |
 | Database | SQLite + Drizzle ORM + better-sqlite3 |
 | Runtime checks | Node.js 22+, npm/bun availability, FFmpeg/FFprobe, HyperFrames doctor, optional Docker for deterministic renders |
-| Agents | Preserved Claude Code, Codex, API-key/custom-model flows |
+| Agents | Codex App Server and Claude Agent SDK as primary providers, with explicit local provider connections |
 
 ## Target Project Model
 
@@ -506,7 +510,8 @@ Key files:
 
 Done when:
 
-- Fresh install opens Ripple without account/provider setup.
+- Fresh install opens Ripple for project creation/opening and preview without
+  account/provider setup.
 - Optional sign-in still works from settings or explicit user action.
 - Existing provider setup state does not strand users in old gates.
 
@@ -812,18 +817,21 @@ Goals:
 - Update app-owned adapters, prompts, environment handling, permissions, and
   process orchestration to match those recommended paths where they fit
   Ripple's local-first model.
-- Keep provider setup optional until the first agent action that needs it, and
-  keep local project creation, preview, comments, and export usable without a
-  configured agent provider.
+- Keep provider setup out of app entry and optional until the first agent
+  action that needs it. Local project creation/opening, preview, comments and
+  review, asset import, and export stay usable without a configured agent
+  provider, while provider-backed Chat and generated changes require an explicit
+  Codex or Claude connection.
 - Ensure both providers can operate inside the active project or isolated
   revision context without exposing repo/worktree language in primary UX.
 - Extract provider execution out of renderer-owned React chat workers into
-  main-process provider runner services. The renderer should become a viewer
+  main-process agent runtime services. The renderer should become a viewer
   and controller for runs, while main owns queue claiming, provider launch,
   stream persistence, cancellation, restart recovery, and terminal run state.
 - Unify normal Chat runs and comment-generated revision runs around the same
-  provider-run contract so opening a revision chat never starts a duplicate run
-  and Comments/Chat always display the same persisted transcript and status.
+  agent-runtime run contract so opening a revision chat never starts a
+  duplicate run and Comments/Chat always display the same persisted transcript
+  and status.
 - Preserve the Phase 8 queue hardening as the transition point: the main process
   already owns revision queue decisions, stale generated-change updates,
   acceptance, recovery, and cleanup; Phase 11 should replace the temporary
@@ -835,18 +843,23 @@ Architecture direction:
   Server as the first-class app UI integration, and Claude should use the
   Claude Agent SDK as the first-class Claude integration. Ripple should
   normalize above those provider protocols through its own main-process
-  provider-run contract rather than forcing both providers through ACP or
+  agent-runtime contract rather than forcing both providers through ACP or
   another common-denominator protocol.
 - Claude local Team/Enterprise Claude Code login is an advanced local/enterprise
   auth mode for users with an allowed subscription setup. Public-safe Claude
   defaults should remain API key, supported cloud provider, or enterprise
   gateway unless Anthropic approves subscription-login use for a distributed
   third-party product.
-- Define a provider-neutral agent execution service. The shared Ripple model
-  should be agent threads, agent runs, run events, approvals, workspace
-  contexts, generated changes, and transcript projections, not a renderer-owned
-  chat transport shape.
-- Provider run inputs should be target/id based, for example normal project,
+- Define a provider-neutral `AgentRuntimeService`. The shared Ripple model
+  should be agent connections, agent threads, agent runs, run events, approvals,
+  workspace contexts, generated changes, and transcript projections, not a
+  renderer-owned chat transport shape.
+- Add named provider connections for Codex and Claude. A connection records the
+  provider, runtime, auth mode, model defaults, capabilities, and safe account
+  status. Agent threads lock to one connection after the first run so follow-up
+  work, stale-resolution runs, and recovery cannot accidentally switch
+  providers.
+- Agent run inputs should be target/id based, for example normal project,
   generated change, or chat worktree targets. Renderer code and queue code must
   not provide authoritative `cwd`, `projectPath`, or `worktreePath`; main
   resolves and validates those paths immediately before launch.
@@ -860,7 +873,7 @@ Architecture direction:
   allow Phase 11 to replace hidden chat/sub-chat execution internals if the
   provider-native agent thread/run model requires it.
 - Move restart/resume reconciliation into main. On app start, main should
-  inspect queued/running/updating provider runs and either resume, requeue, or
+  inspect queued/running/updating agent runs and either resume, requeue, or
   mark them recoverable without depending on whether a renderer pane is mounted.
 - Keep cancellation and permissions main-owned. Renderer controls may request
   pause/cancel/continue, but privileged filesystem/process decisions stay in
@@ -882,7 +895,7 @@ Done when:
 - The shell-level revision worker has been removed or reduced to a display-only
   observer/controller.
 - Opening, closing, filtering, or remounting Comments and Chat panes cannot
-  start, restart, duplicate, or orphan provider runs.
+  start, restart, duplicate, or orphan agent runs.
 - App restart recovery covers queued/running/updating Claude and Codex runs and
   records clear recoverable states when a provider cannot resume.
 - Provider adapters no longer depend on stale 1Code, repo-first, or deprecated
@@ -1122,7 +1135,8 @@ Before a Ripple release:
 
 When reviewing Ripple work, prioritize:
 
-- local-first access without mandatory auth/provider setup
+- local-first app entry and non-agent project work without mandatory
+  auth/provider setup
 - project-first onboarding
 - HyperFrames-native composition and timeline rules
 - frame/time comment context capture
@@ -1153,6 +1167,9 @@ Required:
 - Embedded editor supports composition discovery, switching, live refresh,
   player/timeline controls, and a full Studio escape hatch.
 - User can create frame/time-based comments.
+- When the user asks an agent to create or edit motion work, Ripple prompts for
+  a configured Codex or Claude connection if one is missing, without blocking
+  the rest of the local project workflow.
 - Comment revisions run in isolated contexts.
 - User can preview, accept, and reject revisions.
 - Export succeeds for MP4, MOV, and WebM on validated environments.
