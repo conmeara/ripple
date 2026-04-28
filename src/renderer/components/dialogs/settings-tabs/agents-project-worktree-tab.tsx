@@ -36,6 +36,7 @@ import {
   type SelectedProject,
 } from "../../../features/agents/atoms"
 import { useAgentSubChatStore } from "../../../features/agents/stores/sub-chat-store"
+import { formatTimeAgo } from "../../../features/agents/utils/format-time-ago"
 
 function useClearSelectedThreadState() {
   const selectedChatId = useAtomValue(selectedAgentChatIdAtom)
@@ -171,6 +172,33 @@ function ProjectDetail({
     },
   })
 
+  const archivedChatsQuery = trpc.chats.listArchived.useQuery(
+    { projectId },
+    { enabled: !!projectId },
+  )
+
+  const restoreChatMutation = trpc.chats.restore.useMutation({
+    onSuccess: () => {
+      toast.success("Chat restored")
+      utils.chats.list.invalidate()
+      utils.chats.listArchived.invalidate()
+    },
+    onError: (err) => {
+      toast.error(`Failed to restore chat: ${err.message}`)
+    },
+  })
+
+  const deleteChatMutation = trpc.chats.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Chat deleted")
+      utils.chats.list.invalidate()
+      utils.chats.listArchived.invalidate()
+    },
+    onError: (err) => {
+      toast.error(`Failed to delete chat: ${err.message}`)
+    },
+  })
+
   // Icon mutations
   const uploadIconMutation = trpc.projects.uploadIcon.useMutation({
     onSuccess: (data) => {
@@ -228,6 +256,7 @@ function ProjectDetail({
 
   const isArchived = Boolean(project?.archivedAt)
   const projectPath = project?.localPath || project?.path || ""
+  const archivedChats = archivedChatsQuery.data ?? []
   const deleteConfirmationMatches =
     Boolean(project?.name) && deleteFilesConfirmation.trim() === project?.name
 
@@ -379,6 +408,62 @@ function ProjectDetail({
                   : archiveMutation.isPending ? "Archiving..." : "Archive"}
               </Button>
             </div>
+          </div>
+        </div>
+
+        {/* Archived Chats */}
+        <div>
+          <h4 className="text-sm font-medium text-foreground mb-2">Archived Chats</h4>
+          <div className="bg-background rounded-lg border border-border overflow-hidden">
+            {archivedChatsQuery.isLoading ? (
+              <div className="p-4 text-sm text-muted-foreground">
+                Loading archived chats...
+              </div>
+            ) : archivedChats.length === 0 ? (
+              <div className="p-4 text-sm text-muted-foreground">
+                No archived chats for this project.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {archivedChats.map((chat) => (
+                  <div
+                    key={chat.id}
+                    className="flex items-center justify-between gap-3 p-4"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {chat.name || "New Chat"}
+                      </span>
+                      <p className="text-sm text-muted-foreground">
+                        Archived {chat.archivedAt ? formatTimeAgo(chat.archivedAt) : "recently"}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => restoreChatMutation.mutate({ id: chat.id })}
+                        disabled={restoreChatMutation.isPending}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Restore
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 hover:text-destructive hover:border-destructive/30 hover:bg-destructive/10"
+                        onClick={() => deleteChatMutation.mutate({ id: chat.id })}
+                        disabled={deleteChatMutation.isPending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

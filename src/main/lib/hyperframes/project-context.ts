@@ -2,7 +2,15 @@ import { eq } from "drizzle-orm"
 import { existsSync } from "node:fs"
 import { mkdir } from "node:fs/promises"
 import { basename, extname, isAbsolute, join, normalize, resolve, sep } from "node:path"
-import { projects, type Project } from "../db/schema"
+import {
+  projects,
+  revisions,
+  type Project,
+} from "../db/schema"
+import {
+  getRippleRevisionPreviewProjectId,
+  parseRippleRevisionPreviewProjectId,
+} from "../../../shared/ripple-comments"
 import { isPathInsideDirectory } from "../ripple-projects/paths"
 import type { HyperframesProjectContext, HyperframesRenderFormat } from "./types"
 import { HyperframesError } from "./types"
@@ -40,6 +48,79 @@ export async function resolveHyperframesProjectContext(input: {
     project,
     projectPath,
   }
+}
+
+export async function resolveHyperframesRevisionContext(input: {
+  revisionId: string
+  allowArchived?: boolean
+}): Promise<HyperframesProjectContext> {
+  const { getDatabase } = await import("../db")
+  const db = getDatabase()
+  const revision = db
+    .select()
+    .from(revisions)
+    .where(eq(revisions.id, input.revisionId))
+    .get()
+
+  if (!revision) {
+    throw new HyperframesError("Revision not found.", "REVISION_NOT_FOUND")
+  }
+  if (!revision.contextPath) {
+    throw new HyperframesError(
+      "This revision has no preview workspace.",
+      "REVISION_CONTEXT_MISSING",
+    )
+  }
+  if (revision.status === "rejected" || revision.status === "failed") {
+    throw new HyperframesError(
+      "This revision is not available for preview.",
+      "REVISION_NOT_PREVIEWABLE",
+    )
+  }
+
+  const project = db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, revision.projectId))
+    .get()
+  if (!project) {
+    throw new HyperframesError("Project not found.", "PROJECT_NOT_FOUND")
+  }
+  if (project.archivedAt && !input.allowArchived) {
+    throw new HyperframesError(
+      "Restore this project before previewing revisions.",
+      "PROJECT_ARCHIVED",
+    )
+  }
+
+  const projectPath = resolve(revision.contextPath)
+  const { assertRegisteredWorktree } = await import("../git/security/path-validation")
+  assertRegisteredWorktree(projectPath)
+
+  return {
+    key: getRippleRevisionPreviewProjectId(revision.id),
+    projectId: getRippleRevisionPreviewProjectId(revision.id),
+    project,
+    projectPath,
+  }
+}
+
+export async function resolveHyperframesPreviewContext(input: {
+  projectId: string
+  revisionId?: string | null
+  allowArchived?: boolean
+}): Promise<HyperframesProjectContext> {
+  const revisionId =
+    input.revisionId ?? parseRippleRevisionPreviewProjectId(input.projectId)
+
+  if (revisionId) {
+    return resolveHyperframesRevisionContext({
+      revisionId,
+      allowArchived: input.allowArchived,
+    })
+  }
+
+  return resolveHyperframesProjectContext(input)
 }
 
 export function assertHyperframesProjectFiles(projectPath: string): void {

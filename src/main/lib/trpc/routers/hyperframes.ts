@@ -16,6 +16,7 @@ import {
   refreshHyperframesCompositions,
   renderManager,
   resolveHyperframesProjectContext,
+  resolveHyperframesPreviewContext,
   runHyperframesCommand,
   selectHyperframesPlayerComposition,
   type HyperframesCommandResult,
@@ -48,14 +49,17 @@ function hasDuplicateCompositionFileRows(
   })
 }
 
-async function resolvePreviewCompositions(projectId: string) {
-  let context = await resolveHyperframesProjectContext({ projectId })
+async function resolvePreviewCompositions(input: {
+  projectId: string
+  revisionId?: string | null
+}) {
+  let context = await resolveHyperframesPreviewContext(input)
   assertHyperframesProjectFiles(context.projectPath)
 
-  let compositions = await listSavedHyperframesCompositions(projectId)
+  let compositions = await listSavedHyperframesCompositions(context.project.id)
   if (compositions.length === 0 || hasDuplicateCompositionFileRows(compositions)) {
     const refreshed = await refreshHyperframesCompositions({
-      projectId,
+      projectId: context.project.id,
       repoRoot: getRepoRoot(),
     })
     context = { ...context, project: refreshed.project }
@@ -158,10 +162,11 @@ export const hyperframesRouter = router({
   getPlayerSource: publicProcedure
     .input(z.object({
       projectId: z.string(),
+      revisionId: z.string().nullable().optional(),
       compositionId: z.string().nullable().optional(),
     }))
     .query(async ({ input }) => {
-      const { context, compositions } = await resolvePreviewCompositions(input.projectId)
+      const { context, compositions } = await resolvePreviewCompositions(input)
 
       const composition = selectHyperframesPlayerComposition({
         project: context.project,
@@ -183,10 +188,11 @@ export const hyperframesRouter = router({
   getTimelineModel: publicProcedure
     .input(z.object({
       projectId: z.string(),
+      revisionId: z.string().nullable().optional(),
       compositionId: z.string().nullable().optional(),
     }))
     .query(async ({ input }) => {
-      const { context, compositions } = await resolvePreviewCompositions(input.projectId)
+      const { context, compositions } = await resolvePreviewCompositions(input)
 
       const composition = selectHyperframesPlayerComposition({
         project: context.project,

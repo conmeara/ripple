@@ -29,6 +29,7 @@ type ACPChatTransportConfig = {
   projectPath?: string
   mode: "plan" | "agent"
   provider: "codex"
+  disableMcp?: boolean
 }
 
 type ImageAttachment = {
@@ -170,6 +171,7 @@ export class ACPChatTransport implements ChatTransport<UIMessage> {
               : {}),
             model: selectedModel,
             mode: currentMode,
+            ...(this.config.disableMcp ? { disableMcp: true } : {}),
             ...(sessionId ? { sessionId } : {}),
             ...(forceNewSession ? { forceNewSession: true } : {}),
             ...(images.length > 0 ? { images } : {}),

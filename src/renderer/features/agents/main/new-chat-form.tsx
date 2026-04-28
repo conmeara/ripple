@@ -4,21 +4,12 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import { AlignJustify, Plus } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { createPortal } from "react-dom"
 import { Button } from "../../../components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../../../components/ui/dropdown-menu"
-import {
-  AgentIcon,
   AttachIcon,
   BranchIcon,
   CheckIcon,
   IconChevronDown,
-  PlanIcon,
   SearchIcon,
 } from "../../../components/ui/icons"
 import {
@@ -31,6 +22,7 @@ import {
   agentsDebugModeAtom,
   justCreatedIdsAtom,
   lastSelectedAgentIdAtom,
+  lastSelectedWorkModeAtom,
   lastSelectedCodexModelIdAtom,
   lastSelectedCodexThinkingAtom,
   lastSelectedBranchesAtom,
@@ -40,10 +32,7 @@ import {
   selectedChatIsRemoteAtom,
   selectedDraftIdAtom,
   selectedProjectAtom,
-  getNextMode,
-  type AgentMode,
 } from "../atoms"
-import { defaultAgentModeAtom } from "../../../lib/atoms"
 // import { selectedTeamIdAtom } from "@/lib/atoms/team"
 import { atom } from "jotai"
 const selectedTeamIdAtom = atom<string | null>(null)
@@ -105,6 +94,7 @@ import {
 import { agentsSidebarOpenAtom, agentsUnseenChangesAtom } from "../atoms"
 import { AgentSendButton } from "../components/agent-send-button"
 import { AgentModelSelector } from "../components/agent-model-selector"
+import { WorkModeSelector } from "../components/work-mode-selector"
 import { CreateBranchDialog } from "../components/create-branch-dialog"
 import { formatTimeAgo } from "../utils/format-time-ago"
 import { handlePasteEvent } from "../utils/paste-text"
@@ -183,11 +173,15 @@ type RemoteRepository = {
 interface NewChatFormProps {
   isMobileFullscreen?: boolean
   onBackToChats?: () => void
+  hideHeader?: boolean
+  embedded?: boolean
 }
 
 export function NewChatForm({
   isMobileFullscreen = false,
   onBackToChats,
+  hideHeader = false,
+  embedded = false,
 }: NewChatFormProps = {}) {
   // UNCONTROLLED: just track if editor has content for send button
   const [hasContent, setHasContent] = useState(false)
@@ -235,14 +229,10 @@ export function NewChatForm({
   const [lastSelectedModelId, setLastSelectedModelId] = useAtom(
     lastSelectedModelIdAtom,
   )
-  // Mode for new chat - uses user's default preference directly
-  // Note: defaultAgentMode is initialized synchronously via atomWithStorage with getOnInit: true
-  const defaultAgentMode = useAtomValue(defaultAgentModeAtom)
-  const [agentMode, setAgentMode] = useState<AgentMode>(() => defaultAgentMode)
-  // Toggle mode helper
-  const toggleMode = useCallback(() => {
-    setAgentMode(getNextMode)
-  }, [])
+  const [workMode, setWorkMode] = useAtom(lastSelectedWorkModeAtom)
+  const toggleWorkMode = useCallback(() => {
+    setWorkMode((mode) => (mode === "worktree" ? "local" : "worktree"))
+  }, [setWorkMode])
   const debugMode = useAtomValue(agentsDebugModeAtom)
   const customClaudeConfig = useAtomValue(customClaudeConfigAtom)
   const normalizedCustomClaudeConfig =
@@ -499,21 +489,6 @@ export function NewChatForm({
   const [slashSearchText, setSlashSearchText] = useState("")
   const [slashPosition, setSlashPosition] = useState({ top: 0, left: 0 })
 
-  // Mode tooltip state (floating tooltip like canvas)
-  const [modeTooltip, setModeTooltip] = useState<{
-    visible: boolean
-    position: { top: number; left: number }
-    mode: "agent" | "plan"
-  } | null>(null)
-  const tooltipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const hasShownTooltipRef = useRef(false)
-  const [modeDropdownOpen, setModeDropdownOpen] = useState(false)
-
-  useEffect(() => {
-    if (!modeDropdownOpen) {
-      setModeTooltip(null)
-    }
-  }, [modeDropdownOpen])
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
 
   // Voice input state
@@ -1217,16 +1192,18 @@ export function NewChatForm({
       }
     }
 
+    const shouldUseWorktree = workMode === "worktree"
+
     // Create chat with selected project, branch, and initial message
     createChatMutation.mutate({
       projectId: selectedProject.id,
       name: message.trim().slice(0, 50), // Use first 50 chars as chat name
       model: selectedChatModel,
       initialMessageParts: parts.length > 0 ? parts : undefined,
-      baseBranch: undefined,
-      branchType: undefined,
-      useWorktree: false,
-      mode: agentMode,
+      baseBranch: shouldUseWorktree ? selectedBranch || undefined : undefined,
+      branchType: shouldUseWorktree ? selectedBranchType : undefined,
+      useWorktree: shouldUseWorktree,
+      mode: "agent",
     })
     // Editor, images, files, and pasted texts are cleared in onSuccess callback
   }, [
@@ -1240,7 +1217,7 @@ export function NewChatForm({
     files,
     pastedTexts,
     selectedChatModel,
-    agentMode,
+    workMode,
     trpcUtils,
   ])
 
@@ -1379,16 +1356,6 @@ export function NewChatForm({
           case "clear":
             editorRef.current?.clear()
             return
-          case "plan":
-            if (agentMode !== "plan") {
-              setAgentMode("plan")
-            }
-            return
-          case "agent":
-            if (agentMode === "plan") {
-              setAgentMode("agent")
-            }
-            return
         }
       }
 
@@ -1396,7 +1363,7 @@ export function NewChatForm({
       // insert the command and let user add arguments or press Enter to send
       editorRef.current?.setValue(`/${command.name} `)
     },
-    [agentMode],
+    [],
   )
 
   // Paste handler for images, plain text, and large text (saved as files)
@@ -1617,33 +1584,41 @@ export function NewChatForm({
   return (
     <div className="flex h-full flex-col relative">
       {/* Header - Simple burger on mobile, AgentsHeaderControls on desktop */}
-      <div className="flex-shrink-0 flex items-center justify-between bg-background p-1.5">
-        <div className="flex-1 min-w-0 flex items-center gap-2">
-          {isMobileFullscreen ? (
-            // Simple burger button for mobile - just opens chats list
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onBackToChats}
-              className="h-7 w-7 p-0 hover:bg-foreground/10 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] flex-shrink-0 rounded-md"
-              aria-label="All projects"
-            >
-              <AlignJustify className="h-4 w-4" />
-            </Button>
-          ) : (
-            <AgentsHeaderControls
-              isSidebarOpen={sidebarOpen}
-              onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
-              hasUnseenChanges={hasAnyUnseenChanges}
-            />
-          )}
+      {!hideHeader && (
+        <div className="flex-shrink-0 flex items-center justify-between bg-background p-1.5">
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            {isMobileFullscreen ? (
+              // Simple burger button for mobile - just opens chats list
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onBackToChats}
+                className="h-7 w-7 p-0 hover:bg-foreground/10 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] flex-shrink-0 rounded-md"
+                aria-label="All projects"
+              >
+                <AlignJustify className="h-4 w-4" />
+              </Button>
+            ) : (
+              <AgentsHeaderControls
+                isSidebarOpen={sidebarOpen}
+                onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+                hasUnseenChanges={hasAnyUnseenChanges}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="flex flex-1 items-center justify-center overflow-y-auto relative">
-        <div className="w-full max-w-2xl space-y-4 md:space-y-6 relative z-10 px-4">
+      <div className={cn(
+        "flex flex-1 justify-center overflow-y-auto relative",
+        embedded ? "items-end pb-3" : "items-center",
+      )}>
+        <div className={cn(
+          "w-full space-y-4 relative z-10",
+          embedded ? "max-w-none px-3" : "max-w-2xl px-4 md:space-y-6",
+        )}>
           {/* Title - only show when project is selected */}
-          {validatedProject && (
+          {validatedProject && !embedded && (
             <div className="text-center">
               <h1 className="text-2xl md:text-4xl font-medium tracking-tight">
                 What do you want to get done?
@@ -1695,8 +1670,8 @@ export function NewChatForm({
                       onCloseSlashTrigger={handleCloseSlashTrigger}
                       onContentChange={handleContentChange}
                       onSubmit={handleSend}
-                      onShiftTab={toggleMode}
-                      placeholder="Plan, @ for context, / for commands"
+                      onShiftTab={toggleWorkMode}
+                      placeholder="Ask for changes, @ for context, / for commands"
                       className={cn(
                         "bg-transparent max-h-[240px] overflow-y-auto p-1",
                         isMobileFullscreen ? "min-h-[56px]" : "min-h-[44px]",
@@ -1709,172 +1684,11 @@ export function NewChatForm({
                   </div>
                   <PromptInputActions className="w-full">
                     <div className="flex items-center gap-0.5 flex-1 min-w-0">
-                      {/* Mode toggle (Agent/Plan) */}
-                      <DropdownMenu
-                        open={modeDropdownOpen}
-                        onOpenChange={(open) => {
-                          setModeDropdownOpen(open)
-                          if (!open) {
-                            if (tooltipTimeoutRef.current) {
-                              clearTimeout(tooltipTimeoutRef.current)
-                              tooltipTimeoutRef.current = null
-                            }
-                            setModeTooltip(null)
-                            hasShownTooltipRef.current = false
-                          }
-                        }}
-                      >
-                        <DropdownMenuTrigger className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground transition-[background-color,color] duration-150 ease-out rounded-md hover:bg-muted/50 outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70">
-                          {agentMode === "plan" ? (
-                            <PlanIcon className="h-3.5 w-3.5" />
-                          ) : (
-                            <AgentIcon className="h-3.5 w-3.5" />
-                          )}
-                          <span>{agentMode === "plan" ? "Plan" : "Agent"}</span>
-                          <IconChevronDown className="h-3 w-3 shrink-0 opacity-50" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="start"
-                          sideOffset={6}
-                          className="!min-w-[116px] !w-[116px]"
-                          onCloseAutoFocus={(e) => e.preventDefault()}
-                        >
-                          <DropdownMenuItem
-                            onClick={() => {
-                              // Clear tooltip before closing dropdown (onMouseLeave won't fire)
-                              if (tooltipTimeoutRef.current) {
-                                clearTimeout(tooltipTimeoutRef.current)
-                                tooltipTimeoutRef.current = null
-                              }
-                              setModeTooltip(null)
-                              setAgentMode("agent")
-                              setModeDropdownOpen(false)
-                            }}
-                            className="justify-between gap-2"
-                            onMouseEnter={(e) => {
-                              if (tooltipTimeoutRef.current) {
-                                clearTimeout(tooltipTimeoutRef.current)
-                                tooltipTimeoutRef.current = null
-                              }
-                              const rect =
-                                e.currentTarget.getBoundingClientRect()
-                              const showTooltip = () => {
-                                setModeTooltip({
-                                  visible: true,
-                                  position: {
-                                    top: rect.top,
-                                    left: rect.right + 8,
-                                  },
-                                  mode: "agent",
-                                })
-                                hasShownTooltipRef.current = true
-                                tooltipTimeoutRef.current = null
-                              }
-                              if (hasShownTooltipRef.current) {
-                                showTooltip()
-                              } else {
-                                tooltipTimeoutRef.current = setTimeout(
-                                  showTooltip,
-                                  1000,
-                                )
-                              }
-                            }}
-                            onMouseLeave={() => {
-                              if (tooltipTimeoutRef.current) {
-                                clearTimeout(tooltipTimeoutRef.current)
-                                tooltipTimeoutRef.current = null
-                              }
-                              setModeTooltip(null)
-                            }}
-                          >
-                            <div className="flex items-center gap-2">
-                              <AgentIcon className="w-4 h-4 text-muted-foreground" />
-                              <span>Agent</span>
-                            </div>
-                            {agentMode !== "plan" && (
-                              <CheckIcon className="h-3.5 w-3.5 ml-auto shrink-0" />
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              // Clear tooltip before closing dropdown (onMouseLeave won't fire)
-                              if (tooltipTimeoutRef.current) {
-                                clearTimeout(tooltipTimeoutRef.current)
-                                tooltipTimeoutRef.current = null
-                              }
-                              setModeTooltip(null)
-                              setAgentMode("plan")
-                              setModeDropdownOpen(false)
-                            }}
-                            className="justify-between gap-2"
-                            onMouseEnter={(e) => {
-                              if (tooltipTimeoutRef.current) {
-                                clearTimeout(tooltipTimeoutRef.current)
-                                tooltipTimeoutRef.current = null
-                              }
-                              const rect = e.currentTarget.getBoundingClientRect()
-                              const showTooltip = () => {
-                                setModeTooltip({
-                                  visible: true,
-                                  position: {
-                                    top: rect.top,
-                                    left: rect.right + 8,
-                                  },
-                                  mode: "plan",
-                                })
-                                hasShownTooltipRef.current = true
-                                tooltipTimeoutRef.current = null
-                              }
-                              if (hasShownTooltipRef.current) {
-                                showTooltip()
-                              } else {
-                                tooltipTimeoutRef.current = setTimeout(
-                                  showTooltip,
-                                  1000,
-                                )
-                              }
-                            }}
-                            onMouseLeave={() => {
-                              if (tooltipTimeoutRef.current) {
-                                clearTimeout(tooltipTimeoutRef.current)
-                                tooltipTimeoutRef.current = null
-                              }
-                              setModeTooltip(null)
-                            }}
-                          >
-                            <div className="flex items-center gap-2">
-                              <PlanIcon className="w-4 h-4 text-muted-foreground" />
-                              <span>Plan</span>
-                            </div>
-                            {agentMode === "plan" && (
-                              <CheckIcon className="h-3.5 w-3.5 ml-auto shrink-0" />
-                            )}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                        {modeTooltip?.visible &&
-                          createPortal(
-                            <div
-                              className="fixed z-[100000]"
-                              style={{
-                                top: modeTooltip.position.top + 14,
-                                left: modeTooltip.position.left,
-                                transform: "translateY(-50%)",
-                              }}
-                            >
-                              <div
-                                data-tooltip="true"
-                                className="relative rounded-[12px] bg-popover px-2.5 py-1.5 text-xs text-popover-foreground dark max-w-[150px]"
-                              >
-                                <span>
-                                  {modeTooltip.mode === "agent"
-                                    ? "Apply changes directly without a plan"
-                                    : "Create a plan before making changes"}
-                                </span>
-                              </div>
-                            </div>,
-                            document.body,
-                          )}
-                      </DropdownMenu>
+                      <WorkModeSelector
+                        value={workMode}
+                        onChange={setWorkMode}
+                        disabled={createChatMutation.isPending}
+                      />
 
                       <div className="group/model-controls flex items-center gap-0.5">
                         <AgentModelSelector
@@ -1977,7 +1791,7 @@ export function NewChatForm({
                             !hasContent || !selectedProject || isUploading,
                           )}
                           onClick={handleSend}
-                          mode={agentMode}
+                          mode="agent"
                           hasContent={hasContent}
                           showVoiceInput={isVoiceAvailable}
                           isRecording={isVoiceRecording}
@@ -2186,8 +2000,8 @@ export function NewChatForm({
                   searchText={slashSearchText}
                   position={slashPosition}
                   projectPath={validatedProject?.path}
-                  mode={agentMode}
-                  disabledCommands={["clear"]}
+                  mode="agent"
+                  disabledCommands={["clear", "plan", "agent"]}
                 />
               </div>
             </div>

@@ -1,13 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { GitBranch } from "lucide-react"
+import { ChevronDown, CircleDot, GitBranch } from "lucide-react"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "../../../components/ui/popover"
-import { IconChevronDown, CheckIcon, LaptopIcon, CloudIcon } from "../../../components/ui/icons"
+import { CheckIcon } from "../../../components/ui/icons"
 import { cn } from "../../../lib/utils"
 import type { WorkMode } from "../atoms"
 
@@ -15,25 +15,19 @@ interface WorkModeSelectorProps {
   value: WorkMode
   onChange: (mode: WorkMode) => void
   disabled?: boolean
+  compact?: boolean
 }
 
 const workModeOptions = [
   {
     id: "local" as const,
-    label: "Project",
-    icon: LaptopIcon,
+    label: "Main",
+    icon: CircleDot,
   },
   {
     id: "worktree" as const,
-    label: "Revision",
+    label: "Worktree",
     icon: GitBranch,
-  },
-  {
-    id: "sandbox" as const,
-    label: "Background",
-    icon: CloudIcon,
-    disabled: true,
-    soon: true,
   },
 ]
 
@@ -41,9 +35,10 @@ export function WorkModeSelector({
   value,
   onChange,
   disabled,
+  compact = false,
 }: WorkModeSelectorProps) {
   const [open, setOpen] = useState(false)
-  const selectedOption = workModeOptions.find((opt) => opt.id === value) || workModeOptions[1]
+  const selectedOption = workModeOptions.find((opt) => opt.id === value) || workModeOptions[0]
   const Icon = selectedOption.icon
 
   return (
@@ -52,48 +47,46 @@ export function WorkModeSelector({
         <button
           type="button"
           className={cn(
-            "flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground transition-[background-color,color] duration-150 ease-out rounded-md hover:bg-muted/50 outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70",
+            "flex h-7 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color] duration-150 ease-out hover:bg-muted/50 hover:text-foreground outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70",
+            compact ? "w-7 p-0" : "gap-1.5 px-2 text-sm font-medium",
             disabled && "opacity-50 pointer-events-none",
           )}
           disabled={disabled}
+          aria-label={`Chat mode: ${selectedOption.label}`}
+          title={selectedOption.label}
         >
           <Icon className="w-4 h-4" />
-          <span>{selectedOption.label}</span>
-          <IconChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+          {!compact && (
+            <>
+              <span>{selectedOption.label}</span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-55" />
+            </>
+          )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[160px] min-w-[160px]" align="start">
+      <PopoverContent className="w-[150px] min-w-[150px]" align="start">
         {workModeOptions.map((option) => {
           const OptionIcon = option.icon
           const isSelected = value === option.id
-          const isDisabled = "disabled" in option && option.disabled
-          const isSoon = "soon" in option && option.soon
           return (
             <button
               key={option.id}
               onClick={() => {
-                if (isDisabled || option.id === "sandbox") return
                 onChange(option.id)
                 setOpen(false)
               }}
-              disabled={isDisabled}
               className={cn(
-                "flex items-center gap-1.5 min-h-[32px] py-[5px] px-1.5 mx-1 w-[calc(100%-8px)] text-sm text-left rounded-md cursor-default select-none outline-none transition-colors",
-                isDisabled
-                  ? "opacity-50 cursor-not-allowed"
-                  : isSelected
-                    ? "dark:bg-neutral-800 text-foreground"
-                    : "dark:hover:bg-neutral-800 hover:text-foreground"
+                "flex min-h-9 w-[calc(100%-8px)] items-center gap-2 rounded-md px-1.5 py-1.5 mx-1 text-left text-sm outline-none transition-colors",
+                isSelected
+                  ? "dark:bg-neutral-800 text-foreground"
+                  : "dark:hover:bg-neutral-800 hover:text-foreground",
               )}
             >
               <OptionIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="flex-1">{option.label}</span>
-              {isSoon && (
-                <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">
-                  Soon
-                </span>
-              )}
-              {isSelected && !isDisabled && <CheckIcon className="h-4 w-4 shrink-0" />}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{option.label}</span>
+              </span>
+              {isSelected && <CheckIcon className="h-4 w-4 shrink-0" />}
             </button>
           )
         })}

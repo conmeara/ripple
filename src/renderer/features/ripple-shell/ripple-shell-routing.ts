@@ -2,6 +2,7 @@ export interface RippleShellRouteInput {
   canUseHyperframesProjectPane: boolean
   hasSelectedProject: boolean
   hasSelectedChat: boolean
+  hasNewChatSurface?: boolean
   hasDesktopView: boolean
 }
 
@@ -9,12 +10,13 @@ export function shouldRenderRippleShell({
   canUseHyperframesProjectPane,
   hasSelectedProject,
   hasSelectedChat,
+  hasNewChatSurface = false,
   hasDesktopView,
 }: RippleShellRouteInput): boolean {
   return (
     canUseHyperframesProjectPane &&
     hasSelectedProject &&
-    hasSelectedChat &&
+    (hasSelectedChat || hasNewChatSurface) &&
     !hasDesktopView
   )
 }

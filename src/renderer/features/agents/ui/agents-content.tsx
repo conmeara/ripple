@@ -863,6 +863,7 @@ export function AgentsContent() {
       canUseHyperframesProjectPane,
       hasSelectedProject: Boolean(selectedProject?.id),
       hasSelectedChat: Boolean(selectedChatId),
+      hasNewChatSurface: Boolean(selectedDraftId || showNewChatForm),
       hasDesktopView: Boolean(desktopView),
     })
   const canShowPreview = canShowHyperframesPreview || canShowSandboxPreview
@@ -1071,29 +1072,27 @@ export function AgentsContent() {
             <AutomationsDetailView />
           ) : betaAutomationsEnabled && desktopView === "inbox" ? (
             <InboxView />
+          ) : shouldUseRippleShell && selectedProject ? (
+            <RippleShell
+              key={`${chatSourceMode}-${selectedChatId ?? "new"}`}
+              selectedProject={selectedProject}
+              chatId={selectedChatId}
+              isSidebarOpen={sidebarOpen}
+              onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+              selectedTeamName={selectedTeam?.name}
+              selectedTeamImageUrl={selectedTeam?.image_url}
+            />
           ) : selectedChatId ? (
-            shouldUseRippleShell && selectedProject ? (
-              <RippleShell
+            <div className="h-full flex flex-col relative overflow-hidden">
+              <ChatView
                 key={`${chatSourceMode}-${selectedChatId}`}
-                selectedProject={selectedProject}
                 chatId={selectedChatId}
                 isSidebarOpen={sidebarOpen}
                 onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
                 selectedTeamName={selectedTeam?.name}
                 selectedTeamImageUrl={selectedTeam?.image_url}
               />
-            ) : (
-              <div className="h-full flex flex-col relative overflow-hidden">
-                <ChatView
-                  key={`${chatSourceMode}-${selectedChatId}`}
-                  chatId={selectedChatId}
-                  isSidebarOpen={sidebarOpen}
-                  onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
-                  selectedTeamName={selectedTeam?.name}
-                  selectedTeamImageUrl={selectedTeam?.image_url}
-                />
-              </div>
-            )
+            </div>
           ) : selectedDraftId || showNewChatForm ? (
             <div className="h-full flex flex-col relative overflow-hidden">
               <NewChatForm key={`new-chat-${newChatFormKeyRef.current}`} />

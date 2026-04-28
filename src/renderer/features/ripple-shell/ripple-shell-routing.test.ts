@@ -11,6 +11,7 @@ describe("Ripple shell routing", () => {
         canUseHyperframesProjectPane: true,
         hasSelectedProject: true,
         hasSelectedChat: true,
+        hasNewChatSurface: false,
         hasDesktopView: false,
       }),
     ).toBe(true)
@@ -20,6 +21,7 @@ describe("Ripple shell routing", () => {
         canUseHyperframesProjectPane: false,
         hasSelectedProject: true,
         hasSelectedChat: true,
+        hasNewChatSurface: false,
         hasDesktopView: false,
       }),
     ).toBe(false)
@@ -29,6 +31,7 @@ describe("Ripple shell routing", () => {
         canUseHyperframesProjectPane: true,
         hasSelectedProject: false,
         hasSelectedChat: true,
+        hasNewChatSurface: false,
         hasDesktopView: false,
       }),
     ).toBe(false)
@@ -38,6 +41,7 @@ describe("Ripple shell routing", () => {
         canUseHyperframesProjectPane: true,
         hasSelectedProject: true,
         hasSelectedChat: false,
+        hasNewChatSurface: false,
         hasDesktopView: false,
       }),
     ).toBe(false)
@@ -47,9 +51,22 @@ describe("Ripple shell routing", () => {
         canUseHyperframesProjectPane: true,
         hasSelectedProject: true,
         hasSelectedChat: true,
+        hasNewChatSurface: false,
         hasDesktopView: true,
       }),
     ).toBe(false)
+  })
+
+  test("keeps the Ripple shell around for a project-scoped new chat draft", () => {
+    expect(
+      shouldRenderRippleShell({
+        canUseHyperframesProjectPane: true,
+        hasSelectedProject: true,
+        hasSelectedChat: false,
+        hasNewChatSurface: true,
+        hasDesktopView: false,
+      }),
+    ).toBe(true)
   })
 
   test("keeps macOS traffic lights visible for the Ripple shell", () => {

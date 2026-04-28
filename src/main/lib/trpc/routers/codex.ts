@@ -1568,6 +1568,7 @@ export const codexRouter = router({
         mode: z.enum(["plan", "agent"]).default("agent"),
         sessionId: z.string().optional(),
         forceNewSession: z.boolean().optional(),
+        disableMcp: z.boolean().optional(),
         images: z.array(imageAttachmentSchema).optional(),
         authConfig: z
           .object({
@@ -1715,17 +1716,19 @@ export const codexRouter = router({
               fetchedAt: Date.now(),
               toolsResolved: false,
             }
-            try {
-              const resolvedProjectPathFromCwd = resolveProjectPathFromWorktree(
-                input.cwd,
-              )
-              const mcpLookupPath =
-                input.projectPath || resolvedProjectPathFromCwd || input.cwd
-              mcpSnapshot = await resolveCodexMcpSnapshot({
-                lookupPath: mcpLookupPath,
-              })
-            } catch (mcpError) {
-              console.error("[codex] Failed to resolve MCP servers:", mcpError)
+            if (!input.disableMcp) {
+              try {
+                const resolvedProjectPathFromCwd = resolveProjectPathFromWorktree(
+                  input.cwd,
+                )
+                const mcpLookupPath =
+                  input.projectPath || resolvedProjectPathFromCwd || input.cwd
+                mcpSnapshot = await resolveCodexMcpSnapshot({
+                  lookupPath: mcpLookupPath,
+                })
+              } catch (mcpError) {
+                console.error("[codex] Failed to resolve MCP servers:", mcpError)
+              }
             }
 
             const provider = getOrCreateProvider({

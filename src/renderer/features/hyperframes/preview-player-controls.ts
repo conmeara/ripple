@@ -17,8 +17,81 @@ export const PREVIEW_SETTINGS_CONTROLS = [
 export type ZoomValue = (typeof ZOOM_OPTIONS)[number]["value"]
 export type PreviewSettingsControl = (typeof PREVIEW_SETTINGS_CONTROLS)[number]
 
+export interface PreviewPlaybackKeyboardShortcutEvent {
+  key?: string
+  code?: string
+  repeat?: boolean
+  metaKey?: boolean
+  ctrlKey?: boolean
+  altKey?: boolean
+  shiftKey?: boolean
+  defaultPrevented?: boolean
+  target?: EventTarget | null
+}
+
+const PREVIEW_SPACEBAR_RESERVED_TARGET_SELECTOR = [
+  "input",
+  "textarea",
+  "select",
+  "option",
+  "button",
+  "a[href]",
+  "summary",
+  "[contenteditable]:not([contenteditable='false'])",
+  "[role='button']",
+  "[role='checkbox']",
+  "[role='combobox']",
+  "[role='listbox']",
+  "[role='menuitem']",
+  "[role='option']",
+  "[role='radio']",
+  "[role='searchbox']",
+  "[role='slider']",
+  "[role='spinbutton']",
+  "[role='switch']",
+  "[role='textbox']",
+  "[data-preview-spacebar-ignore]",
+].join(",")
+
 export function shouldRenderPreviewCloseControl(
   onClose: (() => void) | null | undefined,
 ): boolean {
   return typeof onClose === "function"
+}
+
+function getTargetElement(target: EventTarget | null | undefined): Element | null {
+  if (!target || typeof target !== "object") return null
+
+  const candidate = target as Partial<Element> & {
+    parentElement?: Element | null
+  }
+
+  if (typeof candidate.closest === "function") {
+    return candidate as Element
+  }
+
+  const parentElement = candidate.parentElement
+  return parentElement && typeof parentElement.closest === "function"
+    ? parentElement
+    : null
+}
+
+function isReservedSpacebarTarget(target: EventTarget | null | undefined): boolean {
+  const maybeEditable = target as { isContentEditable?: boolean } | null | undefined
+  if (maybeEditable?.isContentEditable) return true
+
+  return Boolean(
+    getTargetElement(target)?.closest(PREVIEW_SPACEBAR_RESERVED_TARGET_SELECTOR),
+  )
+}
+
+export function shouldTogglePreviewPlaybackForSpacebar(
+  event: PreviewPlaybackKeyboardShortcutEvent,
+): boolean {
+  const isSpacebar = event.code === "Space" || event.key === " " || event.key === "Spacebar"
+  if (!isSpacebar) return false
+  if (event.defaultPrevented || event.repeat) return false
+  if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false
+
+  return !isReservedSpacebarTarget(event.target)
 }

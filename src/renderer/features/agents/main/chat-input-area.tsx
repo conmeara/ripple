@@ -1,24 +1,14 @@
 "use client"
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
-import { ChevronDown, RefreshCw } from "lucide-react"
+import { RefreshCw } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { createPortal } from "react-dom"
 
 import { Button } from "../../../components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../../../components/ui/dropdown-menu"
-import {
-  AgentIcon,
   AttachIcon,
-  CheckIcon,
   IconSpinner,
   OriginalMCPIcon,
-  PlanIcon,
   SettingsIcon,
 } from "../../../components/ui/icons"
 import { Kbd } from "../../../components/ui/kbd"
@@ -61,15 +51,14 @@ import {
   subChatCodexModelIdAtomFamily,
   subChatCodexThinkingAtomFamily,
   subChatModelIdAtomFamily,
-  subChatModeAtomFamily,
-  getNextMode,
   type AgentMode,
   type SubChatFileChange,
+  type WorkMode,
 } from "../atoms"
-import { useAgentSubChatStore } from "../stores/sub-chat-store"
 import { AgentsSlashCommand, type SlashCommandOption } from "../commands"
 import { AgentModelSelector } from "../components/agent-model-selector"
 import { AgentSendButton } from "../components/agent-send-button"
+import { WorkModeSelector } from "../components/work-mode-selector"
 import type { UploadedFile, UploadedImage } from "../hooks/use-agents-file-upload"
 import {
   clearSubChatDraft,
@@ -188,6 +177,7 @@ export interface ChatInputAreaProps {
   repository?: string
   sandboxId?: string
   projectPath?: string
+  currentWorkMode: WorkMode
   changedFiles: SubChatFileChange[]
   // Mobile
   isMobile?: boolean
@@ -226,6 +216,7 @@ function arePropsEqual(prevProps: ChatInputAreaProps, nextProps: ChatInputAreaPr
     prevProps.repository !== nextProps.repository ||
     prevProps.sandboxId !== nextProps.sandboxId ||
     prevProps.projectPath !== nextProps.projectPath ||
+    prevProps.currentWorkMode !== nextProps.currentWorkMode ||
     prevProps.isMobile !== nextProps.isMobile ||
     prevProps.queueLength !== nextProps.queueLength ||
     prevProps.firstQueueItemId !== nextProps.firstQueueItemId ||
@@ -379,7 +370,6 @@ export const ChatInputArea = memo(function ChatInputArea({
   onStop,
   onCompact,
   onCreateNewSubChat,
-  onModeChange,
   isStreaming,
   isCompacting,
   images,
@@ -404,6 +394,7 @@ export const ChatInputArea = memo(function ChatInputArea({
   repository,
   sandboxId,
   projectPath,
+  currentWorkMode,
   changedFiles,
   isMobile = false,
   queueLength = 0,
@@ -436,22 +427,6 @@ export const ChatInputArea = memo(function ChatInputArea({
   const [showSlashDropdown, setShowSlashDropdown] = useState(false)
   const [slashSearchText, setSlashSearchText] = useState("")
   const [slashPosition, setSlashPosition] = useState({ top: 0, left: 0 })
-
-  // Mode dropdown state
-  const [modeDropdownOpen, setModeDropdownOpen] = useState(false)
-  const [modeTooltip, setModeTooltip] = useState<{
-    visible: boolean
-    position: { top: number; left: number }
-    mode: "agent" | "plan"
-  } | null>(null)
-  const tooltipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const hasShownTooltipRef = useRef(false)
-
-  useEffect(() => {
-    if (!modeDropdownOpen) {
-      setModeTooltip(null)
-    }
-  }, [modeDropdownOpen])
 
   // Model dropdown state
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
@@ -684,28 +659,6 @@ export const ChatInputArea = memo(function ChatInputArea({
   // Auto-switch model based on network status (only if offline features enabled)
   // Note: When offline, we show Ollama models selector instead of Claude models
   // The selectedOllamaModel atom is used to track which Ollama model is selected
-
-  // Plan mode - per-subChat using atomFamily
-  const subChatModeAtom = useMemo(
-    () => subChatModeAtomFamily(subChatId),
-    [subChatId],
-  )
-  const [subChatMode, setSubChatMode] = useAtom(subChatModeAtom)
-
-  // Helper to update mode (atomFamily + Zustand store sync)
-  const updateMode = useCallback((newMode: AgentMode) => {
-    if (onModeChange) {
-      onModeChange(newMode)
-      return
-    }
-    setSubChatMode(newMode)
-    useAgentSubChatStore.getState().updateSubChatMode(subChatId, newMode)
-  }, [onModeChange, setSubChatMode, subChatId])
-
-  // Toggle mode helper
-  const toggleMode = useCallback(() => {
-    updateMode(getNextMode(subChatMode))
-  }, [subChatMode, updateMode])
 
   // Voice input state
   const {
@@ -1062,14 +1015,7 @@ export const ChatInputArea = memo(function ChatInputArea({
             }
             return
           case "plan":
-            if (subChatMode !== "plan") {
-              updateMode("plan")
-            }
-            return
           case "agent":
-            if (subChatMode === "plan") {
-              updateMode("agent")
-            }
             return
           case "compact":
             // Trigger context compaction
@@ -1082,7 +1028,7 @@ export const ChatInputArea = memo(function ChatInputArea({
       // insert the command and let user add arguments or press Enter to send
       editorRef.current?.setValue(`/${command.name} `)
     },
-    [subChatMode, updateMode, onCreateNewSubChat, onCompact, editorRef],
+    [onCreateNewSubChat, onCompact, editorRef],
   )
 
   // Paste handler for images, plain text, and large text (saved as files)
@@ -1159,7 +1105,6 @@ export const ChatInputArea = memo(function ChatInputArea({
       // Process other files - for text files, read content and add as file mention
       for (const file of otherFiles) {
         // Get file path using Electron's webUtils API (more reliable than file.path)
-        // @ts-expect-error - Electron's webUtils API
         const filePath: string | undefined = window.webUtils?.getPathForFile?.(file) || (file as File & { path?: string }).path
 
         let mentionId: string
@@ -1374,8 +1319,7 @@ export const ChatInputArea = memo(function ChatInputArea({
                   onContentChange={handleContentChange}
                   onSubmit={onSubmitWithQuestionAnswer || handleEditorSubmit}
                   onForceSubmit={onForceSend}
-                  onShiftTab={toggleMode}
-                  placeholder={isStreaming ? "Add to the queue" : "Plan, @ for context, / for commands"}
+                  placeholder={isStreaming ? "Add to the queue" : "Ask for changes, @ for context, / for commands"}
                   className={cn(
                     "bg-transparent max-h-[200px] overflow-y-auto p-1",
                     isMobile && "min-h-[56px]",
@@ -1387,173 +1331,12 @@ export const ChatInputArea = memo(function ChatInputArea({
               </div>
               <PromptInputActions className="w-full">
                 <div className="flex items-center gap-0.5 flex-1 min-w-0">
-                  {/* Mode toggle (Agent/Plan) */}
-                  <DropdownMenu
-                    open={modeDropdownOpen}
-                    onOpenChange={(open) => {
-                      setModeDropdownOpen(open)
-                      if (!open) {
-                        if (tooltipTimeoutRef.current) {
-                          clearTimeout(tooltipTimeoutRef.current)
-                          tooltipTimeoutRef.current = null
-                        }
-                        setModeTooltip(null)
-                        hasShownTooltipRef.current = false
-                      }
-                    }}
-                  >
-                    <DropdownMenuTrigger asChild>
-                      <button className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted/50 outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70">
-                        {subChatMode === "plan" ? (
-                          <PlanIcon className="h-3.5 w-3.5 shrink-0" />
-                        ) : (
-                          <AgentIcon className="h-3.5 w-3.5 shrink-0" />
-                        )}
-                        <span className="truncate">{subChatMode === "plan" ? "Plan" : "Agent"}</span>
-                        <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="start"
-                      sideOffset={6}
-                      className="!min-w-[116px] !w-[116px]"
-                      onCloseAutoFocus={(e) => e.preventDefault()}
-                    >
-                      <DropdownMenuItem
-                        onClick={() => {
-                          // Clear tooltip before closing dropdown (onMouseLeave won't fire)
-                          if (tooltipTimeoutRef.current) {
-                            clearTimeout(tooltipTimeoutRef.current)
-                            tooltipTimeoutRef.current = null
-                          }
-                          setModeTooltip(null)
-                          updateMode("agent")
-                          setModeDropdownOpen(false)
-                        }}
-                        className="justify-between gap-2"
-                        onMouseEnter={(e) => {
-                          if (tooltipTimeoutRef.current) {
-                            clearTimeout(tooltipTimeoutRef.current)
-                            tooltipTimeoutRef.current = null
-                          }
-                          const rect = e.currentTarget.getBoundingClientRect()
-                          const showTooltip = () => {
-                            setModeTooltip({
-                              visible: true,
-                              position: {
-                                top: rect.top,
-                                left: rect.right + 8,
-                              },
-                              mode: "agent",
-                            })
-                            hasShownTooltipRef.current = true
-                            tooltipTimeoutRef.current = null
-                          }
-                          if (hasShownTooltipRef.current) {
-                            showTooltip()
-                          } else {
-                            tooltipTimeoutRef.current = setTimeout(
-                              showTooltip,
-                              1000,
-                            )
-                          }
-                        }}
-                        onMouseLeave={() => {
-                          if (tooltipTimeoutRef.current) {
-                            clearTimeout(tooltipTimeoutRef.current)
-                            tooltipTimeoutRef.current = null
-                          }
-                          setModeTooltip(null)
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <AgentIcon className="w-4 h-4 text-muted-foreground" />
-                          <span>Agent</span>
-                        </div>
-                        {subChatMode !== "plan" && (
-                          <CheckIcon className="h-3.5 w-3.5 ml-auto shrink-0" />
-                        )}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          // Clear tooltip before closing dropdown (onMouseLeave won't fire)
-                          if (tooltipTimeoutRef.current) {
-                            clearTimeout(tooltipTimeoutRef.current)
-                            tooltipTimeoutRef.current = null
-                          }
-                          setModeTooltip(null)
-                          updateMode("plan")
-                          setModeDropdownOpen(false)
-                        }}
-                        className="justify-between gap-2"
-                        onMouseEnter={(e) => {
-                          if (tooltipTimeoutRef.current) {
-                            clearTimeout(tooltipTimeoutRef.current)
-                            tooltipTimeoutRef.current = null
-                          }
-                          const rect = e.currentTarget.getBoundingClientRect()
-                          const showTooltip = () => {
-                            setModeTooltip({
-                              visible: true,
-                              position: {
-                                top: rect.top,
-                                left: rect.right + 8,
-                              },
-                              mode: "plan",
-                            })
-                            hasShownTooltipRef.current = true
-                            tooltipTimeoutRef.current = null
-                          }
-                          if (hasShownTooltipRef.current) {
-                            showTooltip()
-                          } else {
-                            tooltipTimeoutRef.current = setTimeout(
-                              showTooltip,
-                              1000,
-                            )
-                          }
-                        }}
-                        onMouseLeave={() => {
-                          if (tooltipTimeoutRef.current) {
-                            clearTimeout(tooltipTimeoutRef.current)
-                            tooltipTimeoutRef.current = null
-                          }
-                          setModeTooltip(null)
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <PlanIcon className="w-4 h-4 text-muted-foreground" />
-                          <span>Plan</span>
-                        </div>
-                        {subChatMode === "plan" && (
-                          <CheckIcon className="h-3.5 w-3.5 ml-auto shrink-0" />
-                        )}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                    {modeTooltip?.visible &&
-                      createPortal(
-                        <div
-                          className="fixed z-[100000]"
-                          style={{
-                            top: modeTooltip.position.top + 14,
-                            left: modeTooltip.position.left,
-                            transform: "translateY(-50%)",
-                          }}
-                        >
-                          <div
-                            data-tooltip="true"
-                            className="relative rounded-[12px] bg-popover px-2.5 py-1.5 text-xs text-popover-foreground dark max-w-[150px]"
-                          >
-                            <span>
-                              {modeTooltip.mode === "agent"
-                                ? "Apply changes directly without a plan"
-                                : "Create a plan before making changes"}
-                            </span>
-                          </div>
-                        </div>,
-                        document.body,
-                      )}
-                  </DropdownMenu>
+                  <WorkModeSelector
+                    value={currentWorkMode}
+                    onChange={() => {}}
+                    disabled={true}
+                    compact={true}
+                  />
 
                   <div className="group/model-controls flex items-center gap-0.5">
                     <AgentModelSelector
@@ -1693,7 +1476,7 @@ export const ChatInputArea = memo(function ChatInputArea({
                         }
                       }}
                       onStop={onStop}
-                      mode={subChatMode}
+                      mode="agent"
                       // Voice input props - show mic when input is empty and voice is available
                       showVoiceInput={isVoiceAvailable}
                       isRecording={isVoiceRecording}
@@ -1748,7 +1531,8 @@ export const ChatInputArea = memo(function ChatInputArea({
         searchText={slashSearchText}
         position={slashPosition}
         projectPath={projectPath}
-        mode={subChatMode}
+        mode="agent"
+        disabledCommands={["plan", "agent"]}
       />
     </div>
   )

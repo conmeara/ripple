@@ -16,6 +16,7 @@ import {
   discoverDeclaredCompositions,
   readHyperframesMetadata,
 } from "./metadata"
+import { ensureRippleProjectGitRepository } from "./project-git"
 import {
   createProjectSlug,
   getDefaultRippleRoot,
@@ -236,6 +237,7 @@ export async function createRippleProject(
   })
 
   const scaffold = await writeRippleProjectScaffold(projectPath, scaffoldMetadata)
+  await ensureRippleProjectGitRepository(projectPath)
   const setup = await checkRippleEnvironment(getRepoRoot())
   const setupError = getSetupError(setup)
 
@@ -333,6 +335,7 @@ export async function openExistingRippleProject(
     width,
     height,
   })
+  await ensureRippleProjectGitRepository(input.projectPath)
   const setup = await checkRippleEnvironment(getRepoRoot())
   const setupError = getSetupError(setup)
 

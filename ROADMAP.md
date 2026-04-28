@@ -172,9 +172,11 @@ Project creation should automatically handle:
 - collision handling
 - default 1080p 30fps scaffold/template copying, while preserving metadata hooks
   for later width, height, and FPS changes
+- automatic local Git initialization at the Ripple project root, hidden from
+  normal UX, so revisions, history, proposal review, and future project
+  recovery features have a durable substrate
 - background dependency setup
 - HyperFrames validation
-- optional hidden local git/snapshot initialization for revisions
 - initial composition discovery
 - opening the project shell with a previewable default composition
 - project lifecycle actions: archive/hide, remove from Ripple without deleting
@@ -352,18 +354,24 @@ Reference links to preserve from the old docs:
 
 ## Templates And Bundled Context
 
-- Project creation should not require choosing from a template gallery. The
-  default scaffold should be immediately previewable and should demonstrate the
-  HyperFrames composition model, ideally with a top-level composition and at
-  least one nested or reusable composition.
+- Project creation should keep a blank/default option that is immediately
+  previewable and demonstrates the HyperFrames composition model, ideally with
+  a top-level composition and at least one nested or reusable composition.
+- Ripple should offer a template chooser from project creation, new index/root
+  composition creation, and new composition creation. Choosing a template must
+  be optional; blank remains a first-class starter.
 - Ripple should support a template library built on HyperFrames conventions:
   lower thirds, title cards, transitions, social overlays, data visualizations,
   and product promos.
+- Source candidates include official online HyperFrames templates plus
+  templates/examples from the HyperFrames GitHub repo, curated into an
+  app-owned local bundle rather than fetched at authoring or render time.
 - Preserve the useful starter/example names from the old docs as candidate
   seed templates: `warm-grain`, `play-mode`, `swiss-grid`, `kinetic-type`,
   `decision-tree`, `product-promo`, `nyt-graph`, `vignelli`, and `blank`.
 - Users should be able to preview, insert, or scaffold templates inside Ripple
-  without touching the CLI.
+  without touching the CLI. The preview UI should make aspect ratio, duration,
+  category, and basic motion feel visible before insertion.
 - Ripple should bundle HyperFrames-aware agent context, skills, and template
   assets so users are not blocked on manual setup before the agent can work.
 - HyperFrames supplies behavior, editing model, timeline semantics, and panel
@@ -720,6 +728,7 @@ Goals:
 - Create isolated revision context per comment.
 - Route agent execution into registered revision contexts.
 - Support preview, accept, reject, and cleanup.
+- Support recoverable comment deletion through comment filters.
 
 Key files:
 
@@ -742,6 +751,7 @@ Done when:
 - Revision runs in isolation.
 - Multiple revisions can be reviewed independently.
 - Accept applies changes; reject discards them.
+- Deleted comments can be restored from a filter.
 - Primary UX does not expose worktree/branch language.
 
 ### Phase 9: Export
@@ -762,7 +772,124 @@ Done when:
 - Output path is recorded.
 - Export can be cancelled or safely recovered from failure.
 
-### Phase 10: Agent Prompting And Skills
+### Phase 10: Templates And Starters
+
+Goals:
+
+- Curate official HyperFrames templates from the online gallery and GitHub repo
+  into a Ripple-owned local template library.
+- Add template metadata for name, category, aspect ratio, duration, preview
+  media, required assets, source files, and compatibility/version notes.
+- Add a polished template chooser for new project, new index/root composition,
+  and new composition flows, with blank/default as the first-class starter.
+- Show fast previews for all available templates before the user inserts or
+  scaffolds them.
+- Copy template files, assets, metadata, and runtime dependencies into the
+  active project through main-process validated project paths.
+
+Done when:
+
+- New project creation can start from blank/default or a selected template.
+- New composition and new index/root composition actions open the same template
+  chooser and can insert a valid HyperFrames composition.
+- Template previews are visible in the dialog without requiring network access
+  or CLI knowledge.
+- Inserted templates appear in the compositions/assets pane, update active
+  composition state, and preview immediately.
+- Template source and asset copying is project-boundary safe and does not fetch
+  scripts, fonts, or media at render time.
+
+### Phase 11: Codex And Claude Code Integrations
+
+Goals:
+
+- Audit the current Codex and Claude Code provider paths end to end: setup,
+  launch, streaming, cancellation, working directory selection, project/revision
+  context, file access, and error recovery.
+- Verify the latest recommended Codex and Claude Code integration paths from
+  official docs at the start of the phase rather than relying on inherited
+  1Code assumptions.
+- Update app-owned adapters, prompts, environment handling, permissions, and
+  process orchestration to match those recommended paths where they fit
+  Ripple's local-first model.
+- Keep provider setup optional until the first agent action that needs it, and
+  keep local project creation, preview, comments, and export usable without a
+  configured agent provider.
+- Ensure both providers can operate inside the active project or isolated
+  revision context without exposing repo/worktree language in primary UX.
+- Extract provider execution out of renderer-owned React chat workers into
+  main-process provider runner services. The renderer should become a viewer
+  and controller for runs, while main owns queue claiming, provider launch,
+  stream persistence, cancellation, restart recovery, and terminal run state.
+- Unify normal Chat runs and comment-generated revision runs around the same
+  provider-run contract so opening a revision chat never starts a duplicate run
+  and Comments/Chat always display the same persisted transcript and status.
+- Preserve the Phase 8 queue hardening as the transition point: the main process
+  already owns revision queue decisions, stale generated-change updates,
+  acceptance, recovery, and cleanup; Phase 11 should replace the temporary
+  shell-level revision worker with a durable main-process Claude/Codex runner.
+
+Architecture direction:
+
+- Settled provider direction as of 2026-04-28: Codex should use Codex App
+  Server as the first-class app UI integration, and Claude should use the
+  Claude Agent SDK as the first-class Claude integration. Ripple should
+  normalize above those provider protocols through its own main-process
+  provider-run contract rather than forcing both providers through ACP or
+  another common-denominator protocol.
+- Claude local Team/Enterprise Claude Code login is an advanced local/enterprise
+  auth mode for users with an allowed subscription setup. Public-safe Claude
+  defaults should remain API key, supported cloud provider, or enterprise
+  gateway unless Anthropic approves subscription-login use for a distributed
+  third-party product.
+- Define a provider-neutral agent execution service. The shared Ripple model
+  should be agent threads, agent runs, run events, approvals, workspace
+  contexts, generated changes, and transcript projections, not a renderer-owned
+  chat transport shape.
+- Provider run inputs should be target/id based, for example normal project,
+  generated change, or chat worktree targets. Renderer code and queue code must
+  not provide authoritative `cwd`, `projectPath`, or `worktreePath`; main
+  resolves and validates those paths immediately before launch.
+- Provide Claude Agent SDK and Codex App Server adapters behind that service.
+  Each adapter must validate the resolved working directory, run only inside
+  the active project or registered isolated workspace, persist provider-native
+  events to agent-run storage, project those events into Chat/Comments views,
+  keep provider thread/turn/session ids current, and surface errors in Ripple
+  language.
+- Preserve Phase 8's review semantics and isolation/acceptance guarantees, but
+  allow Phase 11 to replace hidden chat/sub-chat execution internals if the
+  provider-native agent thread/run model requires it.
+- Move restart/resume reconciliation into main. On app start, main should
+  inspect queued/running/updating provider runs and either resume, requeue, or
+  mark them recoverable without depending on whether a renderer pane is mounted.
+- Keep cancellation and permissions main-owned. Renderer controls may request
+  pause/cancel/continue, but privileged filesystem/process decisions stay in
+  main-process services.
+- Treat the existing shell-level `RippleRevisionQueueWorker` as temporary
+  scaffolding from Phase 8. It is acceptable until provider routers are
+  extractable, but it is not the final long-term execution model.
+
+Done when:
+
+- Ripple has a documented compatibility matrix for the currently supported
+  Codex and Claude Code integration paths.
+- Codex and Claude Code can both run against a default Ripple project through
+  project/revision-bounded execution.
+- Streaming, cancellation, missing-provider setup, and provider error states are
+  visible in Ripple language.
+- Provider execution for both normal Chat and comment revisions is launched and
+  reconciled by main-process services, not by hidden renderer components.
+- The shell-level revision worker has been removed or reduced to a display-only
+  observer/controller.
+- Opening, closing, filtering, or remounting Comments and Chat panes cannot
+  start, restart, duplicate, or orphan provider runs.
+- App restart recovery covers queued/running/updating Claude and Codex runs and
+  records clear recoverable states when a provider cannot resume.
+- Provider adapters no longer depend on stale 1Code, repo-first, or deprecated
+  integration assumptions.
+- The agent integration smoke tests or manual QA steps cover both providers.
+
+### Phase 12: Agent Prompting And Skills
 
 Goals:
 
@@ -780,7 +907,38 @@ Done when:
 - Provider setup is optional until the first agent action that needs it.
 - Agent filesystem access is bounded to project or revision context.
 
-### Phase 11: Rebrand And Service Decoupling
+### Phase 13: Agent Visual Context, Screenshots, And Frame Sheets
+
+Goals:
+
+- Build a main-process screenshot tool that captures the active composition or
+  revision preview at a requested frame, time, or selected range.
+- Automatically attach the current-frame still to new comments when a comment
+  is submitted from the review pane.
+- Generate frame sheets for a composition or revision by sampling frames at a
+  selected interval, such as every second, every 10 seconds, or across a marked
+  timeline range.
+- Make screenshots and frame sheets available to the agent during chat and
+  comment workflows through image attachments when the provider supports vision,
+  with timecode/composition metadata and text fallbacks when it does not.
+- Persist screenshot and frame-sheet artifacts project-locally with database
+  references, cleanup rules, size limits, and project/revision boundary checks.
+
+Done when:
+
+- Agent chat and comment runs can receive current visual context for the
+  composition they are editing.
+- New comments automatically include a screenshot thumbnail and stable
+  screenshot artifact reference when preview capture is available.
+- Frame sheets can be generated for the default project and for an isolated
+  revision, then included in agent context.
+- Screenshot and frame-sheet capture use HyperFrames snapshot/player paths and
+  main-process validation rather than renderer shell commands or arbitrary
+  filesystem access.
+- The UI keeps this visual context understandable without exposing implementation
+  terms like worktree or snapshot plumbing in primary flows.
+
+### Phase 14: Rebrand And Service Decoupling
 
 Goals:
 
@@ -812,7 +970,7 @@ Done when:
 - Product name, app id, protocol, update channel, menus, and packaging identity
   are Ripple-owned.
 
-### Phase 12: Hardening And Release Readiness
+### Phase 15: Hardening And Release Readiness
 
 Goals:
 

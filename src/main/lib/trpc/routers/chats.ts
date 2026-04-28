@@ -17,6 +17,7 @@ import {
   createWorktreeForChat,
   fetchGitHubPRStatus,
   getWorktreeDiff,
+  hasOriginRemote,
   removeWorktree,
   sanitizeProjectName,
 } from "../../git"
@@ -28,6 +29,7 @@ import { applyRollbackStash } from "../../git/stash"
 import { checkInternetConnection, checkOllamaStatus } from "../../ollama"
 import { terminalManager } from "../../terminal/manager"
 import { getLocalChatReusePaths } from "../../ripple-projects/chat-reuse"
+import { acceptIsolatedWorkspace } from "../../revisions/isolated-workspace-acceptance"
 import { windowManager } from "../../../windows/window-manager"
 import { publicProcedure, router } from "../index"
 
@@ -57,6 +59,81 @@ function sendWorktreeSetupFailure(
   for (const window of targets) {
     if (window.isDestroyed()) continue
     window.webContents.send("worktree:setup-failed", payload)
+  }
+}
+
+const publicChatColumns = {
+  id: chats.id,
+  name: chats.name,
+  projectId: chats.projectId,
+  createdAt: chats.createdAt,
+  updatedAt: chats.updatedAt,
+  archivedAt: chats.archivedAt,
+  worktreePath: chats.worktreePath,
+  branch: chats.branch,
+  baseBranch: chats.baseBranch,
+  prUrl: chats.prUrl,
+  prNumber: chats.prNumber,
+}
+
+function omitHiddenFlag<T extends { isHidden?: boolean }>(chat: T) {
+  const { isHidden: _isHidden, ...rest } = chat
+  return rest
+}
+
+function stripLegacyRippleCommentPrompt(text: string): string {
+  const marker = "User comment:\n"
+  const markerIndex = text.indexOf(marker)
+  if (markerIndex === -1) return text
+
+  const start = markerIndex + marker.length
+  const endMarker = "\n\nWhen finished,"
+  const end = text.indexOf(endMarker, start)
+  return text.slice(start, end === -1 ? undefined : end).trim() || text
+}
+
+function revealRippleCommentChatMessages(chatId: string): void {
+  const db = getDatabase()
+  const rows = db
+    .select({ id: subChats.id, messages: subChats.messages })
+    .from(subChats)
+    .where(eq(subChats.chatId, chatId))
+    .all()
+
+  for (const row of rows) {
+    try {
+      const messages = JSON.parse(row.messages)
+      if (!Array.isArray(messages)) continue
+
+      let changed = false
+      const nextMessages = messages.map((message: any) => {
+        if (message?.metadata?.source !== "ripple-comment") return message
+        if (!Array.isArray(message.parts)) return message
+
+        const nextParts = message.parts.map((part: any) => {
+          if (part?.type !== "text" || typeof part.text !== "string") {
+            return part
+          }
+          const nextText = stripLegacyRippleCommentPrompt(part.text)
+          if (nextText === part.text) return part
+          changed = true
+          return { ...part, text: nextText }
+        })
+
+        return changed ? { ...message, parts: nextParts } : message
+      })
+
+      if (!changed) continue
+      db.update(subChats)
+        .set({
+          messages: JSON.stringify(nextMessages),
+          updatedAt: new Date(),
+        })
+        .where(eq(subChats.id, row.id))
+        .run()
+    } catch {
+      // A malformed sub-chat should not block revealing the chat.
+    }
   }
 }
 
@@ -222,6 +299,7 @@ export const chatsRouter = router({
       const db = getDatabase()
       const conditions = [
         isNull(chats.archivedAt),
+        eq(chats.isHidden, false),
         sql`exists (
           select 1 from projects
           where ${projects.id} = ${chats.projectId}
@@ -232,7 +310,7 @@ export const chatsRouter = router({
         conditions.push(eq(chats.projectId, input.projectId))
       }
       return db
-        .select()
+        .select(publicChatColumns)
         .from(chats)
         .where(and(...conditions))
         .orderBy(desc(chats.updatedAt))
@@ -246,12 +324,12 @@ export const chatsRouter = router({
     .input(z.object({ projectId: z.string().optional() }))
     .query(({ input }) => {
       const db = getDatabase()
-      const conditions = [isNotNull(chats.archivedAt)]
+      const conditions = [isNotNull(chats.archivedAt), eq(chats.isHidden, false)]
       if (input.projectId) {
         conditions.push(eq(chats.projectId, input.projectId))
       }
       return db
-        .select()
+        .select(publicChatColumns)
         .from(chats)
         .where(and(...conditions))
         .orderBy(desc(chats.archivedAt))
@@ -265,7 +343,11 @@ export const chatsRouter = router({
     .input(z.object({ id: z.string() }))
     .query(({ input }) => {
       const db = getDatabase()
-      const chat = db.select().from(chats).where(eq(chats.id, input.id)).get()
+      const chat = db
+        .select(publicChatColumns)
+        .from(chats)
+        .where(eq(chats.id, input.id))
+        .get()
       if (!chat) return null
 
       const chatSubChats = db
@@ -440,18 +522,21 @@ export const chatsRouter = router({
 
       // Only create worktree if useWorktree is true
       if (input.useWorktree) {
+        const branchType =
+          input.branchType ??
+          (await hasOriginRemote(project.path) ? undefined : "local")
         console.log(
           "[chats.create] creating worktree with baseBranch:",
           input.baseBranch,
           "type:",
-          input.branchType,
+          branchType,
         )
         const result = await createWorktreeForChat(
           project.path,
           sanitizeProjectName(project.name),
           chat.id,
           input.baseBranch,
-          input.branchType,
+          branchType,
           {
             onSetupComplete: (setupResult: WorktreeSetupResult) => {
               if (setupResult.success) return
@@ -468,7 +553,11 @@ export const chatsRouter = router({
         )
         console.log("[chats.create] worktree result:", result)
 
-        if (result.success && result.worktreePath) {
+        if (
+          result.success &&
+          result.worktreePath &&
+          path.resolve(result.worktreePath) !== path.resolve(project.path)
+        ) {
           db.update(chats)
             .set({
               worktreePath: result.worktreePath,
@@ -484,17 +573,18 @@ export const chatsRouter = router({
           }
         } else {
           console.warn(`[Worktree] Failed: ${result.error}`)
+          const message = result.error || "Worktree setup could not finish."
           sendWorktreeSetupFailure(requestingWindowId, {
             kind: "create-failed",
-            message: result.error || "Revision setup could not finish.",
+            message,
             projectId: project.id,
           })
-          // Fallback to project path
-          db.update(chats)
-            .set({ worktreePath: project.path })
-            .where(eq(chats.id, chat.id))
-            .run()
-          worktreeResult = { worktreePath: project.path }
+          db.delete(subChats).where(eq(subChats.chatId, chat.id)).run()
+          db.delete(chats).where(eq(chats.id, chat.id)).run()
+          if (requestingWindow) {
+            windowManager.releaseChat(chat.id, requestingWindow.id)
+          }
+          throw new Error(message)
         }
       } else {
         // Local mode: use project path directly, no branch info
@@ -511,7 +601,7 @@ export const chatsRouter = router({
       }
 
       const response = {
-        ...chat,
+        ...omitHiddenFlag(chat),
         worktreePath: worktreeResult.worktreePath || project.path,
         branch: worktreeResult.branch ?? null,
         baseBranch: worktreeResult.baseBranch ?? null,
@@ -644,6 +734,86 @@ export const chatsRouter = router({
         .where(eq(chats.id, input.id))
         .returning()
         .get()
+    }),
+
+  reveal: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(({ input }) => {
+      const db = getDatabase()
+      revealRippleCommentChatMessages(input.id)
+      const chat = db
+        .update(chats)
+        .set({
+          isHidden: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(chats.id, input.id))
+        .returning()
+        .get()
+      if (!chat) throw new Error("Chat not found.")
+      return omitHiddenFlag(chat)
+    }),
+
+  /**
+   * Accept a chat worktree by committing its pending changes and merging the
+   * temporary branch back into the project.
+   */
+  acceptWorktree: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      const db = getDatabase()
+      const chat = db.select().from(chats).where(eq(chats.id, input.id)).get()
+      if (!chat) throw new Error("Chat not found.")
+      if (!chat.worktreePath || !chat.branch) {
+        throw new Error("This chat is already editing Main.")
+      }
+
+      const project = db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, chat.projectId))
+        .get()
+      if (!project) throw new Error("Project not found.")
+      if (project.archivedAt) {
+        throw new Error("Restore this project before accepting changes.")
+      }
+
+      const projectPath = path.resolve(project.localPath || project.path)
+      const worktreePath = path.resolve(chat.worktreePath)
+      if (worktreePath === projectPath) {
+        throw new Error("This chat is already editing Main.")
+      }
+
+      const projectGit = simpleGit(projectPath)
+      const currentBranch = (await projectGit.branchLocal()).current
+      const baseBranch = chat.baseBranch || currentBranch || "main"
+      const acceptance = await acceptIsolatedWorkspace({
+        strategy: "merge",
+        projectPath,
+        workspacePath: worktreePath,
+        branch: chat.branch,
+        baseBranch,
+        commitMessage: "Accept Ripple worktree changes",
+      })
+
+      db.update(chats)
+        .set({ updatedAt: new Date() })
+        .where(eq(chats.id, input.id))
+        .run()
+
+      gitCache.invalidateStatus(projectPath)
+      gitCache.invalidateParsedDiff(projectPath)
+      gitCache.invalidateAllFileContents(projectPath)
+      gitCache.invalidateStatus(worktreePath)
+      gitCache.invalidateParsedDiff(worktreePath)
+      gitCache.invalidateAllFileContents(worktreePath)
+
+      return {
+        success: true,
+        chatId: input.id,
+        baseBranch,
+        commitHash: acceptance.acceptedWorkspaceCommit ?? undefined,
+      }
     }),
 
   /**

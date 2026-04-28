@@ -3,7 +3,7 @@ import { existsSync, statSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import {
   normalizeProjectRelativePath,
-  resolveHyperframesProjectContext,
+  resolveHyperframesPreviewContext,
   resolveProjectRelativePath,
 } from "./project-context"
 import {
@@ -161,7 +161,7 @@ async function handleHyperframesPlayerRequest(request: Request): Promise<Respons
       })
     }
 
-    const context = await resolveHyperframesProjectContext({ projectId })
+    const context = await resolveHyperframesPreviewContext({ projectId })
 
     if (preparedFilePath && preparedKind) {
       const html = await buildHyperframesPreparedPreviewDocument({

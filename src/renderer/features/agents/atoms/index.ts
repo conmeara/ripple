@@ -739,11 +739,11 @@ export interface PendingChatHistory {
 }
 export const pendingChatHistoryAtom = atom<PendingChatHistory | null>(null)
 
-// Hidden revision mode preference. Ripple's normal path works in the project
-// until isolated revisions replace the old worktree surface.
+// Chat editing mode preference. Main edits the project directly; Worktree uses
+// a temporary copy for changes that need an explicit accept step.
 export type WorkMode = "local" | "worktree"
 export const lastSelectedWorkModeAtom = atomWithStorage<WorkMode>(
-  "agents:lastSelectedWorkMode",
+  "ripple:chatWorkMode",
   "local",
   undefined,
   { getOnInit: true },

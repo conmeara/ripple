@@ -5,7 +5,6 @@ import {
 } from "../../../components/chat-markdown-renderer"
 import { Button } from "../../../components/ui/button"
 import {
-  AgentIcon,
   AttachIcon,
   CheckIcon,
   ClaudeCodeIcon,
@@ -39,6 +38,7 @@ import { atom, useAtom, useAtomValue, useSetAtom } from "jotai"
 import {
   ArrowDown,
   ChevronDown,
+  CircleDot,
   GitFork,
   ListTree,
   TerminalSquare
@@ -237,8 +237,14 @@ import { SubChatSelector } from "../ui/sub-chat-selector"
 import { SubChatStatusCard } from "../ui/sub-chat-status-card"
 import { SplitViewContainer } from "../ui/split-view-container"
 import { TextSelectionPopover } from "../ui/text-selection-popover"
+import {
+  getRippleCommentRevisionId,
+  isRippleCommentInitialMessage,
+  shouldAutoGenerateInitialMessage,
+} from "../utils/auto-generate"
 import { autoRenameAgentChat } from "../utils/auto-rename"
 import { generateCommitToPrMessage, generatePrMessage, generateReviewMessage } from "../utils/pr-message"
+import { resolveChatWorkMode } from "../utils/work-mode"
 import { ChatInputArea } from "./chat-input-area"
 import { IsolatedMessagesSection } from "./isolated-messages-section"
 const clearSubChatSelectionAtom = atom(null, () => {})
@@ -261,6 +267,32 @@ const pendingSubChatCleanupTimers = new Map<string, ReturnType<typeof setTimeout
 function clearRuntimeCachesForSubChat(subChatId: string) {
   clearSubChatRuntimeCaches(subChatId)
   scrollPositionCache.delete(subChatId)
+}
+
+function parseStoredSubChatMessages(value: unknown): any[] {
+  if (Array.isArray(value)) return value
+  if (typeof value !== "string") return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function getRuntimeChatMessages(chat: Chat<any> | undefined): any[] {
+  const messages = (chat as any)?.messages
+  return Array.isArray(messages) ? messages : []
+}
+
+function areChatMessagesEqual(left: any[], right: any[]): boolean {
+  if (left === right) return true
+  if (left.length !== right.length) return false
+  try {
+    return JSON.stringify(left) === JSON.stringify(right)
+  } catch {
+    return false
+  }
 }
 
 import { utf8ToBase64, base64ToUtf8 } from "../utils/base64"
@@ -3273,6 +3305,12 @@ const ChatViewInner = memo(function ChatViewInner({
     parentChatId,
     projectPath,
   )
+  const currentWorkMode = resolveChatWorkMode({
+    branch: workspaceBranch,
+    worktreePath: projectPath,
+  })
+  const shouldShowWorkspaceSubtitle =
+    currentWorkMode !== "worktree" && Boolean(workspaceRepoName || workspaceBranch)
 
   // Rollback handler - triggered from user message bubble
   // Finds the last assistant message BEFORE this user message, rolls back to it,
@@ -3634,26 +3672,64 @@ const ChatViewInner = memo(function ChatViewInner({
   // Also trigger auto-rename for initial sub-chat with pre-populated message
   // IMPORTANT: Skip if there's an active streamId (prevents double-generation on resume)
   useEffect(() => {
-    if (
-      messages.length === 1 &&
-      status === "ready" &&
-      !streamId &&
-      !hasTriggeredAutoGenerateRef.current
-    ) {
-      hasTriggeredAutoGenerateRef.current = true
-      // Trigger rename for pre-populated initial message (from createAgentChat)
-      if (!hasTriggeredRenameRef.current && isFirstSubChat) {
-        const firstMsg = messages[0]
-        if (firstMsg?.role === "user") {
-          const textPart = firstMsg.parts?.find((p: any) => p.type === "text")
-          if (textPart && "text" in textPart) {
-            hasTriggeredRenameRef.current = true
-            onAutoRename(textPart.text, subChatId)
+    if (!shouldAutoGenerateInitialMessage({
+      messages,
+      status,
+      streamId,
+      hasTriggered: hasTriggeredAutoGenerateRef.current,
+    })) {
+      return
+    }
+
+    hasTriggeredAutoGenerateRef.current = true
+    const firstMsg = messages[0]
+    const commentRevisionId = getRippleCommentRevisionId(firstMsg)
+
+    void (async () => {
+      let ownsCommentRun = false
+      try {
+        if (commentRevisionId) {
+          const runClaim = await trpcClient.revisions.markRunning.mutate({
+            revisionId: commentRevisionId,
+          })
+          if (!runClaim.started) {
+            return
+          }
+          ownsCommentRun = true
+        }
+
+        // Trigger rename for pre-populated initial message (from createAgentChat).
+        // Comment chats already have a review-oriented title.
+        if (!commentRevisionId && !hasTriggeredRenameRef.current && isFirstSubChat) {
+          if (firstMsg?.role === "user") {
+            const textPart = firstMsg.parts?.find((p: any) => p.type === "text")
+            if (textPart && "text" in textPart) {
+              hasTriggeredRenameRef.current = true
+              onAutoRename(textPart.text, subChatId)
+            }
           }
         }
+
+        await regenerate()
+
+        if (ownsCommentRun && commentRevisionId) {
+          await trpcClient.revisions.completeBackgroundRun.mutate({
+            revisionId: commentRevisionId,
+          })
+          await getQueryClient()?.invalidateQueries()
+        }
+      } catch (error) {
+        if (ownsCommentRun && commentRevisionId) {
+          await trpcClient.revisions.failBackgroundRun
+            .mutate({
+              revisionId: commentRevisionId,
+              errorMessage: error instanceof Error ? error.message : String(error),
+            })
+            .catch(() => undefined)
+          await getQueryClient()?.invalidateQueries()
+        }
       }
-      regenerate()
-    }
+    })()
   }, [
     status,
     messages,
@@ -4658,7 +4734,7 @@ const ChatViewInner = memo(function ChatViewInner({
             isReviewPaneLayout={isReviewPaneLayout}
           />
           {/* Workspace subtitle: repo • branch */}
-          {(workspaceRepoName || workspaceBranch) && (
+          {shouldShowWorkspaceSubtitle && (
             <div
               className={cn(
                 isReviewPaneLayout ? "max-w-none px-3" : "max-w-2xl mx-auto px-4",
@@ -4830,6 +4906,7 @@ const ChatViewInner = memo(function ChatViewInner({
         repository={repository}
         sandboxId={sandboxId}
         projectPath={projectPath}
+        currentWorkMode={currentWorkMode}
         changedFiles={changedFilesForSubChat}
         isMobile={isMobile}
         queueLength={queue.length}
@@ -4873,6 +4950,8 @@ export function ChatView({
   suppressSecondarySidebars = false,
   rightPaneMode,
   onRightPaneModeChange,
+  onViewPrimaryPreview,
+  onCreateNewChat,
 }: {
   chatId: string
   isSidebarOpen: boolean
@@ -4888,6 +4967,8 @@ export function ChatView({
   suppressSecondarySidebars?: boolean
   rightPaneMode?: RippleRightPaneMode
   onRightPaneModeChange?: (mode: RippleRightPaneMode) => void
+  onViewPrimaryPreview?: () => void
+  onCreateNewChat?: () => void | Promise<void>
 }) {
   const [selectedTeamId] = useAtom(selectedTeamIdAtom)
 
@@ -5692,8 +5773,43 @@ export function ChatView({
 
   // Desktop: use worktreePath instead of sandbox
   const worktreePath = agentChat?.worktreePath as string | null
+  const isWorktreeChat =
+    resolveChatWorkMode({
+      branch: (agentChat as any)?.branch,
+      worktreePath,
+    }) === "worktree"
   // Desktop: original project path for MCP config lookup
   const originalProjectPath = (agentChat as any)?.project?.path as string | undefined
+
+  const acceptWorktreeMutation = trpc.chats.acceptWorktree.useMutation({
+    onSuccess: () => {
+      toast.success("Worktree accepted", { position: "top-center" })
+      trpcUtils.chats.list.invalidate()
+      trpcUtils.chats.listArchived.invalidate()
+      utils.agents.getAgentChat.invalidate({ chatId })
+      trpcUtils.hyperframes.getPlayerSource.invalidate()
+      trpcUtils.hyperframes.getTimelineModel.invalidate()
+      trpcUtils.hyperframes.getProjectBrowserModel.invalidate()
+    },
+    onError: (error) => {
+      toast.error(error.message || "Worktree was not accepted", {
+        position: "top-center",
+      })
+    },
+  })
+
+  const handleAcceptWorktree = useCallback(() => {
+    acceptWorktreeMutation.mutate({ id: chatId })
+  }, [acceptWorktreeMutation, chatId])
+
+  const handleViewMain = useCallback(() => {
+    onViewPrimaryPreview?.()
+    onRightPaneModeChange?.("chat")
+  }, [onRightPaneModeChange, onViewPrimaryPreview])
+
+  const handleViewWorktree = useCallback(() => {
+    onRightPaneModeChange?.("changes")
+  }, [onRightPaneModeChange])
 
   // Terminal scope key: shared by project path (local mode) or isolated per workspace (worktree)
   const terminalScopeKey = useMemo(() => {
@@ -6614,55 +6730,50 @@ Make sure to preserve all functionality from both branches when resolving confli
       const chatSandboxUrl = chatSandboxId ? `https://3003-${chatSandboxId}.e2b.app` : null
       const isRemoteChat = !!(agentChat as any)?.isRemote || !!chatSandboxId
 
-      // Fast path for existing chats. Only inspect messages when a local empty-chat provider override
-      // might require transport recreation.
+      // Find sub-chat data before consulting the runtime store so a revealed
+      // comment chat can replace an older in-memory instance with the persisted
+      // transcript from the completed background run.
+      const subChat = agentSubChats.find((sc) => sc.id === subChatId)
+      const messages = parseStoredSubChatMessages(subChat?.messages)
+
+      // Fast path for existing chats. If the database transcript has advanced
+      // beyond a settled runtime Chat, rebuild from storage so hidden comment
+      // runs open with their full assistant/tool history.
       const existing = agentChatStore.get(subChatId)
       if (existing) {
-        if (isRemoteChat) return existing
+        const runtimeMessages = getRuntimeChatMessages(existing)
+        const storedHasAssistantMessage = messages.some(
+          (message) => message?.role === "assistant",
+        )
+        const storedTranscriptIsNewer =
+          messages.length > 0 &&
+          storedHasAssistantMessage &&
+          messages.length >= runtimeMessages.length &&
+          !areChatMessagesEqual(messages, runtimeMessages) &&
+          !useStreamingStatusStore.getState().isStreaming(subChatId) &&
+          !agentChatStore.getStreamId(subChatId) &&
+          (useMessageQueueStore.getState().queues[subChatId]?.length ?? 0) === 0
 
-        const overrideProvider = subChatProviderOverrides[subChatId]
-        if (!overrideProvider) return existing
+        if (storedTranscriptIsNewer && !isRemoteChat) {
+          agentChatStore.delete(subChatId)
+          clearRuntimeCachesForSubChat(subChatId)
+        } else {
+          if (isRemoteChat) return existing
 
-        const existingProvider: "claude-code" | "codex" =
-          (existing as any)?.transport instanceof ACPChatTransport
-            ? "codex"
-            : "claude-code"
-        if (existingProvider === overrideProvider) return existing
+          const overrideProvider = subChatProviderOverrides[subChatId]
+          if (!overrideProvider) return existing
 
-        const subChatForOverride = agentSubChats.find((sc) => sc.id === subChatId)
-        const rawExistingMessages = subChatForOverride?.messages
-        const existingMessageCount = Array.isArray(rawExistingMessages)
-          ? rawExistingMessages.length
-          : typeof rawExistingMessages === "string"
-            ? (() => {
-                try {
-                  const parsed = JSON.parse(rawExistingMessages)
-                  return Array.isArray(parsed) ? parsed.length : 0
-                } catch {
-                  return 0
-                }
-              })()
-            : 0
+          const existingProvider: "claude-code" | "codex" =
+            (existing as any)?.transport instanceof ACPChatTransport
+              ? "codex"
+              : "claude-code"
+          if (existingProvider === overrideProvider) return existing
 
-        if (existingMessageCount > 0) return existing
-        agentChatStore.delete(subChatId)
+          if (messages.length > 0) return existing
+          agentChatStore.delete(subChatId)
+        }
       }
-
-      // Find sub-chat data
-      const subChat = agentSubChats.find((sc) => sc.id === subChatId)
-      const rawMessages = subChat?.messages
-      const messages = Array.isArray(rawMessages)
-        ? rawMessages
-        : typeof rawMessages === "string"
-          ? (() => {
-              try {
-                const parsed = JSON.parse(rawMessages)
-                return Array.isArray(parsed) ? parsed : []
-              } catch {
-                return []
-              }
-            })()
-          : []
+      const isRippleCommentSubChat = isRippleCommentInitialMessage(messages[0])
 
       // Get mode from store metadata (falls back to currentMode)
       const subChatMeta = useAgentSubChatStore
@@ -6709,6 +6820,7 @@ Make sure to preserve all functionality from both branches when resolving confli
             projectPath,
             mode: subChatMode,
             provider: "codex",
+            disableMcp: isRippleCommentSubChat,
           })
         } else {
           // Local worktree chat: use IPC transport
@@ -7103,7 +7215,14 @@ Make sure to preserve all functionality from both branches when resolving confli
     agentChat?.name,
   ])
 
-  // Keyboard shortcut: New sub-chat
+  const handleCreateNewChat = useCallback(() => {
+    const createNew = suppressSecondarySidebars && onCreateNewChat
+      ? onCreateNewChat
+      : handleCreateNewSubChat
+    void createNew()
+  }, [handleCreateNewSubChat, onCreateNewChat, suppressSecondarySidebars])
+
+  // Keyboard shortcut: New chat
   // Web: Opt+Cmd+T (browser uses Cmd+T for new tab)
   // Desktop: Cmd+T
   useEffect(() => {
@@ -7113,20 +7232,20 @@ Make sure to preserve all functionality from both branches when resolving confli
       // Desktop: Cmd+T (without Alt)
       if (isDesktop && e.metaKey && e.code === "KeyT" && !e.altKey) {
         e.preventDefault()
-        handleCreateNewSubChat()
+        handleCreateNewChat()
         return
       }
 
       // Web: Opt+Cmd+T (with Alt)
       if (e.altKey && e.metaKey && e.code === "KeyT") {
         e.preventDefault()
-        handleCreateNewSubChat()
+        handleCreateNewChat()
       }
     }
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [handleCreateNewSubChat])
+  }, [handleCreateNewChat])
 
   // NOTE: Desktop notifications for pending questions are now triggered directly
   // in ipc-chat-transport.ts when the ask-user-question chunk arrives.
@@ -7534,6 +7653,7 @@ Make sure to preserve all functionality from both branches when resolving confli
                       onRestore={handleRestoreWorkspace}
                       onOpenLocally={handleOpenLocally}
                       showOpenLocally={showOpenLocally}
+                      isWorktree={isWorktreeChat}
                     />
                   ) : (
                     <>
@@ -7560,6 +7680,7 @@ Make sure to preserve all functionality from both branches when resolving confli
                         canOpenTerminal={!!worktreePath}
                         isTerminalOpen={isTerminalSidebarOpen}
                         chatId={chatId}
+                        isWorktree={isWorktreeChat}
                       />
                       {/* Open Locally button - desktop only, sandbox mode */}
                       {showOpenLocally && (
@@ -7696,7 +7817,14 @@ Make sure to preserve all functionality from both branches when resolving confli
           )}
 
           {suppressSecondarySidebars && !rippleUtilityMode && (
-            <RippleEmbeddedChatToolbar onCreateNew={handleCreateNewSubChat} />
+            <RippleEmbeddedChatToolbar
+              onCreateNew={handleCreateNewChat}
+              isWorktree={isWorktreeChat}
+              onAcceptWorktree={isWorktreeChat ? handleAcceptWorktree : undefined}
+              isAcceptingWorktree={acceptWorktreeMutation.isPending}
+              onViewMain={isWorktreeChat ? handleViewMain : undefined}
+              onViewWorktree={isWorktreeChat ? handleViewWorktree : undefined}
+            />
           )}
 
           {/* Chat Content - Keep-alive: render all open tabs, hide inactive with CSS */}
@@ -7934,18 +8062,17 @@ Make sure to preserve all functionality from both branches when resolving confli
                       maxHeight={200}
                     >
                       <div className="p-1 text-muted-foreground text-sm">
-                        Plan, @ for context, / for commands
+                        Ask for changes, @ for context, / for commands
                       </div>
                       <PromptInputActions className="w-full">
                         <div className="flex items-center gap-0.5 flex-1 min-w-0">
                           {/* Mode selector placeholder */}
                           <button
                             disabled
-                            className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground rounded-md cursor-not-allowed"
+                            className="flex h-7 w-7 items-center justify-center rounded-md p-0 text-muted-foreground cursor-not-allowed"
+                            aria-label="Chat mode: Main"
                           >
-                            <AgentIcon className="h-3.5 w-3.5" />
-                            <span>Agent</span>
-                            <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+                            <CircleDot className="h-4 w-4" />
                           </button>
 
                           {/* Model selector placeholder */}

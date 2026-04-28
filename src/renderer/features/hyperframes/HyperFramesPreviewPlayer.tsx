@@ -24,6 +24,7 @@ import type {
 } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
+import type { RippleTimelineRangeSelection } from "../../../shared/hyperframes-timeline-model"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,6 +52,7 @@ import {
   ZOOM_OPTIONS,
   type ZoomValue,
   shouldRenderPreviewCloseControl,
+  shouldTogglePreviewPlaybackForSpacebar,
 } from "./preview-player-controls"
 import { resolvePreviewSeekRatio } from "./preview-scrubber"
 import { useRippleTimelinePlayerAdapter } from "./timeline-player-adapter"
@@ -58,6 +60,11 @@ import { useRippleTimelinePlayerAdapter } from "./timeline-player-adapter"
 interface HyperFramesPreviewPlayerProps {
   projectId: string
   compositionId?: string | null
+  revisionId?: string | null
+  seekToTime?: number | null
+  seekRequestId?: number
+  onPreviewTimeChange?: (time: number) => void
+  onTimelineSelectionChange?: (selection: RippleTimelineRangeSelection | null) => void
   isMobile?: boolean
   onClose?: () => void
 }
@@ -117,6 +124,12 @@ function optionLabel<TValue extends string>(
   return options.find((option) => option.value === value)?.label ?? value
 }
 
+function isPreviewPlayerVisible(root: HTMLDivElement | null): boolean {
+  if (!root?.isConnected) return false
+  const rect = root.getBoundingClientRect()
+  return rect.width > 0 && rect.height > 0
+}
+
 function PlayerIconButton({
   label,
   active = false,
@@ -151,6 +164,11 @@ function PlayerIconButton({
 export function HyperFramesPreviewPlayer({
   projectId,
   compositionId,
+  revisionId,
+  seekToTime,
+  seekRequestId,
+  onPreviewTimeChange,
+  onTimelineSelectionChange,
   onClose,
 }: HyperFramesPreviewPlayerProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -170,10 +188,11 @@ export function HyperFramesPreviewPlayer({
   const adapter = useRippleTimelinePlayerAdapter({
     projectId,
     compositionId,
+    revisionId,
   })
   const startStudioPreviewMutation = trpc.hyperframes.startPreview.useMutation()
   const timelineQuery = trpc.hyperframes.getTimelineModel.useQuery(
-    { projectId, compositionId },
+    { projectId, compositionId, revisionId },
     {
       enabled: Boolean(projectId),
       refetchOnWindowFocus: false,
@@ -184,6 +203,7 @@ export function HyperFramesPreviewPlayer({
 
   const {
     containerRef,
+    playerRef,
     state: playerState,
     sourceQuery,
     source,
@@ -249,17 +269,63 @@ export function HyperFramesPreviewPlayer({
   useEffect(() => {
     durationRef.current = duration
     syncLivePreviewTime(currentTime)
-  }, [currentTime, duration, syncLivePreviewTime])
+    onPreviewTimeChange?.(currentTime)
+  }, [currentTime, duration, onPreviewTimeChange, syncLivePreviewTime])
 
-  useEffect(() => subscribeLiveTime(syncLivePreviewTime), [subscribeLiveTime, syncLivePreviewTime])
+  useEffect(() => subscribeLiveTime((time) => {
+    syncLivePreviewTime(time)
+    onPreviewTimeChange?.(time)
+  }), [onPreviewTimeChange, subscribeLiveTime, syncLivePreviewTime])
 
-  const handleTogglePlayback = () => {
+  useEffect(() => {
+    if (!isReady || typeof seekToTime !== "number" || !Number.isFinite(seekToTime)) {
+      return
+    }
+    adapter.seek(seekToTime)
+  }, [adapter.seek, isReady, seekRequestId, seekToTime])
+
+  const handleTogglePlayback = useCallback(() => {
     if (isPlaying) {
       adapter.pause()
     } else {
       adapter.play()
     }
-  }
+  }, [adapter.pause, adapter.play, isPlaying])
+
+  const handlePreviewSpacebarKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (!isReady) return
+      if (!isPreviewPlayerVisible(rootRef.current)) return
+      if (!shouldTogglePreviewPlaybackForSpacebar(event)) return
+
+      event.preventDefault()
+      event.stopPropagation()
+      handleTogglePlayback()
+    },
+    [handleTogglePlayback, isReady],
+  )
+
+  useEffect(() => {
+    window.addEventListener("keydown", handlePreviewSpacebarKeyDown)
+    return () => window.removeEventListener("keydown", handlePreviewSpacebarKeyDown)
+  }, [handlePreviewSpacebarKeyDown])
+
+  useEffect(() => {
+    if (!isReady) return
+
+    let iframeWindow: Window | null = null
+    try {
+      iframeWindow = playerRef.current?.iframeElement?.contentWindow ?? null
+    } catch {
+      iframeWindow = null
+    }
+    if (!iframeWindow) return
+
+    iframeWindow.addEventListener("keydown", handlePreviewSpacebarKeyDown)
+    return () => {
+      iframeWindow?.removeEventListener("keydown", handlePreviewSpacebarKeyDown)
+    }
+  }, [handlePreviewSpacebarKeyDown, isReady, playerRef, source?.sourceUrl])
 
   const handleRestart = () => {
     adapter.restart()
@@ -708,6 +774,7 @@ export function HyperFramesPreviewPlayer({
             duration={duration}
             subscribeLiveTime={subscribeLiveTime}
             onSeek={handleSeek}
+            onSelectionChange={onTimelineSelectionChange}
           />
         ) : null}
       </div>

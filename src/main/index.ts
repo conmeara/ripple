@@ -35,6 +35,10 @@ import {
   renderManager,
 } from "./lib/hyperframes"
 import { cancelAllPendingOAuth, handleMcpOAuthCallback } from "./lib/mcp-auth"
+import {
+  cleanupTerminalRevisionWorktrees,
+  recoverRevisionQueueOnStartup,
+} from "./lib/revisions/revision-queue"
 import { ensureRippleRuntimeOnLaunch } from "./lib/ripple-projects/service"
 import { getAllMcpConfigHandler, hasActiveClaudeSessions, abortAllClaudeSessions } from "./lib/trpc/routers/claude"
 import { getAllCodexMcpConfigHandler, hasActiveCodexStreams, abortAllCodexStreams } from "./lib/trpc/routers/codex"
@@ -950,6 +954,28 @@ if (gotTheLock) {
     try {
       initDatabase()
       console.log("[App] Database initialized")
+      void recoverRevisionQueueOnStartup()
+        .then((result) => {
+          if (result.requeued || result.failed) {
+            console.log(
+              `[Ripple] Revision recovery: ${result.requeued} requeued, ${result.failed} failed`,
+            )
+          }
+        })
+        .catch((error) => {
+          console.warn("[Ripple] Revision recovery failed:", error)
+        })
+      void cleanupTerminalRevisionWorktrees()
+        .then((result) => {
+          if (result.cleaned || result.failed) {
+            console.log(
+              `[Ripple] Revision cleanup: ${result.cleaned} cleaned, ${result.failed} failed`,
+            )
+          }
+        })
+        .catch((error) => {
+          console.warn("[Ripple] Revision cleanup failed:", error)
+        })
       void ensureRippleRuntimeOnLaunch()
         .then((setup) => {
           console.log(`[Ripple] Motion runtime check: ${setup.status}`)

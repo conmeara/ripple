@@ -1,8 +1,8 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { useCallback, useEffect } from "react"
-import { useAtom, useAtomValue } from "jotai"
+import { useCallback, useEffect, useState } from "react"
+import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import {
   CirclePlay,
   MoreHorizontal,
@@ -26,17 +26,26 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "../../components/ui/tooltip"
-import { isDesktopAtom, isFullscreenAtom } from "../../lib/atoms"
+import { chatSourceModeAtom, isDesktopAtom, isFullscreenAtom } from "../../lib/atoms"
 import { useResolvedHotkeyDisplay } from "../../lib/hotkeys"
+import { trpc } from "../../lib/trpc"
 import { cn } from "../../lib/utils"
+import type { RippleTimelineRangeSelection } from "../../../shared/hyperframes-timeline-model"
 import { TrafficLights } from "../agents/components/traffic-light-spacer"
 import {
   hyperframesProjectPaneWidthAtom,
+  selectedAgentChatIdAtom,
+  selectedChatIsRemoteAtom,
+  selectedDraftIdAtom,
+  showNewChatFormAtom,
   type SelectedProject,
 } from "../agents/atoms"
 import { ChatView } from "../agents/main/active-chat"
+import { NewChatForm } from "../agents/main/new-chat-form"
+import { RippleRevisionQueueWorker } from "../comments/RippleRevisionQueueWorker"
 import { HyperFramesPreviewPlayer } from "../hyperframes/HyperFramesPreviewPlayer"
 import { HyperFramesProjectPane } from "../hyperframes/HyperFramesProjectPane"
+import { RippleEmbeddedChatToolbar } from "./RippleEmbeddedChatToolbar"
 import {
   RippleReviewPane,
   UtilityModeIcon,
@@ -170,7 +179,7 @@ export function RippleShell({
   selectedTeamImageUrl,
 }: {
   selectedProject: NonNullable<SelectedProject>
-  chatId: string
+  chatId: string | null
   isSidebarOpen: boolean
   onToggleSidebar: () => void
   selectedTeamName?: string
@@ -191,6 +200,24 @@ export function RippleShell({
   const [rightPaneMode, setRightPaneModeAtom] = useAtom(
     rippleShellRightPaneModeAtom,
   )
+  const trpcUtils = trpc.useUtils()
+  const setSelectedChatId = useSetAtom(selectedAgentChatIdAtom)
+  const setSelectedChatIsRemote = useSetAtom(selectedChatIsRemoteAtom)
+  const setSelectedDraftId = useSetAtom(selectedDraftIdAtom)
+  const setShowNewChatForm = useSetAtom(showNewChatFormAtom)
+  const setChatSourceMode = useSetAtom(chatSourceModeAtom)
+  const [previewTime, setPreviewTime] = useState(0)
+  const [timelineSelection, setTimelineSelection] =
+    useState<RippleTimelineRangeSelection | null>(null)
+  const [revisionPreview, setRevisionPreview] = useState<{
+    revisionId: string
+    seekTime: number
+  } | null>(null)
+  const [previewSeekRequest, setPreviewSeekRequest] = useState<{
+    time: number
+    requestId: number
+  } | null>(null)
+  const [newChatDraftKey, setNewChatDraftKey] = useState(0)
   const shellState = resolveRippleShellState({
     assetsPanelOpen,
     centerStageOpen,
@@ -222,6 +249,93 @@ export function RippleShell({
     commitShellState(setRippleRightPaneMode(shellState, mode))
   }, [commitShellState, shellState])
 
+  const requestPreviewSeek = useCallback((time: number) => {
+    const nextTime = Number.isFinite(time) ? Math.max(0, time) : 0
+    setPreviewSeekRequest((current) => ({
+      time: nextTime,
+      requestId: (current?.requestId ?? 0) + 1,
+    }))
+  }, [])
+
+  const handlePreviewRevision = useCallback((revisionId: string, time: number) => {
+    requestPreviewSeek(time)
+    setRevisionPreview({ revisionId, seekTime: time })
+  }, [requestPreviewSeek])
+
+  const handleShowPrimaryPreview = useCallback(() => {
+    requestPreviewSeek(revisionPreview?.seekTime ?? previewTime)
+    setRevisionPreview(null)
+  }, [previewTime, requestPreviewSeek, revisionPreview])
+
+  const handleStartNewChat = useCallback(() => {
+    void (async () => {
+      if (chatId) {
+        try {
+          await window.desktopApi?.releaseChat?.(chatId)
+        } catch (error) {
+          console.warn("[RippleShell] Could not release current chat:", error)
+        }
+      }
+
+      setSelectedDraftId(null)
+      setSelectedChatIsRemote(false)
+      setChatSourceMode("local")
+      setShowNewChatForm(true)
+      setSelectedChatId(null)
+      setRevisionPreview(null)
+      setNewChatDraftKey((key) => key + 1)
+      commitShellState(setRippleRightPaneMode(shellState, "chat"))
+    })()
+  }, [
+    chatId,
+    commitShellState,
+    setChatSourceMode,
+    setSelectedChatId,
+    setSelectedChatIsRemote,
+    setSelectedDraftId,
+    setShowNewChatForm,
+    shellState,
+  ])
+
+  const revealRevisionChat = trpc.chats.reveal.useMutation({
+    onSuccess: async (_chat, variables) => {
+      await Promise.all([
+        trpcUtils.chats.list.invalidate(),
+        trpcUtils.chats.get.invalidate({ id: variables.id }),
+      ])
+    },
+  })
+
+  const handleOpenRevisionChat = useCallback((
+    revisionChatId: string,
+    revisionId?: string | null,
+    time = 0,
+  ) => {
+    void (async () => {
+      try {
+        await revealRevisionChat.mutateAsync({ id: revisionChatId })
+      } catch (error) {
+        console.error("[RippleShell] Could not open comment chat:", error)
+        return
+      }
+      setSelectedChatId(revisionChatId)
+      if (revisionId) {
+        requestPreviewSeek(time)
+        setRevisionPreview({ revisionId, seekTime: time })
+      } else {
+        requestPreviewSeek(time)
+        setRevisionPreview(null)
+      }
+      commitShellState(setRippleRightPaneMode(shellState, "chat"))
+    })()
+  }, [
+    commitShellState,
+    requestPreviewSeek,
+    revealRevisionChat,
+    setSelectedChatId,
+    shellState,
+  ])
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isEditableEventTarget(event.target)) return
@@ -247,8 +361,15 @@ export function RippleShell({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [commitShellState, shellState])
 
+  useEffect(() => {
+    setRevisionPreview(null)
+    setPreviewSeekRequest(null)
+    setTimelineSelection(null)
+  }, [selectedProject.id, selectedProject.activeCompositionId])
+
   return (
     <div className="relative flex h-full min-w-0 flex-col overflow-hidden bg-background">
+      <RippleRevisionQueueWorker projectId={selectedProject.id} />
       {!isSidebarOpen && (
         <TrafficLights
           isFullscreen={isFullscreen}
@@ -375,6 +496,11 @@ export function RippleShell({
             <HyperFramesPreviewPlayer
               projectId={selectedProject.id}
               compositionId={selectedProject.activeCompositionId}
+              revisionId={revisionPreview?.revisionId ?? null}
+              seekToTime={previewSeekRequest?.time ?? null}
+              seekRequestId={previewSeekRequest?.requestId}
+              onPreviewTimeChange={setPreviewTime}
+              onTimelineSelectionChange={setTimelineSelection}
             />
           </main>
         ) : null}
@@ -389,19 +515,42 @@ export function RippleShell({
             mode={shellState.rightPaneMode}
             onModeChange={handleModeChange}
             expanded={!shellState.centerStageOpen}
+            projectId={selectedProject.id}
+            compositionId={selectedProject.activeCompositionId}
+            currentTime={previewTime}
+            timelineSelection={timelineSelection}
+            activePreviewRevisionId={revisionPreview?.revisionId ?? null}
+            onPreviewRevision={handlePreviewRevision}
+            onShowPrimaryPreview={handleShowPrimaryPreview}
+            onOpenRevisionChat={handleOpenRevisionChat}
           >
-            <ChatView
-              key={getRippleReviewContentKey(chatId, shellState.rightPaneMode)}
-              chatId={chatId}
-              isSidebarOpen={isSidebarOpen}
-              onToggleSidebar={onToggleSidebar}
-              selectedTeamName={selectedTeamName}
-              selectedTeamImageUrl={selectedTeamImageUrl}
-              hideHeader={true}
-              suppressSecondarySidebars={true}
-              rightPaneMode={shellState.rightPaneMode}
-              onRightPaneModeChange={handleModeChange}
-            />
+            {chatId ? (
+              <ChatView
+                key={getRippleReviewContentKey(chatId, shellState.rightPaneMode)}
+                chatId={chatId}
+                isSidebarOpen={isSidebarOpen}
+                onToggleSidebar={onToggleSidebar}
+                selectedTeamName={selectedTeamName}
+                selectedTeamImageUrl={selectedTeamImageUrl}
+                hideHeader={true}
+                suppressSecondarySidebars={true}
+                rightPaneMode={shellState.rightPaneMode}
+                onRightPaneModeChange={handleModeChange}
+                onViewPrimaryPreview={handleShowPrimaryPreview}
+                onCreateNewChat={handleStartNewChat}
+              />
+            ) : (
+              <div className="flex h-full min-h-0 flex-col">
+                <RippleEmbeddedChatToolbar onCreateNew={handleStartNewChat} />
+                <div className="min-h-0 flex-1">
+                  <NewChatForm
+                    key={`ripple-new-chat-${selectedProject.id}-${newChatDraftKey}`}
+                    hideHeader={true}
+                    embedded={true}
+                  />
+                </div>
+              </div>
+            )}
           </RippleReviewPane>
         </div>
       </div>

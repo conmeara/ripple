@@ -1,4 +1,4 @@
-import { index, sqliteTable, text, integer } from "drizzle-orm/sqlite-core"
+import { index, sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core"
 import { relations } from "drizzle-orm"
 import { createId } from "../utils"
 
@@ -39,6 +39,8 @@ export const projects = sqliteTable("projects", {
 export const projectsRelations = relations(projects, ({ many }) => ({
   chats: many(chats),
   compositions: many(compositions),
+  commentThreads: many(commentThreads),
+  revisions: many(revisions),
 }))
 
 // ============ COMPOSITIONS ============
@@ -90,6 +92,7 @@ export const chats = sqliteTable("chats", {
     () => new Date(),
   ),
   archivedAt: integer("archived_at", { mode: "timestamp" }),
+  isHidden: integer("is_hidden", { mode: "boolean" }).notNull().default(false),
   // Worktree fields (for git isolation per chat)
   worktreePath: text("worktree_path"),
   branch: text("branch"),
@@ -107,6 +110,7 @@ export const chatsRelations = relations(chats, ({ one, many }) => ({
     references: [projects.id],
   }),
   subChats: many(subChats),
+  revisions: many(revisions),
 }))
 
 // ============ SUB-CHATS ============
@@ -135,6 +139,185 @@ export const subChatsRelations = relations(subChats, ({ one }) => ({
     fields: [subChats.chatId],
     references: [chats.id],
   }),
+}))
+
+// ============ RIPPLE COMMENT THREADS ============
+export const commentThreads = sqliteTable("comment_threads", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  compositionId: text("composition_id").references(() => compositions.id, {
+    onDelete: "set null",
+  }),
+  anchorType: text("anchor_type")
+    .$type<"frame" | "range" | "element">()
+    .notNull()
+    .default("frame"),
+  startTime: integer("start_time_ms").notNull().default(0),
+  endTime: integer("end_time_ms"),
+  startFrame: integer("start_frame").notNull().default(0),
+  endFrame: integer("end_frame"),
+  elementSelector: text("element_selector"),
+  clipKey: text("clip_key"),
+  sourceFile: text("source_file"),
+  screenshotPath: text("screenshot_path"),
+  clientRequestId: text("client_request_id"),
+  status: text("status")
+    .$type<"open" | "resolved" | "archived">()
+    .notNull()
+    .default("open"),
+  latestRevisionId: text("latest_revision_id"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  resolvedAt: integer("resolved_at", { mode: "timestamp" }),
+  deletedAt: integer("deleted_at", { mode: "timestamp" }),
+}, (table) => [
+  index("comment_threads_project_id_idx").on(table.projectId),
+  index("comment_threads_composition_id_idx").on(table.compositionId),
+  index("comment_threads_project_deleted_idx").on(table.projectId, table.deletedAt),
+  index("comment_threads_latest_revision_idx").on(table.latestRevisionId),
+  uniqueIndex("comment_threads_project_client_request_idx").on(
+    table.projectId,
+    table.clientRequestId,
+  ),
+])
+
+export const revisions = sqliteTable("revisions", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  threadId: text("thread_id")
+    .notNull()
+    .references(() => commentThreads.id, { onDelete: "cascade" }),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  compositionId: text("composition_id").references(() => compositions.id, {
+    onDelete: "set null",
+  }),
+  chatId: text("chat_id").references(() => chats.id, { onDelete: "set null" }),
+  subChatId: text("sub_chat_id").references(() => subChats.id, {
+    onDelete: "set null",
+  }),
+  baseRevisionId: text("base_revision_id"),
+  baseProjectCommit: text("base_project_commit"),
+  baseProjectHash: text("base_project_hash"),
+  contextPath: text("context_path"),
+  branch: text("branch"),
+  prompt: text("prompt").notNull(),
+  status: text("status")
+    .$type<
+      | "queued"
+      | "preparing"
+      | "running"
+      | "updating"
+      | "proposed"
+      | "accepted"
+      | "rejected"
+      | "superseded"
+      | "failed"
+    >()
+    .notNull()
+    .default("queued"),
+  previewContextKey: text("preview_context_key"),
+  diffSummary: text("diff_summary"),
+  errorMessage: text("error_message"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  resolvedAt: integer("resolved_at", { mode: "timestamp" }),
+}, (table) => [
+  index("revisions_thread_id_idx").on(table.threadId),
+  index("revisions_project_id_idx").on(table.projectId),
+  index("revisions_chat_id_idx").on(table.chatId),
+  index("revisions_status_idx").on(table.status),
+])
+
+export const commentMessages = sqliteTable("comment_messages", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  threadId: text("thread_id")
+    .notNull()
+    .references(() => commentThreads.id, { onDelete: "cascade" }),
+  revisionId: text("revision_id").references(() => revisions.id, {
+    onDelete: "set null",
+  }),
+  role: text("role")
+    .$type<"user" | "assistant" | "system">()
+    .notNull()
+    .default("user"),
+  body: text("body").notNull(),
+  metadataJson: text("metadata_json"),
+  clientRequestId: text("client_request_id"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+}, (table) => [
+  index("comment_messages_thread_id_idx").on(table.threadId),
+  index("comment_messages_revision_id_idx").on(table.revisionId),
+  uniqueIndex("comment_messages_thread_client_request_idx").on(
+    table.threadId,
+    table.clientRequestId,
+  ),
+])
+
+export const commentThreadsRelations = relations(commentThreads, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [commentThreads.projectId],
+    references: [projects.id],
+  }),
+  composition: one(compositions, {
+    fields: [commentThreads.compositionId],
+    references: [compositions.id],
+  }),
+  messages: many(commentMessages),
+  revisions: many(revisions),
+}))
+
+export const commentMessagesRelations = relations(commentMessages, ({ one }) => ({
+  thread: one(commentThreads, {
+    fields: [commentMessages.threadId],
+    references: [commentThreads.id],
+  }),
+  revision: one(revisions, {
+    fields: [commentMessages.revisionId],
+    references: [revisions.id],
+  }),
+}))
+
+export const revisionsRelations = relations(revisions, ({ one, many }) => ({
+  thread: one(commentThreads, {
+    fields: [revisions.threadId],
+    references: [commentThreads.id],
+  }),
+  project: one(projects, {
+    fields: [revisions.projectId],
+    references: [projects.id],
+  }),
+  composition: one(compositions, {
+    fields: [revisions.compositionId],
+    references: [compositions.id],
+  }),
+  chat: one(chats, {
+    fields: [revisions.chatId],
+    references: [chats.id],
+  }),
+  subChat: one(subChats, {
+    fields: [revisions.subChatId],
+    references: [subChats.id],
+  }),
+  messages: many(commentMessages),
 }))
 
 // ============ CLAUDE CODE CREDENTIALS ============
@@ -183,6 +366,12 @@ export type Chat = typeof chats.$inferSelect
 export type NewChat = typeof chats.$inferInsert
 export type SubChat = typeof subChats.$inferSelect
 export type NewSubChat = typeof subChats.$inferInsert
+export type CommentThread = typeof commentThreads.$inferSelect
+export type NewCommentThread = typeof commentThreads.$inferInsert
+export type CommentMessage = typeof commentMessages.$inferSelect
+export type NewCommentMessage = typeof commentMessages.$inferInsert
+export type Revision = typeof revisions.$inferSelect
+export type NewRevision = typeof revisions.$inferInsert
 export type ClaudeCodeCredential = typeof claudeCodeCredentials.$inferSelect
 export type NewClaudeCodeCredential = typeof claudeCodeCredentials.$inferInsert
 export type AnthropicAccount = typeof anthropicAccounts.$inferSelect

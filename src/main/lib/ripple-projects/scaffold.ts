@@ -6,6 +6,9 @@ import type { ScaffoldMetadata, ScaffoldResult } from "./types"
 const require = createRequire(import.meta.url)
 
 const TOP_LEVEL_ENTRIES = new Set([
+  ".git",
+  ".gitignore",
+  ".ripple",
   "index.html",
   "compositions",
   "assets",
@@ -303,8 +306,20 @@ function getMetaJson(metadata: ScaffoldMetadata): string {
 `
 }
 
+function getGitIgnore(): string {
+  return `# Ripple generated output
+exports/
+snapshots/
+.ripple/snapshots/
+.ripple/tmp/
+node_modules/
+.DS_Store
+`
+}
+
 export function getScaffoldFileContents(metadata: ScaffoldMetadata): Record<string, string> {
   return {
+    ".gitignore": getGitIgnore(),
     "index.html": getIndexHtml(metadata),
     "compositions/lower-third.html": getLowerThirdHtml(metadata),
     "hyperframes.json": getHyperframesJson(metadata),

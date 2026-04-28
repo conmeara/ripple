@@ -31,6 +31,7 @@ describe("Ripple project scaffold", () => {
       await stat(join(root, "exports"))
       await stat(join(root, "hyperframes.json"))
       await stat(join(root, "meta.json"))
+      await stat(join(root, ".gitignore"))
 
       const indexHtml = await readFile(join(root, "index.html"), "utf8")
       expect(indexHtml).toContain('<link rel="icon" href="data:," />')
@@ -75,6 +76,10 @@ describe("Ripple project scaffold", () => {
       expect(lowerThird).toContain('class="clip lower-third-panel"')
       expect(lowerThird).toContain('window.__timelines["lower-third"]')
       expect(lowerThird).toContain("../assets/vendor/gsap.min.js")
+
+      const gitignore = await readFile(join(root, ".gitignore"), "utf8")
+      expect(gitignore).toContain("exports/")
+      expect(gitignore).toContain("snapshots/")
     } finally {
       await rm(root, { recursive: true, force: true })
     }

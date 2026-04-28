@@ -40,6 +40,7 @@ export interface RippleTimelinePlayerState {
 interface UseRippleTimelinePlayerAdapterInput {
   projectId: string
   compositionId?: string | null
+  revisionId?: string | null
 }
 
 interface TimelineContext {
@@ -69,6 +70,7 @@ function safeTime(value: unknown): number {
 export function useRippleTimelinePlayerAdapter({
   projectId,
   compositionId,
+  revisionId,
 }: UseRippleTimelinePlayerAdapterInput) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const playerRef = useRef<HyperframesPlayer | null>(null)
@@ -88,7 +90,7 @@ export function useRippleTimelinePlayerAdapter({
   const [timelineModel, setTimelineModel] = useState<RippleTimelineModel | null>(null)
 
   const sourceQuery = trpc.hyperframes.getPlayerSource.useQuery(
-    { projectId, compositionId },
+    { projectId, compositionId, revisionId },
     {
       enabled: Boolean(projectId),
       refetchOnWindowFocus: false,

@@ -16,7 +16,7 @@ import {
 } from "../../details-sidebar/atoms"
 import { chatSourceModeAtom } from "../../../lib/atoms"
 import { trpc } from "../../../lib/trpc"
-import { Plus, AlignJustify, Play, TerminalSquare, X } from "lucide-react"
+import { Plus, AlignJustify, CircleDot, GitBranch, Play, TerminalSquare, X } from "lucide-react"
 import {
   IconSpinner,
   PlanIcon,
@@ -72,6 +72,7 @@ interface SearchHistoryPopoverProps {
   pendingQuestionsMap: Map<string, { subChatId: string }>
   pendingPlanApprovals: Set<string>
   allSubChatsLength: number
+  isWorktree?: boolean
   onSelect: (subChat: SubChatMeta) => void
 }
 
@@ -86,6 +87,7 @@ const SearchHistoryPopover = memo(forwardRef<SearchHistoryPopoverRef, SearchHist
   pendingQuestionsMap,
   pendingPlanApprovals,
   allSubChatsLength,
+  isWorktree = false,
   onSelect,
 }, ref) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
@@ -99,9 +101,9 @@ const SearchHistoryPopover = memo(forwardRef<SearchHistoryPopoverRef, SearchHist
     const timeAgo = formatTimeAgo(subChat.updated_at || subChat.created_at)
     const isLoading = loadingSubChats.has(subChat.id)
     const hasUnseen = subChatUnseenChanges.has(subChat.id)
-    const mode = subChat.mode || "agent"
     const hasPendingQuestion = pendingQuestionsMap.has(subChat.id)
     const hasPendingPlan = pendingPlanApprovals.has(subChat.id)
+    const HistoryModeIcon = isWorktree ? GitBranch : CircleDot
 
     return (
       <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -110,10 +112,8 @@ const SearchHistoryPopover = memo(forwardRef<SearchHistoryPopoverRef, SearchHist
             <QuestionIcon className="w-4 h-4 text-blue-500" />
           ) : isLoading ? (
             <IconSpinner className="w-4 h-4 text-muted-foreground" />
-          ) : mode === "plan" ? (
-            <PlanIcon className="w-4 h-4 text-muted-foreground" />
           ) : (
-            <AgentIcon className="w-4 h-4 text-muted-foreground" />
+            <HistoryModeIcon className="w-4 h-4 text-muted-foreground" />
           )}
           {(hasPendingPlan || hasUnseen) && !isLoading && !hasPendingQuestion && (
             <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-popover flex items-center justify-center">
@@ -132,7 +132,7 @@ const SearchHistoryPopover = memo(forwardRef<SearchHistoryPopoverRef, SearchHist
         </span>
       </div>
     )
-  }, [loadingSubChats, subChatUnseenChanges, pendingQuestionsMap, pendingPlanApprovals])
+  }, [isWorktree, loadingSubChats, subChatUnseenChanges, pendingQuestionsMap, pendingPlanApprovals])
 
   return (
     <SearchCombobox
@@ -182,6 +182,7 @@ interface SubChatSelectorProps {
   canOpenTerminal?: boolean
   isTerminalOpen?: boolean
   chatId?: string
+  isWorktree?: boolean
 }
 
 export function SubChatSelector({
@@ -198,6 +199,7 @@ export function SubChatSelector({
   canOpenTerminal = false,
   isTerminalOpen = false,
   chatId,
+  isWorktree = false,
 }: SubChatSelectorProps) {
   // Use shallow comparison to prevent re-renders when arrays have same content
   const {
@@ -997,6 +999,7 @@ export function SubChatSelector({
             pendingQuestionsMap={pendingQuestionsMap}
             pendingPlanApprovals={pendingPlanApprovals}
             allSubChatsLength={allSubChats.length}
+            isWorktree={isWorktree}
             onSelect={handleSelectFromHistory}
           />
         </div>

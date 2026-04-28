@@ -105,6 +105,8 @@ export function AgentsLayout() {
   const setFileSearchDialogOpen = useSetAtom(fileSearchDialogOpenAtom)
   const [selectedChatId, setSelectedChatId] = useAtom(selectedAgentChatIdAtom)
   const [selectedProject, setSelectedProject] = useAtom(selectedProjectAtom)
+  const selectedDraftId = useAtomValue(selectedDraftIdAtom)
+  const showNewChatForm = useAtomValue(showNewChatFormAtom)
   const setProjectEntryReturnProject = useSetAtom(projectEntryReturnProjectAtom)
   const setSelectedDraftId = useSetAtom(selectedDraftIdAtom)
   const setShowNewChatForm = useSetAtom(showNewChatFormAtom)
@@ -162,6 +164,7 @@ export function AgentsLayout() {
       canUseHyperframesProjectPane: chatSourceMode === "local",
       hasSelectedProject: Boolean(validatedProject?.id),
       hasSelectedChat: Boolean(selectedChatId),
+      hasNewChatSurface: Boolean(selectedDraftId || showNewChatForm),
       hasDesktopView: Boolean(desktopView),
     })
   useEffect(() => {

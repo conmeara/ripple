@@ -3,11 +3,9 @@
 import { useCallback, useMemo, useState } from "react"
 import { useAtomValue } from "jotai"
 import { loadingSubChatsAtom } from "../atoms"
-import { Plus, ChevronDown, Play, AlignJustify, FolderDown } from "lucide-react"
+import { Plus, ChevronDown, CircleDot, GitBranch, Play, AlignJustify, FolderDown } from "lucide-react"
 import {
   IconSpinner,
-  PlanIcon,
-  AgentIcon,
   DiffIcon,
   CustomTerminalIcon,
   IconTextUndo,
@@ -45,6 +43,7 @@ interface MobileChatHeaderProps {
   onRestore?: () => void
   onOpenLocally?: () => void
   showOpenLocally?: boolean
+  isWorktree?: boolean
 }
 
 export function MobileChatHeader({
@@ -62,6 +61,7 @@ export function MobileChatHeader({
   onRestore,
   onOpenLocally,
   showOpenLocally = false,
+  isWorktree = false,
 }: MobileChatHeaderProps) {
   const activeSubChatId = useAgentSubChatStore((state) => state.activeSubChatId)
   const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
@@ -77,7 +77,7 @@ export function MobileChatHeader({
   const isLoading = activeSubChatId
     ? loadingSubChatsAtomValue.has(activeSubChatId)
     : false
-  const mode = activeSubChat?.mode || "agent"
+  const WorkModeIcon = isWorktree ? GitBranch : CircleDot
 
   // Sort sub-chats by most recent first for history
   const sortedSubChats = useMemo(
@@ -186,10 +186,8 @@ export function MobileChatHeader({
               <div className="flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center">
                 {isLoading ? (
                   <IconSpinner className="w-3.5 h-3.5 text-muted-foreground" />
-                ) : mode === "plan" ? (
-                  <PlanIcon className="w-3.5 h-3.5 text-muted-foreground" />
                 ) : (
-                  <AgentIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                  <WorkModeIcon className="w-3.5 h-3.5 text-muted-foreground" />
                 )}
               </div>
 
