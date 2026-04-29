@@ -16,6 +16,7 @@ import {
   codexOnboardingCompletedAtom,
   type SettingsTab,
 } from "../../lib/atoms"
+import { trpc } from "../../lib/trpc"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -56,6 +57,7 @@ export function CodexLoginModal({ autoStart = true }: CodexLoginModalProps) {
     reset,
     openUrl,
   } = useCodexLoginFlow()
+  const trpcUtils = trpc.useUtils()
 
   const clearPendingRetryIfNeeded = () => {
     if (
@@ -123,6 +125,7 @@ export function CodexLoginModal({ autoStart = true }: CodexLoginModalProps) {
       setPendingAuthRetry({ ...pendingAuthRetry, readyToRetry: true })
     }
 
+    void trpcUtils.agentRuntime.authStatus.invalidate({ provider: "codex" })
     setOpen(false)
   }, [
     method,
@@ -133,6 +136,7 @@ export function CodexLoginModal({ autoStart = true }: CodexLoginModalProps) {
     setOpen,
     setPendingAuthRetry,
     state,
+    trpcUtils.agentRuntime.authStatus,
   ])
 
   const handleConnect = () => {

@@ -85,6 +85,13 @@
       "when": 1777401644686,
       "tag": "0011_violet_purifiers",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1777412256316,
+      "tag": "0012_gigantic_chimera",
+      "breakpoints": true
     }
   ]
 }

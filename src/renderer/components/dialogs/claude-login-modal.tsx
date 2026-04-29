@@ -1,17 +1,11 @@
 "use client"
 
-import { useAtom, useSetAtom } from "jotai"
-import { X } from "lucide-react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useAtom } from "jotai"
+import { CheckCircle2, Copy, RefreshCw, X } from "lucide-react"
+import { useEffect } from "react"
+import { toast } from "sonner"
 import { pendingAuthRetryMessageAtom } from "../../features/agents/atoms"
-import {
-  agentsLoginModalOpenAtom,
-  agentsSettingsDialogActiveTabAtom,
-  agentsSettingsDialogOpenAtom,
-  anthropicOnboardingCompletedAtom,
-  type SettingsTab,
-} from "../../lib/atoms"
-import { appStore } from "../../lib/jotai-store"
+import { agentsLoginModalOpenAtom } from "../../lib/atoms"
 import { trpc } from "../../lib/trpc"
 import {
   AlertDialog,
@@ -19,312 +13,72 @@ import {
   AlertDialogContent,
 } from "../ui/alert-dialog"
 import { Button } from "../ui/button"
+import { Badge } from "../ui/badge"
 import { ClaudeCodeIcon, IconSpinner } from "../ui/icons"
-import { Input } from "../ui/input"
 import { Logo } from "../ui/logo"
-
-type AuthFlowState =
-  | { step: "idle" }
-  | { step: "starting" }
-  | {
-      step: "waiting_url"
-      sandboxId: string
-      sandboxUrl: string
-      sessionId: string
-    }
-  | {
-      step: "has_url"
-      sandboxId: string
-      oauthUrl: string
-      sandboxUrl: string
-      sessionId: string
-    }
-  | { step: "submitting" }
-  | { step: "error"; message: string }
 
 type ClaudeLoginModalProps = {
   hideCustomModelSettingsLink?: boolean
   autoStartAuth?: boolean
 }
 
-export function ClaudeLoginModal({
-  hideCustomModelSettingsLink = false,
-  autoStartAuth = false,
-}: ClaudeLoginModalProps) {
+export function ClaudeLoginModal(_: ClaudeLoginModalProps) {
   const [open, setOpen] = useAtom(agentsLoginModalOpenAtom)
-  const setAnthropicOnboardingCompleted = useSetAtom(
-    anthropicOnboardingCompletedAtom,
+  const [pendingAuthRetry, setPendingAuthRetry] = useAtom(
+    pendingAuthRetryMessageAtom,
   )
-  const setSettingsOpen = useSetAtom(agentsSettingsDialogOpenAtom)
-  const setSettingsActiveTab = useSetAtom(agentsSettingsDialogActiveTabAtom)
-  const [flowState, setFlowState] = useState<AuthFlowState>({ step: "idle" })
-  const [authCode, setAuthCode] = useState("")
-  const [userClickedConnect, setUserClickedConnect] = useState(false)
-  const [urlOpened, setUrlOpened] = useState(false)
-  const [savedOauthUrl, setSavedOauthUrl] = useState<string | null>(null)
-  const urlOpenedRef = useRef(false)
-  const didAutoStartForOpenRef = useRef(false)
-
-  // tRPC mutations
-  const startAuthMutation = trpc.claudeCode.startAuth.useMutation()
-  const submitCodeMutation = trpc.claudeCode.submitCode.useMutation()
-  const openOAuthUrlMutation = trpc.claudeCode.openOAuthUrl.useMutation()
-  const trpcUtils = trpc.useUtils()
-
-  // Poll for OAuth URL
-  const pollStatusQuery = trpc.claudeCode.pollStatus.useQuery(
+  const authStatus = trpc.agentRuntime.authStatus.useQuery(
+    { provider: "claude" },
     {
-      sandboxUrl: flowState.step === "waiting_url" ? flowState.sandboxUrl : "",
-      sessionId: flowState.step === "waiting_url" ? flowState.sessionId : "",
+      enabled: open,
+      refetchOnMount: true,
+      staleTime: 0,
     },
-    {
-      enabled: flowState.step === "waiting_url",
-      refetchInterval: 1500,
-    }
+  )
+  const setupCommand = trpc.agentRuntime.setupCommand.useQuery(
+    { provider: "claude" },
+    { enabled: open },
   )
 
-  // Update flow state when we get the OAuth URL
-  useEffect(() => {
-    if (
-      flowState.step === "waiting_url" &&
-      pollStatusQuery.data?.oauthUrl
-    ) {
-      setSavedOauthUrl(pollStatusQuery.data.oauthUrl)
-      setFlowState({
-        step: "has_url",
-        sandboxId: flowState.sandboxId,
-        oauthUrl: pollStatusQuery.data.oauthUrl,
-        sandboxUrl: flowState.sandboxUrl,
-        sessionId: flowState.sessionId,
-      })
-    } else if (
-      flowState.step === "waiting_url" &&
-      pollStatusQuery.data?.state === "error"
-    ) {
-      setFlowState({
-        step: "error",
-        message: pollStatusQuery.data.error || "Failed to get OAuth URL",
-      })
-    }
-  }, [pollStatusQuery.data, flowState])
-
-  // Open URL in browser when ready (after user clicked Connect)
-  useEffect(() => {
-    if (
-      flowState.step === "has_url" &&
-      userClickedConnect &&
-      !urlOpenedRef.current
-    ) {
-      urlOpenedRef.current = true
-      setUrlOpened(true)
-      openOAuthUrlMutation.mutate(flowState.oauthUrl)
-    }
-  }, [flowState, userClickedConnect, openOAuthUrlMutation])
-
-  // Reset state when modal closes
-  useEffect(() => {
-    if (!open) {
-      setFlowState({ step: "idle" })
-      setAuthCode("")
-      setUserClickedConnect(false)
-      setUrlOpened(false)
-      setSavedOauthUrl(null)
-      urlOpenedRef.current = false
-      didAutoStartForOpenRef.current = false
-      // Clear pending retry if modal closed without success (user cancelled)
-      // Note: We don't clear here because success handler sets readyToRetry=true first
-    }
-  }, [open])
-
-  // Helper to trigger retry after successful OAuth
-  const triggerAuthRetry = () => {
-    const pending = appStore.get(pendingAuthRetryMessageAtom)
-    if (pending && pending.provider === "claude-code") {
-      console.log("[ClaudeLoginModal] OAuth success - triggering retry for subChatId:", pending.subChatId)
-      appStore.set(pendingAuthRetryMessageAtom, { ...pending, readyToRetry: true })
-    }
-  }
-
-  // Helper to clear pending retry (on cancel/close without success)
-  const clearPendingRetry = () => {
-    const pending = appStore.get(pendingAuthRetryMessageAtom)
-    if (
-      pending &&
-      pending.provider === "claude-code" &&
-      !pending.readyToRetry
-    ) {
-      console.log("[ClaudeLoginModal] Modal closed without success - clearing pending retry")
-      appStore.set(pendingAuthRetryMessageAtom, null)
-    }
-  }
-
-  const handleAuthSuccess = () => {
-    triggerAuthRetry()
-    setAnthropicOnboardingCompleted(true)
-    setOpen(false)
-    void Promise.allSettled([
-      trpcUtils.anthropicAccounts.list.invalidate(),
-      trpcUtils.anthropicAccounts.getActive.invalidate(),
-      trpcUtils.claudeCode.getIntegration.invalidate(),
-    ])
-  }
-
-  // Check if the code looks like a valid Claude auth code (format: XXX#YYY)
-  const isValidCodeFormat = (code: string) => {
-    const trimmed = code.trim()
-    return trimmed.length > 50 && trimmed.includes("#")
-  }
-
-  const handleConnectClick = useCallback(async () => {
-    setUserClickedConnect(true)
-
-    if (flowState.step === "has_url") {
-      // URL is ready, open it immediately
-      urlOpenedRef.current = true
-      setUrlOpened(true)
-      openOAuthUrlMutation.mutate(flowState.oauthUrl)
-    } else if (flowState.step === "error") {
-      // Retry on error
-      urlOpenedRef.current = false
-      setUrlOpened(false)
-      setFlowState({ step: "starting" })
-      try {
-        const result = await startAuthMutation.mutateAsync()
-        setFlowState({
-          step: "waiting_url",
-          sandboxId: result.sandboxId,
-          sandboxUrl: result.sandboxUrl,
-          sessionId: result.sessionId,
-        })
-      } catch (err) {
-        setFlowState({
-          step: "error",
-          message: err instanceof Error ? err.message : "Failed to start authentication",
-        })
-      }
-    } else if (flowState.step === "idle") {
-      // Start auth
-      setFlowState({ step: "starting" })
-      try {
-        const result = await startAuthMutation.mutateAsync()
-        setFlowState({
-          step: "waiting_url",
-          sandboxId: result.sandboxId,
-          sandboxUrl: result.sandboxUrl,
-          sessionId: result.sessionId,
-        })
-      } catch (err) {
-        setFlowState({
-          step: "error",
-          message: err instanceof Error ? err.message : "Failed to start authentication",
-        })
-      }
-    }
-  }, [flowState, openOAuthUrlMutation, startAuthMutation])
+  const isConnected = authStatus.data?.connected === true
+  const shellCommand =
+    setupCommand.data?.shellCommand || "claude auth login"
 
   useEffect(() => {
+    if (!open || !isConnected) return
     if (
-      !open ||
-      !autoStartAuth ||
-      flowState.step !== "idle" ||
-      didAutoStartForOpenRef.current
+      pendingAuthRetry?.provider === "claude-code" &&
+      !pendingAuthRetry.readyToRetry
     ) {
-      return
+      setPendingAuthRetry({ ...pendingAuthRetry, readyToRetry: true })
     }
+  }, [isConnected, open, pendingAuthRetry, setPendingAuthRetry])
 
-    didAutoStartForOpenRef.current = true
-    void handleConnectClick()
-  }, [autoStartAuth, flowState.step, handleConnectClick, open])
-
-  const handleSubmitCode = async () => {
-    if (!authCode.trim() || flowState.step !== "has_url") return
-
-    const { sandboxUrl, sessionId } = flowState
-    setFlowState({ step: "submitting" })
-
-    try {
-      await submitCodeMutation.mutateAsync({
-        sandboxUrl,
-        sessionId,
-        code: authCode.trim(),
-      })
-      handleAuthSuccess()
-    } catch (err) {
-      setFlowState({
-        step: "error",
-        message: err instanceof Error ? err.message : "Failed to submit code",
-      })
-    }
+  const handleCopyCommand = async () => {
+    await navigator.clipboard.writeText(shellCommand)
+    toast.success("Claude login command copied")
   }
 
-  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setAuthCode(value)
-
-    // Auto-submit if the pasted value looks like a valid auth code
-    if (isValidCodeFormat(value) && flowState.step === "has_url") {
-      const { sandboxUrl, sessionId } = flowState
-      setTimeout(async () => {
-        setFlowState({ step: "submitting" })
-        try {
-          await submitCodeMutation.mutateAsync({
-            sandboxUrl,
-            sessionId,
-            code: value.trim(),
-          })
-          handleAuthSuccess()
-        } catch (err) {
-          setFlowState({
-            step: "error",
-            message: err instanceof Error ? err.message : "Failed to submit code",
-          })
-        }
-      }, 100)
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (
+      !nextOpen &&
+      pendingAuthRetry?.provider === "claude-code" &&
+      !pendingAuthRetry.readyToRetry
+    ) {
+      setPendingAuthRetry(null)
     }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && authCode.trim()) {
-      handleSubmitCode()
-    }
-  }
-
-  const handleOpenFallbackUrl = () => {
-    if (savedOauthUrl) {
-      openOAuthUrlMutation.mutate(savedOauthUrl)
-    }
-  }
-
-  const handleOpenModelsSettings = () => {
-    clearPendingRetry()
-    setSettingsActiveTab("models" as SettingsTab)
-    setSettingsOpen(true)
-    setOpen(false)
-  }
-
-  const isLoadingAuth =
-    flowState.step === "starting" || flowState.step === "waiting_url"
-  const isSubmitting = flowState.step === "submitting"
-
-  // Handle modal open/close - clear pending retry if closing without success
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      clearPendingRetry()
-    }
-    setOpen(newOpen)
+    setOpen(nextOpen)
   }
 
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
-      <AlertDialogContent className="w-[380px] p-6">
-        {/* Close button */}
+      <AlertDialogContent className="w-[420px] p-6">
         <AlertDialogCancel className="absolute right-4 top-4 h-6 w-6 p-0 border-0 bg-transparent hover:bg-muted rounded-sm opacity-70 hover:opacity-100">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </AlertDialogCancel>
 
-        <div className="space-y-8">
-          {/* Header with dual icons */}
+        <div className="space-y-6">
           <div className="text-center space-y-4">
             <div className="flex items-center justify-center gap-2 p-2 mx-auto w-max rounded-full border border-border">
               <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
@@ -336,97 +90,75 @@ export function ClaudeLoginModal({
             </div>
             <div className="space-y-1">
               <h1 className="text-base font-semibold tracking-tight">
-                Claude Code
+                Connect Claude
               </h1>
               <p className="text-sm text-muted-foreground">
-                Connect your Claude Code subscription
+                Claude edits run through the local Claude Agent SDK.
               </p>
             </div>
           </div>
 
-          {/* Content */}
-          <div className="space-y-6">
-            {/* Connect Button - shows loader only if user clicked AND loading */}
-            {!urlOpened && flowState.step !== "has_url" && flowState.step !== "error" && (
-              <Button
-                onClick={handleConnectClick}
-                className="w-full"
-                disabled={userClickedConnect && isLoadingAuth}
-              >
-                {userClickedConnect && isLoadingAuth ? (
-                  <IconSpinner className="h-4 w-4" />
-                ) : (
-                  "Connect"
-                )}
-              </Button>
-            )}
-
-            {/* Code Input - Show after URL is opened or if has_url */}
-            {(urlOpened ||
-              flowState.step === "has_url" ||
-              flowState.step === "submitting") && (
-              <div className="space-y-4">
-                <Input
-                  value={authCode}
-                  onChange={handleCodeChange}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Paste your authentication code here..."
-                  className="font-mono text-center"
-                  autoFocus
-                  disabled={isSubmitting}
-                />
-                <Button
-                  onClick={handleSubmitCode}
-                  className="w-full"
-                  disabled={!authCode.trim() || isSubmitting}
-                >
-                  {isSubmitting ? <IconSpinner className="h-4 w-4" /> : "Continue"}
-                </Button>
-                <p className="text-xs text-muted-foreground text-center">
-                  A new tab has opened for authentication.
-                  {savedOauthUrl && (
-                    <>
-                      {" "}
-                      <button
-                        onClick={handleOpenFallbackUrl}
-                        className="text-primary hover:underline"
-                      >
-                        Didn't open? Click here
-                      </button>
-                    </>
-                  )}
-                </p>
-              </div>
-            )}
-
-            {/* Error State */}
-            {flowState.step === "error" && (
-              <div className="space-y-4">
-                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-                  <p className="text-sm text-destructive">{flowState.message}</p>
+          <div className="rounded-lg border border-border bg-background p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium">Claude Agent SDK</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {authStatus.isLoading
+                    ? "Checking connection..."
+                    : authStatus.data?.label || "Claude setup status unavailable"}
                 </div>
+              </div>
+              {authStatus.isLoading ? (
+                <IconSpinner className="h-4 w-4 text-muted-foreground" />
+              ) : isConnected ? (
+                <Badge variant="secondary" className="gap-1 text-xs">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Ready
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs">
+                  Setup needed
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {!isConnected && (
+            <div className="space-y-3">
+              <div className="rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-xs break-all">
+                {shellCommand}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={handleCopyCommand}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy
+                </Button>
                 <Button
                   variant="secondary"
-                  onClick={handleConnectClick}
-                  className="w-full"
+                  onClick={() => void authStatus.refetch()}
+                  disabled={authStatus.isFetching}
                 >
-                  Try Again
+                  {authStatus.isFetching ? (
+                    <IconSpinner className="mr-2 h-4 w-4" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Refresh
                 </Button>
               </div>
-            )}
+              <p className="text-xs text-muted-foreground">
+                Run the command once in Terminal, finish the browser login, then
+                refresh. Project creation, preview, comments, assets, and export
+                still work without this connection.
+              </p>
+            </div>
+          )}
 
-            {!hideCustomModelSettingsLink && (
-              <div className="text-center !mt-2">
-                <button
-                  type="button"
-                  onClick={handleOpenModelsSettings}
-                  className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
-                >
-                  Set a custom model in Settings
-                </button>
-              </div>
-            )}
-          </div>
+          {isConnected && (
+            <Button className="w-full" onClick={() => setOpen(false)}>
+              Done
+            </Button>
+          )}
         </div>
       </AlertDialogContent>
     </AlertDialog>

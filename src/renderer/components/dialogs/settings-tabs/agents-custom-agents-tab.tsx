@@ -21,7 +21,7 @@ interface FileAgent {
   tools?: string[]
   disallowedTools?: string[]
   model?: "sonnet" | "opus" | "haiku" | "inherit"
-  source: "user" | "project"
+  source: "user" | "project" | "plugin"
   path: string
 }
 
@@ -131,9 +131,11 @@ function AgentDetail({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="inherit">Inherit from parent</SelectItem>
-              <SelectItem value="sonnet">Sonnet 4.6</SelectItem>
-              <SelectItem value="opus">Opus 4.6</SelectItem>
-              <SelectItem value="haiku">Haiku 4.5</SelectItem>
+              <SelectItem value="sonnet">Sonnet latest</SelectItem>
+              <SelectItem value="opus">Opus latest</SelectItem>
+              <SelectItem value="haiku">Haiku latest</SelectItem>
+              <SelectItem value="opusplan">Opus Plan latest</SelectItem>
+              <SelectItem value="sonnet[1m]">Sonnet 1M context</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -250,9 +252,11 @@ function CreateAgentForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="inherit">Inherit from parent</SelectItem>
-              <SelectItem value="sonnet">Sonnet 4.6</SelectItem>
-              <SelectItem value="opus">Opus 4.6</SelectItem>
-              <SelectItem value="haiku">Haiku 4.5</SelectItem>
+              <SelectItem value="sonnet">Sonnet latest</SelectItem>
+              <SelectItem value="opus">Opus latest</SelectItem>
+              <SelectItem value="haiku">Haiku latest</SelectItem>
+              <SelectItem value="opusplan">Opus Plan latest</SelectItem>
+              <SelectItem value="sonnet[1m]">Sonnet 1M context</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -381,7 +385,7 @@ export function AgentsCustomAgentsTab() {
         model: data.model,
         tools: agent.tools,
         disallowedTools: agent.disallowedTools,
-        source: agent.source,
+        source: agent.source as "user" | "project",
         cwd: selectedProject?.path,
       })
       toast.success("Agent saved", { description: agent.name })

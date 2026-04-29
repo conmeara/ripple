@@ -110,6 +110,7 @@ export function useCodexLoginFlow() {
             })
           ) {
             await trpcUtils.codex.getIntegration.invalidate()
+            await trpcUtils.agentRuntime.authStatus.invalidate({ provider: "codex" })
             setState("success")
             setError(null)
             if (successToastSessionRef.current !== verificationKey) {
@@ -158,6 +159,7 @@ export function useCodexLoginFlow() {
     setError(null)
     setState("success")
     await trpcUtils.codex.getIntegration.invalidate()
+    await trpcUtils.agentRuntime.authStatus.invalidate({ provider: "codex" })
     toast.success("Codex API key saved", { duration: 10000 })
     return true
   }, [apiKeyInput, notifyError, setStoredApiKey, trpcUtils])

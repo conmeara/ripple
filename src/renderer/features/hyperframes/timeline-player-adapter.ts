@@ -71,7 +71,7 @@ export function useRippleTimelinePlayerAdapter({
   projectId,
   compositionId,
   revisionId,
-}: UseRippleTimelinePlayerAdapterInput) {
+}: UseRippleTimelinePlayerAdapterInput): any {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const playerRef = useRef<HyperframesPlayer | null>(null)
   const timelineContextRef = useRef<TimelineContext | null>(null)

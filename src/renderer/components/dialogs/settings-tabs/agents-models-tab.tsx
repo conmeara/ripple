@@ -269,9 +269,30 @@ export function AgentsModelsTab() {
   const setClaudeLoginModalOpen = useSetAtom(agentsLoginModalOpenAtom)
   const setCodexLoginModalOpen = useSetAtom(codexLoginModalOpenAtom)
   const isNarrowScreen = useIsNarrowScreen()
-  const { data: claudeCodeIntegration, isLoading: isClaudeCodeLoading } =
-    trpc.claudeCode.getIntegration.useQuery()
-  const isClaudeCodeConnected = claudeCodeIntegration?.isConnected
+  const {
+    data: claudeRuntimeStatus,
+    isLoading: isClaudeRuntimeLoading,
+    isFetching: isClaudeRuntimeFetching,
+    refetch: refetchClaudeRuntimeStatus,
+  } = trpc.agentRuntime.authStatus.useQuery(
+    { provider: "claude" },
+    {
+      refetchOnMount: true,
+      staleTime: 0,
+    },
+  )
+  const {
+    data: codexRuntimeStatus,
+    isLoading: isCodexRuntimeLoading,
+    isFetching: isCodexRuntimeFetching,
+    refetch: refetchCodexRuntimeStatus,
+  } = trpc.agentRuntime.authStatus.useQuery(
+    { provider: "codex" },
+    {
+      refetchOnMount: true,
+      staleTime: 0,
+    },
+  )
   const { data: codexIntegration, isLoading: isCodexLoading } =
     trpc.codex.getIntegration.useQuery()
 
@@ -322,15 +343,17 @@ export function AgentsModelsTab() {
       ) {
         setStoredConfig(next)
         savedConfigRef.current = next
+        void trpcUtils.agentRuntime.authStatus.invalidate({ provider: "claude" })
       }
     } else if (!trimmedModel && !trimmedBaseUrl && !trimmedToken) {
       // All cleared — reset
       if (savedConfigRef.current.model || savedConfigRef.current.token || savedConfigRef.current.baseUrl) {
         setStoredConfig(EMPTY_CONFIG)
         savedConfigRef.current = EMPTY_CONFIG
+        void trpcUtils.agentRuntime.authStatus.invalidate({ provider: "claude" })
       }
     }
-  }, [model, baseUrl, token, setStoredConfig])
+  }, [model, baseUrl, token, setStoredConfig, trpcUtils.agentRuntime.authStatus])
 
   const handleReset = () => {
     setStoredConfig(EMPTY_CONFIG)
@@ -338,6 +361,7 @@ export function AgentsModelsTab() {
     setModel("")
     setBaseUrl("")
     setToken("")
+    void trpcUtils.agentRuntime.authStatus.invalidate({ provider: "claude" })
     toast.success("Model settings reset")
   }
 
@@ -364,6 +388,7 @@ export function AgentsModelsTab() {
     try {
       await codexLogoutMutation.mutateAsync()
       await trpcUtils.codex.getIntegration.invalidate()
+      await trpcUtils.agentRuntime.authStatus.invalidate({ provider: "codex" })
       toast.success("Codex disconnected")
     } catch (err) {
       const message =
@@ -377,10 +402,12 @@ export function AgentsModelsTab() {
   const hasLocalCodexSubscription =
     codexOnboardingCompleted && codexOnboardingAuthMethod === "chatgpt"
   const isCodexSubscriptionConnected =
+    codexRuntimeStatus?.connected ||
     codexIntegration?.state === "connected_chatgpt" ||
     (!codexIntegration && hasLocalCodexSubscription)
   const isCodexSubscriptionActive =
     isCodexSubscriptionConnected && !hasAppCodexApiKey
+  const isCodexReady = hasAppCodexApiKey || isCodexSubscriptionConnected
   const [hiddenModels, setHiddenModels] = useAtom(hiddenModelsAtom)
 
   const toggleModelVisibility = useCallback((modelId: string) => {
@@ -392,15 +419,23 @@ export function AgentsModelsTab() {
     })
   }, [setHiddenModels])
 
-  const codexConnectionText = isCodexSubscriptionConnected
+  const codexConnectionText = hasAppCodexApiKey
+    ? "Codex API key saved in Ripple"
+    : codexRuntimeStatus?.label ||
+    (isCodexSubscriptionConnected
     ? "Connected via ChatGPT"
     : codexIntegration?.state === "connected_api_key"
       ? "Not connected to subscription"
       : codexIntegration?.state === "not_logged_in"
         ? "Not connected"
-        : "Status unavailable"
+        : "Status unavailable")
   const showCodexLoading =
-    isCodexLoading && !hasAppCodexApiKey && !hasLocalCodexSubscription
+    (isCodexLoading || isCodexRuntimeLoading) &&
+    !hasAppCodexApiKey &&
+    !hasLocalCodexSubscription
+  const isClaudeReady = claudeRuntimeStatus?.connected === true
+  const claudeConnectionText =
+    claudeRuntimeStatus?.label || "Claude setup status unavailable"
 
   // OpenAI key handlers
   const trimmedOpenAIKey = openaiKey.trim()
@@ -424,6 +459,7 @@ export function AgentsModelsTab() {
       setStoredCodexApiKey(normalized)
       setCodexApiKey(normalized)
       await trpcUtils.codex.getIntegration.invalidate()
+      await trpcUtils.agentRuntime.authStatus.invalidate({ provider: "codex" })
       toast.success("Codex API key saved")
     } catch {
       toast.error("Failed to save Codex API key")
@@ -445,6 +481,7 @@ export function AgentsModelsTab() {
       }
 
       await trpcUtils.codex.getIntegration.invalidate()
+      await trpcUtils.agentRuntime.authStatus.invalidate({ provider: "codex" })
       toast.success("Codex API key removed")
     } catch {
       toast.error("Failed to remove Codex API key")
@@ -562,66 +599,80 @@ export function AgentsModelsTab() {
         </div>
       </div>
 
-      {/* ===== Accounts Section ===== */}
-      <div className="space-y-2">
-        {/* Anthropic Accounts */}
-        <div className="pb-2 flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-medium text-foreground">
-              Anthropic Accounts
-            </h4>
-            <p className="text-xs text-muted-foreground">
-              Manage your Claude API accounts
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleClaudeCodeSetup}
-            disabled={isClaudeCodeLoading}
-          >
-            <Plus className="h-3 w-3 mr-1" />
-            {isClaudeCodeConnected ? "Add" : "Connect"}
-          </Button>
-        </div>
-
-        <AnthropicAccountsSection />
-      </div>
-
+      {/* ===== Connections Section ===== */}
       <div className="space-y-2">
         <div className="pb-2 flex items-center justify-between">
           <div>
             <h4 className="text-sm font-medium text-foreground">
-              Codex Account
+              Agent Connections
             </h4>
             <p className="text-xs text-muted-foreground">
-              Manage your Codex account
+              Connect Codex or Claude when you want agent-backed editing
             </p>
           </div>
         </div>
 
         <div className="bg-background rounded-lg border border-border overflow-hidden divide-y divide-border">
-          {showCodexLoading ? (
-            <div className="p-4 text-center text-sm text-muted-foreground">
-              Loading account...
+          <div className="flex items-center justify-between gap-6 p-4 hover:bg-muted/50">
+            <div>
+              <div className="text-sm font-medium">Claude Agent SDK</div>
+              <div className="text-xs text-muted-foreground">
+                {isClaudeRuntimeLoading
+                  ? "Checking connection..."
+                  : claudeConnectionText}
+              </div>
             </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between gap-6 p-4 hover:bg-muted/50">
-                <div>
-                  <div className="text-sm font-medium">Codex Subscription</div>
-                  <div className="text-xs text-muted-foreground">
-                    {codexConnectionText}
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              {isClaudeReady && (
+                <Badge variant="secondary" className="text-xs">
+                  Ready
+                </Badge>
+              )}
+              <Button
+                size="sm"
+                variant={isClaudeReady ? "ghost" : "outline"}
+                onClick={
+                  isClaudeReady
+                    ? () => void refetchClaudeRuntimeStatus()
+                    : handleClaudeCodeSetup
+                }
+                disabled={isClaudeRuntimeLoading || isClaudeRuntimeFetching}
+              >
+                {isClaudeRuntimeFetching
+                  ? "..."
+                  : isClaudeReady
+                    ? "Refresh"
+                    : "Connect"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-6 p-4 hover:bg-muted/50">
+            <div>
+              <div className="text-sm font-medium">Codex App Server</div>
+              <div className="text-xs text-muted-foreground">
+                {showCodexLoading ? "Checking connection..." : codexConnectionText}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {isCodexReady && (
+                <Badge variant="secondary" className="text-xs">
+                  Ready
+                </Badge>
+              )}
+              {isCodexReady ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => void refetchCodexRuntimeStatus()}
+                    disabled={isCodexRuntimeFetching}
+                  >
+                    {isCodexRuntimeFetching ? "..." : "Refresh"}
+                  </Button>
                   {isCodexSubscriptionActive && (
-                    <Badge variant="secondary" className="text-xs">
-                      Active
-                    </Badge>
-                  )}
-                  {isCodexSubscriptionConnected ? (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -630,24 +681,24 @@ export function AgentsModelsTab() {
                     >
                       {codexLogoutMutation.isPending ? "..." : "Logout"}
                     </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => void handleCodexSetup()}
-                      disabled={
-                        isCodexLoading ||
-                        codexLogoutMutation.isPending ||
-                        isSavingCodexApiKey
-                      }
-                    >
-                      Connect
-                    </Button>
                   )}
-                </div>
-              </div>
-            </>
-          )}
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handleCodexSetup()}
+                  disabled={
+                    isCodexLoading ||
+                    codexLogoutMutation.isPending ||
+                    isSavingCodexApiKey
+                  }
+                >
+                  Connect
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

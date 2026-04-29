@@ -25,6 +25,7 @@ import {
   type Project,
   type Revision,
 } from "../db"
+import { inferAgentProviderFromModel } from "../agent-runtime/provider-selection"
 import { createId } from "../db/utils"
 import {
   createWorktreeForChat,
@@ -515,6 +516,9 @@ export async function createRevisionForThread(input: {
           compositionId: thread.compositionId,
           chatId: reusableBaseRevision.chatId,
           subChatId: reusableBaseRevision.subChatId,
+          agentProvider:
+            reusableBaseRevision.agentProvider ?? inferAgentProviderFromModel(input.model),
+          agentModel: input.model ?? reusableBaseRevision.agentModel ?? null,
           baseRevisionId: reusableBaseRevision.id,
           baseProjectCommit: reusableBaseRevision.baseProjectCommit,
           baseProjectHash: reusableBaseRevision.baseProjectHash,
@@ -619,6 +623,8 @@ export async function createRevisionForThread(input: {
         compositionId: thread.compositionId,
         chatId,
         subChatId,
+        agentProvider: inferAgentProviderFromModel(input.model),
+        agentModel: input.model ?? null,
         baseRevisionId: input.baseRevisionId ?? null,
         prompt,
         status: "preparing",

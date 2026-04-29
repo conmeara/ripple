@@ -6,7 +6,7 @@
  *   node scripts/download-claude-binary.mjs                          # Download for current platform
  *   node scripts/download-claude-binary.mjs --all                    # Download all platforms
  *   node scripts/download-claude-binary.mjs --platform darwin-x64    # Download for specific platform
- *   node scripts/download-claude-binary.mjs --version=2.1.5          # Specific version
+ *   node scripts/download-claude-binary.mjs --version=2.1.123        # Specific version
  */
 
 import fs from "node:fs"
@@ -146,7 +146,7 @@ async function getLatestVersion() {
   }
 
   // Fallback to known version (should be updated periodically)
-  return "2.1.45"
+  return "2.1.123"
 }
 
 /**

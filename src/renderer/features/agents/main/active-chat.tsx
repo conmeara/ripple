@@ -177,12 +177,14 @@ import { usePastedTextFiles, type PastedTextFile } from "../hooks/use-pasted-tex
 import { useTextContextSelection } from "../hooks/use-text-context-selection"
 import { useToggleFocusOnCmdEsc } from "../hooks/use-toggle-focus-on-cmd-esc"
 import { ACPChatTransport } from "../lib/acp-chat-transport"
+import { AgentRuntimeChatTransport } from "../lib/agent-runtime-chat-transport"
 import { formatHistoryForContext } from "../lib/export-chat"
 import {
   clearSubChatDraft,
   getSubChatDraftFull
 } from "../lib/drafts"
 import { IPCChatTransport } from "../lib/ipc-chat-transport"
+import { CODEX_MODELS, type CodexThinkingLevel } from "../lib/models"
 import {
   createQueueItem, createTextPreview, generateQueueId,
   toQueuedFile,
@@ -213,7 +215,7 @@ import {
   useAgentSubChatStore,
   type SubChatMeta,
 } from "../stores/sub-chat-store"
-import type { DiffViewMode } from "../ui/agent-diff-view"
+import type { DiffStats, DiffViewMode } from "../ui/agent-diff-view"
 import {
   AgentDiffView,
   diffViewModeAtom,
@@ -254,6 +256,40 @@ const selectedSubChatIdsAtom = atom(new Set<string>())
 const selectedTeamIdAtom = atom<string | null>(null)
 // import type { PlanType } from "@/lib/config/subscription-plans"
 type PlanType = string
+
+const DEFAULT_CODEX_MODEL = "gpt-5.3-codex/high"
+
+function getSelectedCodexRuntimeModel(subChatId: string): string {
+  const selectedModelId = appStore.get(subChatCodexModelIdAtomFamily(subChatId))
+  const selectedThinking = appStore.get(subChatCodexThinkingAtomFamily(subChatId))
+  const selectedModel =
+    CODEX_MODELS.find((model) => model.id === selectedModelId) ||
+    CODEX_MODELS.find((model) => model.id === "gpt-5.3-codex") ||
+    CODEX_MODELS[0]
+
+  if (!selectedModel) return DEFAULT_CODEX_MODEL
+
+  const thinking = selectedModel.thinkings.includes(
+    selectedThinking as CodexThinkingLevel,
+  )
+    ? (selectedThinking as CodexThinkingLevel)
+    : selectedModel.thinkings.includes("high")
+      ? "high"
+      : selectedModel.thinkings[0]
+
+  return thinking ? `${selectedModel.id}/${thinking}` : DEFAULT_CODEX_MODEL
+}
+
+function getSelectedAgentRuntimeModel(
+  subChatId: string,
+  provider: "claude-code" | "codex",
+): string {
+  if (provider === "codex") {
+    return getSelectedCodexRuntimeModel(subChatId)
+  }
+  const selectedModelId = appStore.get(subChatModelIdAtomFamily(subChatId))
+  return MODEL_ID_MAP[selectedModelId] || MODEL_ID_MAP["opus"]
+}
 
 // Module-level scroll position cache (per subChatId, session-only)
 // Stores { scrollTop, scrollHeight, wasAtBottom } so we can restore position on tab switch
@@ -409,9 +445,11 @@ const CodexIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 // Model options for Claude Code
 const claudeModels = [
-  { id: "opus", name: "Opus 4.6" },
-  { id: "sonnet", name: "Sonnet 4.6" },
-  { id: "haiku", name: "Haiku 4.5" },
+  { id: "opus", name: "Opus latest" },
+  { id: "sonnet", name: "Sonnet latest" },
+  { id: "haiku", name: "Haiku latest" },
+  { id: "opusplan", name: "Opus Plan latest" },
+  { id: "sonnet[1m]", name: "Sonnet 1M context" },
 ]
 
 // Agent providers
@@ -1078,14 +1116,14 @@ interface DiffSidebarContentProps {
   onFileSelect: (file: { path: string }, category: string) => void
   chatId: string
   sandboxId: string | null
-  repository: { owner: string; name: string } | null
-  diffStats: { isLoading: boolean; hasChanges: boolean; fileCount: number; additions: number; deletions: number }
-  setDiffStats: (stats: { isLoading: boolean; hasChanges: boolean; fileCount: number; additions: number; deletions: number }) => void
+  repository: string | null | undefined
+  diffStats: DiffStats
+  setDiffStats: (stats: DiffStats) => void
   diffContent: string | null
-  parsedFileDiffs: unknown
+  parsedFileDiffs: ParsedDiffFile[] | null
   prefetchedFileContents: Record<string, string> | undefined
-  setDiffCollapseState: (state: Map<string, boolean>) => void
-  diffViewRef: React.RefObject<{ expandAll: () => void; collapseAll: () => void; getViewedCount: () => number; markAllViewed: () => void; markAllUnviewed: () => void } | null>
+  setDiffCollapseState: (state: { allCollapsed: boolean; allExpanded: boolean }) => void
+  diffViewRef: React.RefObject<AgentDiffViewRef | null>
   agentChat: { prUrl?: string; prNumber?: number } | null | undefined
   // Real-time sidebar width for responsive layout during resize
   sidebarWidth: number
@@ -1410,9 +1448,9 @@ const DiffSidebarContent = memo(function DiffSidebarContent({
             <AgentDiffView
               ref={diffViewRef}
               chatId={chatId}
-              sandboxId={sandboxId}
+              sandboxId={sandboxId ?? ""}
               worktreePath={worktreePath || undefined}
-              repository={repository}
+              repository={repository || undefined}
               onStatsChange={setDiffStats}
               initialDiff={effectiveDiff}
               initialParsedFiles={effectiveParsedFiles}
@@ -1538,9 +1576,9 @@ const DiffSidebarContent = memo(function DiffSidebarContent({
           <AgentDiffView
             ref={diffViewRef}
             chatId={chatId}
-            sandboxId={sandboxId}
+            sandboxId={sandboxId ?? ""}
             worktreePath={worktreePath || undefined}
-            repository={repository}
+            repository={repository || undefined}
             onStatsChange={setDiffStats}
             initialDiff={effectiveDiff}
             initialParsedFiles={effectiveParsedFiles}
@@ -1567,7 +1605,7 @@ interface DiffStateProviderProps {
   parsedFileDiffs: ParsedDiffFile[] | null
   isDiffSidebarNarrow: boolean
   setIsDiffSidebarOpen: (open: boolean) => void
-  setDiffStats: (stats: { isLoading: boolean; hasChanges: boolean; fileCount: number; additions: number; deletions: number }) => void
+  setDiffStats: (stats: DiffStats) => void
   setDiffContent: (content: string | null) => void
   setParsedFileDiffs: (files: ParsedDiffFile[] | null) => void
   setPrefetchedFileContents: (contents: Record<string, string>) => void
@@ -1703,8 +1741,8 @@ interface DiffSidebarRendererProps {
   worktreePath: string | null
   chatId: string
   sandboxId: string | null
-  repository: { owner: string; name: string } | null
-  diffStats: { isLoading: boolean; hasChanges: boolean; fileCount: number; additions: number; deletions: number }
+  repository: string | null | undefined
+  diffStats: DiffStats
   diffContent: string | null
   parsedFileDiffs: ParsedDiffFile[] | null
   prefetchedFileContents: Record<string, string>
@@ -3543,7 +3581,7 @@ const ChatViewInner = memo(function ChatViewInner({
         store.addToAllSubChats({
           id: newSubChat.id,
           name: newSubChat.name || "Fork",
-          created_at: newSubChat.created_at || new Date().toISOString(),
+          created_at: (newSubChat.createdAt ?? new Date()).toISOString(),
           mode: newMode,
         })
 
@@ -5227,7 +5265,7 @@ export function ChatView({
   const diffContent = diffCache.diffContent
 
   // Smart setters that update the cache
-  const setDiffStats = useCallback((val: any) => {
+  const setDiffStats = useCallback((val: React.SetStateAction<DiffStats>) => {
     setDiffCache((prev) => {
       const newVal = typeof val === 'function' ? val(prev.diffStats) : val
       // Only update if something changed
@@ -6641,8 +6679,10 @@ Make sure to preserve all functionality from both branches when resolving confli
       mcpServers.push({
         name: server.name,
         status,
-        ...(server.serverInfo ? { serverInfo: server.serverInfo } : {}),
-        ...(server.error ? { error: server.error } : {}),
+        ...((server as any).serverInfo
+          ? { serverInfo: (server as any).serverInfo }
+          : {}),
+        ...((server as any).error ? { error: (server as any).error } : {}),
       })
 
       for (const tool of Array.isArray(server.tools) ? server.tools : []) {
@@ -6724,8 +6764,6 @@ Make sure to preserve all functionality from both branches when resolving confli
 
       // Create transport based on chat type (local worktree vs remote sandbox)
       // Note: Extended thinking setting is read dynamically inside the transport
-      // projectPath: original project path for MCP config lookup (worktreePath is the cwd)
-      const projectPath = (agentChat as any)?.project?.path as string | undefined
       const chatSandboxId = (agentChat as any)?.sandboxId || (agentChat as any)?.sandbox_id
       const chatSandboxUrl = chatSandboxId ? `https://3003-${chatSandboxId}.e2b.app` : null
       const isRemoteChat = !!(agentChat as any)?.isRemote || !!chatSandboxId
@@ -6763,18 +6801,21 @@ Make sure to preserve all functionality from both branches when resolving confli
           const overrideProvider = subChatProviderOverrides[subChatId]
           if (!overrideProvider) return existing
 
+          const existingTransport = (existing as any)?.transport
           const existingProvider: "claude-code" | "codex" =
-            (existing as any)?.transport instanceof ACPChatTransport
-              ? "codex"
-              : "claude-code"
+            existingTransport instanceof AgentRuntimeChatTransport
+              ? existingTransport.provider === "codex"
+                ? "codex"
+                : "claude-code"
+              : existingTransport instanceof ACPChatTransport
+                ? "codex"
+                : "claude-code"
           if (existingProvider === overrideProvider) return existing
 
           if (messages.length > 0) return existing
           agentChatStore.delete(subChatId)
         }
       }
-      const isRippleCommentSubChat = isRippleCommentInitialMessage(messages[0])
-
       // Get mode from store metadata (falls back to currentMode)
       const subChatMeta = useAgentSubChatStore
         .getState()
@@ -6791,7 +6832,12 @@ Make sure to preserve all functionality from both branches when resolving confli
         worktreePath: worktreePath ? "exists" : "none",
       })
 
-      let transport: IPCChatTransport | RemoteChatTransport | ACPChatTransport | null = null
+      let transport:
+        | AgentRuntimeChatTransport
+        | IPCChatTransport
+        | RemoteChatTransport
+        | ACPChatTransport
+        | null = null
 
       if (isRemoteChat && chatSandboxUrl) {
         // Remote sandbox chat: use HTTP SSE transport
@@ -6811,27 +6857,16 @@ Make sure to preserve all functionality from both branches when resolving confli
           model: modelString,
         })
       } else if (worktreePath) {
-        if (chatProvider === "codex") {
-          console.log("[getOrCreateChat] Using ACPChatTransport", { provider: chatProvider })
-          transport = new ACPChatTransport({
-            chatId,
-            subChatId,
-            cwd: worktreePath,
-            projectPath,
-            mode: subChatMode,
-            provider: "codex",
-            disableMcp: isRippleCommentSubChat,
-          })
-        } else {
-          // Local worktree chat: use IPC transport
-          transport = new IPCChatTransport({
-            chatId,
-            subChatId,
-            cwd: worktreePath,
-            projectPath,
-            mode: subChatMode,
-          })
-        }
+        console.log("[getOrCreateChat] Using AgentRuntimeChatTransport", {
+          provider: chatProvider,
+        })
+        transport = new AgentRuntimeChatTransport({
+          chatId,
+          subChatId,
+          mode: subChatMode,
+          provider: chatProvider === "codex" ? "codex" : "claude",
+          model: getSelectedAgentRuntimeModel(subChatId, chatProvider),
+        })
       }
 
       if (!transport) {
@@ -7064,7 +7099,6 @@ Make sure to preserve all functionality from both branches when resolving confli
     store.setActiveSubChat(newId)
 
     // Create empty Chat instance for the new sub-chat
-    const projectPath = (agentChat as any)?.project?.path as string | undefined
     const newSubChatSandboxId = (agentChat as any)?.sandboxId || (agentChat as any)?.sandbox_id
     const newSubChatSandboxUrl = newSubChatSandboxId ? `https://3003-${newSubChatSandboxId}.e2b.app` : null
     const isNewSubChatRemote = !!(agentChat as any)?.isRemote || !!newSubChatSandboxId
@@ -7077,7 +7111,12 @@ Make sure to preserve all functionality from both branches when resolving confli
     })
 
     const chatProvider = newSubChatProvider
-    let newSubChatTransport: IPCChatTransport | RemoteChatTransport | ACPChatTransport | null = null
+    let newSubChatTransport:
+      | AgentRuntimeChatTransport
+      | IPCChatTransport
+      | RemoteChatTransport
+      | ACPChatTransport
+      | null = null
 
     if (isNewSubChatRemote && newSubChatSandboxUrl) {
       // Remote sandbox chat: use HTTP SSE transport
@@ -7093,26 +7132,16 @@ Make sure to preserve all functionality from both branches when resolving confli
         model: modelString,
       })
     } else if (worktreePath) {
-      if (chatProvider === "codex") {
-        console.log("[createNewSubChat] Using ACPChatTransport", { provider: chatProvider })
-        newSubChatTransport = new ACPChatTransport({
-          chatId,
-          subChatId: newId,
-          cwd: worktreePath,
-          projectPath,
-          mode: newSubChatMode,
-          provider: "codex",
-        })
-      } else {
-        // Local worktree chat: use IPC transport
-        newSubChatTransport = new IPCChatTransport({
-          chatId,
-          subChatId: newId,
-          cwd: worktreePath,
-          projectPath,
-          mode: newSubChatMode,
-        })
-      }
+      console.log("[createNewSubChat] Using AgentRuntimeChatTransport", {
+        provider: chatProvider,
+      })
+      newSubChatTransport = new AgentRuntimeChatTransport({
+        chatId,
+        subChatId: newId,
+        mode: newSubChatMode,
+        provider: chatProvider === "codex" ? "codex" : "claude",
+        model: getSelectedAgentRuntimeModel(newId, chatProvider),
+      })
     }
 
     if (newSubChatTransport) {
@@ -7211,7 +7240,7 @@ Make sure to preserve all functionality from both branches when resolving confli
     notifyAgentComplete,
     syncFinishedMessagesToChatCache,
     pruneIfDetachedAndIdle,
-    agentChat?.isRemote,
+    (agentChat as any)?.isRemote,
     agentChat?.name,
   ])
 
@@ -7509,7 +7538,7 @@ Make sure to preserve all functionality from both branches when resolving confli
           utils.agents.getAgentChat.setData({ chatId }, (old) => {
             if (!old) return old
             const existsInCache = old.subChats.some(
-              (sc) => sc.id === subChatIdToUpdate,
+              (sc: any) => sc.id === subChatIdToUpdate,
             )
             if (!existsInCache) {
               // Sub-chat not in cache yet (DB save still in flight) - add it
@@ -7532,7 +7561,7 @@ Make sure to preserve all functionality from both branches when resolving confli
             }
             return {
               ...old,
-              subChats: old.subChats.map((sc) =>
+              subChats: old.subChats.map((sc: any) =>
                 sc.id === subChatIdToUpdate ? { ...sc, name } : sc,
               ),
             }
@@ -7543,9 +7572,9 @@ Make sure to preserve all functionality from both branches when resolving confli
           // On desktop, selectedTeamId is always null, so we update unconditionally
           utils.agents.getAgentChats.setData(
             { teamId: selectedTeamId },
-            (old) => {
+            (old: any) => {
               if (!old) return old
-              return old.map((c) =>
+              return old.map((c: any) =>
                 c.id === chatIdToUpdate ? { ...c, name } : c,
               )
             },
@@ -8168,9 +8197,9 @@ Make sure to preserve all functionality from both branches when resolving confli
             fetchDiffStats={fetchDiffStats}
           >
             <DiffSidebarRenderer
-              worktreePath={worktreePath}
+              worktreePath={worktreePath ?? null}
               chatId={chatId}
-              sandboxId={sandboxId}
+              sandboxId={sandboxId ?? null}
               repository={repository}
               diffStats={diffStats}
               diffContent={diffContent}
@@ -8179,7 +8208,14 @@ Make sure to preserve all functionality from both branches when resolving confli
               setDiffCollapseState={setDiffCollapseState}
               diffViewRef={diffViewRef}
               diffSidebarRef={diffSidebarRef}
-              agentChat={agentChat}
+              agentChat={
+                agentChat
+                  ? {
+                      prUrl: agentChat.prUrl ?? undefined,
+                      prNumber: agentChat.prNumber ?? undefined,
+                    }
+                  : null
+              }
               branchData={branchData}
               gitStatus={gitStatus}
               isGitStatusLoading={isGitStatusLoading}
@@ -8195,7 +8231,7 @@ Make sure to preserve all functionality from both branches when resolving confli
               mergePrMutation={mergePrMutation}
               handleRefreshGitStatus={handleRefreshGitStatus}
               hasPrNumber={hasPrNumber}
-              isPrOpen={isPrOpen}
+              isPrOpen={!!isPrOpen}
               hasMergeConflicts={hasMergeConflicts}
               handleFixConflicts={handleFixConflicts}
               handleExpandAll={handleExpandAll}
@@ -8205,7 +8241,7 @@ Make sure to preserve all functionality from both branches when resolving confli
               handleMarkAllViewed={handleMarkAllViewed}
               handleMarkAllUnviewed={handleMarkAllUnviewed}
               isDesktop={isDesktop}
-              isFullscreen={isFullscreen}
+              isFullscreen={!!isFullscreen}
               setDiffDisplayMode={setDiffDisplayMode}
               handleCommitToPr={handleCommitToPr}
               isCommittingToPr={isCommittingToPr}
@@ -8280,7 +8316,7 @@ Make sure to preserve all functionality from both branches when resolving confli
             ) : (
               <AgentPreview
                 chatId={chatId}
-                sandboxId={sandboxId}
+                sandboxId={sandboxId ?? ""}
                 port={previewPort}
                 repository={repository}
                 hideHeader={false}

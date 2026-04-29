@@ -82,7 +82,7 @@ type CodexMcpServerForSettings = {
   config: Record<string, unknown>
 }
 
-type CodexMcpSnapshot = {
+export type CodexMcpSnapshot = {
   mcpServersForSession: CodexMcpServerForSession[]
   groups: Array<{
     groupName: string
@@ -170,13 +170,13 @@ const codexMcpListEntrySchema = z
         type: z.string(),
         command: z.string().nullable().optional(),
         args: z.array(z.string()).nullable().optional(),
-        env: z.record(z.string()).nullable().optional(),
+        env: z.record(z.string(), z.string()).nullable().optional(),
         env_vars: z.array(z.string()).nullable().optional(),
         cwd: z.string().nullable().optional(),
         url: z.string().nullable().optional(),
         bearer_token_env_var: z.string().nullable().optional(),
-        http_headers: z.record(z.string()).nullable().optional(),
-        env_http_headers: z.record(z.string()).nullable().optional(),
+        http_headers: z.record(z.string(), z.string()).nullable().optional(),
+        env_http_headers: z.record(z.string(), z.string()).nullable().optional(),
       })
       .passthrough(),
     auth_status: z.string().nullable().optional(),
@@ -791,7 +791,7 @@ function getCodexMcpFingerprint(servers: CodexMcpServerForSession[]): string {
   return createHash("sha256").update(JSON.stringify(servers)).digest("hex")
 }
 
-async function resolveCodexMcpSnapshot(params: {
+export async function resolveCodexMcpSnapshot(params: {
   lookupPath?: string | null
   forceRefresh?: boolean
   includeTools?: boolean

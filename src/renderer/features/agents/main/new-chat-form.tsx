@@ -109,6 +109,7 @@ import {
 import {
   CLAUDE_MODELS,
   CODEX_MODELS,
+  filterCodexModelsForAuthMode,
   type CodexThinkingLevel,
 } from "../lib/models"
 // import type { PlanType } from "@/lib/config/subscription-plans"
@@ -238,17 +239,34 @@ export function NewChatForm({
   const normalizedCustomClaudeConfig =
     normalizeCustomClaudeConfig(customClaudeConfig)
   const hasCustomClaudeConfig = Boolean(normalizedCustomClaudeConfig)
+  const storedCodexApiKey = useAtomValue(codexApiKeyAtom)
+  const hasAppCodexApiKey = Boolean(normalizeCodexApiKey(storedCodexApiKey))
   // Connection status for providers
   const anthropicOnboardingCompleted = useAtomValue(anthropicOnboardingCompletedAtom)
   const apiKeyOnboardingCompleted = useAtomValue(apiKeyOnboardingCompletedAtom)
   const codexOnboardingCompleted = useAtomValue(codexOnboardingCompletedAtom)
+  const { data: claudeRuntimeStatus } =
+    trpc.agentRuntime.authStatus.useQuery(
+      { provider: "claude" },
+      { staleTime: 30 * 1000 },
+    )
+  const { data: codexRuntimeStatus } =
+    trpc.agentRuntime.authStatus.useQuery(
+      { provider: "codex" },
+      { staleTime: 30 * 1000 },
+    )
   const { data: claudeCodeIntegration } =
     trpc.claudeCode.getIntegration.useQuery()
   const isClaudeConnected =
+    Boolean(claudeRuntimeStatus?.connected) ||
     Boolean(claudeCodeIntegration?.isConnected) ||
     anthropicOnboardingCompleted ||
     apiKeyOnboardingCompleted ||
     hasCustomClaudeConfig
+  const isCodexConnected =
+    Boolean(codexRuntimeStatus?.connected) ||
+    codexOnboardingCompleted ||
+    hasAppCodexApiKey
   const setSettingsDialogOpen = useSetAtom(agentsSettingsDialogOpenAtom)
   const setSettingsActiveTab = useSetAtom(agentsSettingsDialogActiveTabAtom)
   const setJustCreatedIds = useSetAtom(justCreatedIdsAtom)
@@ -308,14 +326,13 @@ export function NewChatForm({
     }
   }, [lastSelectedModelId])
 
-  const storedCodexApiKey = useAtomValue(codexApiKeyAtom)
-  const hasAppCodexApiKey = Boolean(normalizeCodexApiKey(storedCodexApiKey))
   const hiddenModels = useAtomValue(hiddenModelsAtom)
   const codexUiModels = useMemo(
     () => {
-      let models = hasAppCodexApiKey
-        ? CODEX_MODELS.filter((model) => model.id !== "gpt-5.3-codex")
-        : CODEX_MODELS
+      let models = filterCodexModelsForAuthMode(
+        CODEX_MODELS,
+        hasAppCodexApiKey ? "api" : "chatgpt",
+      )
       return models.filter((model) => !hiddenModels.includes(model.id))
     },
     [hasAppCodexApiKey, hiddenModels],
@@ -1748,7 +1765,7 @@ export function NewChatForm({
                             },
                             selectedThinking: selectedCodexThinking,
                             onSelectThinking: setLastSelectedCodexThinking,
-                            isConnected: codexOnboardingCompleted,
+                            isConnected: isCodexConnected,
                           }}
                         />
                       </div>

@@ -5,11 +5,14 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import { useQuery } from "@tanstack/react-query"
 // import { useSearchParams, useRouter } from "next/navigation" // Desktop doesn't use next/navigation
 // Desktop: mock Next.js navigation hooks
-const useSearchParams = () => ({ get: () => null })
-const useRouter = () => ({ push: () => {}, replace: () => {} })
+const useSearchParams = () => ({ get: (_key: string): string | null => null })
+const useRouter = () => ({
+  push: (_url: string, _options?: unknown) => {},
+  replace: (_url: string, _options?: unknown) => {},
+})
 // Desktop: mock Clerk hooks
 const useUser = () => ({ user: null })
-const useClerk = () => ({ signOut: () => {} })
+const useClerk = () => ({ signOut: async (_options?: unknown) => {} })
 import {
   selectedAgentChatIdAtom,
   selectedChatIsRemoteAtom,
@@ -77,6 +80,24 @@ import { remoteTrpc } from "../../../lib/remote-trpc"
 import { SettingsContent } from "../../settings/settings-content"
 // Desktop mock
 const useIsAdmin = () => false
+
+function getChatUpdatedAt(chat: {
+  updated_at?: string | Date | null
+  updatedAt?: string | Date | null
+}) {
+  return chat.updated_at ?? chat.updatedAt ?? new Date(0)
+}
+
+function toQuickSwitchChat(chat: any) {
+  return {
+    id: chat.id,
+    name: chat.name ?? "Untitled",
+    meta: chat.meta ?? null,
+    sandbox_id: chat.sandbox_id ?? null,
+    updated_at: new Date(getChatUpdatedAt(chat)),
+    projectId: chat.projectId ?? "",
+  }
+}
 
 export function AgentsContent() {
   const [selectedChatId, setSelectedChatId] = useAtom(selectedAgentChatIdAtom)
@@ -330,7 +351,8 @@ export function AgentsContent() {
   const sortedChats = agentChats
     ? [...agentChats].sort(
         (a, b) =>
-          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+          new Date(getChatUpdatedAt(b)).getTime() -
+          new Date(getChatUpdatedAt(a)).getTime(),
       )
     : []
 
@@ -469,8 +491,8 @@ export function AgentsContent() {
             // Get sorted chat list
             const sortedChats = [...agentChats].sort(
               (a, b) =>
-                new Date(b.updated_at).getTime() -
-                new Date(a.updated_at).getTime(),
+                new Date(getChatUpdatedAt(b)).getTime() -
+                new Date(getChatUpdatedAt(a)).getTime(),
             )
             isNavigatingRef.current = true
             setTimeout(() => {
@@ -1110,9 +1132,10 @@ export function AgentsContent() {
       {/* Quick-switch dialog - Agents (Opt+Ctrl+Tab) */}
       <AgentsQuickSwitchDialog
         isOpen={quickSwitchOpen}
-        chats={
-          quickSwitchOpen ? (frozenRecentChatsRef.current ?? []) : recentChats
-        }
+        chats={(quickSwitchOpen
+          ? (frozenRecentChatsRef.current ?? [])
+          : recentChats
+        ).map(toQuickSwitchChat)}
         selectedIndex={quickSwitchSelectedIndex}
         projectsMap={projectsMap}
         onHover={setQuickSwitchSelectedIndex}

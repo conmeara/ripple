@@ -20,6 +20,8 @@ interface AgentUserMessageBubbleProps {
     data?: {
       filename?: string
       url?: string
+      base64Data?: string
+      mediaType?: string
     }
   }>
   /** If true, renders only images and text - no TextMentionBlocks (they're rendered by parent) */

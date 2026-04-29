@@ -1399,7 +1399,7 @@ export const claudeRouter = router({
 
             // Build final env - only add OAuth token if we have one AND no existing API config
             // Existing CLI config takes precedence over OAuth
-            const finalEnv = {
+            const finalEnv: Record<string, string> = {
               ...claudeEnv,
               ...(claudeCodeToken &&
                 !hasExistingApiConfig && {
@@ -1888,7 +1888,7 @@ ${prompt}
                       type: "ask-user-question",
                       toolUseId: toolUseID,
                       questions: (toolInput as any).questions,
-                    } as UIMessageChunk)
+                    })
 
                     // Wait for response (60s timeout)
                     const response = await new Promise<{
@@ -1954,7 +1954,7 @@ ${prompt}
                       type: "ask-user-question-result",
                       toolUseId: toolUseID,
                       result: answerResult,
-                    } as UIMessageChunk)
+                    })
                     return {
                       behavior: "allow",
                       updatedInput: response.updatedInput,
@@ -2016,7 +2016,7 @@ ${prompt}
               // 5. Run Claude SDK
               let stream
               try {
-                stream = claudeQuery(queryOptions)
+                stream = claudeQuery(queryOptions as any)
               } catch (queryError) {
                 console.error(
                   "[CLAUDE] ✗ Failed to create SDK query:",
@@ -2939,7 +2939,7 @@ ${prompt}
         transport: z.enum(["stdio", "http"]),
         command: z.string().optional(),
         args: z.array(z.string()).optional(),
-        env: z.record(z.string()).optional(),
+        env: z.record(z.string(), z.string()).optional(),
         url: z.string().url().optional(),
         authType: z.enum(["none", "oauth", "bearer"]).optional(),
         bearerToken: z.string().optional(),
@@ -3017,7 +3017,7 @@ ${prompt}
           .optional(),
         command: z.string().optional(),
         args: z.array(z.string()).optional(),
-        env: z.record(z.string()).optional(),
+        env: z.record(z.string(), z.string()).optional(),
         url: z.string().url().optional(),
         authType: z.enum(["none", "oauth", "bearer"]).optional(),
         bearerToken: z.string().optional(),

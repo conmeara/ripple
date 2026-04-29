@@ -75,6 +75,14 @@ export function CodexOnboardingPage() {
     setBillingMethod(null)
   }
 
+  const handleSkip = async () => {
+    if (isRunning) {
+      await cancel()
+    }
+    setCodexOnboardingCompleted(true)
+    setCodexOnboardingAuthMethod(method)
+  }
+
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center bg-background select-none">
       <div
@@ -109,6 +117,17 @@ export function CodexOnboardingPage() {
             void saveApiKey()
           }}
         />
+        {state !== "success" && (
+          <button
+            type="button"
+            onClick={() => {
+              void handleSkip()
+            }}
+            className="mt-6 w-full text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Set up later
+          </button>
+        )}
       </div>
     </div>
   )

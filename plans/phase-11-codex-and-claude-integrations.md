@@ -78,26 +78,153 @@ sessions/messages.
   Phase 11 around `AgentRuntimeService`, named provider connections,
   connection-locked agent threads, a backend factory, and explicit provider
   auth for agent-backed editing.
-- [ ] Implement Milestone 0: compatibility matrix, current-code audit, and
-  provider-native prototypes for Codex App Server and Claude Agent SDK.
-- [ ] Implement Milestone 1: canonical agent execution model, persistence,
-  named provider connections, fake adapter, and transcript projection.
-- [ ] Implement Milestone 2: workspace/context resolver, explicit provider
-  persistence, and run idempotency/active-run guardrails.
-- [ ] Implement Milestone 3: generated-change scheduler bridge using the fake
-  adapter, proving Phase 8 can stop depending on `RippleRevisionQueueWorker`.
-- [ ] Implement Milestone 4: Codex App Server adapter with auth, threads,
-  turns, item/event normalization, approvals, cancellation, and recovery.
-- [ ] Implement Milestone 5: Claude Agent SDK adapter with auth modes, session
-  handling, event normalization, permissions, cancellation, and recovery.
-- [ ] Implement Milestone 6: migrate normal Chat from renderer-owned transports
-  to agent-thread/run subscriptions.
-- [ ] Implement Milestone 7: complete generated-change migration with real
-  providers, replacing the shell-level revision worker.
-- [ ] Implement Milestone 8: provider setup UX, missing-provider recovery,
-  settings cleanup, and Ripple language.
-- [ ] Implement Milestone 9: smoke tests, focused regressions, restart
-  recovery, packaging checks, and manual Electron QA for both providers.
+- [x] 2026-04-28 / Codex: Implemented Milestone 0 compatibility checks for the
+  pinned bundled binaries. `codex app-server --help`, `codex app-server
+  generate-ts`, `codex login status`, `claude --version`, and Claude SDK auth
+  status all ran from this worktree.
+- [x] 2026-04-28 / Codex: Implemented Milestone 1 canonical execution model
+  with `agent_connections`, `workspaces`, `agent_threads`, `agent_runs`,
+  `agent_run_events`, `agent_approvals`, and `transcript_messages`, plus a
+  fake adapter and transcript projection.
+- [x] 2026-04-28 / Codex: Implemented Milestone 2 workspace/context resolution,
+  explicit provider persistence on generated changes, request-id idempotency,
+  active-run guardrails, and startup recovery for interrupted agent runs.
+- [x] 2026-04-28 / Codex: Implemented Milestone 3 generated-change scheduler
+  bridge from the Phase 8 revision queue into main-owned agent runs.
+- [x] 2026-04-28 / Codex: Implemented Milestone 4 Codex App Server adapter with
+  account checks, thread/turn startup, normalized events, approval requests,
+  bounded workspace-write sandbox policy, cancellation, and provider id
+  persistence.
+- [x] 2026-04-28 / Codex: Implemented Milestone 5 Claude Agent SDK adapter with
+  bundled CLI auth status, SDK `query()` execution from main, session id
+  persistence, event normalization, cancellation, and missing-auth failures in
+  Ripple terms.
+- [x] 2026-04-28 / Codex: Implemented Milestone 6 normal local Chat migration
+  through `AgentRuntimeChatTransport` and the `agentRuntime.chat`
+  subscription. Local Chat now observes persisted agent-run events instead of
+  launching Claude IPC or Codex ACP transports from the renderer.
+- [x] 2026-04-28 / Codex: Implemented Milestone 7 generated-change migration.
+  `RippleRevisionQueueWorker` is now a queue nudge/observer; main owns claiming,
+  launching, completing, and failing provider-backed generated changes.
+- [x] 2026-04-28 / Codex: Implemented the Milestone 8 backend setup/recovery
+  foundation through provider auth-status APIs, named default connections, and
+  persisted missing-auth failures. Visual settings copy and modal polish remain
+  a later UX hardening pass.
+- [x] 2026-04-28 / Codex: Completed Milestone 9 automated validation gates for
+  this pass: focused agent-runtime tests, `bun run test:ripple`,
+  `bun run build`, and `git diff --check`. Manual Electron provider smoke is
+  still recommended before calling the feature release-ready.
+- [x] 2026-04-29 / Codex: Completed provider setup UI cleanup for this pass.
+  Settings now reads `agentRuntime.authStatus` for both Codex and Claude, the
+  Claude setup modal no longer routes users through the inherited hosted broker,
+  Codex setup invalidates runtime auth status after login, and
+  `agentRuntime.setupCommand` provides local provider setup commands.
+- [x] 2026-04-29 / Codex: Cleared the Phase 11 validation blocker in
+  `bun run ts:check`. The fixes cover runtime/tool-event chunk types, nullable
+  Electron and renderer props, optional hosted-backend shims, plugin
+  agent/skill source types, and declaration-portability annotations.
+- [x] 2026-04-29 / Codex: Hardened the Codex App Server adapter after live
+  smoke exposed real App Server edge cases. The adapter now splits UI model
+  choices like `gpt-5.3-codex/high` into provider model and reasoning effort,
+  rejects failed provider turns instead of completing with a synthetic fallback
+  message, and recreates stale provider threads when App Server reports
+  `thread not found`.
+- [x] 2026-04-29 / Codex: Hardened transcript projection so provider-native
+  final assistant messages remain canonical. `AgentRuntimeService` now avoids
+  adding a duplicate synthetic final assistant message when the provider has
+  already emitted an `assistant_message`.
+- [x] 2026-04-29 / Codex: Completed live normal Chat smoke for both providers
+  in the existing desktop Chat UI on project `test2`. Codex replied `OK3` via
+  `AgentRuntimeChatTransport` from `/Users/comeara/Ripple/test2` and recovered
+  a stale App Server provider thread. Claude replied `CLAUDE-AUTH-CHECK` via
+  the same Chat UI and persisted a Claude Agent SDK session id.
+- [x] 2026-04-29 / Codex: Completed live comment-generated-change smoke for
+  Codex. A frame comment created a `codex` generated-change run, a proposed
+  revision at `/Users/comeara/.ripple/worktrees/test2/judicial-dune`, one
+  focused `index.html` diff, and no change in Main.
+- [x] 2026-04-29 / Codex: Completed live comment-generated-change smoke for
+  Claude. A frame comment created a `claude` generated-change run, a proposed
+  revision at `/Users/comeara/.ripple/worktrees/test2/flexible-copse`, one
+  focused `index.html` diff, a persisted Claude session id, and no change in
+  Main.
+- [x] 2026-04-29 / Codex: Completed accept/stale-update smoke across the
+  Phase 11 runtime and Phase 8 review loop. Accepting the Claude proposal
+  committed Main, kept `/Users/comeara/Ripple/test2` clean, and caused the
+  older Codex proposal to run a provider-backed update from the same isolated
+  worktree. The Codex proposal returned to `proposed` with a clean
+  fast-forward update and an updated diff from `Phase 11 Claude Comment Smoke`
+  to `Phase 11 Comment Smoke`.
+- [x] 2026-04-29 / Codex: Final post-smoke validation re-run passed:
+  focused agent-runtime tests, `bun run test:ripple`, `bun run ts:check`,
+  `bun run build`, and `git diff --check`.
+- [x] 2026-04-29 / Codex: Implemented the streaming UI hardening pass for both
+  providers. `AgentRuntimeChatTransport` now uses a shared AI SDK UI-message
+  projector for normal Chat and comment/revision transcripts; run events project
+  text, reasoning, streamed tool input, preliminary tool output, final tool
+  output, provider status data, approvals, file changes, and usage metadata.
+- [x] 2026-04-29 / Codex: Expanded provider-native event normalization. Codex
+  App Server now maps session configuration, token usage, compaction, command
+  terminal input, dynamic tool calls, request-user-input requests, and config
+  warnings into agent-run events. Claude Agent SDK now maps session init,
+  streamed thinking, streamed tool JSON input, tool results, Tasks, compaction,
+  hooks, files-persisted events, auth status, and usage into the same runtime
+  event contract.
+- [x] 2026-04-29 / Codex: Persisted rich assistant projections from
+  agent-run events back into `sub_chats.messages`, so reopened normal Chat and
+  comment-generated-change threads retain reasoning, tool, file-change, data,
+  and usage parts instead of only a final assistant sentence.
+- [x] 2026-04-29 / Codex: Completed live Claude streaming UI smoke after the
+  shared AI SDK projector change. In the existing desktop Chat UI on project
+  `test2`, run `mojhowq847xz8b1z` streamed Claude Agent SDK session init,
+  `Glob`/`Read` tool steps, usage metadata, final text deltas, and persisted
+  rich assistant parts while replying `CLAUDE-STREAM-UI`.
+- [x] 2026-04-29 / Codex: Completed live Codex streaming UI smoke after the
+  shared AI SDK projector change. In the same desktop Chat UI, run
+  `mojitj6h6m8olebk` streamed Codex App Server provider-thread recovery,
+  assistant text deltas, usage metadata, a parsed `Bash` read command, final
+  text deltas, and persisted `data-agent-runtime`, `tool-Bash`, and text parts
+  while replying `CODEX-STREAM-UI`.
+- [x] 2026-04-29 / Codex: Streaming hardening final validation re-run passed:
+  `bun test src/main/lib/agent-runtime` (15 tests), `bun run test:ripple`
+  (182 tests), `bun run ts:check`, `bun run build`, and `git diff --check`.
+- [x] 2026-04-29 / Codex: Completed the provider capability hardening pass for
+  skills, MCP servers, plugins, AGENTS.md/system instructions, and rich
+  capability/session metadata. Claude Agent SDK runs now load approved MCP
+  servers, enabled local plugins, project/user skill sources, AGENTS.md prompt
+  append, and mentioned agents. Codex App Server runs now clean prompt mentions,
+  resolve safe MCP names/status/tools from the bundled Codex CLI, seed session
+  MCP UI metadata, and preserve session-info fields only when provider events
+  omit them.
+- [x] 2026-04-29 / Codex: Capability hardening validation passed:
+  `bun test src/main/lib/agent-runtime` (17 tests), `bun run test:ripple`
+  (184 tests), `bun run ts:check`, `bun run build`, `git diff --check`,
+  `resources/bin/darwin-arm64/codex mcp list --json`, and
+  the then-bundled Claude Code CLI version check.
+- [x] 2026-04-29 / Codex: Completed the settings and onboarding hardening pass.
+  The implementation moves Claude onboarding to local
+  `agentRuntime.authStatus` / `agentRuntime.setupCommand`, keeps provider setup
+  skippable so app entry remains local-first, labels MCP settings by the Phase
+  11 runtimes, adds skills/commands refresh affordance, and passes app-managed
+  Codex API keys through `AgentRuntimeChatTransport` into Codex App Server runs.
+- [x] 2026-04-29 / Codex: Settings/onboarding hardening validation passed:
+  `bun test src/main/lib/agent-runtime` (18 tests), `bun run ts:check`,
+  `bun run test:ripple` (185 tests), `bun run build`, and `git diff --check`.
+- [x] 2026-04-29 / Codex: Completed Computer Use UI QA for the settings
+  hardening pass in the running Electron app. Verified the Models page shows
+  runtime-backed Claude Agent SDK and Codex App Server connection states, the
+  expanded API-key section stays readable, Skills exposes a working refresh
+  affordance, and the MCP add-server provider picker offers Claude Agent SDK and
+  Codex App Server without layout issues.
+- [x] 2026-04-29 / Codex: Refreshed provider versions and model catalogs.
+  Live metadata showed latest `@anthropic-ai/claude-agent-sdk` is `0.2.123`,
+  latest Claude Code binary is `2.1.123`, and latest stable `@openai/codex` is
+  `0.125.0`. Updated package pins, download scripts, local bundled binaries,
+  and the lockfile. Claude model UI now uses Claude Code aliases (`opus`,
+  `sonnet`, `haiku`, `opusplan`, `sonnet[1m]`, `default`) so provider mappings
+  stay current. Codex model UI now separates ChatGPT/App Server models from
+  app-managed API-key models and exposes the current official Codex API family:
+  `gpt-5.3-codex`, `gpt-5.2-codex`, `gpt-5.1-codex-max`,
+  `gpt-5.1-codex`, `gpt-5.1-codex-mini`, and `gpt-5-codex`.
 
 ## Surprises & Discoveries
 
@@ -115,11 +242,11 @@ sessions/messages.
   subagents. The same docs say third-party products should use API key or cloud
   authentication unless approved for Claude.ai login/rate-limit use.
 
-- Observation: Enterprise Claude Code login works with the bundled SDK CLI on
+- Observation: Enterprise Claude Code login works with the bundled Claude Code
+  runtime on
   this machine after login.
-  Evidence: Running
-  `node node_modules/@anthropic-ai/claude-agent-sdk/cli.js auth status --json`
-  after user login returned `loggedIn: true`, `authMethod: "claude.ai"`,
+  Evidence: Running the bundled Claude auth status command after user login
+  returned `loggedIn: true`, `authMethod: "claude.ai"`,
   `apiProvider: "firstParty"`, org `Deloitte`, and
   `subscriptionType: "enterprise"`.
 
@@ -131,11 +258,10 @@ sessions/messages.
   before the stop. Ripple should display usage/cost estimates carefully and not
   promise penny-precise caps from the SDK option alone.
 
-- Observation: The checkout does not have a global `claude` command on `PATH`,
-  but the bundled SDK CLI works.
-  Evidence: `which claude` failed, while
-  `node node_modules/@anthropic-ai/claude-agent-sdk/cli.js --version` reported
-  `2.1.45 (Claude Code)`.
+- Observation: The checkout does not have to rely on a global `claude` command
+  on `PATH`; Ripple can use the bundled Claude Code binary.
+  Evidence: `resources/bin/darwin-arm64/claude --version` reported
+  `2.1.123 (Claude Code)` after the version refresh.
 
 - Observation: The inherited Claude subscription onboarding path is a 1Code
   hosted OAuth broker, not the desired Ripple path.
@@ -150,6 +276,14 @@ sessions/messages.
   `@zed-industries/codex-acp` and uses the ACP provider path for chat streams,
   while also using the bundled Codex CLI for login, status, MCP config, and
   related operations.
+
+- Observation: The local Codex profile in this worktree has no configured MCP
+  servers to live-invoke.
+  Evidence: `resources/bin/darwin-arm64/codex mcp list --json` returned `[]`
+  during the capability hardening pass. The new App Server runtime path reuses
+  the existing bundled Codex MCP snapshot resolver and has focused coverage for
+  MCP event/session projection, but live Codex MCP tool execution still needs a
+  configured server.
 
 - Observation: Phase 8 intentionally left a temporary renderer/shell worker in
   place for generated-change runs.
@@ -352,8 +486,34 @@ sessions/messages.
 
 ## Outcomes & Retrospective
 
-Not started. This plan currently captures the research-backed implementation
-direction and the first local auth probe.
+Phase 11 now has the durable execution boundary the roadmap called for. The
+main process owns agent connections, workspace resolution, provider launch,
+stream/event persistence, cancellation, generated-change queue claiming, run
+completion/failure, transcript projection, and restart recovery. Renderer
+surfaces ask main to start or observe an agent run; they no longer own the
+provider process for local Chat or comment-generated changes.
+
+Normal local Chat now uses `AgentRuntimeChatTransport`, which subscribes to
+`agentRuntime.chat` and projects canonical run events back into the existing AI
+SDK Chat stream shape. Remote sandbox chats still use the inherited remote
+transport. This keeps the migration scoped to Ripple local project work while
+avoiding a broad rewrite of message rendering.
+
+Comment-generated changes now run through
+`processGeneratedChangeQueue(...)` in `src/main/lib/agent-runtime/`. The
+renderer worker remains mounted only to periodically nudge the queue and
+invalidate review/preview data. It no longer imports `@ai-sdk/react`, creates
+hidden `Chat` instances, or starts legacy Claude/Codex transports.
+
+The earlier proof compromise is now closed for the core Phase 11 surfaces.
+Live desktop smoke covered Codex and Claude in the same normal Chat UI, plus
+Codex and Claude frame-comment generated changes through isolated proposed
+revisions. The runs used the main-process runtime service, persisted run/event
+records, projected transcripts back into Chat/Comments, and kept Main clean
+until explicit acceptance. Settings/modal UX now reads the runtime auth-status
+APIs and avoids the inherited hosted Claude broker in the visible setup path.
+Missing Codex or Claude setup is still persisted as a failed/recoverable agent
+run and surfaced through the existing Chat stream/error path.
 
 ## Context and Orientation
 
@@ -616,57 +776,109 @@ Run commands from `/Users/comeara/Projects/ripple` unless noted otherwise.
 
 Validation commands:
 
-- `bun run test:ripple`
-- `bun run build`
-- `git diff --check`
-- Focused agent-runtime unit tests added during this phase.
-- Packaged-binary checks for bundled Codex App Server and bundled Claude Agent
-  SDK CLI behavior.
+- `bun test src/main/lib/agent-runtime`:
+  Passed on 2026-04-29 after the settings/onboarding hardening pass with
+  18 tests across 5 files. Added coverage for passing app-managed Codex API keys
+  into the Codex App Server process environment.
+  Earlier 2026-04-29 run passed with 17 tests across 5 files and covered provider
+  selection, fake adapter event emission, shared AI SDK UI-message projection,
+  persisted rich assistant projections, Codex App Server event normalization,
+  provider error extraction, stale App Server thread detection, and Codex
+  model/thinking selection parsing. The capability hardening pass added prompt
+  mention normalization coverage for skill, agent, file, folder, and MCP tool
+  mentions.
+- `bun run test:ripple`:
+  Passed on 2026-04-29 after the settings/onboarding hardening pass with
+  185 tests across 43 files.
+  Passed again on 2026-04-29 after the version/model refresh with 185 tests
+  across 43 files.
+  Earlier 2026-04-29 run passed with 184 tests across 43 files after the
+  capability hardening pass.
+- `bun run build`:
+  Passed on 2026-04-29 after the settings/onboarding hardening pass. The build
+  still reports the existing Vite warnings for `gray-matter` eval and
+  static/dynamic import overlap, but it completed successfully.
+  Passed again on 2026-04-29 after the version/model refresh with the same
+  existing warning classes.
+- `bun run ts:check`:
+  Passed on 2026-04-29 after the settings/onboarding hardening pass.
+  Passed again on 2026-04-29 after updating Claude SDK, Claude Code, Codex CLI,
+  zod 4 schemas, and the model catalogs.
+- `git diff --check`:
+  Passed on 2026-04-29 after the settings/onboarding hardening pass.
+  Passed again on 2026-04-29 after the version/model refresh.
+- Computer Use settings QA:
+  Passed on 2026-04-29 against the running Electron app. Checked Models,
+  expanded API Keys, Skills refresh, and the MCP add-server provider picker for
+  the Claude Agent SDK / Codex App Server labels and layout.
+- Packaged-binary checks:
+  `bun run codex:download`, `bun run claude:download`,
+  `resources/bin/darwin-arm64/codex app-server --help`,
+  `resources/bin/darwin-arm64/codex app-server generate-ts --out
+  /private/tmp/codex-app-server-ts`,
+  `resources/bin/darwin-arm64/codex login status`,
+  `resources/bin/darwin-arm64/codex --version`, and
+  `resources/bin/darwin-arm64/claude --version` all ran from this worktree.
+  Codex reported a ChatGPT login during the earlier smoke. After the
+  version/model refresh, Codex reported `codex-cli 0.125.0` and Claude reported
+  `2.1.123 (Claude Code)`. A raw `claude auth status --json` probe hung in the
+  sandbox process environment and was stopped; the app adapter still wraps that
+  status check with a 15s timeout.
 
-Codex manual smoke:
+Live Codex smoke:
 
-1. From the desktop app, create or open a default Ripple project.
-2. Choose Codex.
-3. If not logged in, complete Codex App Server login or API-key setup.
-4. Ask for a small safe project change, such as changing copy in the starter
-   title card.
-5. Observe one persisted run in Chat, visible stream events, no renderer
-   duplicate starts after pane remount, and a valid preview refresh.
-6. Cancel a second run and confirm the provider process/turn stops and the UI
-   shows a recoverable cancelled state.
+- Normal Chat: the existing desktop Chat UI on project `test2` selected
+  `Codex 5.3`, used `AgentRuntimeChatTransport`, and replied `OK3` from
+  `/Users/comeara/Ripple/test2`. The persisted run completed with
+  `provider=codex`, `model=gpt-5.3-codex/high`, and no error. During this run,
+  the adapter recovered a stale Codex App Server thread by recreating the
+  provider thread and retrying the turn.
+- Streaming UI hardening: the same desktop Chat UI selected `Codex 5.3` and
+  sent "Use a shell command to print the first 5 lines of index.html..." from
+  project `test2`. The UI showed `Recovered provider thread`, a collapsed
+  `3 steps` tool group, final reply `CODEX-STREAM-UI`, and `16.4k` token
+  metadata. Persisted run `mojitj6h6m8olebk` completed with
+  `provider=codex`, `model=gpt-5.3-codex/high`, streamed `assistant_text_delta`
+  events, `thread/tokenUsage/updated` usage events, and `tool_start` /
+  `tool_end` events for `Bash` with parsed command `head -n 5 index.html` in
+  `/Users/comeara/Ripple/test2`. Persisted sub-chat `mojislfoqs6xn5cv`
+  retained assistant parts `data-agent-runtime`, text, `tool-Bash`, and final
+  text. `/Users/comeara/Ripple/test2` remained clean.
+- Comment generated change: comment `#2` created revision
+  `mojg5gfqonp0m90l`, run `mojg5injwhj20b53`, workspace
+  `/Users/comeara/.ripple/worktrees/test2/judicial-dune`, and a one-file
+  `index.html` diff changing `test 3` to `Phase 11 Comment Smoke`. Main stayed
+  clean until explicit acceptance.
+- Stale update after accepting another proposal: the same revision later ran
+  `mojgg7pmgn3py6b5`, fast-forwarded from Main, returned to `proposed`, and
+  now contains the isolated diff from `Phase 11 Claude Comment Smoke` to
+  `Phase 11 Comment Smoke`.
 
-Claude manual smoke:
+Live Claude smoke:
 
-1. From the desktop app, choose Claude.
-2. Confirm setup detects one of API/cloud/gateway/local Claude Code login.
-3. With local Enterprise login, verify status reports `claude.ai`,
-   first-party, and Enterprise/subscription context without exposing sensitive
-   identifiers in normal UI.
-4. Run a small safe project change with no terminal prompts required.
-5. Observe one persisted run, stream events, clean terminal status, and preview
-   refresh.
-
-Generated-change smoke:
-
-1. Create a frame-anchored comment.
-2. Let the selected provider generate an isolated change.
-3. Close and reopen Comments while the run is active.
-4. Confirm no duplicate run starts.
-5. Open the generated change in Chat and confirm the same transcript/status is
-   shown.
-6. Accept or delete the generated change and confirm Main is updated or cleanup
-   completes with no orphaned active run.
-
-Phase 8 regression smoke after Phase 11:
-
-1. Create two comments against the same Main commit.
-2. Accept the first generated change.
-3. Confirm the second generated change moves into the quiet updating/resolving
-   flow and does not expose Git/rebase language.
-4. Confirm a clean update becomes acceptable, and a non-clean update continues
-   the existing hidden thread/workspace through the agent runtime service.
-5. Confirm failed generated changes keep their workspace and can still open in
-   Chat for recovery.
+- Normal Chat: the same desktop Chat UI on project `test2` selected the Opus
+  alias (then displayed as `Opus 4.6`), used `AgentRuntimeChatTransport`, and replied
+  `CLAUDE-AUTH-CHECK`. The persisted run completed with `provider=claude`,
+  `model=opus`, and Claude Agent SDK session id
+  `3c522f6e-f8bd-4bec-b7ff-a8bc7eddedd6`.
+- Streaming UI hardening: the same desktop Chat UI selected the Opus alias and
+  sent "Use the Read tool to read index.html..." from project `test2`. The UI
+  showed a collapsed `2 steps` tool group, final reply `CLAUDE-STREAM-UI`, and
+  `140` token metadata. Persisted run `mojhowq847xz8b1z` completed with
+  `provider=claude`, `model=opus`, `system:init` session metadata, `Glob` and
+  `Read` tool start/update/end events, usage events, final assistant deltas,
+  and a final assistant message. Persisted sub-chat `mojfxqcl3susjrn2`
+  retained rich assistant tool/text/usage parts for reopen.
+- Comment generated change: comment `#3` created revision
+  `mojgbvkgtmopw7qi`, run `mojgbwckfrqfqin9`, workspace
+  `/Users/comeara/.ripple/worktrees/test2/flexible-copse`, and a one-file
+  `index.html` diff changing `test 3` to
+  `Phase 11 Claude Comment Smoke`. The UI showed the comment as `Done`,
+  transcript projection stored one user and one assistant message, and Main
+  stayed clean before acceptance.
+- Accept flow: accepting the Claude proposal marked the revision `accepted`,
+  created the Main commit `edbd16a Accept Ripple comment changes`, and left
+  `/Users/comeara/Ripple/test2` with a clean worktree.
 
 Acceptance criteria:
 
@@ -783,8 +995,7 @@ Required new or revised persistence:
 Existing dependencies:
 
 - `@anthropic-ai/claude-agent-sdk`
-- Bundled Claude Agent SDK CLI at
-  `node_modules/@anthropic-ai/claude-agent-sdk/cli.js`
+- Bundled Claude Code native binary downloaded by `bun run claude:download`
 - Bundled Codex CLI downloaded by `bun run codex:download`
 - Current `@zed-industries/codex-acp` and `@mcpc-tech/acp-ai-provider` legacy
   path for migration/fallback reference
@@ -802,16 +1013,85 @@ External docs summarized in this plan:
 
 ## Artifacts and Notes
 
+Implementation artifacts from 2026-04-28:
+
+- `src/main/lib/db/schema/index.ts` and `drizzle/0012_gigantic_chimera.sql`
+  add the agent execution tables and revision provider/run fields.
+- `src/main/lib/agent-runtime/` contains the provider-neutral service,
+  connection registry, workspace resolver, transcript projection,
+  generated-change scheduler, fake adapter, Codex App Server adapter, Claude
+  Agent SDK adapter, and focused tests.
+- `src/main/lib/trpc/routers/agent-runtime.ts` exposes provider auth status,
+  start/execute/cancel/read run APIs, a normal Chat subscription, and the
+  generated-change queue nudge.
+- `src/main/index.ts` marks interrupted agent runs recoverable on app startup.
+- `src/main/lib/revisions/comment-revisions.ts` persists provider/model/thread
+  identity on generated changes.
+- `src/renderer/features/agents/lib/agent-runtime-chat-transport.ts` adapts
+  persisted agent-run events into the existing AI SDK Chat stream shape.
+- `src/renderer/features/agents/main/active-chat.tsx` routes local Chat through
+  the runtime transport while leaving remote sandbox chat on the existing remote
+  transport.
+- `src/renderer/features/comments/RippleRevisionQueueWorker.tsx` is reduced to
+  queue nudge/observer behavior and no longer owns provider execution.
+- `package.json` includes `src/main/lib/agent-runtime` in `test:ripple`.
+
+Hardening artifacts from 2026-04-29:
+
+- `src/main/lib/agent-runtime/providers/codex-model-selection.ts` parses
+  Ripple UI model selections into Codex App Server model and reasoning-effort
+  fields instead of sending slash-suffixed UI labels as provider model ids.
+- `src/main/lib/agent-runtime/providers/codex-app-server-events.ts` normalizes
+  Codex App Server notifications, including provider status, assistant text,
+  tool, file-change, and error events.
+- `src/main/lib/agent-runtime/providers/codex-app-server-adapter.ts` now fails
+  non-retry provider errors, extracts JSON-string error details, and recreates
+  stale provider threads when App Server reports `thread not found`.
+- `src/main/lib/agent-runtime/service.ts` now treats provider-native
+  `assistant_message` events as canonical transcript material and avoids adding
+  a duplicate synthetic final assistant message.
+- `src/renderer/components/dialogs/claude-login-modal.tsx` now shows local
+  Claude Agent SDK status/setup through `agentRuntime.authStatus` and
+  `agentRuntime.setupCommand` instead of starting the inherited hosted
+  `claude-code` OAuth broker.
+- `src/renderer/components/dialogs/settings-tabs/agents-models-tab.tsx` now
+  presents Codex App Server and Claude Agent SDK as runtime connections in one
+  provider setup section.
+- `src/renderer/components/dialogs/codex-login-modal.tsx` invalidates runtime
+  Codex auth status after successful login.
+- `src/main/lib/trpc/routers/agent-runtime.ts` exposes setup command metadata
+  alongside auth status.
+- TypeScript hardening touched legacy bridge types and nullable renderer props
+  so `bun run ts:check` can be used as a real Phase 11 validation gate.
+- `src/main/lib/agent-runtime/prompt-mentions.ts` prepares serialized Chat UI
+  mentions for both provider runtimes by stripping agent/skill/tool chips,
+  preserving safe file/folder paths, and adding provider-readable instructions
+  for mentioned skills, agents, and MCP tools.
+- `src/main/lib/agent-runtime/providers/claude-runtime-capabilities.ts` builds
+  Claude Agent SDK capability context from project/global/plugin MCP config,
+  approved plugin MCP servers, enabled local plugins, user/project/plugin
+  skill directories, and AGENTS.md.
+- `src/main/lib/agent-runtime/providers/claude-agent-sdk-adapter.ts` now passes
+  Claude SDK `systemPrompt`, `agents`, `mcpServers`, `plugins`,
+  `settingSources`, and shell-derived environment context for runtime runs.
+- `src/main/lib/agent-runtime/providers/codex-app-server-adapter.ts` now uses
+  the bundled Codex MCP snapshot path to seed safe session MCP/tool metadata
+  and removes raw mention tokens before starting App Server turns.
+- `src/renderer/features/agents/lib/agent-runtime-chat-transport.ts` now
+  merges partial `sessionInit` updates without letting sparse provider events
+  erase previously discovered MCP/tool metadata.
+
 Local Claude Enterprise probe:
 
 - Command:
-  `node node_modules/@anthropic-ai/claude-agent-sdk/cli.js auth status --json`
+  bundled Claude Code auth status check
 - Result summary after user login:
   `loggedIn: true`, `authMethod: "claude.ai"`,
   `apiProvider: "firstParty"`, `orgName: "Deloitte"`,
   `subscriptionType: "enterprise"`.
 - Minimal SDK/CLI probe:
-  `node node_modules/@anthropic-ai/claude-agent-sdk/cli.js -p "Reply with exactly OK." --output-format json --tools "" --permission-mode dontAsk --max-budget-usd 0.01 --no-session-persistence`
+  bundled Claude Code print-mode run with no tools, no session persistence, and
+  a low budget cap
 - Result summary:
   The request authenticated and reached Claude with nonzero model usage, then
   stopped with `error_max_budget_usd`. Reported total cost was about
@@ -820,11 +1100,12 @@ Local Claude Enterprise probe:
 
 Current provider package snapshot:
 
-- `@anthropic-ai/claude-agent-sdk`: `0.2.45`
+- `@anthropic-ai/claude-agent-sdk`: `0.2.123`
 - `@zed-industries/codex-acp`: `0.9.3`
 - `@mcpc-tech/acp-ai-provider`: `^0.2.4`
-- `claude:download`: downloads Claude Code `2.1.45`
-- `codex:download`: downloads Codex CLI `0.98.0`
+- `zod`: `^4.3.6` to satisfy the latest Claude Agent SDK peer dependency
+- `claude:download`: downloads Claude Code `2.1.123`
+- `codex:download`: downloads Codex CLI `0.125.0`
 
 The phase should update these versions only when the adapter prototypes prove a
 newer pinned version is required. Version changes should be explicit and

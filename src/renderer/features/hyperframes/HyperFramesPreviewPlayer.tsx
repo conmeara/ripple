@@ -272,7 +272,7 @@ export function HyperFramesPreviewPlayer({
     onPreviewTimeChange?.(currentTime)
   }, [currentTime, duration, onPreviewTimeChange, syncLivePreviewTime])
 
-  useEffect(() => subscribeLiveTime((time) => {
+  useEffect(() => subscribeLiveTime((time: number) => {
     syncLivePreviewTime(time)
     onPreviewTimeChange?.(time)
   }), [onPreviewTimeChange, subscribeLiveTime, syncLivePreviewTime])

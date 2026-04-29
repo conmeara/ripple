@@ -13,7 +13,7 @@ import {
 // Chromium 137+ Selection API extension for Shadow DOM support
 declare global {
   interface Selection {
-    getComposedRanges?(options: { shadowRoots: ShadowRoot[] }): StaticRange[]
+    getComposedRanges(options: { shadowRoots: ShadowRoot[] }): StaticRange[]
   }
 }
 

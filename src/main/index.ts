@@ -39,6 +39,7 @@ import {
   cleanupTerminalRevisionWorktrees,
   recoverRevisionQueueOnStartup,
 } from "./lib/revisions/revision-queue"
+import { recoverAgentRunsOnStartup } from "./lib/agent-runtime/service"
 import { ensureRippleRuntimeOnLaunch } from "./lib/ripple-projects/service"
 import { getAllMcpConfigHandler, hasActiveClaudeSessions, abortAllClaudeSessions } from "./lib/trpc/routers/claude"
 import { getAllCodexMcpConfigHandler, hasActiveCodexStreams, abortAllCodexStreams } from "./lib/trpc/routers/codex"
@@ -877,7 +878,7 @@ if (gotTheLock) {
           },
         },
       ])
-      app.dock.setMenu(dockMenu)
+      app.dock?.setMenu(dockMenu)
     }
 
     // Set update state and rebuild menu
@@ -965,6 +966,16 @@ if (gotTheLock) {
         .catch((error) => {
           console.warn("[Ripple] Revision recovery failed:", error)
         })
+      try {
+        const agentRecovery = recoverAgentRunsOnStartup()
+        if (agentRecovery.recoverable) {
+          console.log(
+            `[Ripple] Agent run recovery: ${agentRecovery.recoverable} marked recoverable`,
+          )
+        }
+      } catch (error) {
+        console.warn("[Ripple] Agent run recovery failed:", error)
+      }
       void cleanupTerminalRevisionWorktrees()
         .then((result) => {
           if (result.cleaned || result.failed) {

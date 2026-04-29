@@ -37,7 +37,9 @@ export const AUTOMATION_TABS = [
 // ==============================================================================
 
 export const CLAUDE_MODELS = [
-  { id: "opus", name: "Opus 4.6" },
-  { id: "sonnet", name: "Sonnet 4.6" },
-  { id: "haiku", name: "Haiku 4.5" },
+  { id: "opus", name: "Opus latest" },
+  { id: "sonnet", name: "Sonnet latest" },
+  { id: "haiku", name: "Haiku latest" },
+  { id: "opusplan", name: "Opus Plan latest" },
+  { id: "sonnet[1m]", name: "Sonnet 1M context" },
 ] as const

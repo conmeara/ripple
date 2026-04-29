@@ -804,6 +804,8 @@ const previousMessageState = new Map<string, {
   lastPartText: string | undefined
   lastPartState: string | undefined
   lastPartInputJson: string | undefined
+  lastPartOutputJson: string | undefined
+  lastPartPreliminary: boolean | undefined
   metadataJson: string | undefined
 }>()
 
@@ -818,6 +820,8 @@ function hasMessageChanged(subChatId: string, msgId: string, msg: Message): bool
     lastPartText: lastPart?.text,
     lastPartState: lastPart?.state,
     lastPartInputJson: lastPart?.input ? JSON.stringify(lastPart.input) : undefined,
+    lastPartOutputJson: lastPart?.output ? JSON.stringify(lastPart.output) : undefined,
+    lastPartPreliminary: lastPart?.preliminary,
     // Include metadata in change detection to ensure token usage, costs, etc.
     // appear after stream completion (fixes race condition on fast streams)
     metadataJson: msg.metadata ? JSON.stringify(msg.metadata) : undefined,
@@ -833,6 +837,8 @@ function hasMessageChanged(subChatId: string, msgId: string, msg: Message): bool
     prev.lastPartText !== current.lastPartText ||
     prev.lastPartState !== current.lastPartState ||
     prev.lastPartInputJson !== current.lastPartInputJson ||
+    prev.lastPartOutputJson !== current.lastPartOutputJson ||
+    prev.lastPartPreliminary !== current.lastPartPreliminary ||
     prev.metadataJson !== current.metadataJson
 
   if (changed) {
@@ -951,7 +957,21 @@ export const syncMessagesWithStatusAtom = atom(
         // Deep clone message with new parts array and new part objects
         const clonedMsg = {
           ...msg,
-          parts: msg.parts?.map((part: any) => ({ ...part, input: part.input ? { ...part.input } : undefined })),
+          parts: msg.parts?.map((part: any) => ({
+            ...part,
+            input:
+              part.input && typeof part.input === "object"
+                ? { ...part.input }
+                : part.input,
+            output:
+              part.output && typeof part.output === "object"
+                ? { ...part.output }
+                : part.output,
+            result:
+              part.result && typeof part.result === "object"
+                ? { ...part.result }
+                : part.result,
+          })),
         }
         set(messageAtomFamily(messageKey), clonedMsg)
       }

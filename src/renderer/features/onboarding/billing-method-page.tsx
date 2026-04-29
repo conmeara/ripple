@@ -34,8 +34,8 @@ const billingOptions: BillingOption[] = [
     id: "claude-subscription",
     method: "claude-subscription",
     group: "claude-code",
-    title: "Claude Pro/Max",
-    subtitle: "Use your Claude subscription for unlimited access.",
+    title: "Claude local login",
+    subtitle: "Use the local Claude Agent SDK.",
     recommended: true,
     icon: <ClaudeCodeIcon className="w-5 h-5" />,
   },
@@ -59,8 +59,8 @@ const billingOptions: BillingOption[] = [
     id: "codex-subscription",
     method: "codex-subscription",
     group: "codex",
-    title: "Codex Subscription",
-    subtitle: "Use your Codex ChatGPT login.",
+    title: "Codex local login",
+    subtitle: "Use the Codex App Server with your ChatGPT login.",
     recommended: true,
     icon: <CodexIcon className="w-5 h-5" />,
   },
@@ -137,7 +137,7 @@ export function BillingMethodPage() {
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            Claude Code
+            Claude
           </button>
           <button
             type="button"

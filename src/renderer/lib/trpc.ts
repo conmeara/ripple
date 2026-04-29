@@ -7,11 +7,13 @@ import superjson from "superjson"
 /**
  * React hooks for tRPC
  */
-export const trpc = createTRPCReact<AppRouter>()
+export const trpc: ReturnType<typeof createTRPCReact<AppRouter>> =
+  createTRPCReact<AppRouter>()
 
 /**
  * Vanilla client for use outside React components (stores, utilities)
  */
-export const trpcClient = createTRPCProxyClient<AppRouter>({
+export const trpcClient: ReturnType<typeof createTRPCProxyClient<AppRouter>> =
+  createTRPCProxyClient<AppRouter>({
   links: [ipcLink({ transformer: superjson })],
 })

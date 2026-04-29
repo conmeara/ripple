@@ -30,7 +30,7 @@ import { useListKeyboardNav } from "./use-list-keyboard-nav"
 type McpProvider = "claude-code" | "codex"
 type ProviderSection = {
   provider: McpProvider
-  title: "CODEX" | "CLAUDE CODE"
+  title: "CODEX APP SERVER" | "CLAUDE AGENT SDK"
 }
 
 type ListedServer = {
@@ -361,8 +361,8 @@ function CreateMcpServerForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="codex">OpenAI Codex</SelectItem>
-              <SelectItem value="claude-code">Claude Code</SelectItem>
+              <SelectItem value="codex">Codex App Server</SelectItem>
+              <SelectItem value="claude-code">Claude Agent SDK</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -473,8 +473,8 @@ export function AgentsMcpTab({ compact = false }: { compact?: boolean } = {}) {
   const selectedProject = useAtomValue(selectedProjectAtom)
   const providerSections = useMemo<ProviderSection[]>(
     () => [
-      { provider: "claude-code", title: "CLAUDE CODE" },
-      { provider: "codex", title: "CODEX" },
+      { provider: "claude-code", title: "CLAUDE AGENT SDK" },
+      { provider: "codex", title: "CODEX APP SERVER" },
     ],
     [],
   )

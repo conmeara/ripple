@@ -67,6 +67,7 @@ import {
 import {
   CLAUDE_MODELS,
   CODEX_MODELS,
+  filterCodexModelsForAuthMode,
   type CodexThinkingLevel,
 } from "../lib/models"
 import type { DiffTextContext, SelectedTextContext } from "../lib/queue-utils"
@@ -486,13 +487,24 @@ export const ChatInputArea = memo(function ChatInputArea({
   const anthropicOnboardingCompleted = useAtomValue(anthropicOnboardingCompletedAtom)
   const apiKeyOnboardingCompleted = useAtomValue(apiKeyOnboardingCompletedAtom)
   const codexOnboardingCompleted = useAtomValue(codexOnboardingCompletedAtom)
+  const { data: claudeRuntimeStatus } =
+    trpc.agentRuntime.authStatus.useQuery(
+      { provider: "claude" },
+      { staleTime: 30 * 1000 },
+    )
+  const { data: codexRuntimeStatus } =
+    trpc.agentRuntime.authStatus.useQuery(
+      { provider: "codex" },
+      { staleTime: 30 * 1000 },
+    )
   const { data: claudeCodeIntegration } =
     trpc.claudeCode.getIntegration.useQuery()
   const codexUiModels = useMemo(
     () => {
-      let models = hasAppCodexApiKey
-        ? CODEX_MODELS.filter((model) => model.id !== "gpt-5.3-codex")
-        : CODEX_MODELS
+      let models = filterCodexModelsForAuthMode(
+        CODEX_MODELS,
+        hasAppCodexApiKey ? "api" : "chatgpt",
+      )
       return models.filter((model) => !hiddenModels.includes(model.id))
     },
     [hasAppCodexApiKey, hiddenModels],
@@ -559,10 +571,15 @@ export const ChatInputArea = memo(function ChatInputArea({
     normalizeCustomClaudeConfig(customClaudeConfig)
   const hasCustomClaudeConfig = Boolean(normalizedCustomClaudeConfig)
   const isClaudeConnected =
+    Boolean(claudeRuntimeStatus?.connected) ||
     Boolean(claudeCodeIntegration?.isConnected) ||
     anthropicOnboardingCompleted ||
     apiKeyOnboardingCompleted ||
     hasCustomClaudeConfig
+  const isCodexConnected =
+    Boolean(codexRuntimeStatus?.connected) ||
+    codexOnboardingCompleted ||
+    hasAppCodexApiKey
 
   // Determine current Ollama model (selected or recommended)
   const currentOllamaModel = selectedOllamaModel || availableModels.recommendedModel || availableModels.ollamaModels[0]
@@ -1401,7 +1418,7 @@ export const ChatInputArea = memo(function ChatInputArea({
                           setSelectedSubChatCodexThinking(thinking)
                           setLastSelectedCodexThinking(thinking)
                         },
-                        isConnected: codexOnboardingCompleted,
+                        isConnected: isCodexConnected,
                       }}
                     />
                   </div>

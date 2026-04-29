@@ -141,6 +141,314 @@ export const subChatsRelations = relations(subChats, ({ one }) => ({
   }),
 }))
 
+// ============ AGENT RUNTIME ============
+export const agentConnections = sqliteTable("agent_connections", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  name: text("name").notNull(),
+  provider: text("provider").$type<"codex" | "claude" | "fake">().notNull(),
+  runtime: text("runtime")
+    .$type<"codex_app_server" | "claude_agent_sdk" | "fake">()
+    .notNull(),
+  authMode: text("auth_mode"),
+  defaultModel: text("default_model"),
+  modelSelectionMode: text("model_selection_mode")
+    .$type<"manual" | "provider_default">()
+    .notNull()
+    .default("provider_default"),
+  capabilitiesJson: text("capabilities_json").notNull().default("{}"),
+  safeAccountStatusJson: text("safe_account_status_json").notNull().default("{}"),
+  isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+}, (table) => [
+  index("agent_connections_provider_idx").on(table.provider),
+  index("agent_connections_provider_default_idx").on(table.provider, table.isDefault),
+])
+
+export const workspaces = sqliteTable("workspaces", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  kind: text("kind")
+    .$type<"main" | "chat_worktree" | "generated_change">()
+    .notNull(),
+  targetType: text("target_type").$type<"project" | "chat" | "revision">().notNull(),
+  targetId: text("target_id").notNull(),
+  path: text("path").notNull(),
+  baseProjectCommit: text("base_project_commit"),
+  isolationState: text("isolation_state")
+    .$type<"main" | "isolated" | "missing" | "invalid">()
+    .notNull()
+    .default("isolated"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  archivedAt: integer("archived_at", { mode: "timestamp" }),
+}, (table) => [
+  index("workspaces_project_id_idx").on(table.projectId),
+  index("workspaces_path_idx").on(table.path),
+  uniqueIndex("workspaces_target_idx").on(table.targetType, table.targetId, table.kind),
+])
+
+export const agentThreads = sqliteTable("agent_threads", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  connectionId: text("connection_id")
+    .notNull()
+    .references(() => agentConnections.id, { onDelete: "restrict" }),
+  provider: text("provider").$type<"codex" | "claude" | "fake">().notNull(),
+  purpose: text("purpose").$type<"chat" | "generated_change">().notNull(),
+  chatId: text("chat_id").references(() => chats.id, { onDelete: "set null" }),
+  subChatId: text("sub_chat_id").references(() => subChats.id, {
+    onDelete: "set null",
+  }),
+  revisionId: text("revision_id"),
+  providerThreadId: text("provider_thread_id"),
+  providerSessionId: text("provider_session_id"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  archivedAt: integer("archived_at", { mode: "timestamp" }),
+}, (table) => [
+  index("agent_threads_project_id_idx").on(table.projectId),
+  index("agent_threads_workspace_id_idx").on(table.workspaceId),
+  index("agent_threads_connection_id_idx").on(table.connectionId),
+  index("agent_threads_chat_id_idx").on(table.chatId),
+  index("agent_threads_revision_id_idx").on(table.revisionId),
+])
+
+export const agentRuns = sqliteTable("agent_runs", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  agentThreadId: text("agent_thread_id")
+    .notNull()
+    .references(() => agentThreads.id, { onDelete: "cascade" }),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  connectionId: text("connection_id")
+    .notNull()
+    .references(() => agentConnections.id, { onDelete: "restrict" }),
+  requestId: text("request_id").notNull(),
+  provider: text("provider").$type<"codex" | "claude" | "fake">().notNull(),
+  model: text("model"),
+  mode: text("mode").$type<"plan" | "agent">().notNull().default("agent"),
+  runKind: text("run_kind").$type<"chat" | "generated_change">().notNull(),
+  revisionId: text("revision_id"),
+  threadId: text("comment_thread_id"),
+  chatId: text("chat_id").references(() => chats.id, { onDelete: "set null" }),
+  subChatId: text("sub_chat_id").references(() => subChats.id, {
+    onDelete: "set null",
+  }),
+  providerTurnId: text("provider_turn_id"),
+  providerSessionId: text("provider_session_id"),
+  providerItemId: text("provider_item_id"),
+  status: text("status")
+    .$type<
+      | "queued"
+      | "preparing"
+      | "running"
+      | "awaiting_approval"
+      | "cancelling"
+      | "cancelled"
+      | "completed"
+      | "failed"
+      | "recoverable"
+    >()
+    .notNull()
+    .default("queued"),
+  prompt: text("prompt").notNull(),
+  errorMessage: text("error_message"),
+  cancelRequestedAt: integer("cancel_requested_at", { mode: "timestamp" }),
+  heartbeatAt: integer("heartbeat_at", { mode: "timestamp" }),
+  startedAt: integer("started_at", { mode: "timestamp" }),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+}, (table) => [
+  index("agent_runs_agent_thread_id_idx").on(table.agentThreadId),
+  index("agent_runs_workspace_id_idx").on(table.workspaceId),
+  index("agent_runs_connection_id_idx").on(table.connectionId),
+  index("agent_runs_provider_status_idx").on(table.provider, table.status),
+  index("agent_runs_revision_id_idx").on(table.revisionId),
+  index("agent_runs_chat_id_idx").on(table.chatId),
+  uniqueIndex("agent_runs_thread_request_idx").on(table.agentThreadId, table.requestId),
+])
+
+export const agentRunEvents = sqliteTable("agent_run_events", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  agentRunId: text("agent_run_id")
+    .notNull()
+    .references(() => agentRuns.id, { onDelete: "cascade" }),
+  sequence: integer("sequence").notNull(),
+  type: text("type")
+    .$type<
+      | "status"
+      | "assistant_text_delta"
+      | "assistant_message"
+      | "reasoning"
+      | "tool_start"
+      | "tool_update"
+      | "tool_end"
+      | "file_change"
+      | "approval_request"
+      | "usage"
+      | "error"
+    >()
+    .notNull(),
+  providerType: text("provider_type"),
+  providerId: text("provider_id"),
+  payloadJson: text("payload_json").notNull().default("{}"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+}, (table) => [
+  index("agent_run_events_agent_run_id_idx").on(table.agentRunId),
+  uniqueIndex("agent_run_events_run_sequence_idx").on(table.agentRunId, table.sequence),
+])
+
+export const agentApprovals = sqliteTable("agent_approvals", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  agentRunId: text("agent_run_id")
+    .notNull()
+    .references(() => agentRuns.id, { onDelete: "cascade" }),
+  providerRequestId: text("provider_request_id"),
+  kind: text("kind")
+    .$type<"command" | "file_change" | "network" | "tool" | "question">()
+    .notNull(),
+  status: text("status")
+    .$type<"pending" | "approved" | "denied" | "cancelled">()
+    .notNull()
+    .default("pending"),
+  prompt: text("prompt").notNull(),
+  detailsJson: text("details_json").notNull().default("{}"),
+  responseJson: text("response_json"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  resolvedAt: integer("resolved_at", { mode: "timestamp" }),
+}, (table) => [
+  index("agent_approvals_agent_run_id_idx").on(table.agentRunId),
+  index("agent_approvals_status_idx").on(table.status),
+])
+
+export const transcriptMessages = sqliteTable("transcript_messages", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  agentThreadId: text("agent_thread_id")
+    .notNull()
+    .references(() => agentThreads.id, { onDelete: "cascade" }),
+  agentRunId: text("agent_run_id").references(() => agentRuns.id, {
+    onDelete: "set null",
+  }),
+  chatId: text("chat_id").references(() => chats.id, { onDelete: "set null" }),
+  subChatId: text("sub_chat_id").references(() => subChats.id, {
+    onDelete: "set null",
+  }),
+  role: text("role").$type<"user" | "assistant" | "system">().notNull(),
+  body: text("body").notNull(),
+  sourceEventId: text("source_event_id").references(() => agentRunEvents.id, {
+    onDelete: "set null",
+  }),
+  metadataJson: text("metadata_json").notNull().default("{}"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+}, (table) => [
+  index("transcript_messages_agent_thread_id_idx").on(table.agentThreadId),
+  index("transcript_messages_agent_run_id_idx").on(table.agentRunId),
+  index("transcript_messages_sub_chat_id_idx").on(table.subChatId),
+])
+
+export const agentConnectionsRelations = relations(agentConnections, ({ many }) => ({
+  threads: many(agentThreads),
+  runs: many(agentRuns),
+}))
+
+export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [workspaces.projectId],
+    references: [projects.id],
+  }),
+  threads: many(agentThreads),
+  runs: many(agentRuns),
+}))
+
+export const agentThreadsRelations = relations(agentThreads, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [agentThreads.projectId],
+    references: [projects.id],
+  }),
+  workspace: one(workspaces, {
+    fields: [agentThreads.workspaceId],
+    references: [workspaces.id],
+  }),
+  connection: one(agentConnections, {
+    fields: [agentThreads.connectionId],
+    references: [agentConnections.id],
+  }),
+  chat: one(chats, {
+    fields: [agentThreads.chatId],
+    references: [chats.id],
+  }),
+  subChat: one(subChats, {
+    fields: [agentThreads.subChatId],
+    references: [subChats.id],
+  }),
+  runs: many(agentRuns),
+  messages: many(transcriptMessages),
+}))
+
+export const agentRunsRelations = relations(agentRuns, ({ one, many }) => ({
+  thread: one(agentThreads, {
+    fields: [agentRuns.agentThreadId],
+    references: [agentThreads.id],
+  }),
+  workspace: one(workspaces, {
+    fields: [agentRuns.workspaceId],
+    references: [workspaces.id],
+  }),
+  connection: one(agentConnections, {
+    fields: [agentRuns.connectionId],
+    references: [agentConnections.id],
+  }),
+  events: many(agentRunEvents),
+  approvals: many(agentApprovals),
+  messages: many(transcriptMessages),
+}))
+
 // ============ RIPPLE COMMENT THREADS ============
 export const commentThreads = sqliteTable("comment_threads", {
   id: text("id")
@@ -206,6 +514,14 @@ export const revisions = sqliteTable("revisions", {
   subChatId: text("sub_chat_id").references(() => subChats.id, {
     onDelete: "set null",
   }),
+  agentProvider: text("agent_provider").$type<"codex" | "claude" | "fake">(),
+  agentModel: text("agent_model"),
+  agentThreadId: text("agent_thread_id").references(() => agentThreads.id, {
+    onDelete: "set null",
+  }),
+  agentRunId: text("agent_run_id").references(() => agentRuns.id, {
+    onDelete: "set null",
+  }),
   baseRevisionId: text("base_revision_id"),
   baseProjectCommit: text("base_project_commit"),
   baseProjectHash: text("base_project_hash"),
@@ -241,6 +557,8 @@ export const revisions = sqliteTable("revisions", {
   index("revisions_project_id_idx").on(table.projectId),
   index("revisions_chat_id_idx").on(table.chatId),
   index("revisions_status_idx").on(table.status),
+  index("revisions_agent_thread_id_idx").on(table.agentThreadId),
+  index("revisions_agent_run_id_idx").on(table.agentRunId),
 ])
 
 export const commentMessages = sqliteTable("comment_messages", {
@@ -317,6 +635,14 @@ export const revisionsRelations = relations(revisions, ({ one, many }) => ({
     fields: [revisions.subChatId],
     references: [subChats.id],
   }),
+  agentThread: one(agentThreads, {
+    fields: [revisions.agentThreadId],
+    references: [agentThreads.id],
+  }),
+  agentRun: one(agentRuns, {
+    fields: [revisions.agentRunId],
+    references: [agentRuns.id],
+  }),
   messages: many(commentMessages),
 }))
 
@@ -366,6 +692,20 @@ export type Chat = typeof chats.$inferSelect
 export type NewChat = typeof chats.$inferInsert
 export type SubChat = typeof subChats.$inferSelect
 export type NewSubChat = typeof subChats.$inferInsert
+export type AgentConnection = typeof agentConnections.$inferSelect
+export type NewAgentConnection = typeof agentConnections.$inferInsert
+export type Workspace = typeof workspaces.$inferSelect
+export type NewWorkspace = typeof workspaces.$inferInsert
+export type AgentThread = typeof agentThreads.$inferSelect
+export type NewAgentThread = typeof agentThreads.$inferInsert
+export type AgentRun = typeof agentRuns.$inferSelect
+export type NewAgentRun = typeof agentRuns.$inferInsert
+export type AgentRunEvent = typeof agentRunEvents.$inferSelect
+export type NewAgentRunEvent = typeof agentRunEvents.$inferInsert
+export type AgentApproval = typeof agentApprovals.$inferSelect
+export type NewAgentApproval = typeof agentApprovals.$inferInsert
+export type TranscriptMessage = typeof transcriptMessages.$inferSelect
+export type NewTranscriptMessage = typeof transcriptMessages.$inferInsert
 export type CommentThread = typeof commentThreads.$inferSelect
 export type NewCommentThread = typeof commentThreads.$inferInsert
 export type CommentMessage = typeof commentMessages.$inferSelect

@@ -37,11 +37,12 @@ export interface ToolMeta {
 
 export function getToolStatus(part: any, chatStatus?: string) {
   const basePending =
-    part.state !== "output-available" && part.state !== "output-error" && part.state !== "result"
+    part.preliminary === true ||
+    (part.state !== "output-available" && part.state !== "output-error" && part.state !== "result")
   const isError =
     part.state === "output-error" ||
-    (part.state === "output-available" && part.output?.success === false)
-  const isSuccess = part.state === "output-available" && !isError
+    (!part.preliminary && part.state === "output-available" && part.output?.success === false)
+  const isSuccess = part.state === "output-available" && !part.preliminary && !isError
   // Critical: if chat stopped streaming, pending tools should show as complete
   // Include "submitted" status - this is when request was sent but streaming hasn't started yet
   const isActivelyStreaming = chatStatus === "streaming" || chatStatus === "submitted"
@@ -343,7 +344,7 @@ export const AgentToolRegistry: Record<string, ToolMeta> = {
       // Normalize line continuations, shorten absolute paths, and truncate
       let normalized = command.replace(/\\\s*\n\s*/g, " ").trim()
       // Replace absolute paths that look like project paths with relative versions
-      normalized = normalized.replace(/\/(?:Users|home|root)\/[^\s"']+/g, (match) => {
+      normalized = normalized.replace(/\/(?:Users|home|root)\/[^\s"']+/g, (match: string) => {
         return getDisplayPath(match)
       })
       return normalized.length > 50 ? normalized.slice(0, 47) + "..." : normalized

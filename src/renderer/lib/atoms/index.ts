@@ -742,10 +742,10 @@ export const isFullscreenAtom = atom<boolean | null>(null)
 // ============================================
 
 // Billing method selected during onboarding
-// "claude-subscription" = use Claude Pro/Max via OAuth
+// "claude-subscription" = use Claude Agent SDK local login
 // "api-key" = use Anthropic API key directly
 // "custom-model" = use custom base URL and model (e.g. for proxies or alternative providers)
-// "codex-subscription" = use Codex via ChatGPT subscription login
+// "codex-subscription" = use Codex App Server via ChatGPT login
 // "codex-api-key" = use Codex via app-managed API key
 // null = not yet selected (show billing method selection screen)
 export type BillingMethod =
@@ -763,8 +763,7 @@ export const billingMethodAtom = atomWithStorage<BillingMethod>(
   { getOnInit: true },
 )
 
-// Whether user has completed Anthropic OAuth during onboarding
-// This is used to show the onboarding screen after 21st.dev sign-in
+// Whether user has completed or skipped Claude local-login onboarding
 // Reset on logout
 export const anthropicOnboardingCompletedAtom = atomWithStorage<boolean>(
   "onboarding:anthropic-completed",

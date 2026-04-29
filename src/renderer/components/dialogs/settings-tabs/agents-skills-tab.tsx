@@ -4,7 +4,7 @@ import { useAtomValue } from "jotai"
 import { selectedProjectAtom, settingsSkillsSidebarWidthAtom } from "../../../features/agents/atoms"
 import { trpc } from "../../../lib/trpc"
 import { cn } from "../../../lib/utils"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, RefreshCw, Trash2 } from "lucide-react"
 import { SkillIcon, MarkdownIcon, CodeIcon } from "../../ui/icons"
 import { Input } from "../../ui/input"
 import { Label } from "../../ui/label"
@@ -608,6 +608,14 @@ export function AgentsSkillsTab() {
               title="Create new skill or command"
             >
               <Plus className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => { void refetchAll() }}
+              className="h-7 w-7 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors cursor-pointer"
+              title="Refresh skills and commands"
+              aria-label="Refresh skills and commands"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
             </button>
           </div>
           {/* Item list */}

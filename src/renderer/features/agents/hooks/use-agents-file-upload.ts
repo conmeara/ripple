@@ -17,6 +17,7 @@ export interface UploadedFile {
   isLoading: boolean
   size?: number
   type?: string
+  mediaType?: string
 }
 
 /**

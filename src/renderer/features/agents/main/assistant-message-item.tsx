@@ -243,6 +243,23 @@ function toThinkingToolPart(part: any, messageId: string | undefined, index: num
   }
 }
 
+function getRuntimeDataLabel(part: any): string | null {
+  const data = part?.data
+  if (!data || typeof data !== "object") return null
+  if (typeof data.label === "string" && data.label.trim()) return data.label
+
+  switch (data.kind) {
+    case "approval":
+      return "Approved request"
+    case "file_change":
+      return "Updated proposal diff"
+    case "status":
+      return typeof data.payload?.label === "string" ? data.payload.label : null
+    default:
+      return null
+  }
+}
+
 
 // Group consecutive exploring tools into exploring-group
 function groupExploringTools(parts: any[], nestedToolIds: Set<string>): any[] {
@@ -374,6 +391,8 @@ interface MessageStateSnapshot {
   textLengths: number[]
   partStates: (string | undefined)[]
   lastPartInputJson: string | undefined
+  lastPartOutputJson: string | undefined
+  lastPartPreliminary: boolean | undefined
 }
 const messageStateCache = new Map<string, MessageStateSnapshot>()
 
@@ -436,6 +455,8 @@ function areMessagePropsEqual(
     partStates: nextParts.map((p: any) => p.state),
     // Track tool input changes - this is critical for tool streaming!
     lastPartInputJson: lastPart?.input ? JSON.stringify(lastPart.input) : undefined,
+    lastPartOutputJson: lastPart?.output ? JSON.stringify(lastPart.output) : undefined,
+    lastPartPreliminary: lastPart?.preliminary,
   }
 
   // Get cached state from previous render
@@ -465,6 +486,16 @@ function areMessagePropsEqual(
   if (cachedState.lastPartInputJson !== currentState.lastPartInputJson) {
     messageStateCache.set(cacheKey!, currentState)
     return false  // Tool input changed
+  }
+
+  if (cachedState.lastPartOutputJson !== currentState.lastPartOutputJson) {
+    messageStateCache.set(cacheKey!, currentState)
+    return false  // Tool output changed
+  }
+
+  if (cachedState.lastPartPreliminary !== currentState.lastPartPreliminary) {
+    messageStateCache.set(cacheKey!, currentState)
+    return false  // Preliminary output flipped to final
   }
 
   // Compare ALL part states (detects Edit plan file streaming!)
@@ -499,7 +530,7 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
   // Note: no useMemo — AI SDK mutates parts in-place, so the array reference
   // doesn't change and useMemo would return stale results.
   const messageParts = normalizeAcpParts(
-    (message?.parts || []).map((part) => normalizeCodexToolPart(part) as any),
+    (message?.parts || []).map((part: any) => normalizeCodexToolPart(part) as any),
   )
 
   const contentParts = useMemo(() =>
@@ -680,6 +711,16 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
 
     if (part.toolCallId && nestedToolIds.has(part.toolCallId)) return null
     if (part.type === "exploring-group") return null
+
+    if (part.type === "data-agent-runtime") {
+      const label = getRuntimeDataLabel(part)
+      if (!label) return null
+      return (
+        <div key={idx} className="text-xs text-muted-foreground py-0.5 px-2">
+          {label}
+        </div>
+      )
+    }
 
     if (part.type === "text") {
       if (!part.text?.trim()) return null

@@ -82,6 +82,7 @@ import { AgentSendButton } from "../agents/components/agent-send-button"
 import {
   CLAUDE_MODELS,
   CODEX_MODELS,
+  filterCodexModelsForAuthMode,
   type CodexThinkingLevel,
 } from "../agents/lib/models"
 import { commentFilterLabels, shouldShowRestoreAction } from "./comment-filters"
@@ -182,6 +183,16 @@ function useCommentRevisionModelSelector() {
   const codexOnboardingCompleted = useAtomValue(codexOnboardingCompletedAtom)
   const setSettingsOpen = useSetAtom(agentsSettingsDialogOpenAtom)
   const setSettingsTab = useSetAtom(agentsSettingsDialogActiveTabAtom)
+  const { data: claudeRuntimeStatus } =
+    trpc.agentRuntime.authStatus.useQuery(
+      { provider: "claude" },
+      { staleTime: 30 * 1000 },
+    )
+  const { data: codexRuntimeStatus } =
+    trpc.agentRuntime.authStatus.useQuery(
+      { provider: "codex" },
+      { staleTime: 30 * 1000 },
+    )
   const { data: claudeCodeIntegration } =
     trpc.claudeCode.getIntegration.useQuery()
 
@@ -201,9 +212,10 @@ function useCommentRevisionModelSelector() {
   }, [availableModels.models, lastSelectedModelId, selectedModel?.id])
 
   const codexUiModels = useMemo(() => {
-    const models = hasAppCodexApiKey
-      ? CODEX_MODELS.filter((model) => model.id !== "gpt-5.3-codex")
-      : CODEX_MODELS
+    const models = filterCodexModelsForAuthMode(
+      CODEX_MODELS,
+      hasAppCodexApiKey ? "api" : "chatgpt",
+    )
     return models.filter((model) => !hiddenModels.includes(model.id))
   }, [hasAppCodexApiKey, hiddenModels])
 
@@ -249,10 +261,15 @@ function useCommentRevisionModelSelector() {
     availableModels.recommendedModel ||
     availableModels.ollamaModels[0]
   const isClaudeConnected =
+    Boolean(claudeRuntimeStatus?.connected) ||
     Boolean(claudeCodeIntegration?.isConnected) ||
     anthropicOnboardingCompleted ||
     apiKeyOnboardingCompleted ||
     hasCustomClaudeConfig
+  const isCodexConnected =
+    Boolean(codexRuntimeStatus?.connected) ||
+    codexOnboardingCompleted ||
+    hasAppCodexApiKey
   const selectedModelLabel = useMemo(() => {
     if (selectedAgentId === "codex") return selectedCodexModel.name
     if (availableModels.isOffline && availableModels.hasOllama) {
@@ -342,7 +359,7 @@ function useCommentRevisionModelSelector() {
         },
         selectedThinking: selectedCodexThinking,
         onSelectThinking: setLastSelectedCodexThinking,
-        isConnected: codexOnboardingCompleted,
+        isConnected: isCodexConnected,
       }}
     />
   )
