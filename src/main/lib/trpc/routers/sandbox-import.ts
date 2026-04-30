@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../index";
 import { getDatabase } from "../../db";
-import { chats, subChats, projects } from "../../db/schema";
+import { projects } from "../../db/schema";
+import { createConversation, replaceConversationMessages } from "../../conversations/service";
 import { eq } from "drizzle-orm";
 import { app } from "electron";
 import { getAuthManager, getBaseUrl } from "../../../index";
@@ -41,6 +42,8 @@ const remoteChatSchema = z.object({
 	updatedAt: z.string(),
 	subChats: z.array(remoteSubChatSchema),
 });
+
+type RemoteChatData = z.infer<typeof remoteChatSchema>;
 
 /**
  * Write Claude session files to the isolated config directory for a subChat
@@ -105,6 +108,102 @@ async function writeClaudeSession(
 
 	console.log(`[writeClaudeSession] Wrote index file: ${indexPath}`);
 	console.log(`[writeClaudeSession] ========== END DEBUG ==========`);
+}
+
+function getRemoteMessages(remoteSubChat: z.infer<typeof remoteSubChatSchema>): any[] {
+	return Array.isArray(remoteSubChat.messages) ? remoteSubChat.messages : [];
+}
+
+function getMessageSessionId(messagesArray: any[]): string | undefined {
+	const lastAssistant = [...messagesArray].reverse().find(
+		(m: any) => m.role === "assistant"
+	);
+	const sessionId = lastAssistant?.metadata?.sessionId;
+	return typeof sessionId === "string" ? sessionId : undefined;
+}
+
+async function importRemoteSubChatsAsConversations(input: {
+	db: ReturnType<typeof getDatabase>;
+	remoteChatData: RemoteChatData;
+	projectId: string;
+	worktreePath: string;
+	branch: string | null;
+	baseBranch: string | null;
+	chatName?: string;
+	claudeSessions: ExportClaudeSession[];
+	sessionProjectPath: string;
+	logPrefix: string;
+}): Promise<string> {
+	let firstConversationId: string | null = null;
+
+	for (const remoteSubChat of input.remoteChatData.subChats) {
+		const messagesArray = getRemoteMessages(remoteSubChat);
+		const messagesCount = messagesArray.length;
+		console.log(`${input.logPrefix} Importing conversation: ${remoteSubChat.name} (mode: ${remoteSubChat.mode}, messages: ${messagesCount})`);
+		console.log(`${input.logPrefix} Messages preview:`, JSON.stringify(messagesArray).slice(0, 500));
+
+		const messageSessionId = getMessageSessionId(messagesArray);
+		const matchingSession = messageSessionId && input.claudeSessions.length > 0
+			? input.claudeSessions.find(s => s.sessionId === messageSessionId)
+			: undefined;
+
+		const conversation = createConversation(
+			{
+				projectId: input.projectId,
+				kind: "project",
+				title: remoteSubChat.name || input.chatName || input.remoteChatData.name || "Imported Chat",
+				mode: remoteSubChat.mode === "plan" ? "plan" : "agent",
+				sessionId: matchingSession ? messageSessionId : null,
+				worktreePath: input.worktreePath,
+				branch: input.branch,
+				baseBranch: input.baseBranch,
+			},
+			input.db,
+		);
+
+		replaceConversationMessages({
+			db: input.db,
+			conversationId: conversation.id,
+			messages: messagesArray,
+		});
+
+		if (!firstConversationId) firstConversationId = conversation.id;
+
+		if (matchingSession) {
+			try {
+				await writeClaudeSession(
+					conversation.id,
+					input.sessionProjectPath,
+					matchingSession,
+				);
+				console.log(`${input.logPrefix} Wrote Claude session for conversation ${conversation.id} with sessionId ${messageSessionId}`);
+			} catch (sessionErr) {
+				console.error(`${input.logPrefix} Failed to write Claude session:`, sessionErr);
+			}
+		} else if (messageSessionId) {
+			console.log(`${input.logPrefix} No matching Claude session found for sessionId: ${messageSessionId.slice(0, 8)}...`);
+		} else {
+			console.log(`${input.logPrefix} No sessionId in messages or no sessions exported`);
+		}
+	}
+
+	if (!firstConversationId) {
+		const conversation = createConversation(
+			{
+				projectId: input.projectId,
+				kind: "project",
+				title: input.chatName || input.remoteChatData.name || "Imported Chat",
+				mode: "agent",
+				worktreePath: input.worktreePath,
+				branch: input.branch,
+				baseBranch: input.baseBranch,
+			},
+			input.db,
+		);
+		firstConversationId = conversation.id;
+	}
+
+	return firstConversationId;
 }
 
 export const sandboxImportRouter = router({
@@ -210,88 +309,27 @@ export const sandboxImportRouter = router({
 				// Continue anyway - chat history is still valuable
 			}
 
-			// Create local chat record
-			const chat = db
-				.insert(chats)
-				.values({
-					name: input.chatName || remoteChatData.name || "Imported Chat",
-					projectId: input.projectId,
+				// Import remote sub-chats as local conversations with messages and Claude sessions
+				const claudeSessions = importResult.claudeSessions || [];
+				console.log(`[sandbox-import] Available Claude sessions: ${claudeSessions.length}`);
+				const conversationId = await importRemoteSubChatsAsConversations({
+					db,
+					remoteChatData,
+						projectId: input.projectId,
+						worktreePath: worktreeResult.worktreePath,
+						branch: worktreeResult.branch ?? null,
+						baseBranch: worktreeResult.baseBranch ?? null,
+						chatName: input.chatName,
+					claudeSessions,
+					sessionProjectPath: worktreeResult.worktreePath!,
+					logPrefix: "[sandbox-import]",
+				});
+
+				return {
+					success: true,
+					chatId: conversationId,
 					worktreePath: worktreeResult.worktreePath,
-					branch: worktreeResult.branch,
-					baseBranch: worktreeResult.baseBranch,
-				})
-				.returning()
-				.get();
-
-			// Import sub-chats with messages and Claude sessions
-			const claudeSessions = importResult.claudeSessions || [];
-			console.log(`[sandbox-import] Available Claude sessions: ${claudeSessions.length}`);
-
-			for (const remoteSubChat of remoteChatData.subChats) {
-				const messagesArray = remoteSubChat.messages || [];
-
-				// Find sessionId from last assistant message BEFORE creating subChat
-				const lastAssistant = [...messagesArray].reverse().find(
-					(m: any) => m.role === "assistant"
-				);
-				const messageSessionId = lastAssistant?.metadata?.sessionId;
-
-				// Check if we have a matching Claude session
-				const matchingSession = messageSessionId && claudeSessions.length > 0
-					? claudeSessions.find(s => s.sessionId === messageSessionId)
-					: undefined;
-
-				// Create subChat with sessionId if we have a matching session
-				const createdSubChat = db.insert(subChats)
-					.values({
-						chatId: chat.id,
-						name: remoteSubChat.name,
-						mode: remoteSubChat.mode === "plan" ? "plan" : "agent",
-						messages: JSON.stringify(messagesArray),
-						// Set sessionId if we have matching Claude session (enables resume)
-						...(matchingSession && { sessionId: messageSessionId }),
-					})
-					.returning()
-					.get();
-
-				// Write Claude session files if we have a matching one
-				if (matchingSession) {
-					try {
-						await writeClaudeSession(
-							createdSubChat.id,
-							worktreeResult.worktreePath!,
-							matchingSession,
-						);
-						console.log(`[sandbox-import] Wrote Claude session for subChat ${createdSubChat.id} with sessionId ${messageSessionId}`);
-					} catch (sessionErr) {
-						console.error(`[sandbox-import] Failed to write Claude session:`, sessionErr);
-					}
-				}
-			}
-
-			// If no sub-chats were imported, create an empty one
-			const importedSubChats = db
-				.select()
-				.from(subChats)
-				.where(eq(subChats.chatId, chat.id))
-				.all();
-
-			if (importedSubChats.length === 0) {
-				db.insert(subChats)
-					.values({
-						chatId: chat.id,
-						name: "Main",
-						mode: "agent",
-						messages: "[]",
-					})
-					.run();
-			}
-
-			return {
-				success: true,
-				chatId: chat.id,
-				worktreePath: worktreeResult.worktreePath,
-				gitImportSuccess: importResult.success,
+					gitImportSuccess: importResult.success,
 				gitImportError: importResult.error,
 			};
 		}),
@@ -572,110 +610,39 @@ export const sandboxImportRouter = router({
 
 			console.log(`[OPEN-LOCALLY] Project created/updated:`, { id: project.id, name: project.name });
 
-			// Create chat record (using the project path directly, no separate worktree needed
-			// since this is a fresh clone)
-			console.log(`[OPEN-LOCALLY] Creating chat record with branch: ${actualBranch}`);
-			const chat = db
-				.insert(chats)
-				.values({
-					name: input.chatName || remoteChatData.name || "Imported Chat",
+				// Create local conversations (using the project path directly, no separate
+				// worktree needed since this is a fresh clone).
+				console.log(`[OPEN-LOCALLY] Creating conversation records with branch: ${actualBranch}`);
+				console.log(`[OPEN-LOCALLY] Importing ${remoteChatData.subChats.length} conversation(s)...`);
+				const claudeSessions = importResult.claudeSessions || [];
+				console.log(`[OPEN-LOCALLY] Available Claude sessions: ${claudeSessions.length}`);
+				const conversationId = await importRemoteSubChatsAsConversations({
+					db,
+					remoteChatData,
 					projectId: project.id,
 					worktreePath: input.targetPath,
 					branch: actualBranch,
 					baseBranch: "main",
-				})
-				.returning()
-				.get();
-
-			console.log(`[OPEN-LOCALLY] Chat created:`, { id: chat.id, name: chat.name });
-
-			// Import sub-chats with messages and Claude sessions
-			console.log(`[OPEN-LOCALLY] Importing ${remoteChatData.subChats.length} sub-chats...`);
-			const claudeSessions = importResult.claudeSessions || [];
-			console.log(`[OPEN-LOCALLY] Available Claude sessions: ${claudeSessions.length}`);
-
-			for (const remoteSubChat of remoteChatData.subChats) {
-				const messagesArray = remoteSubChat.messages || [];
-				const messagesCount = Array.isArray(messagesArray) ? messagesArray.length : 0;
-				console.log(`[OPEN-LOCALLY] Importing sub-chat: ${remoteSubChat.name} (mode: ${remoteSubChat.mode}, messages: ${messagesCount})`);
-				console.log(`[OPEN-LOCALLY] Messages preview:`, JSON.stringify(messagesArray).slice(0, 500));
-
-				// Find sessionId from last assistant message BEFORE creating subChat
-				const lastAssistant = [...messagesArray].reverse().find(
-					(m: any) => m.role === "assistant"
-				);
-				const messageSessionId = lastAssistant?.metadata?.sessionId;
-
-				// Check if we have a matching Claude session
-				const matchingSession = messageSessionId && claudeSessions.length > 0
-					? claudeSessions.find(s => s.sessionId === messageSessionId)
-					: undefined;
-
-				// Create subChat with sessionId if we have a matching session
-				const createdSubChat = db.insert(subChats)
-					.values({
-						chatId: chat.id,
-						name: remoteSubChat.name,
-						mode: remoteSubChat.mode === "plan" ? "plan" : "agent",
-						messages: JSON.stringify(messagesArray),
-						// Set sessionId if we have matching Claude session (enables resume)
-						...(matchingSession && { sessionId: messageSessionId }),
-					})
-					.returning()
-					.get();
-
-				// Write Claude session files if we have a matching one
-				if (matchingSession) {
-					try {
-						await writeClaudeSession(
-							createdSubChat.id,
-							input.targetPath,
-							matchingSession,
-						);
-						console.log(`[OPEN-LOCALLY] Wrote Claude session for subChat ${createdSubChat.id} with sessionId ${messageSessionId}`);
-					} catch (sessionErr) {
-						console.error(`[OPEN-LOCALLY] Failed to write Claude session:`, sessionErr);
-					}
-				} else if (messageSessionId) {
-					console.log(`[OPEN-LOCALLY] No matching Claude session found for sessionId: ${messageSessionId.slice(0, 8)}...`);
-				} else {
-					console.log(`[OPEN-LOCALLY] No sessionId in messages or no sessions exported`);
-				}
-			}
-
-			// If no sub-chats were imported, create an empty one
-			const importedSubChats = db
-				.select()
-				.from(subChats)
-				.where(eq(subChats.chatId, chat.id))
-				.all();
-
-			if (importedSubChats.length === 0) {
-				console.log(`[OPEN-LOCALLY] No sub-chats imported, creating default`);
-				db.insert(subChats)
-					.values({
-						chatId: chat.id,
-						name: "Main",
-						mode: "agent",
-						messages: "[]",
-					})
-					.run();
-			}
+					chatName: input.chatName,
+					claudeSessions,
+					sessionProjectPath: input.targetPath,
+					logPrefix: "[OPEN-LOCALLY]",
+				});
 
 			console.log(`[OPEN-LOCALLY] Clone completed successfully!`);
-			console.log(`[OPEN-LOCALLY] Final result:`, {
-				projectId: project.id,
-				chatId: chat.id,
-				gitImportSuccess: importResult.success,
-				gitImportError: importResult.error,
-			});
+				console.log(`[OPEN-LOCALLY] Final result:`, {
+					projectId: project.id,
+					chatId: conversationId,
+					gitImportSuccess: importResult.success,
+					gitImportError: importResult.error,
+				});
 
 			return {
-				success: true,
-				projectId: project.id,
-				chatId: chat.id,
-				gitImportSuccess: importResult.success,
-				gitImportError: importResult.error,
-			};
+					success: true,
+					projectId: project.id,
+					chatId: conversationId,
+					gitImportSuccess: importResult.success,
+					gitImportError: importResult.error,
+				};
 		}),
 });

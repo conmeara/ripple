@@ -1,8 +1,9 @@
-import { existsSync } from "node:fs"
+import { existsSync, realpathSync } from "node:fs"
 import { resolve } from "node:path"
 import { eq } from "drizzle-orm"
 import {
   chats,
+  conversations,
   getDatabase,
   projects,
   revisions,
@@ -10,8 +11,10 @@ import {
   type Project,
   type Workspace,
 } from "../db"
+import { assertRegisteredWorktree } from "../git/security/path-validation"
 import { isPathInsideDirectory } from "../ripple-projects/paths"
 import { resolveRevisionProjectPath } from "../revisions/revision-acceptance"
+import { resolveChatWorkspaceKind } from "./workspace-kind"
 import type { AgentWorkspaceTarget, WorkspaceKind } from "./types"
 
 type Db = ReturnType<typeof getDatabase>
@@ -23,7 +26,7 @@ export interface ResolvedWorkspaceContext {
   projectPath: string
   writableRoot: string
   kind: WorkspaceKind
-  targetType: "project" | "chat" | "revision"
+  targetType: "project" | "conversation" | "chat" | "revision"
   targetId: string
 }
 
@@ -42,12 +45,59 @@ function assertExistingDirectory(path: string, label: string): void {
   }
 }
 
+function resolveExistingDirectory(path: string, label: string): string {
+  assertExistingDirectory(path, label)
+  return realpathSync(path)
+}
+
+function assertSafeChatWorkspace(input: {
+  db: Db
+  projectId: string
+  projectPath: string
+  cwd: string
+  kind: Extract<WorkspaceKind, "main" | "chat_worktree">
+  targetType: "conversation" | "chat"
+  targetId: string
+}): void {
+  const projectRealPath = resolveExistingDirectory(input.projectPath, "The project folder")
+  const cwdRealPath = resolveExistingDirectory(input.cwd, "The chat workspace")
+
+  if (input.kind === "main") {
+    if (cwdRealPath !== projectRealPath) {
+      throw new Error("Ripple could not validate this Main workspace.")
+    }
+    return
+  }
+
+  if (cwdRealPath === projectRealPath || isPathInsideDirectory(projectRealPath, cwdRealPath)) {
+    throw new Error(
+      "Ripple could not safely isolate this chat workspace. Try creating it again.",
+    )
+  }
+
+  const registeredWorkspace = input.db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.path, input.cwd))
+    .all()
+    .find((workspace) =>
+      workspace.projectId === input.projectId &&
+      workspace.targetType === input.targetType &&
+      workspace.targetId === input.targetId &&
+      workspace.kind === "chat_worktree" &&
+      !workspace.archivedAt
+    )
+  if (registeredWorkspace) return
+
+  assertRegisteredWorktree(input.cwd)
+}
+
 function upsertWorkspace(
   db: Db,
   input: {
     projectId: string
     kind: WorkspaceKind
-    targetType: "project" | "chat" | "revision"
+    targetType: "project" | "conversation" | "chat" | "revision"
     targetId: string
     path: string
     baseProjectCommit?: string | null
@@ -126,21 +176,44 @@ export function resolveAgentWorkspaceContext(
     }
   }
 
-  if (target.type === "chat") {
-    const chat = db.select().from(chats).where(eq(chats.id, target.chatId)).get()
-    if (!chat) throw new Error("Chat not found.")
-    const project = requireProject(db, chat.projectId)
+  if (target.type === "chat" || target.type === "conversation") {
+    const targetId =
+      target.type === "conversation" ? target.conversationId : target.chatId
+    const chat = target.type === "chat"
+      ? db.select().from(chats).where(eq(chats.id, target.chatId)).get()
+      : null
+    const conversation = chat
+      ? null
+      : db
+          .select()
+          .from(conversations)
+          .where(eq(conversations.id, targetId))
+          .get()
+    if (!chat && !conversation) throw new Error("Chat not found.")
+    const project = requireProject(db, (chat ?? conversation)!.projectId)
     const projectPath = resolve(resolveRevisionProjectPath(project))
-    const cwd = resolve(chat.worktreePath || projectPath)
-    assertExistingDirectory(cwd, "The chat workspace")
-    const kind: WorkspaceKind = chat.worktreePath ? "chat_worktree" : "main"
+    const { cwd, kind } = resolveChatWorkspaceKind({
+      projectPath,
+      worktreePath: (chat ?? conversation)!.worktreePath,
+      branch: (chat ?? conversation)!.branch,
+    })
+    const targetType = conversation ? "conversation" : "chat"
+    assertSafeChatWorkspace({
+      db,
+      projectId: project.id,
+      projectPath,
+      cwd,
+      kind,
+      targetType,
+      targetId: (chat ?? conversation)!.id,
+    })
     const workspace = upsertWorkspace(db, {
       projectId: project.id,
       kind,
-      targetType: "chat",
-      targetId: chat.id,
+      targetType,
+      targetId: (chat ?? conversation)!.id,
       path: cwd,
-      baseProjectCommit: chat.baseBranch ?? null,
+      baseProjectCommit: (chat ?? conversation)!.baseBranch ?? null,
       isolationState: kind === "main" ? "main" : "isolated",
     })
     return {
@@ -150,8 +223,8 @@ export function resolveAgentWorkspaceContext(
       projectPath,
       writableRoot: cwd,
       kind,
-      targetType: "chat",
-      targetId: chat.id,
+      targetType,
+      targetId: (chat ?? conversation)!.id,
     }
   }
 
@@ -197,4 +270,3 @@ export function resolveAgentWorkspaceContext(
     targetId: revision.id,
   }
 }
-

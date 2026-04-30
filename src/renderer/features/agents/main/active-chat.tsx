@@ -98,6 +98,7 @@ import { terminalBottomHeightAtom, terminalDisplayModeAtom, terminalSidebarOpenA
 import { TerminalBottomPanelContent, TerminalSidebar } from "../../terminal/terminal-sidebar"
 import { getTerminalScopeKey } from "../../terminal/utils"
 import { HyperFramesPreviewPlayer } from "../../hyperframes/HyperFramesPreviewPlayer"
+import { clearRipplePreviewCoordinator } from "../../hyperframes/preview-coordinator"
 import { RippleEmbeddedChatToolbar } from "../../ripple-shell/RippleEmbeddedChatToolbar"
 import { RippleEmbeddedUtilityPane } from "../../ripple-shell/RippleEmbeddedUtilityPane"
 import {
@@ -167,7 +168,11 @@ import { OpenLocallyDialog } from "../components/open-locally-dialog"
 import { PreviewSetupHoverCard } from "../components/preview-setup-hover-card"
 import type { TextSelectionSource } from "../context/text-selection-context"
 import { TextSelectionProvider } from "../context/text-selection-context"
-import { useAgentsFileUpload, type UploadedImage } from "../hooks/use-agents-file-upload"
+import {
+  useAgentsFileUpload,
+  type UploadedFile,
+  type UploadedImage,
+} from "../hooks/use-agents-file-upload"
 import { useAutoImport } from "../hooks/use-auto-import"
 import { useChangedFilesTracking } from "../hooks/use-changed-files-tracking"
 import { useDesktopNotifications } from "../hooks/use-desktop-notifications"
@@ -3486,6 +3491,18 @@ const ChatViewInner = memo(function ChatViewInner({
           mediaType: p.data.mediaType,
           isLoading: false,
         }))
+      const userMsgFiles: UploadedFile[] = (userMsg.parts || [])
+        .filter((p: any) => p.type === "data-file" && p.data)
+        .map((p: any) => ({
+          id: crypto.randomUUID(),
+          filename: p.data.filename || "file",
+          url: p.data.url || "",
+          base64Data: p.data.base64Data,
+          isLoading: false,
+          size: p.data.size,
+          type: p.data.mediaType,
+          mediaType: p.data.mediaType,
+        }))
 
       setIsRollingBack(true)
 
@@ -3514,6 +3531,9 @@ const ChatViewInner = memo(function ChatViewInner({
         if (userMsgImages.length > 0) {
           setImagesFromDraft(userMsgImages)
         }
+        if (userMsgFiles.length > 0) {
+          setFilesFromDraft(userMsgFiles)
+        }
         if (restoredTextContexts.length > 0) {
           setTextContextsFromDraft(restoredTextContexts)
         }
@@ -3540,6 +3560,7 @@ const ChatViewInner = memo(function ChatViewInner({
       recomputeChangedFiles,
       refreshDiff,
       setImagesFromDraft,
+      setFilesFromDraft,
       setTextContextsFromDraft,
       setDiffTextContextsFromDraft,
       setPastedTextsFromDraft,
@@ -3964,11 +3985,13 @@ const ChatViewInner = memo(function ChatViewInner({
     const currentPastedTexts = pastedTextsRef.current
     const hasImages =
       currentImages.filter((img) => !img.isLoading && img.url).length > 0
+    const hasFiles =
+      currentFiles.filter((file) => !file.isLoading && file.url).length > 0
     const hasTextContexts = currentTextContexts.length > 0
     const hasDiffTextContexts = currentDiffTextContexts.length > 0
     const hasPastedTexts = currentPastedTexts.length > 0
 
-    if (!hasText && !hasImages && !hasTextContexts && !hasDiffTextContexts && !hasPastedTexts) return
+    if (!hasText && !hasImages && !hasFiles && !hasTextContexts && !hasDiffTextContexts && !hasPastedTexts) return
 
     // If streaming, add to queue instead of sending directly
     if (isStreamingRef.current) {
@@ -4057,11 +4080,11 @@ const ChatViewInner = memo(function ChatViewInner({
     // Trigger auto-rename on first message in a new sub-chat
     if (messagesLengthRef.current === 0 && !hasTriggeredRenameRef.current) {
       hasTriggeredRenameRef.current = true
-      onAutoRename(finalText || "Image message", subChatId)
+      onAutoRename(finalText || "Attachment message", subChatId)
     }
 
     // Build message parts: images first, then files, then text
-    // Include base64Data for API transmission
+    // Include base64Data for agent runtime transmission
     const parts: any[] = [
       ...currentImages
         .filter((img) => !img.isLoading && img.url)
@@ -4071,7 +4094,7 @@ const ChatViewInner = memo(function ChatViewInner({
             url: img.url,
             mediaType: img.mediaType,
             filename: img.filename,
-            base64Data: img.base64Data, // Include base64 data for Claude API
+            base64Data: img.base64Data,
           },
         })),
       ...currentFiles
@@ -4082,6 +4105,7 @@ const ChatViewInner = memo(function ChatViewInner({
             url: f.url,
             mediaType: (f as any).mediaType,
             filename: f.filename,
+            base64Data: f.base64Data,
             size: f.size,
           },
         })),
@@ -4235,6 +4259,7 @@ const ChatViewInner = memo(function ChatViewInner({
             url: f.url,
             mediaType: f.mediaType,
             filename: f.filename,
+            base64Data: f.base64Data,
             size: f.size,
           },
         })),
@@ -4316,8 +4341,10 @@ const ChatViewInner = memo(function ChatViewInner({
     const currentFiles = filesRef.current
     const hasImages =
       currentImages.filter((img) => !img.isLoading && img.url).length > 0
+    const hasFiles =
+      currentFiles.filter((file) => !file.isLoading && file.url).length > 0
 
-    if (!hasText && !hasImages) return
+    if (!hasText && !hasImages && !hasFiles) return
 
     // Stop current stream if streaming and wait for status to become ready.
     // The server-side save block sets sessionId=null on abort, so the next
@@ -4396,6 +4423,7 @@ const ChatViewInner = memo(function ChatViewInner({
             url: f.url,
             mediaType: f.mediaType,
             filename: f.filename,
+            base64Data: f.base64Data,
             size: f.size,
           },
         })),
@@ -4989,7 +5017,12 @@ export function ChatView({
   rightPaneMode,
   onRightPaneModeChange,
   onViewPrimaryPreview,
+  onPreviewChatWorktree,
+  activePreviewChatId,
   onCreateNewChat,
+  historySubChats,
+  isHistoryLoading = false,
+  onOpenChatFromHistory,
 }: {
   chatId: string
   isSidebarOpen: boolean
@@ -5006,7 +5039,16 @@ export function ChatView({
   rightPaneMode?: RippleRightPaneMode
   onRightPaneModeChange?: (mode: RippleRightPaneMode) => void
   onViewPrimaryPreview?: () => void
+  onPreviewChatWorktree?: (chatId: string) => void
+  activePreviewChatId?: string | null
   onCreateNewChat?: () => void | Promise<void>
+  historySubChats?: Array<SubChatMeta & { chatId?: string | null }>
+  isHistoryLoading?: boolean
+  onOpenChatFromHistory?: (
+    chatId: string,
+    subChatId: string,
+    subChats: Array<SubChatMeta & { chatId?: string | null }>,
+  ) => void | Promise<void>
 }) {
   const [selectedTeamId] = useAtom(selectedTeamIdAtom)
 
@@ -5821,16 +5863,37 @@ export function ChatView({
 
   const acceptWorktreeMutation = trpc.chats.acceptWorktree.useMutation({
     onSuccess: () => {
-      toast.success("Worktree accepted", { position: "top-center" })
+      toast.success("Draft accepted", { position: "top-center" })
+      clearRipplePreviewCoordinator()
       trpcUtils.chats.list.invalidate()
       trpcUtils.chats.listArchived.invalidate()
       utils.agents.getAgentChat.invalidate({ chatId })
       trpcUtils.hyperframes.getPlayerSource.invalidate()
       trpcUtils.hyperframes.getTimelineModel.invalidate()
       trpcUtils.hyperframes.getProjectBrowserModel.invalidate()
+      onViewPrimaryPreview?.()
     },
     onError: (error) => {
-      toast.error(error.message || "Worktree was not accepted", {
+      toast.error(error.message || "Draft was not accepted", {
+        position: "top-center",
+      })
+    },
+  })
+
+  const discardWorktreeMutation = trpc.chats.archive.useMutation({
+    onSuccess: () => {
+      toast.success("Draft discarded", { position: "top-center" })
+      clearRipplePreviewCoordinator()
+      trpcUtils.chats.list.invalidate()
+      trpcUtils.chats.listArchived.invalidate()
+      utils.agents.getAgentChat.invalidate({ chatId })
+      trpcUtils.hyperframes.getPlayerSource.invalidate()
+      trpcUtils.hyperframes.getTimelineModel.invalidate()
+      onViewPrimaryPreview?.()
+      void onCreateNewChat?.()
+    },
+    onError: (error) => {
+      toast.error(error.message || "Draft was not discarded", {
         position: "top-center",
       })
     },
@@ -5840,14 +5903,42 @@ export function ChatView({
     acceptWorktreeMutation.mutate({ id: chatId })
   }, [acceptWorktreeMutation, chatId])
 
+  const handleDiscardWorktree = useCallback(() => {
+    discardWorktreeMutation.mutate({ id: chatId, deleteWorktree: true })
+  }, [chatId, discardWorktreeMutation])
+
   const handleViewMain = useCallback(() => {
     onViewPrimaryPreview?.()
     onRightPaneModeChange?.("chat")
   }, [onRightPaneModeChange, onViewPrimaryPreview])
 
   const handleViewWorktree = useCallback(() => {
-    onRightPaneModeChange?.("changes")
-  }, [onRightPaneModeChange])
+    onPreviewChatWorktree?.(chatId)
+    onRightPaneModeChange?.("chat")
+  }, [chatId, onPreviewChatWorktree, onRightPaneModeChange])
+
+  const autoPreviewedWorktreeChatIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!suppressSecondarySidebars) return
+    if (!isWorktreeChat) {
+      autoPreviewedWorktreeChatIdRef.current = null
+      if (activePreviewChatId) {
+        onViewPrimaryPreview?.()
+      }
+      return
+    }
+
+    if (autoPreviewedWorktreeChatIdRef.current === chatId) return
+    autoPreviewedWorktreeChatIdRef.current = chatId
+    onPreviewChatWorktree?.(chatId)
+  }, [
+    activePreviewChatId,
+    chatId,
+    isWorktreeChat,
+    onPreviewChatWorktree,
+    onViewPrimaryPreview,
+    suppressSecondarySidebars,
+  ])
 
   // Terminal scope key: shared by project path (local mode) or isolated per workspace (worktree)
   const terminalScopeKey = useMemo(() => {
@@ -6017,7 +6108,7 @@ export function ChatView({
 
       // Desktop without chat (viewing main repo directly)
       if (worktreePath && !chatId) {
-        // TODO: Need to add endpoint that accepts worktreePath directly
+        // Direct project-path diff stats are unavailable until a path-keyed route exists.
         return
       }
 
@@ -7683,6 +7774,9 @@ Make sure to preserve all functionality from both branches when resolving confli
                       onOpenLocally={handleOpenLocally}
                       showOpenLocally={showOpenLocally}
                       isWorktree={isWorktreeChat}
+                      historySubChats={historySubChats}
+                      isHistoryLoading={isHistoryLoading}
+                      onOpenChatFromHistory={onOpenChatFromHistory}
                     />
                   ) : (
                     <>
@@ -7851,8 +7945,13 @@ Make sure to preserve all functionality from both branches when resolving confli
               isWorktree={isWorktreeChat}
               onAcceptWorktree={isWorktreeChat ? handleAcceptWorktree : undefined}
               isAcceptingWorktree={acceptWorktreeMutation.isPending}
+              onDiscardWorktree={isWorktreeChat ? handleDiscardWorktree : undefined}
+              isDiscardingWorktree={discardWorktreeMutation.isPending}
               onViewMain={isWorktreeChat ? handleViewMain : undefined}
               onViewWorktree={isWorktreeChat ? handleViewWorktree : undefined}
+              historySubChats={historySubChats}
+              isHistoryLoading={isHistoryLoading}
+              onOpenChatFromHistory={onOpenChatFromHistory}
             />
           )}
 

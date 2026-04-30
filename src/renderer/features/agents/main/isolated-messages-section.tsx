@@ -33,6 +33,7 @@ interface IsolatedMessagesSectionProps {
     messageId: string
     textContent: string
     imageParts: any[]
+    fileParts?: any[]
     skipTextMentionBlocks?: boolean
   }>
   ToolCallComponent: React.ComponentType<{

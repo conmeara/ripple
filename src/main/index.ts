@@ -39,6 +39,7 @@ import {
   cleanupTerminalRevisionWorktrees,
   recoverRevisionQueueOnStartup,
 } from "./lib/revisions/revision-queue"
+import { scheduleGeneratedChangeQueue } from "./lib/agent-runtime/generated-change-scheduler"
 import { recoverAgentRunsOnStartup } from "./lib/agent-runtime/service"
 import { ensureRippleRuntimeOnLaunch } from "./lib/ripple-projects/service"
 import { getAllMcpConfigHandler, hasActiveClaudeSessions, abortAllClaudeSessions } from "./lib/trpc/routers/claude"
@@ -962,6 +963,7 @@ if (gotTheLock) {
               `[Ripple] Revision recovery: ${result.requeued} requeued, ${result.failed} failed`,
             )
           }
+          scheduleGeneratedChangeQueue()
         })
         .catch((error) => {
           console.warn("[Ripple] Revision recovery failed:", error)

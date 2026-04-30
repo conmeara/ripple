@@ -21,6 +21,7 @@ import { pluginsRouter } from "./plugins"
 import { hyperframesRouter } from "./hyperframes"
 import { revisionsRouter } from "./revisions"
 import { agentRuntimeRouter } from "./agent-runtime"
+import { conversationsRouter } from "./conversations"
 import { createGitRouter } from "../../git"
 import { BrowserWindow } from "electron"
 
@@ -51,6 +52,7 @@ export function createAppRouter(getWindow: () => BrowserWindow | null) {
     plugins: pluginsRouter,
     hyperframes: hyperframesRouter,
     revisions: revisionsRouter,
+    conversations: conversationsRouter,
     agentRuntime: agentRuntimeRouter,
     // Git operations - named "changes" to match Superset API
     changes: createGitRouter(),

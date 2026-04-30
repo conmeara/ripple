@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
 import {
   PREVIEW_SETTINGS_CONTROLS,
   ZOOM_OPTIONS,
@@ -42,6 +43,32 @@ describe("HyperFrames preview player controls", () => {
       "125",
       "150",
     ])
+  })
+
+  test("delays transient preview loading indicators to avoid flicker", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",
+      "utf8",
+    )
+
+    expect(source).toContain("PREVIEW_BLOCKING_STATUS_DELAY_MS = 500")
+    expect(source).toContain("useDelayedPreviewStatus")
+    expect(source).toContain("showDelayedPreparingPreview")
+    expect(source).not.toContain("Updating preview")
+    expect(source).toContain("animate-in")
+    expect(source).toContain("fade-in-0")
+  })
+
+  test("keeps the timeline panel height stable across preview versions", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesTimeline.tsx",
+      "utf8",
+    )
+
+    expect(source).toContain("TIMELINE_VIEWPORT_HEIGHT = 274")
+    expect(source).toContain("Math.max(TIMELINE_VIEWPORT_HEIGHT, contentHeight)")
+    expect(source).toContain('className="-mx-3 mt-1.5 h-[310px] overflow-hidden bg-background"')
+    expect(source).toContain('className="relative h-[274px]"')
   })
 
   test("allows a plain spacebar press to toggle playback on the preview surface", () => {

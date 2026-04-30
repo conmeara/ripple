@@ -22,11 +22,10 @@ describe("Ripple project scaffold", () => {
       const result = await writeRippleProjectScaffold(root, metadata)
       expect(result.compositions.map((composition) => composition.filePath)).toEqual([
         "index.html",
-        "compositions/lower-third.html",
       ])
 
       await stat(join(root, "index.html"))
-      await stat(join(root, "compositions", "lower-third.html"))
+      await stat(join(root, "compositions"))
       await stat(join(root, "assets", "vendor", "gsap.min.js"))
       await stat(join(root, "exports"))
       await stat(join(root, "hyperframes.json"))
@@ -41,9 +40,8 @@ describe("Ripple project scaffold", () => {
       expect(indexHtml).toContain('class="clip title-card"')
       expect(indexHtml).toContain('data-start="0"')
       expect(indexHtml).toContain('data-duration="6"')
-      expect(indexHtml).toContain('data-composition-src="./compositions/lower-third.html"')
-      expect(indexHtml).toContain('data-start="2.4"')
-      expect(indexHtml).toContain('data-duration="3.2"')
+      expect(indexHtml).not.toContain("data-composition-src")
+      expect(indexHtml).not.toContain("lower-third")
       expect(indexHtml).toContain("window.__timelines.main")
       expect(indexHtml).toContain("./assets/vendor/gsap.min.js")
       expect(indexHtml).not.toContain("https://")
@@ -65,21 +63,14 @@ describe("Ripple project scaffold", () => {
         width: 1920,
         height: 1080,
         fps: 30,
+        compositions: ["index.html"],
       })
-
-      const lowerThird = await readFile(
-        join(root, "compositions", "lower-third.html"),
-        "utf8",
-      )
-      expect(lowerThird).toContain("<template>")
-      expect(lowerThird).toContain('data-composition-id="lower-third"')
-      expect(lowerThird).toContain('class="clip lower-third-panel"')
-      expect(lowerThird).toContain('window.__timelines["lower-third"]')
-      expect(lowerThird).toContain("../assets/vendor/gsap.min.js")
 
       const gitignore = await readFile(join(root, ".gitignore"), "utf8")
       expect(gitignore).toContain("exports/")
       expect(gitignore).toContain("snapshots/")
+      expect(gitignore).toContain(".ripple/tmp/")
+      expect(gitignore).toContain(".ripple/agent-attachments/")
     } finally {
       await rm(root, { recursive: true, force: true })
     }
@@ -113,15 +104,6 @@ describe("Ripple project scaffold", () => {
             width: 1920,
             height: 1080,
             kind: "root",
-          },
-          {
-            name: "Lower Third",
-            filePath: "compositions/lower-third.html",
-            dataCompositionId: "lower-third",
-            width: 1920,
-            height: 220,
-            kind: "external",
-            parentDataCompositionId: "main",
           },
         ],
       })

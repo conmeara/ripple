@@ -4,8 +4,12 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
+  type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react"
@@ -14,22 +18,33 @@ import {
   ChevronDown,
   CircleDot,
   Eye,
+  FileText,
+  ImageIcon,
   LoaderCircle,
-  MessageCircle,
   MoreHorizontal,
   RefreshCw,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
-import type {
-  RippleCommentFilter,
-  RippleCommentMessageView,
-  RippleCommentThreadView,
-  RippleRevisionStatus,
-  RippleRevisionView,
+import {
+  commentAnchorPreviewTimeSeconds,
+  type RippleCommentFilter,
+  type RippleCommentMessageView,
+  type RippleCommentThreadView,
+  type RippleRevisionStatus,
+  type RippleRevisionView,
 } from "../../../shared/ripple-comments"
+import {
+  type AgentRuntimeAttachment,
+  MAX_AGENT_RUNTIME_ATTACHMENT_BYTES,
+  MAX_AGENT_RUNTIME_ATTACHMENT_TOTAL_BYTES,
+  MAX_AGENT_RUNTIME_ATTACHMENTS,
+  getAgentRuntimeAttachmentSize,
+  validateAgentRuntimeAttachments,
+} from "../../../shared/agent-runtime-attachments"
 import type { RippleTimelineRangeSelection } from "../../../shared/hyperframes-timeline-model"
 import { Button } from "../../components/ui/button"
+import { AttachIcon } from "../../components/ui/icons"
 import { TextShimmer } from "../../components/ui/text-shimmer"
 import {
   DropdownMenu,
@@ -65,6 +80,7 @@ import {
 import { appStore } from "../../lib/jotai-store"
 import { trpc } from "../../lib/trpc"
 import { cn } from "../../lib/utils"
+import { clearRipplePreviewCoordinator } from "../hyperframes/preview-coordinator"
 import {
   lastSelectedAgentIdAtom,
   lastSelectedCodexModelIdAtom,
@@ -85,12 +101,22 @@ import {
   filterCodexModelsForAuthMode,
   type CodexThinkingLevel,
 } from "../agents/lib/models"
-import { commentFilterLabels, shouldShowRestoreAction } from "./comment-filters"
+import {
+  canPreviewRevisionChanges,
+  canRefreshRevisionChanges,
+  canReplyToCommentThread,
+  commentFilterLabels,
+  hasActiveRevisionChanges,
+  isDeletedCommentThread,
+  isRevisionResolvingAgainstLatest,
+  shouldShowRestoreAction,
+} from "./comment-filters"
 import {
   formatRevisionResultLine,
   formatCommentTimecode,
   parseRevisionDiffSummary,
 } from "./comment-formatting"
+import { RippleCommentIcon } from "./RippleCommentIcon"
 import { buildAnchorFromTimelineContext } from "./timeline-comment-prompt"
 
 interface RippleCommentsPaneProps {
@@ -98,11 +124,14 @@ interface RippleCommentsPaneProps {
   compositionId?: string | null
   currentTime: number
   selection: RippleTimelineRangeSelection | null
+  selectedThreadId?: string | null
+  onSelectedThreadIdChange?: (threadId: string | null) => void
+  agentTextResetKey?: string | number | null
   activePreviewRevisionId?: string | null
   onPreviewRevision: (revisionId: string, time: number) => void
-  onShowPrimaryPreview: () => void
+  onShowPrimaryPreview: (time?: number | null) => void
   onOpenChat: (
-    chatId: string,
+    conversationId: string,
     revisionId?: string | null,
     time?: number,
   ) => void
@@ -110,6 +139,110 @@ interface RippleCommentsPaneProps {
 
 function createClientRequestId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      const result = typeof reader.result === "string" ? reader.result : ""
+      resolve(result.split(",")[1] || "")
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+function validateCommentAttachmentFiles(
+  files: File[],
+  existingAttachments: AgentRuntimeAttachment[] = [],
+): void {
+  if (existingAttachments.length + files.length > MAX_AGENT_RUNTIME_ATTACHMENTS) {
+    throw new Error(`Attach up to ${MAX_AGENT_RUNTIME_ATTACHMENTS} files.`)
+  }
+
+  for (const file of files) {
+    if (file.size > MAX_AGENT_RUNTIME_ATTACHMENT_BYTES) {
+      throw new Error(`${file.name || "Attachment"} is larger than 10 MB.`)
+    }
+  }
+
+  const existingBytes = existingAttachments.reduce(
+    (total, attachment) => total + getAgentRuntimeAttachmentSize(attachment),
+    0,
+  )
+  const nextBytes = files.reduce((total, file) => total + file.size, 0)
+  if (existingBytes + nextBytes > MAX_AGENT_RUNTIME_ATTACHMENT_TOTAL_BYTES) {
+    throw new Error("Attachments are larger than 20 MB total.")
+  }
+}
+
+async function filesToCommentAttachments(
+  files: File[],
+  existingAttachments: AgentRuntimeAttachment[] = [],
+): Promise<AgentRuntimeAttachment[]> {
+  validateCommentAttachmentFiles(files, existingAttachments)
+  const attachments = await Promise.all(files.map(async (file) => {
+    const base64Data = await fileToBase64(file)
+    if (file.type.startsWith("image/")) {
+      return {
+        type: "image" as const,
+        base64Data,
+        mediaType: file.type || "image/png",
+        filename: file.name || "image.png",
+        size: file.size,
+      }
+    }
+    return {
+      type: "file" as const,
+      base64Data,
+      mediaType: file.type || undefined,
+      filename: file.name || "file",
+      size: file.size,
+    }
+  }))
+  const nextAttachments = attachments.filter((attachment) => attachment.base64Data)
+  const validationMessage = validateAgentRuntimeAttachments([
+    ...existingAttachments,
+    ...nextAttachments,
+  ])
+  if (validationMessage) throw new Error(validationMessage)
+  return nextAttachments
+}
+
+function commentAttachmentFallbackBody(
+  attachments: AgentRuntimeAttachment[],
+): string {
+  if (attachments.length === 0) return ""
+  if (attachments.length === 1) {
+    const attachment = attachments[0]
+    return attachment.type === "image"
+      ? `Attached image: ${attachment.filename ?? "image"}`
+      : `Attached file: ${attachment.filename}`
+  }
+  return `Attached ${attachments.length} files`
+}
+
+function parseCommentMessageAttachments(
+  message: RippleCommentMessageView,
+): Array<{ type: "image" | "file"; filename: string }> {
+  if (!message.metadataJson) return []
+  try {
+    const parsed = JSON.parse(message.metadataJson)
+    if (!Array.isArray(parsed?.attachments)) return []
+    return parsed.attachments
+      .map((attachment: any) => ({
+        type: attachment?.type === "image" ? "image" as const : "file" as const,
+        filename:
+          typeof attachment?.filename === "string" && attachment.filename.trim()
+            ? attachment.filename
+            : attachment?.type === "image"
+              ? "image"
+              : "file",
+      }))
+  } catch {
+    return []
+  }
 }
 
 function normalizeAgentProvider(value: string): AgentProviderId {
@@ -366,6 +499,7 @@ function useCommentRevisionModelSelector() {
 
   return {
     selector,
+    selectedRevisionProvider: selectedAgentId === "codex" ? "codex" as const : "claude" as const,
     selectedRevisionModel,
     persistSelectionForSubChat,
   }
@@ -428,6 +562,8 @@ function CommentComposer({
   value,
   onChange,
   onSubmit,
+  attachments = [],
+  onAttachmentsChange,
   placeholder,
   timecode,
   isSubmitting,
@@ -436,12 +572,41 @@ function CommentComposer({
   value: string
   onChange: (value: string) => void
   onSubmit: () => void
+  attachments?: AgentRuntimeAttachment[]
+  onAttachmentsChange?: (attachments: AgentRuntimeAttachment[]) => void
   placeholder: string
   timecode?: string
   isSubmitting?: boolean
   modelSelector?: ReactNode
 }) {
-  const hasContent = value.trim().length > 0
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const hasContent = value.trim().length > 0 || attachments.length > 0
+
+  const addFiles = async (files: File[]) => {
+    if (files.length === 0 || !onAttachmentsChange) return
+    try {
+      const nextAttachments = await filesToCommentAttachments(files, attachments)
+      onAttachmentsChange([...attachments, ...nextAttachments])
+    } catch (error) {
+      toast.error("Attachment was not added", {
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  const handlePaste = (event: ReactClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.clipboardData.files)
+    if (files.length === 0) return
+    event.preventDefault()
+    void addFiles(files)
+  }
+
+  const handleDrop = (event: ReactDragEvent<HTMLDivElement>) => {
+    const files = Array.from(event.dataTransfer.files)
+    if (files.length === 0) return
+    event.preventDefault()
+    void addFiles(files)
+  }
 
   return (
     <PromptInput
@@ -449,45 +614,183 @@ function CommentComposer({
       onValueChange={onChange}
       onSubmit={onSubmit}
       maxHeight={160}
-      className="border bg-input-background relative z-10 p-2 rounded-xl transition-[border-color,box-shadow] duration-150 focus-within:ring-2 focus-within:ring-primary/50"
+      className="relative z-10 min-w-0 max-w-full overflow-hidden rounded-xl border bg-input-background p-2 transition-[border-color,box-shadow] duration-150 focus-within:ring-2 focus-within:ring-primary/50"
     >
-      <div className="flex items-start gap-2">
-        {timecode ? (
-          <span className="mt-1 shrink-0 rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
-            {timecode}
-          </span>
-        ) : null}
-        <PromptInputTextarea
-          placeholder={placeholder}
-          className="min-h-[40px] px-0 py-1 text-sm placeholder:text-muted-foreground/70"
-        />
-      </div>
-      <PromptInputActions className="w-full">
-        <div className="flex min-w-0 flex-1 items-center gap-1">
-          {modelSelector}
-        </div>
-        <div className="ml-auto">
-          <AgentSendButton
-            disabled={!hasContent || isSubmitting}
-            isSubmitting={isSubmitting}
-            hasContent={hasContent}
-            onClick={onSubmit}
-            ariaLabel="Send comment"
+      <div
+        className="flex min-w-0 flex-col gap-2"
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={handleDrop}
+      >
+        <div className="flex min-w-0 items-start gap-2">
+          {timecode ? (
+            <span className="mt-1 shrink-0 rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
+              {timecode}
+            </span>
+          ) : null}
+          <PromptInputTextarea
+            placeholder={placeholder}
+            className="min-h-[40px] min-w-0 flex-1 px-0 py-1 text-sm placeholder:text-muted-foreground/70"
+            onPaste={handlePaste}
           />
         </div>
-      </PromptInputActions>
+        {attachments.length > 0 ? (
+          <div className="flex min-w-0 flex-wrap gap-1">
+            {attachments.map((attachment, index) => (
+              <span
+                key={`${attachment.type}-${attachment.filename ?? "attachment"}-${index}`}
+                className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/60 bg-background/80 px-2 py-1 text-xs text-muted-foreground"
+              >
+                {attachment.type === "image" ? (
+                  <ImageIcon className="h-3.5 w-3.5 shrink-0" />
+                ) : (
+                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                )}
+                <span className="truncate">
+                  {attachment.filename ?? (attachment.type === "image" ? "image" : "file")}
+                </span>
+                <button
+                  type="button"
+                  className="ml-1 rounded-sm text-muted-foreground hover:text-foreground"
+                  onClick={() =>
+                    onAttachmentsChange?.(
+                      attachments.filter((_, itemIndex) => itemIndex !== index),
+                    )
+                  }
+                >
+                  <X className="h-3 w-3" />
+                  <span className="sr-only">Remove attachment</span>
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        <PromptInputActions className="min-w-0 w-full">
+          <div className="flex min-w-0 flex-1 items-center gap-1">
+            {modelSelector}
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {onAttachmentsChange ? (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files ?? [])
+                    event.target.value = ""
+                    void addFiles(files)
+                  }}
+                />
+                <IconButton
+                  label="Attach file"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSubmitting}
+                >
+                  <AttachIcon className="h-4 w-4" />
+                </IconButton>
+              </>
+            ) : null}
+            <AgentSendButton
+              disabled={!hasContent || isSubmitting}
+              isSubmitting={isSubmitting}
+              hasContent={hasContent}
+              onClick={onSubmit}
+              ariaLabel="Send comment"
+            />
+          </div>
+        </PromptInputActions>
+      </div>
     </PromptInput>
+  )
+}
+
+function CommentMessageAttachments({
+  message,
+}: {
+  message?: RippleCommentMessageView | null
+}) {
+  const attachments = message ? parseCommentMessageAttachments(message) : []
+  if (attachments.length === 0) return null
+
+  return (
+    <div className="mt-2 flex min-w-0 flex-wrap gap-1">
+      {attachments.map((attachment, index) => (
+        <span
+          key={`${attachment.filename}-${index}`}
+          className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/60 bg-background/70 px-2 py-1 text-xs text-muted-foreground"
+        >
+          {attachment.type === "image" ? (
+            <ImageIcon className="h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <FileText className="h-3.5 w-3.5 shrink-0" />
+          )}
+          <span className="truncate">{attachment.filename}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function CommentAgentText({
+  children,
+  className,
+  resetKey,
+}: {
+  children: ReactNode
+  className?: string
+  resetKey?: string | number | null
+}) {
+  const textRef = useRef<HTMLDivElement | null>(null)
+  const [expanded, setExpanded] = useState(false)
+  const [canExpand, setCanExpand] = useState(false)
+
+  useLayoutEffect(() => {
+    setExpanded(false)
+  }, [resetKey])
+
+  useLayoutEffect(() => {
+    const text = textRef.current
+    if (!text || expanded) return
+    if (text.getClientRects().length === 0) return
+    setCanExpand(text.scrollHeight > text.clientHeight + 1)
+  }, [children, expanded, resetKey])
+
+  return (
+    <div className="min-w-0">
+      <div
+        ref={textRef}
+        className={cn(
+          "whitespace-pre-wrap break-words text-muted-foreground",
+          !expanded && "line-clamp-4",
+          className,
+        )}
+      >
+        {children}
+      </div>
+      {!expanded && canExpand ? (
+        <button
+          type="button"
+          data-comment-action="true"
+          className="mt-1 text-left text-xs font-medium text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/60"
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            setExpanded(true)
+          }}
+        >
+          Read more
+        </button>
+      ) : null}
+    </div>
   )
 }
 
 function EmptyComments() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-      <div className="relative mb-5 h-20 w-24 text-muted-foreground/35">
-        <div className="absolute left-1 top-7 h-10 w-16 rounded-lg bg-foreground/10" />
-        <div className="absolute right-0 top-1 flex h-12 w-16 items-center justify-center rounded-lg bg-foreground/10">
-          <MoreHorizontal className="h-5 w-5" />
-        </div>
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-border/60 bg-foreground/5 text-muted-foreground/55">
+        <RippleCommentIcon className="h-8 w-8" />
       </div>
       <div className="text-sm font-medium text-muted-foreground">
         No comments yet
@@ -498,10 +801,12 @@ function EmptyComments() {
 
 function RevisionStatusLine({
   revision,
+  agentTextResetKey,
 }: {
   revision: RippleRevisionView
+  agentTextResetKey?: string | number | null
 }) {
-  if (isRevisionUpdatingAgainstLatest(revision)) return null
+  if (isRevisionResolvingAgainstLatest(revision)) return null
 
   const summary = parseRevisionDiffSummary(revision.diffSummary)
   const isWorking =
@@ -511,10 +816,8 @@ function RevisionStatusLine({
   const label = revisionStatusLabel(revision.status)
   const resultLine =
     revision.status === "proposed" ||
-    revision.status === "accepted" ||
-    revision.status === "rejected" ||
-    revision.status === "superseded"
-      ? formatRevisionResultLine(summary)
+    revision.status === "accepted"
+      ? formatRevisionResultLine(summary, { maxLength: null })
       : label
   const line = revision.status === "failed"
     ? revision.errorMessage || revisionStatusLabel(revision.status)
@@ -523,41 +826,31 @@ function RevisionStatusLine({
   return (
     <div
       className={cn(
-        "mt-3 px-1 text-xs font-medium",
+        "mt-3 min-w-0 px-1 text-xs font-medium",
         revision.status === "failed" && "text-destructive",
       )}
+      title={line}
     >
       {isWorking ? (
         <TextShimmer
           as="span"
           duration={1.2}
-          className="inline-flex h-4 items-center text-xs leading-none"
+          className="inline-flex h-4 max-w-full items-center truncate text-xs leading-none"
         >
           {line}
         </TextShimmer>
       ) : (
-        <span
+        <CommentAgentText
+          resetKey={agentTextResetKey}
           className={cn(
-            revision.status === "failed"
-              ? "text-destructive"
-              : "text-muted-foreground",
+            "text-xs font-medium leading-5",
+            revision.status === "failed" && "text-destructive",
           )}
         >
           {line}
-        </span>
+        </CommentAgentText>
       )}
     </div>
-  )
-}
-
-function isRevisionUpdatingAgainstLatest(revision: RippleRevisionView): boolean {
-  return revision.status === "updating" || (
-    Boolean(revision.diffSummary) &&
-    (
-      revision.status === "queued" ||
-      revision.status === "preparing" ||
-      revision.status === "running"
-    )
   )
 }
 
@@ -576,9 +869,9 @@ function revisionStatusLabel(status: RippleRevisionStatus): string {
     case "accepted":
       return "Accepted"
     case "rejected":
-      return "Deleted"
+      return "Changes deleted"
     case "superseded":
-      return "Updated"
+      return "Updated by a newer reply"
     case "failed":
       return "Needs attention"
   }
@@ -594,11 +887,11 @@ function commentStatusVisual(
     revision?.status === "running" ||
     revision?.status === "updating"
   ) {
-    return { label: "In Progress", className: "bg-blue-500" }
+    return { label: "Working", className: "bg-blue-500" }
   }
 
   if (revision?.status === "failed") {
-    return { label: "Need Input", className: "bg-amber-500" }
+    return { label: "Needs attention", className: "bg-amber-500" }
   }
 
   if (
@@ -609,7 +902,7 @@ function commentStatusVisual(
     return { label: "Done", className: "bg-emerald-500" }
   }
 
-  return { label: "Drafts", className: "bg-muted-foreground/20" }
+  return { label: "Open", className: "bg-muted-foreground/20" }
 }
 
 function latestRevision(thread: RippleCommentThreadView): RippleRevisionView | null {
@@ -619,11 +912,17 @@ function latestRevision(thread: RippleCommentThreadView): RippleRevisionView | n
   return thread.revisions[thread.revisions.length - 1] ?? null
 }
 
-function revisionAcceptControl(revision: RippleRevisionView): {
+function revisionAcceptControl(revision: RippleRevisionView, options: {
+  deleted?: boolean
+} = {}): {
   label: string
   disabled: boolean
   busy: boolean
 } {
+  if (options.deleted) {
+    return { label: "Restore comment to continue", disabled: true, busy: false }
+  }
+
   switch (revision.status) {
     case "proposed":
       return { label: "Accept changes", disabled: false, busy: false }
@@ -636,7 +935,7 @@ function revisionAcceptControl(revision: RippleRevisionView): {
     case "queued":
     case "preparing":
     case "running":
-      if (isRevisionUpdatingAgainstLatest(revision)) {
+      if (isRevisionResolvingAgainstLatest(revision)) {
         return {
           label: "Resolving",
           disabled: true,
@@ -665,6 +964,7 @@ function CommentCard({
   selected,
   deletedFilter,
   activePreviewRevisionId,
+  agentTextResetKey,
   onSelect,
   onReply,
   onDelete,
@@ -678,24 +978,39 @@ function CommentCard({
   selected: boolean
   deletedFilter: boolean
   activePreviewRevisionId?: string | null
+  agentTextResetKey?: string | number | null
   onSelect: (thread: RippleCommentThreadView, revision: RippleRevisionView | null) => void
-  onReply: (threadId: string, body: string, clientRequestId: string) => void
+  onReply: (
+    threadId: string,
+    body: string,
+    clientRequestId: string,
+    attachments: AgentRuntimeAttachment[],
+  ) => void
   onDelete: (threadId: string) => void
   onRestore: (threadId: string) => void
   onRefreshRevision: (revisionId: string) => void
   onAcceptRevision: (revisionId: string) => void
   onOpenChat: (
-    chatId: string,
+    conversationId: string,
     revisionId?: string | null,
     time?: number,
   ) => void
 }) {
   const [replying, setReplying] = useState(false)
   const [reply, setReply] = useState("")
+  const [replyAttachments, setReplyAttachments] = useState<AgentRuntimeAttachment[]>([])
   const revision = latestRevision(thread)
   const firstMessage = thread.messages.find((message) => message.role === "user")
   const replies = thread.messages.filter((message) => message.id !== firstMessage?.id)
+  const isDeleted = deletedFilter || isDeletedCommentThread(thread)
   const isRevisionPreview = revision?.id === activePreviewRevisionId
+  const canPreviewLatestRevision = canPreviewRevisionChanges(revision, {
+    deleted: isDeleted,
+  })
+  const canRefreshLatestRevision = canRefreshRevisionChanges(revision, {
+    deleted: isDeleted,
+  })
+  const canReply = canReplyToCommentThread(thread)
   const revisionByMessageId = useMemo(() => {
     const revisionsById = new Map(
       thread.revisions.map((item) => [item.id, item] as const),
@@ -716,13 +1031,16 @@ function CommentCard({
     ? revisionByMessageId.get(firstMessage.id) ?? null
     : null
   const statusVisual = commentStatusVisual(thread, revision)
-  const acceptControl = revision ? revisionAcceptControl(revision) : null
+  const acceptControl = revision
+    ? revisionAcceptControl(revision, { deleted: isDeleted })
+    : null
 
   const submitReply = () => {
-    const body = reply.trim()
+    const body = reply.trim() || commentAttachmentFallbackBody(replyAttachments)
     if (!body) return
-    onReply(thread.id, body, createClientRequestId())
+    onReply(thread.id, body, createClientRequestId(), replyAttachments)
     setReply("")
+    setReplyAttachments([])
     setReplying(false)
   }
 
@@ -736,15 +1054,16 @@ function CommentCard({
     ) {
       return
     }
-    onSelect(thread, revision)
+    onSelect(thread, canPreviewLatestRevision ? revision : null)
   }
 
   return (
     <article
       data-comment-card="true"
+      data-selected-comment-card={selected ? "true" : undefined}
       onClick={handleCardClick}
       className={cn(
-        "rounded-xl border bg-background/45 transition-colors",
+        "min-w-0 max-w-full overflow-hidden rounded-xl border bg-background/45 transition-colors",
         selected
           ? "border-primary/45 bg-muted/30"
           : "border-border/55 hover:border-border",
@@ -771,8 +1090,8 @@ function CommentCard({
           <div className="ml-auto">
             <IconButton
               label={isRevisionPreview ? "Viewing changes" : "View changes"}
-              active={isRevisionPreview}
-              disabled={!revision || revision.status === "failed"}
+              active={isRevisionPreview && canPreviewLatestRevision}
+              disabled={!canPreviewLatestRevision}
               onClick={() => onSelect(thread, revision)}
             >
               <Eye className="h-4 w-4" />
@@ -781,13 +1100,19 @@ function CommentCard({
         </div>
         <button
           type="button"
-          onClick={() => onSelect(thread, revision)}
-          className="mt-3 block w-full rounded-xl border bg-input-background px-3 py-2 text-left text-sm text-foreground"
+          onClick={() => onSelect(thread, canPreviewLatestRevision ? revision : null)}
+          className="mt-3 block w-full min-w-0 max-w-full rounded-xl border bg-input-background px-3 py-2 text-left text-sm text-foreground"
         >
-          <div className="whitespace-pre-wrap">{firstMessage?.body ?? "Comment"}</div>
+          <div className="whitespace-pre-wrap break-words">
+            {firstMessage?.body ?? "Comment"}
+          </div>
+          <CommentMessageAttachments message={firstMessage} />
         </button>
         {firstRevision ? (
-          <RevisionStatusLine revision={firstRevision} />
+          <RevisionStatusLine
+            revision={firstRevision}
+            agentTextResetKey={agentTextResetKey}
+          />
         ) : null}
       </div>
 
@@ -802,16 +1127,24 @@ function CommentCard({
               return (
                 <div key={message.id}>
                   {isUserReply ? (
-                    <div className="rounded-xl border bg-input-background px-3 py-2 text-sm text-foreground">
+                    <div className="whitespace-pre-wrap break-words rounded-xl border bg-input-background px-3 py-2 text-sm text-foreground">
                       {message.body}
+                      <CommentMessageAttachments message={message} />
                     </div>
                   ) : (
-                    <div className="whitespace-pre-wrap px-1 py-1 text-sm leading-6 text-foreground">
+                    <CommentAgentText
+                      resetKey={agentTextResetKey}
+                      className="px-1 py-1 text-sm leading-6 text-foreground"
+                    >
                       {message.body}
-                    </div>
+                      <CommentMessageAttachments message={message} />
+                    </CommentAgentText>
                   )}
                   {messageRevision ? (
-                    <RevisionStatusLine revision={messageRevision} />
+                    <RevisionStatusLine
+                      revision={messageRevision}
+                      agentTextResetKey={agentTextResetKey}
+                    />
                   ) : null}
                 </div>
               )
@@ -820,17 +1153,19 @@ function CommentCard({
         </div>
       ) : null}
 
-      <div className="flex items-center justify-between gap-2 px-3 py-3">
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs text-muted-foreground"
-            onClick={() => setReplying(true)}
-          >
-            Reply
-          </Button>
+      <div className="flex min-w-0 items-center justify-between gap-2 px-3 py-3">
+        <div className="flex min-w-0 items-center gap-1">
+          {canReply ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground"
+              onClick={() => setReplying(true)}
+            >
+              Reply
+            </Button>
+          ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -844,21 +1179,21 @@ function CommentCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-44">
-              {revision?.chatId ? (
+              {revision?.conversationId && !isDeleted ? (
                 <DropdownMenuItem
                   onSelect={() =>
                     onOpenChat(
-                      revision.chatId!,
-                      revision.status === "failed" ? null : revision.id,
-                      thread.startTime / 1000,
+                      revision.conversationId!,
+                      revision && canPreviewRevisionChanges(revision) ? revision.id : null,
+                      commentAnchorPreviewTimeSeconds(thread),
                     )
                   }
                 >
-                  <MessageCircle className="mr-2 h-4 w-4" />
+                  <RippleCommentIcon className="mr-2 h-4 w-4" />
                   Open in Chat
                 </DropdownMenuItem>
               ) : null}
-              {revision ? (
+              {revision && canRefreshLatestRevision ? (
                 <DropdownMenuItem onSelect={() => onRefreshRevision(revision.id)}>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Refresh changes
@@ -876,16 +1211,23 @@ function CommentCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex items-center gap-1">
-          {!deletedFilter ? (
+        <div className="flex shrink-0 items-center gap-1">
+          {isDeleted ? (
+            <IconButton
+              label="Restore comment"
+              onClick={() => onRestore(thread.id)}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </IconButton>
+          ) : (
             <IconButton
               label="Delete comment"
               onClick={() => onDelete(thread.id)}
             >
               <X className="h-4 w-4" />
             </IconButton>
-          ) : null}
-          {revision ? (
+          )}
+          {revision && !isDeleted ? (
             <IconButton
               label={acceptControl?.label ?? "Accept changes"}
               disabled={acceptControl?.disabled ?? true}
@@ -902,11 +1244,16 @@ function CommentCard({
       </div>
 
       {replying ? (
-        <div className="border-t border-border/60 p-3" data-comment-action="true">
+        <div
+          className="min-w-0 border-t border-border/60 p-3"
+          data-comment-action="true"
+        >
           <CommentComposer
             value={reply}
             onChange={setReply}
             onSubmit={submitReply}
+            attachments={replyAttachments}
+            onAttachmentsChange={setReplyAttachments}
             placeholder="Ask for a change..."
           />
         </div>
@@ -920,6 +1267,9 @@ export function RippleCommentsPane({
   compositionId,
   currentTime,
   selection,
+  selectedThreadId: controlledSelectedThreadId,
+  onSelectedThreadIdChange,
+  agentTextResetKey,
   activePreviewRevisionId,
   onPreviewRevision,
   onShowPrimaryPreview,
@@ -927,11 +1277,22 @@ export function RippleCommentsPane({
 }: RippleCommentsPaneProps) {
   const [filter, setFilter] = useState<RippleCommentFilter>("active")
   const [draft, setDraft] = useState("")
+  const [draftAttachments, setDraftAttachments] = useState<AgentRuntimeAttachment[]>([])
   const [draftRequestId, setDraftRequestId] = useState(createClientRequestId)
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null)
+  const [localSelectedThreadId, setLocalSelectedThreadId] = useState<string | null>(null)
+  const selectedThreadId =
+    controlledSelectedThreadId === undefined
+      ? localSelectedThreadId
+      : controlledSelectedThreadId
+  const setSelectedThreadId = useCallback((threadId: string | null) => {
+    setLocalSelectedThreadId(threadId)
+    onSelectedThreadIdChange?.(threadId)
+  }, [onSelectedThreadIdChange])
+  const commentsListRef = useRef<HTMLDivElement | null>(null)
   const utils = trpc.useUtils()
   const {
     selector: modelSelector,
+    selectedRevisionProvider,
     selectedRevisionModel,
     persistSelectionForSubChat,
   } = useCommentRevisionModelSelector()
@@ -939,23 +1300,30 @@ export function RippleCommentsPane({
     thread: RippleCommentThreadView,
   ) => {
     const revision = latestRevision(thread)
-    persistSelectionForSubChat(revision?.subChatId)
-    if (!revision?.chatId) return
+    persistSelectionForSubChat(revision?.conversationId)
+    if (!revision?.conversationId) return
 
-    await utils.chats.get.invalidate({ id: revision.chatId })
-    await utils.chats.get.prefetch({ id: revision.chatId }, { staleTime: 0 })
+    await utils.chats.get.invalidate({ id: revision.conversationId })
+    await utils.chats.get.prefetch({ id: revision.conversationId }, { staleTime: 0 })
   }, [persistSelectionForSubChat, utils.chats.get])
   const threadsQuery = trpc.revisions.listThreads.useQuery(
     { projectId, compositionId, filter },
     {
       enabled: Boolean(projectId),
       refetchOnWindowFocus: false,
+      refetchInterval: (query) => {
+        const threads = Array.isArray(query.state.data)
+          ? query.state.data as RippleCommentThreadView[]
+          : []
+        return threads.some(hasActiveRevisionChanges) ? 1_000 : false
+      },
     },
   )
   const createThread = trpc.revisions.createThread.useMutation({
     onSuccess: async (thread) => {
       await refreshLatestRevisionChat(thread)
       setDraft("")
+      setDraftAttachments([])
       setDraftRequestId(createClientRequestId())
       await utils.revisions.listThreads.invalidate()
     },
@@ -979,17 +1347,27 @@ export function RippleCommentsPane({
     onError: (error) => toast.error("Comment was not deleted", { description: error.message }),
   })
   const restoreThread = trpc.revisions.restoreThread.useMutation({
-    onSuccess: async () => utils.revisions.listThreads.invalidate(),
+    onSuccess: async (_, variables) => {
+      if (selectedThreadId === variables.threadId) {
+        setSelectedThreadId(null)
+        onShowPrimaryPreview()
+      }
+      await utils.revisions.listThreads.invalidate()
+    },
     onError: (error) => toast.error("Comment was not restored", { description: error.message }),
   })
   const refreshProposal = trpc.revisions.refreshProposal.useMutation({
-    onSuccess: async () => utils.revisions.listThreads.invalidate(),
+    onSuccess: async () => {
+      clearRipplePreviewCoordinator()
+      await utils.revisions.listThreads.invalidate()
+    },
     onError: (error) => toast.error("Changes were not refreshed", { description: error.message }),
   })
   const acceptRevision = trpc.revisions.accept.useMutation({
     onSuccess: async () => {
       setSelectedThreadId(null)
       onShowPrimaryPreview()
+      clearRipplePreviewCoordinator()
       await Promise.all([
         utils.revisions.listThreads.invalidate(),
         utils.hyperframes.getPlayerSource.invalidate(),
@@ -1021,14 +1399,16 @@ export function RippleCommentsPane({
     acceptRevision.isPending
 
   const handleSend = () => {
-    const body = draft.trim()
+    const body = draft.trim() || commentAttachmentFallbackBody(draftAttachments)
     if (!body) return
     createThread.mutate({
       projectId,
       compositionId,
       body,
       anchor,
+      attachments: draftAttachments,
       createRevision: true,
+      agentProvider: selectedRevisionProvider,
       model: selectedRevisionModel,
       clientRequestId: draftRequestId,
     })
@@ -1038,13 +1418,62 @@ export function RippleCommentsPane({
     thread: RippleCommentThreadView,
     revision: RippleRevisionView | null,
   ) => {
+    const previewTime = commentAnchorPreviewTimeSeconds(thread)
     setSelectedThreadId(thread.id)
-    if (revision && revision.status !== "failed") {
-      onPreviewRevision(revision.id, thread.startTime / 1000)
+    if (isDeletedCommentThread(thread)) {
+      onShowPrimaryPreview(previewTime)
+      return
+    }
+    if (revision && canPreviewRevisionChanges(revision)) {
+      onPreviewRevision(revision.id, previewTime)
     } else {
-      onShowPrimaryPreview()
+      onShowPrimaryPreview(previewTime)
     }
   }
+
+  useEffect(() => {
+    if (!selectedThreadId || threadsQuery.isLoading) return
+    const selectedThread = threads.find((thread) => thread.id === selectedThreadId)
+    if (selectedThread) {
+      const revision = latestRevision(selectedThread)
+      if (
+        activePreviewRevisionId &&
+        revision?.id === activePreviewRevisionId &&
+        !canPreviewRevisionChanges(revision, {
+          deleted: isDeletedCommentThread(selectedThread),
+        })
+      ) {
+        onShowPrimaryPreview()
+      }
+      return
+    }
+
+    if (filter !== "all") {
+      setFilter("all")
+      return
+    }
+
+    setSelectedThreadId(null)
+    onShowPrimaryPreview()
+  }, [
+    activePreviewRevisionId,
+    filter,
+    onShowPrimaryPreview,
+    selectedThreadId,
+    setSelectedThreadId,
+    threads,
+    threadsQuery.isLoading,
+  ])
+
+  useEffect(() => {
+    if (!selectedThreadId) return
+    const frame = window.requestAnimationFrame(() => {
+      commentsListRef.current
+        ?.querySelector("[data-selected-comment-card='true']")
+        ?.scrollIntoView({ block: "nearest" })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [selectedThreadId, threads])
 
   const clearCommentPreview = useCallback(() => {
     if (!selectedThreadId && !activePreviewRevisionId) return
@@ -1064,10 +1493,10 @@ export function RippleCommentsPane({
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col bg-tl-background text-foreground"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-tl-background text-foreground"
       onClickCapture={handlePaneClickCapture}
     >
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/60 px-4">
+      <div className="flex h-12 min-w-0 shrink-0 items-center justify-between px-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -1102,7 +1531,10 @@ export function RippleCommentsPane({
         ) : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+      <div
+        ref={commentsListRef}
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4"
+      >
         {threadsQuery.isLoading ? (
           <div className="px-3 py-10 text-center text-sm text-muted-foreground">
             Loading comments...
@@ -1110,7 +1542,7 @@ export function RippleCommentsPane({
         ) : threads.length === 0 ? (
           <EmptyComments />
         ) : (
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             {threads.map((thread, index) => {
               const revision = latestRevision(thread)
               return (
@@ -1121,12 +1553,15 @@ export function RippleCommentsPane({
                   selected={selectedThreadId === thread.id}
                   deletedFilter={shouldShowRestoreAction(filter)}
                   activePreviewRevisionId={activePreviewRevisionId}
+                  agentTextResetKey={agentTextResetKey}
                   onSelect={handleSelect}
-                  onReply={(threadId, body, clientRequestId) =>
+                  onReply={(threadId, body, clientRequestId, attachments) =>
                     addReply.mutate({
                       threadId,
                       body,
+                      attachments,
                       createRevision: true,
+                      agentProvider: selectedRevisionProvider,
                       model: selectedRevisionModel,
                       clientRequestId,
                     })
@@ -1143,11 +1578,13 @@ export function RippleCommentsPane({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-border/60 bg-background/80 p-3">
+      <div className="min-w-0 shrink-0 overflow-hidden border-t border-border/60 bg-background/80 p-3">
         <CommentComposer
           value={draft}
           onChange={setDraft}
           onSubmit={handleSend}
+          attachments={draftAttachments}
+          onAttachmentsChange={setDraftAttachments}
           placeholder="Comment on this frame..."
           timecode={composerTimecode}
           isSubmitting={isMutating}

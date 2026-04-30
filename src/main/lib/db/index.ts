@@ -5,6 +5,7 @@ import { app } from "electron"
 import { join } from "path"
 import { existsSync, mkdirSync } from "fs"
 import * as schema from "./schema"
+import { repairConversationCompatibilitySchema } from "./schema-repair"
 
 let db: ReturnType<typeof drizzle<typeof schema>> | null = null
 let sqlite: Database.Database | null = null
@@ -51,7 +52,7 @@ export function initDatabase() {
   // Create SQLite connection
   sqlite = new Database(dbPath)
   sqlite.pragma("journal_mode = WAL")
-  sqlite.pragma("foreign_keys = ON")
+  sqlite.pragma("foreign_keys = OFF")
 
   // Create Drizzle instance
   db = drizzle(sqlite, { schema })
@@ -61,9 +62,17 @@ export function initDatabase() {
   console.log(`[DB] Running migrations from: ${migrationsPath}`)
 
   try {
+    repairConversationCompatibilitySchema(sqlite)
     migrate(db, { migrationsFolder: migrationsPath })
+    repairConversationCompatibilitySchema(sqlite)
+    sqlite.pragma("foreign_keys = ON")
     console.log("[DB] Migrations completed")
   } catch (error) {
+    try {
+      sqlite.pragma("foreign_keys = ON")
+    } catch {
+      // Ignore pragma cleanup errors while surfacing the migration failure.
+    }
     console.error("[DB] Migration error:", error)
     throw error
   }

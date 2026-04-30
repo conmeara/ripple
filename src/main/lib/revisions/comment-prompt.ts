@@ -1,3 +1,5 @@
+import type { AgentRuntimeAttachment } from "../../../shared/agent-runtime-attachments"
+
 interface PromptThread {
   anchorType: "frame" | "range" | "element"
   startTime: number
@@ -54,13 +56,37 @@ export function appendRippleCommentPromptMessage(input: {
   prompt: string
   threadId: string
   revisionId: string
+  attachments?: AgentRuntimeAttachment[] | null
   model?: string
 }): string {
   const messages = parseStoredChatMessages(input.messages)
+  const parts: any[] = [{ type: "text", text: input.prompt }]
+  for (const attachment of input.attachments ?? []) {
+    if (attachment.type === "image") {
+      parts.push({
+        type: "data-image",
+        data: {
+          base64Data: attachment.base64Data,
+          mediaType: attachment.mediaType,
+          filename: attachment.filename,
+        },
+      })
+    } else {
+      parts.push({
+        type: "data-file",
+        data: {
+          base64Data: attachment.base64Data,
+          mediaType: attachment.mediaType,
+          filename: attachment.filename,
+          size: attachment.size,
+        },
+      })
+    }
+  }
   messages.push({
     id: `msg-${Date.now()}-${input.revisionId}`,
     role: "user",
-    parts: [{ type: "text", text: input.prompt }],
+    parts,
     metadata: {
       source: "ripple-comment",
       threadId: input.threadId,

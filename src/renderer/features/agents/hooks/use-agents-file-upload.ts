@@ -1,4 +1,4 @@
-// File upload hook for desktop app with base64 conversion for Claude API
+// File upload hook for desktop app with base64 conversion for agent runtimes
 import { useState, useCallback } from "react"
 
 export interface UploadedImage {
@@ -14,6 +14,7 @@ export interface UploadedFile {
   id: string
   filename: string
   url: string
+  base64Data?: string
   isLoading: boolean
   size?: number
   type?: string
@@ -94,14 +95,27 @@ export function useAgentsFileUpload() {
       })
     )
 
-    const newFiles: UploadedFile[] = otherFiles.map((file) => ({
-      id: crypto.randomUUID(),
-      filename: file.name,
-      url: URL.createObjectURL(file),
-      isLoading: false,
-      size: file.size,
-      type: file.type,
-    }))
+    const newFiles: UploadedFile[] = await Promise.all(
+      otherFiles.map(async (file) => {
+        let base64Data: string | undefined
+        try {
+          base64Data = await fileToBase64(file)
+        } catch (err) {
+          console.error("[useAgentsFileUpload] Failed to convert file to base64:", err)
+        }
+
+        return {
+          id: crypto.randomUUID(),
+          filename: file.name,
+          url: URL.createObjectURL(file),
+          base64Data,
+          isLoading: false,
+          size: file.size,
+          type: file.type,
+          mediaType: file.type,
+        }
+      }),
+    )
 
     setImages((prev) => [...prev, ...newImages])
     setFiles((prev) => [...prev, ...newFiles])

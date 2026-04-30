@@ -18,6 +18,7 @@ export interface QueuedFile {
   id: string
   url: string
   filename: string
+  base64Data?: string
   mediaType?: string
   size?: number
 }
@@ -143,6 +144,7 @@ export function toQueuedFile(file: UploadedFile): QueuedFile {
     id: file.id,
     url: file.url,
     filename: file.filename,
+    base64Data: file.base64Data,
     mediaType: file.type,
     size: file.size,
   }

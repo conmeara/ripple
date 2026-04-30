@@ -1,4 +1,4 @@
-# Phase 11: Codex And Claude Integrations
+# Phase 9: Codex And Claude Code Integrations
 
 This ExecPlan must be maintained according to `PLANS.md`.
 
@@ -43,7 +43,7 @@ sessions/messages.
 
 ## Progress
 
-- [x] 2026-04-28 / User + Codex: Researched Phase 11 provider direction with
+- [x] 2026-04-28 / User + Codex: Researched Phase 9 provider direction with
   online sources and subagents. Settled on Codex App Server and Claude Agent
   SDK as the long-term paths for Ripple.
 - [x] 2026-04-28 / User + Codex: Confirmed the repo currently carries
@@ -59,10 +59,10 @@ sessions/messages.
   and returned a provider-side budget stop with nonzero model usage, proving
   the SDK path can use the logged-in Enterprise Claude Code auth on this
   machine.
-- [x] 2026-04-28 / Codex: Created this Phase 11 ExecPlan from `PLANS.md`,
+- [x] 2026-04-28 / Codex: Created this Phase 9 ExecPlan from `PLANS.md`,
   `ROADMAP.md`, current provider code, online provider docs, and the local
   Enterprise-login probe.
-- [x] 2026-04-28 / Codex: Checked the Phase 11 plan against the actual Phase 8
+- [x] 2026-04-28 / Codex: Checked the Phase 9 plan against the actual Phase 8
   comments/revisions implementation. Phase 8 is paused at the intended
   integration boundary: main owns revision queue decisions, recovery, stale
   update processing, acceptance, and cleanup, while the shell-level
@@ -70,12 +70,12 @@ sessions/messages.
   renderer chat transports.
 - [x] 2026-04-28 / User + Oracle + Codex: Incorporated external plan review.
   The key amendment is to preserve Phase 8's product semantics and safety
-  guarantees, but allow Phase 11 to replace Phase 8's hidden chat/sub-chat
+  guarantees, but allow Phase 9 to replace Phase 8's hidden chat/sub-chat
   execution architecture with provider-native agent threads, agent runs,
   events, approvals, workspace contexts, and transcript projection.
 - [x] 2026-04-28 / User + Codex: Incorporated follow-up research on Claudian,
   OpenClaw, Harness CLI, leashd, Happy, GitHub/VS Code, and Craft. Tightened
-  Phase 11 around `AgentRuntimeService`, named provider connections,
+  Phase 9 around `AgentRuntimeService`, named provider connections,
   connection-locked agent threads, a backend factory, and explicit provider
   auth for agent-backed editing.
 - [x] 2026-04-28 / Codex: Implemented Milestone 0 compatibility checks for the
@@ -119,7 +119,7 @@ sessions/messages.
   Claude setup modal no longer routes users through the inherited hosted broker,
   Codex setup invalidates runtime auth status after login, and
   `agentRuntime.setupCommand` provides local provider setup commands.
-- [x] 2026-04-29 / Codex: Cleared the Phase 11 validation blocker in
+- [x] 2026-04-29 / Codex: Cleared the Phase 9 validation blocker in
   `bun run ts:check`. The fixes cover runtime/tool-event chunk types, nullable
   Electron and renderer props, optional hosted-backend shims, plugin
   agent/skill source types, and declaration-portability annotations.
@@ -148,12 +148,12 @@ sessions/messages.
   focused `index.html` diff, a persisted Claude session id, and no change in
   Main.
 - [x] 2026-04-29 / Codex: Completed accept/stale-update smoke across the
-  Phase 11 runtime and Phase 8 review loop. Accepting the Claude proposal
+  Phase 9 runtime and Phase 8 review loop. Accepting the Claude proposal
   committed Main, kept `/Users/comeara/Ripple/test2` clean, and caused the
   older Codex proposal to run a provider-backed update from the same isolated
   worktree. The Codex proposal returned to `proposed` with a clean
-  fast-forward update and an updated diff from `Phase 11 Claude Comment Smoke`
-  to `Phase 11 Comment Smoke`.
+  fast-forward update and an updated diff from `Phase 9 Claude Comment Smoke`
+  to `Phase 9 Comment Smoke`.
 - [x] 2026-04-29 / Codex: Final post-smoke validation re-run passed:
   focused agent-runtime tests, `bun run test:ripple`, `bun run ts:check`,
   `bun run build`, and `git diff --check`.
@@ -225,6 +225,43 @@ sessions/messages.
   app-managed API-key models and exposes the current official Codex API family:
   `gpt-5.3-codex`, `gpt-5.2-codex`, `gpt-5.1-codex-max`,
   `gpt-5.1-codex`, `gpt-5.1-codex-mini`, and `gpt-5-codex`.
+- [x] 2026-04-30 / Codex: Restored Chat and comment attachment support on the
+  Phase 9 runtime path. Chat transports now pass image/file attachment bytes
+  into `AgentRuntimeService`; main materializes them under
+  `.ripple/agent-attachments/<runId>` inside the resolved workspace; Claude gets
+  native image blocks for SDK-supported image types plus safe local paths; Codex
+  gets the safe local paths in the prompt. Text file contents still remain
+  prompt context.
+- [x] 2026-04-30 / Codex: Aligned attachment handling with the current provider
+  input surfaces. Codex App Server image attachments now use generated
+  `localImage` inputs in addition to safe saved paths. Claude Agent SDK
+  attachments now use native image blocks for JPEG/PNG/GIF/WebP and native
+  document blocks for PDF and plain-text files; other files remain saved inside
+  the workspace for provider tools to read by path.
+- [x] 2026-04-30 / Codex: Extended the provider-runtime workspace model through
+  preview. HyperFrames preview/timeline source routes now accept validated
+  chat-worktree targets, so normal Chat worktree runs show the isolated draft in
+  the center player just like comment-generated changes, while main-process
+  path validation still resolves the real workspace.
+- [x] 2026-04-30 / Codex: Fixed the Phase 9 review findings from the
+  Phase 8/9/10 implementation review. Agent run execution now reloads the
+  persisted run connection instead of the current provider default, generated
+  change thread reuse is provider/connection-locked, cancellation reaches a
+  durable `cancelled` terminal status, Codex App Server cancellation rejects
+  pending waits instead of hanging, and Codex approval requests are recorded and
+  boundary-checked before the trusted-local auto-accept policy is applied.
+- [x] 2026-04-30 / Codex: Completed the pre-commit Phase 8/9/10 audit follow-up
+  for provider execution. Generated-change completion now requires a persisted
+  completed run, comment revisions pass the explicit selected provider instead
+  of inferring from model names, and chat draft workspace fallback now requires
+  a registered workspace before provider tools can operate there.
+- [x] 2026-04-30 / Codex: Added the comprehensive pre-commit capability
+  coverage pass for provider-facing UX. New tests cover Codex/Claude model
+  catalogs, attachment-only sends, malformed attachment filtering, safe
+  skill/MCP/file/folder mention prompt cleanup, built-in slash commands, Skills
+  and Commands settings refresh/create/update/delete affordances, MCP settings
+  for both Claude Agent SDK and Codex App Server, and conversation workspace
+  resolution into Main versus registered draft workspaces.
 
 ## Surprises & Discoveries
 
@@ -288,7 +325,7 @@ sessions/messages.
 - Observation: Phase 8 intentionally left a temporary renderer/shell worker in
   place for generated-change runs.
   Evidence: `src/renderer/features/ripple-shell/RippleShell.tsx` mounts
-  `RippleRevisionQueueWorker`. The roadmap already says Phase 11 should
+  `RippleRevisionQueueWorker`. The roadmap already says Phase 9 should
   replace this temporary shell-level worker with a durable main-process
   Claude/Codex runner.
 
@@ -300,7 +337,7 @@ sessions/messages.
   `streamId`. Those fields are the seed for `createAgentRun(...)` when Phase
   11 starts queued generated-change work in main.
 
-- Observation: Phase 8's durable domain state should survive Phase 11 rather
+- Observation: Phase 8's durable domain state should survive Phase 9 rather
   than be folded into provider-specific state.
   Evidence: Phase 8 uses revision statuses such as `queued`, `preparing`,
   `running`, `updating`, `proposed`, `accepted`, `rejected`, `superseded`, and
@@ -315,7 +352,7 @@ sessions/messages.
   work, processes `updating` work before the next claim, requeues interrupted
   `preparing` / `running` rows on startup, exposes diagnostics, and cleans
   terminal worktrees. `RippleRevisionQueueWorker` then claims one job and
-  drives the existing renderer `agentChatStore` / chat transport path. Phase 11
+  drives the existing renderer `agentChatStore` / chat transport path. Phase 9
   should move that final launch/stream/finalize responsibility into main.
 
 - Observation: Phase 8 is a product and safety prototype, not the final agent
@@ -325,7 +362,7 @@ sessions/messages.
   renderer-execution warning should survive. It also flagged the inherited
   hidden chat/sub-chat execution shape, `sub_chats.messages` transcript source,
   provider inference from model/message metadata, and `RevisionQueueRun` path
-  fields as 1Code-shaped internals that Phase 11 may replace.
+  fields as 1Code-shaped internals that Phase 9 may replace.
 
 - Observation: Provider-native execution needs its own durable state.
   Evidence: Codex App Server exposes provider-native threads, turns, items,
@@ -339,7 +376,7 @@ sessions/messages.
 - Observation: Explicit provider selection is required before reliable
   agent-run migration.
   Evidence: Phase 8 currently recovers provider choice from hidden message or
-  model metadata in the renderer worker path. Phase 11 needs provider to be a
+  model metadata in the renderer worker path. Phase 9 needs provider to be a
   durable field on generated-change/chat intent and agent-run records so model
   names do not decide whether Codex or Claude launches.
 
@@ -407,7 +444,7 @@ sessions/messages.
   contract lets Chat and Comments observe the same transcript and status.
   Date/Author: 2026-04-28 / Codex
 
-- Decision: Treat Phase 8 as paused at the agent-runtime boundary until Phase 11
+- Decision: Treat Phase 8 as paused at the agent-runtime boundary until Phase 9
   lands.
   Rationale: Phase 8 has enough of the comment/revision domain, queue,
   recovery, stale-update, and acceptance model in place to reveal the real
@@ -416,7 +453,7 @@ sessions/messages.
   replacing that layer would harden the wrong ownership boundary.
   Date/Author: 2026-04-28 / User + Codex
 
-- Decision: Phase 11 must consume Phase 8 revision queue and acceptance
+- Decision: Phase 9 must consume Phase 8 revision queue and acceptance
   services instead of recreating them.
   Rationale: The queue, isolated workspace, accept/delete/update semantics, and
   product language are the valuable Phase 8 work. Agent runs should become
@@ -424,7 +461,7 @@ sessions/messages.
   review surface and acceptance as a separate explicit product action.
   Date/Author: 2026-04-28 / Codex
 
-- Decision: Preserve Phase 8 product semantics, but allow Phase 11 to replace
+- Decision: Preserve Phase 8 product semantics, but allow Phase 9 to replace
   Phase 8 execution internals.
   Rationale: The durable promise is comments, generated changes, isolated
   workspaces, explicit accept/delete, stale-update safety, and fail-closed
@@ -435,10 +472,10 @@ sessions/messages.
   architecture calls for it.
   Date/Author: 2026-04-28 / User + Oracle + Codex
 
-- Decision: Add a dedicated canonical agent execution model in Phase 11.
+- Decision: Add a dedicated canonical agent execution model in Phase 9.
   Rationale: Codex and Claude have provider-native ids and event lifecycles
   that do not fit cleanly into `sub_chats.streamId` or a plain chat-message
-  array. Phase 11 should add durable records for workspaces, agent threads,
+  array. Phase 9 should add durable records for workspaces, agent threads,
   agent runs, run events, approvals, and transcript projection before migrating
   Chat or Comments.
   Date/Author: 2026-04-28 / User + Oracle + Codex
@@ -486,7 +523,7 @@ sessions/messages.
 
 ## Outcomes & Retrospective
 
-Phase 11 now has the durable execution boundary the roadmap called for. The
+Phase 9 now has the durable execution boundary the roadmap called for. The
 main process owns agent connections, workspace resolution, provider launch,
 stream/event persistence, cancellation, generated-change queue claiming, run
 completion/failure, transcript projection, and restart recovery. Renderer
@@ -505,7 +542,7 @@ renderer worker remains mounted only to periodically nudge the queue and
 invalidate review/preview data. It no longer imports `@ai-sdk/react`, creates
 hidden `Chat` instances, or starts legacy Claude/Codex transports.
 
-The earlier proof compromise is now closed for the core Phase 11 surfaces.
+The earlier proof compromise is now closed for the core Phase 9 surfaces.
 Live desktop smoke covered Codex and Claude in the same normal Chat UI, plus
 Codex and Claude frame-comment generated changes through isolated proposed
 revisions. The runs used the main-process runtime service, persisted run/event
@@ -525,7 +562,7 @@ product model is now Ripple projects, HyperFrames compositions, assets,
 timeline, frame comments, generated changes, preview, and export.
 
 Provider means the external agent runtime used to perform project edits. In
-Phase 11 the supported providers are Codex and Claude. An agent connection is a
+Phase 9 the supported providers are Codex and Claude. An agent connection is a
 named local configuration for one provider runtime, auth mode, model defaults,
 safe account status, and capability metadata. An agent thread is the durable
 Ripple conversation/work context above provider-native Codex threads or Claude
@@ -541,7 +578,7 @@ bridge existing hidden chats/sub-chats during migration, but the primary UI
 should say generated change, preview, accept, delete, update, Main, and
 Worktree where appropriate.
 
-Canonical Phase 11 domain records:
+Canonical Phase 9 domain records:
 
 - `agent_connections`: named provider setup records. A connection records
   provider, runtime, auth mode, default model, model-selection mode,
@@ -570,7 +607,7 @@ Canonical Phase 11 domain records:
   `sub_chats.messages` as canonical.
 
 Existing Phase 8 records can bridge to this model. The current `revisions`
-table may remain as a generated-change product table, or Phase 11 may introduce
+table may remain as a generated-change product table, or Phase 9 may introduce
 `generated_changes` and `generated_change_attempts` if that makes provider
 threads/runs cleaner. In either case, generated-change product state remains
 separate from provider execution state.
@@ -598,14 +635,14 @@ Current provider files and behavior:
   much of the current chat launch and selected-provider behavior.
 - `src/renderer/features/comments/RippleRevisionQueueWorker.tsx` is the
   temporary Phase 8 shell-level runner that starts queued generated-change
-  chats. Phase 11 should remove or reduce it to display-only state.
+  chats. Phase 9 should remove or reduce it to display-only state.
 - `src/main/lib/revisions/` and
   `src/main/lib/trpc/routers/revisions.ts` own comment/generated-change queue,
   recovery, acceptance, cleanup, and revision context logic. These should call
   the new agent runtime service instead of relying on a mounted renderer worker.
 - `src/main/lib/revisions/revision-queue.ts` is the current Phase 8 handoff
   point. `claimNextRevisionRun()` returns enough information to start the
-  transitional renderer worker today. Phase 11 may map this into
+  transitional renderer worker today. Phase 9 may map this into
   `agent_runs`, or replace the shape with a generated-change scheduler that
   creates/resumes an agent run directly.
 - `src/main/lib/revisions/isolated-workspace-acceptance.ts` is out of scope for
@@ -777,36 +814,39 @@ Run commands from `/Users/comeara/Projects/ripple` unless noted otherwise.
 Validation commands:
 
 - `bun test src/main/lib/agent-runtime`:
-  Passed on 2026-04-29 after the settings/onboarding hardening pass with
-  18 tests across 5 files. Added coverage for passing app-managed Codex API keys
-  into the Codex App Server process environment.
-  Earlier 2026-04-29 run passed with 17 tests across 5 files and covered provider
-  selection, fake adapter event emission, shared AI SDK UI-message projection,
-  persisted rich assistant projections, Codex App Server event normalization,
-  provider error extraction, stale App Server thread detection, and Codex
-  model/thinking selection parsing. The capability hardening pass added prompt
-  mention normalization coverage for skill, agent, file, folder, and MCP tool
-  mentions.
+  Passed most recently on 2026-04-30 as part of
+  `bun test src/main/lib/agent-runtime src/main/lib/revisions` with 33 tests
+  across 8 files. Coverage includes provider selection, fake adapter state
+  transitions, transcript projection, Codex event normalization, stale App
+  Server thread recovery, model/reasoning parsing, skill/MCP mention handling,
+  runtime attachment materialization, and Claude image block filtering.
 - `bun run test:ripple`:
-  Passed on 2026-04-29 after the settings/onboarding hardening pass with
-  185 tests across 43 files.
-  Passed again on 2026-04-29 after the version/model refresh with 185 tests
-  across 43 files.
-  Earlier 2026-04-29 run passed with 184 tests across 43 files after the
-  capability hardening pass.
+  Passed on 2026-04-30 with 218 tests across 49 files during the final
+  pre-commit audit. Earlier 2026-04-29 passes covered capability, settings,
+  and version/model refresh work.
+  The comprehensive UX coverage pass later on 2026-04-30 expanded this to 245
+  tests across 57 files, including the new provider capability and workspace
+  context tests.
 - `bun run build`:
-  Passed on 2026-04-29 after the settings/onboarding hardening pass. The build
-  still reports the existing Vite warnings for `gray-matter` eval and
-  static/dynamic import overlap, but it completed successfully.
-  Passed again on 2026-04-29 after the version/model refresh with the same
-  existing warning classes.
+  Passed on 2026-04-30 during the final pre-commit audit. The build still
+  reports existing Vite warnings for
+  `gray-matter` eval and static/dynamic import overlap.
 - `bun run ts:check`:
-  Passed on 2026-04-29 after the settings/onboarding hardening pass.
-  Passed again on 2026-04-29 after updating Claude SDK, Claude Code, Codex CLI,
-  zod 4 schemas, and the model catalogs.
+  Passed on 2026-04-29 after the settings/onboarding hardening and dependency
+  refresh passes.
+  On 2026-04-30 this script did not start because `tsgo` was not installed or
+  on PATH in the checkout. Fallback `bunx tsc --noEmit --pretty false` only
+  reported the existing `Headers.entries()` diagnostics in
+  `src/main/windows/main.ts` and `src/renderer/lib/api-fetch.ts`.
 - `git diff --check`:
-  Passed on 2026-04-29 after the settings/onboarding hardening pass.
-  Passed again on 2026-04-29 after the version/model refresh.
+  Passed on 2026-04-30 during the final pre-commit audit.
+- `bun test`:
+  Passed on 2026-04-30 with 224 tests across 52 files during the final
+  pre-commit audit.
+  The comprehensive UX coverage pass later on 2026-04-30 passed with 248 tests
+  across 58 files.
+- `bun run db:generate`:
+  Reported no schema changes on 2026-04-30 during the final pre-commit audit.
 - Computer Use settings QA:
   Passed on 2026-04-29 against the running Electron app. Checked Models,
   expanded API Keys, Skills refresh, and the MCP add-server provider picker for
@@ -827,58 +867,29 @@ Validation commands:
 
 Live Codex smoke:
 
-- Normal Chat: the existing desktop Chat UI on project `test2` selected
-  `Codex 5.3`, used `AgentRuntimeChatTransport`, and replied `OK3` from
-  `/Users/comeara/Ripple/test2`. The persisted run completed with
-  `provider=codex`, `model=gpt-5.3-codex/high`, and no error. During this run,
-  the adapter recovered a stale Codex App Server thread by recreating the
-  provider thread and retrying the turn.
-- Streaming UI hardening: the same desktop Chat UI selected `Codex 5.3` and
-  sent "Use a shell command to print the first 5 lines of index.html..." from
-  project `test2`. The UI showed `Recovered provider thread`, a collapsed
-  `3 steps` tool group, final reply `CODEX-STREAM-UI`, and `16.4k` token
-  metadata. Persisted run `mojitj6h6m8olebk` completed with
-  `provider=codex`, `model=gpt-5.3-codex/high`, streamed `assistant_text_delta`
-  events, `thread/tokenUsage/updated` usage events, and `tool_start` /
-  `tool_end` events for `Bash` with parsed command `head -n 5 index.html` in
-  `/Users/comeara/Ripple/test2`. Persisted sub-chat `mojislfoqs6xn5cv`
-  retained assistant parts `data-agent-runtime`, text, `tool-Bash`, and final
-  text. `/Users/comeara/Ripple/test2` remained clean.
-- Comment generated change: comment `#2` created revision
-  `mojg5gfqonp0m90l`, run `mojg5injwhj20b53`, workspace
-  `/Users/comeara/.ripple/worktrees/test2/judicial-dune`, and a one-file
-  `index.html` diff changing `test 3` to `Phase 11 Comment Smoke`. Main stayed
-  clean until explicit acceptance.
-- Stale update after accepting another proposal: the same revision later ran
-  `mojgg7pmgn3py6b5`, fast-forwarded from Main, returned to `proposed`, and
-  now contains the isolated diff from `Phase 11 Claude Comment Smoke` to
-  `Phase 11 Comment Smoke`.
+- Normal Chat completed through `AgentRuntimeChatTransport` with
+  `provider=codex`, `model=gpt-5.3-codex/high`, stale App Server thread
+  recovery, and a clean `/Users/comeara/Ripple/test2` project.
+- Streaming UI hardening showed recovered-provider status, collapsed tool
+  groups, token metadata, parsed `Bash` tool events, and persisted rich
+  assistant parts for reopen.
+- Comment-generated-change smoke created an isolated worktree revision with a
+  one-file `index.html` diff; Main stayed clean until explicit acceptance.
+- Stale-update smoke fast-forwarded an older Codex proposal after accepting a
+  newer Claude proposal and returned it to `proposed`.
 
 Live Claude smoke:
 
-- Normal Chat: the same desktop Chat UI on project `test2` selected the Opus
-  alias (then displayed as `Opus 4.6`), used `AgentRuntimeChatTransport`, and replied
-  `CLAUDE-AUTH-CHECK`. The persisted run completed with `provider=claude`,
-  `model=opus`, and Claude Agent SDK session id
-  `3c522f6e-f8bd-4bec-b7ff-a8bc7eddedd6`.
-- Streaming UI hardening: the same desktop Chat UI selected the Opus alias and
-  sent "Use the Read tool to read index.html..." from project `test2`. The UI
-  showed a collapsed `2 steps` tool group, final reply `CLAUDE-STREAM-UI`, and
-  `140` token metadata. Persisted run `mojhowq847xz8b1z` completed with
-  `provider=claude`, `model=opus`, `system:init` session metadata, `Glob` and
-  `Read` tool start/update/end events, usage events, final assistant deltas,
-  and a final assistant message. Persisted sub-chat `mojfxqcl3susjrn2`
-  retained rich assistant tool/text/usage parts for reopen.
-- Comment generated change: comment `#3` created revision
-  `mojgbvkgtmopw7qi`, run `mojgbwckfrqfqin9`, workspace
-  `/Users/comeara/.ripple/worktrees/test2/flexible-copse`, and a one-file
-  `index.html` diff changing `test 3` to
-  `Phase 11 Claude Comment Smoke`. The UI showed the comment as `Done`,
-  transcript projection stored one user and one assistant message, and Main
-  stayed clean before acceptance.
-- Accept flow: accepting the Claude proposal marked the revision `accepted`,
-  created the Main commit `edbd16a Accept Ripple comment changes`, and left
-  `/Users/comeara/Ripple/test2` with a clean worktree.
+- Normal Chat completed through `AgentRuntimeChatTransport` with the Opus alias,
+  `provider=claude`, `model=opus`, and a persisted Claude Agent SDK session id.
+- Streaming UI hardening showed collapsed tool groups, `Glob`/`Read` events,
+  usage metadata, final assistant deltas, and persisted rich assistant parts for
+  reopen.
+- Comment-generated-change smoke created an isolated worktree revision with a
+  one-file `index.html` diff; transcript projection stored user and assistant
+  messages and Main stayed clean before acceptance.
+- Accept smoke marked the Claude proposal `accepted`, created a Main commit,
+  and left `/Users/comeara/Ripple/test2` clean.
 
 Acceptance criteria:
 
@@ -911,6 +922,18 @@ Acceptance criteria:
 - Phase 8's Comments pane remains review-only: it can create, preview, open,
   accept, delete, restore, and follow up on generated changes, but it does not
   claim or execute provider work from renderer state.
+- Post-review follow-up on 2026-04-29 replaced the shell-level generated-change
+  worker with a main-process scheduler nudge/drain loop and added agent-run
+  event reattachment so remounted Chat panes can follow already-running runs.
+- Chat and comment-created generated changes preserve pasted/dropped/attached
+  image and file references through the Phase 9 runtime. Main owns attachment
+  file materialization and path validation; renderer-provided paths are not
+  trusted for provider execution.
+- Codex App Server generated types currently support `text`, image URL,
+  `localImage`, skill, and mention inputs, with no generic file input. Claude
+  Agent SDK follows Anthropic message content blocks, so Ripple sends the native
+  image/PDF/plain-text forms and keeps every attachment available as a workspace
+  file path for the agent tool layer.
 
 ## Idempotence and Recovery
 
@@ -940,7 +963,7 @@ and preserve transcripts and generated changes for later retry.
 
 Phase 8 recovery behavior should become provider-aware, not weaker. The current
 startup path requeues interrupted `preparing` / `running` generated changes
-when their hidden chat and isolated workspace exist. Phase 11 should first ask
+when their hidden chat and isolated workspace exist. Phase 9 should first ask
 whether an agent run can be resumed or reconciled; if not, it may requeue the
 same hidden thread/workspace using the saved transcript and context.
 
@@ -1062,7 +1085,7 @@ Hardening artifacts from 2026-04-29:
 - `src/main/lib/trpc/routers/agent-runtime.ts` exposes setup command metadata
   alongside auth status.
 - TypeScript hardening touched legacy bridge types and nullable renderer props
-  so `bun run ts:check` can be used as a real Phase 11 validation gate.
+  so `bun run ts:check` can be used as a real Phase 9 validation gate.
 - `src/main/lib/agent-runtime/prompt-mentions.ts` prepares serialized Chat UI
   mentions for both provider runtimes by stripping agent/skill/tool chips,
   preserving safe file/folder paths, and adding provider-readable instructions
@@ -1111,26 +1134,17 @@ The phase should update these versions only when the adapter prototypes prove a
 newer pinned version is required. Version changes should be explicit and
 validated against packaged Electron behavior.
 
-Phase 8 handoff audit from 2026-04-28:
+Phase 8 handoff requirements preserved by this phase:
 
-- Phase 8 should remain paused until this Phase 11 agent-run migration lands.
-- Preserve Phase 8 product semantics and safety guarantees, but do not preserve
-  hidden chat/sub-chat execution architecture as a long-term constraint.
-- Keep `src/main/lib/revisions/revision-queue.ts` as the current source of
-  truth for runnable generated-change claims until a generated-change scheduler
-  or agent-run persistence absorbs that responsibility deliberately.
+- Preserve Phase 8 product semantics and safety guarantees while replacing
+  hidden chat/sub-chat execution as the long-term provider architecture.
 - Keep `src/main/lib/revisions/isolated-workspace-acceptance.ts` as the
-  acceptance boundary for both comment generated changes and Worktree chat
-  changes.
-- Replace `src/renderer/features/comments/RippleRevisionQueueWorker.tsx` with
-  main-process provider execution; do not polish around it as permanent
-  architecture.
+  acceptance boundary for comment generated changes and Worktree chat changes.
+- Move provider execution from `RippleRevisionQueueWorker` into main-process
+  agent runs, leaving renderer code as viewer/controller state.
 - Make provider-native event storage canonical and project it back into
   Chat/Comments. Do not make `sub_chats.messages` the final execution source of
   truth.
-- After Phase 11, resume Phase 8 polish on product details: comment card
-  refinement, generated-change summary quality, stale update UX, Chat handoff,
-  restore/delete edge cases, and visual QA.
 
 Oracle review amendments from 2026-04-28:
 
@@ -1147,6 +1161,6 @@ Oracle review amendments from 2026-04-28:
 - Keep explicitly out of scope: renderer-owned provider execution, mandatory
   provider setup on app entry, hosted/cloud run services, auto-accept into Main,
   full Codex desktop app parity, generalized multi-agent orchestration, MCP
-  marketplace work, Phase 12 prompt/skills overhaul, Phase 13 visual context,
-  Phase 9 export UX, and public Claude subscription-login onboarding without
+  marketplace work, Phase 13 prompt/skills overhaul, Phase 14 visual context,
+  Phase 11 export UX, and public Claude subscription-login onboarding without
   approval.

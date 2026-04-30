@@ -126,6 +126,72 @@ using its own ready, play, pause, seek, duration, and timeupdate semantics.
   preview-player control policy: close visibility follows `onClose`, settings
   stay limited to real behavior, and zoom remains available as an actual preview
   control.
+- [x] 2026-04-30 / Codex: Smoothed source handoff for review revisions and chat
+  revisions. The visible player now stays mounted while a hidden
+  `hyperframes-player` loads, seeks to the requested frame, and only then swaps
+  in, with the timeline UI pinned to the last settled time during the handoff.
+- [x] 2026-04-30 / Codex: Added a renderer preview coordinator that caches
+  prepared HyperFrames player documents behind an LRU document/byte cap, records
+  preview performance timing logs, and prewarms likely main/comment revision
+  targets.
+- [x] 2026-04-30 / Codex: Added the second preview-speed layer after user QA
+  showed document caching alone did not feel meaningfully faster. Ripple now
+  keeps a bounded global pool of offscreen ready `hyperframes-player` instances
+  for likely targets and claims them during source handoff when ready.
+- [x] 2026-04-30 / Codex: Re-ran preview validation after the coordinator
+  update. Focused HyperFrames/Ripple shell tests passed `59/59`,
+  `bun run test:ripple` passed `206/206`, and `git diff --check` passed.
+  Direct `tsc --noEmit` still reports unrelated dirty-tree/baseline errors in
+  `main.ts`, `api-fetch.ts`, and `isolated-message-group.tsx`; `bun run
+  ts:check` still cannot run because `tsgo` is not installed.
+- [x] 2026-04-30 / Codex: Tightened preview timecode continuity after user QA.
+  Main/chat preview switches now re-seek to the current sticky preview time,
+  comment selection seeks from the persisted frame anchor when it matches the
+  stored milliseconds, and tiny player rounding updates no longer erase a
+  just-requested sub-frame/comment time.
+- [x] 2026-04-30 / Codex: Expanded speculative preview readiness from a tiny
+  2-player pool to a bounded 6-player global pool, with higher document-cache
+  caps and LRU replacement so the selected/nearby comment targets can displace
+  stale prewarms.
+- [x] 2026-04-30 / Codex: Re-ran validation after the timecode/pool tuning.
+  Focused HyperFrames/Ripple shell tests passed `64/64`, `bun run test:ripple`
+  passed `211/211`, and `git diff --check` passed. Direct `tsc --noEmit` still
+  reports only the known repo-wide baseline errors in `main.ts`, `api-fetch.ts`,
+  and `isolated-message-group.tsx`.
+- [x] 2026-04-30 / Codex: Fixed a follow-up comment regression where source
+  loading emitted a live `0` while a non-zero comment seek was pending, causing
+  the selected comment and subsequent View Main action to land at the start.
+  The shell now guards pending seeks against loader zeroes, and the preview UI
+  displays the requested seek time while the hidden player is still settling.
+  Focused HyperFrames/Ripple shell tests passed `65/65`, `bun run test:ripple`
+  passed `212/212`, and `git diff --check` passed.
+- [x] 2026-04-30 / Codex: Fixed the remaining first-click comment seek bug.
+  `adapter.seek()` no longer clamps every seek to `0` while the newly handed-off
+  HyperFrames player has not reported duration yet, which was why the first
+  comment click and View Main could still land at the start while a second click
+  worked after duration settled. Focused HyperFrames/Ripple shell tests passed
+  `66/66`, `bun run test:ripple` passed `213/213`, and `git diff --check`
+  passed.
+- [x] 2026-04-30 / Codex: Added an adapter-level programmatic seek hold/retry
+  after user QA showed the player could still jump to the requested comment
+  time and then report `0` back up. Stale post-seek reports are now held on the
+  requested time and retried briefly until the player settles on the requested
+  frame. Focused HyperFrames/Ripple shell tests passed `67/67`, `bun run
+  test:ripple` passed `214/214`, and `git diff --check` passed.
+- [x] 2026-04-30 / Codex: Smoothed the final fast-loading preview indicator
+  flicker. Transient inline "Updating preview" and blocking "Preparing preview"
+  states now wait briefly before rendering and fade in when a real wait remains;
+  preview errors still render immediately. Focused HyperFrames/Ripple shell
+  tests passed `68/68`, `bun run test:ripple` passed `215/215`, and
+  `git diff --check` passed.
+- [x] 2026-04-30 / Codex: Removed the remaining frame-zero visual flash during
+  comment/main source switches. Pending players now stay fully hidden until
+  their clock reports the requested seek time, with a short settle timeout as a
+  fallback, so prewarmed frame-zero content like the starter lower third is not
+  revealed during fast handoff. The transient loading delays were also raised
+  to avoid one-frame status text. Focused HyperFrames/Ripple shell tests passed
+  `68/68`, `bun run test:ripple` passed `215/215`, and `git diff --check`
+  passed.
 - [x] Spike the official player's `src` mode against a HyperFrames-prepared
   local preview URL and document the exact ready/play/seek/timeupdate behavior
   in Electron.
@@ -207,6 +273,19 @@ using its own ready, play, pause, seek, duration, and timeupdate semantics.
   while the `ripple-preview:` handler builds the prepared document, injects the
   local runtime, and normalizes older starter-project timing before the official
   player sees the composition.
+- Observation: Review preview switching needs two distinct stability layers:
+  visual double-buffering and timeline-state freezing.
+  Evidence: User QA on 2026-04-29 showed the black flash was mostly fixed by
+  hidden-player swapping, but the playhead still drifted while React Query and
+  the hidden player were settling. The player now freezes the last settled
+  duration, timeline model, and display time until the new player is ready.
+- Observation: A global pool of live hidden HyperFrames players would make
+  comment switching fastest, but it must stay small for memory on local desktops
+  with multiple projects open.
+  Evidence: The current coordinator caps prepared HTML documents to `18`
+  documents / `36 MB`, dedupes in-flight loads, and caps offscreen ready players
+  to `6` globally. The source handoff logs `player:take-hit` when it can reuse a
+  ready offscreen player and `player:take-miss` when it must boot normally.
 - Observation: The stronger long-term shape is a HyperFrames-prepared preview
   URL, not a full Studio embed and not a Ripple-authored parallel runtime.
   Evidence: `@hyperframes/player` supports loading a composition URL through
@@ -816,6 +895,10 @@ New interfaces:
 - `ripple-preview:` Electron protocol
 - `buildHyperframesPlayerSourceDocument`
 - `selectHyperframesPlayerComposition`
+- `getRipplePreparedPreviewDocument`
+- `prewarmRipplePreparedPreviewDocument`
+- `prewarmRipplePreviewPlayer`
+- `takeRipplePrewarmedPreviewPlayer`
 
 Candidate next interfaces:
 

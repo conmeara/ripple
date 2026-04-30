@@ -12,20 +12,30 @@ import {
   type RippleRevisionDiffSummary,
 } from "../../../shared/ripple-comments"
 import {
-  chats,
+  validateAgentRuntimeAttachments,
+  type AgentRuntimeAttachment,
+} from "../../../shared/agent-runtime-attachments"
+import {
   commentMessages,
   commentThreads,
+  conversationMessages,
+  conversations,
   compositions,
   getDatabase,
   projects,
   revisions,
-  subChats,
   type Composition,
   type CommentThread,
   type Project,
   type Revision,
 } from "../db"
 import { inferAgentProviderFromModel } from "../agent-runtime/provider-selection"
+import type { AgentProviderId } from "../agent-runtime/types"
+import {
+  appendConversationMessage,
+  ensureCommentConversation,
+  getConversationMessagesJson,
+} from "../conversations/service"
 import { createId } from "../db/utils"
 import {
   createWorktreeForChat,
@@ -39,10 +49,7 @@ import {
   compactOneLineSummary,
   extractAssistantFinalResponseFromMessages,
 } from "./comment-summary"
-import {
-  appendRippleCommentPromptMessage,
-  buildRevisionPrompt,
-} from "./comment-prompt"
+import { buildRevisionPrompt } from "./comment-prompt"
 import {
   buildRevisionProposalPatch,
   refreshRevisionProposalFromLatest,
@@ -67,7 +74,9 @@ export interface CreateCommentThreadInput {
   compositionId?: string | null
   body: string
   anchor: RippleCommentAnchorInput
+  attachments?: AgentRuntimeAttachment[]
   createRevision?: boolean
+  agentProvider?: AgentProviderId
   model?: string
   clientRequestId?: string | null
 }
@@ -75,7 +84,9 @@ export interface CreateCommentThreadInput {
 export interface AddCommentReplyInput {
   threadId: string
   body: string
+  attachments?: AgentRuntimeAttachment[]
   createRevision?: boolean
+  agentProvider?: AgentProviderId
   model?: string
   clientRequestId?: string | null
 }
@@ -108,6 +119,11 @@ function assertBody(body: string): string {
   return trimmed
 }
 
+function assertAttachments(attachments: AgentRuntimeAttachment[] | null | undefined): void {
+  const message = validateAgentRuntimeAttachments(attachments ?? [])
+  if (message) throw new Error(message)
+}
+
 function normalizeClientRequestId(value: string | null | undefined): string | null {
   const trimmed = value?.trim()
   if (!trimmed) return null
@@ -115,6 +131,20 @@ function normalizeClientRequestId(value: string | null | undefined): string | nu
     throw new Error("Comment request id is too long.")
   }
   return trimmed
+}
+
+function serializeCommentMessageMetadata(
+  attachments: AgentRuntimeAttachment[] | null | undefined,
+): string | null {
+  if (!attachments?.length) return null
+  return JSON.stringify({
+    attachments: attachments.map((attachment) => ({
+      type: attachment.type,
+      filename: attachment.filename ?? (attachment.type === "image" ? "image" : "file"),
+      mediaType: attachment.mediaType ?? null,
+      size: attachment.size ?? null,
+    })),
+  })
 }
 
 function getProject(db: Db, projectId: string): Project {
@@ -202,14 +232,11 @@ function getRevisionDiffSummaryForView(
   revision: Revision,
 ): string | null {
   const summary = parseStoredDiffSummary(revision.diffSummary)
-  if (!summary || !revision.subChatId) return revision.diffSummary
+  if (!summary || !revision.conversationId) return revision.diffSummary
 
-  const subChat = db
-    .select({ messages: subChats.messages })
-    .from(subChats)
-    .where(eq(subChats.id, revision.subChatId))
-    .get()
-  const assistantSummary = extractAssistantFinalResponseFromMessages(subChat?.messages)
+  const assistantSummary = extractAssistantFinalResponseFromMessages(
+    getConversationMessagesJson(revision.conversationId, db),
+  )
   if (!assistantSummary) return revision.diffSummary
   return serializeDiffSummary({ ...summary, summary: assistantSummary })
 }
@@ -227,6 +254,113 @@ function attachRevisionToCommentMessage(input: {
       eq(commentMessages.id, input.messageId),
       eq(commentMessages.threadId, input.threadId),
     ))
+    .run()
+
+  const conversation = input.db
+    .select({ id: conversations.id })
+    .from(conversations)
+    .where(eq(conversations.commentThreadId, input.threadId))
+    .get()
+  if (!conversation) return
+
+  const rows = input.db
+    .select()
+    .from(conversationMessages)
+    .where(eq(conversationMessages.conversationId, conversation.id))
+    .all()
+  for (const row of rows) {
+    let metadata: Record<string, unknown>
+    try {
+      const parsed = JSON.parse(row.metadataJson || "{}")
+      metadata = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed
+        : {}
+    } catch {
+      metadata = {}
+    }
+    if (
+      metadata.source !== "ripple-comment" ||
+      metadata.commentMessageId !== input.messageId
+    ) {
+      continue
+    }
+    input.db.update(conversationMessages)
+      .set({
+        metadataJson: JSON.stringify({
+          ...metadata,
+          revisionId: input.revisionId,
+        }),
+      })
+      .where(eq(conversationMessages.id, row.id))
+      .run()
+  }
+}
+
+function appendCommentUserConversationMessage(input: {
+  db: Db
+  thread: CommentThread
+  body: string
+  messageId: string
+  attachments?: AgentRuntimeAttachment[]
+  clientRequestId?: string | null
+}): void {
+  const conversation = ensureCommentConversation({
+    db: input.db,
+    thread: input.thread,
+    title: `Comment ${timecodeFromMs(input.thread.startTime)}`,
+  })
+  const parts: Record<string, unknown>[] = [{ type: "text", text: input.body }]
+  for (const attachment of input.attachments ?? []) {
+    if (attachment.type === "image") {
+      parts.push({
+        type: "data-image",
+        data: {
+          base64Data: attachment.base64Data,
+          mediaType: attachment.mediaType,
+          filename: attachment.filename ?? "image",
+        },
+      })
+    } else {
+      parts.push({
+        type: "data-file",
+        data: {
+          base64Data: attachment.base64Data,
+          mediaType: attachment.mediaType,
+          filename: attachment.filename,
+          size: attachment.size,
+        },
+      })
+    }
+  }
+  appendConversationMessage({
+    db: input.db,
+    conversationId: conversation.id,
+    role: "user",
+    body: input.body,
+    parts,
+    metadata: {
+      source: "ripple-comment",
+      threadId: input.thread.id,
+      commentMessageId: input.messageId,
+      clientRequestId: input.clientRequestId ?? null,
+    },
+  })
+}
+
+function updateCommentConversationStatus(input: {
+  db: Db
+  threadId: string
+  status: "open" | "resolved" | "deleted"
+  deletedAt?: Date | null
+}): void {
+  input.db.update(conversations)
+    .set({
+      status: input.status,
+      deletedAt: input.deletedAt,
+      archivedAt: null,
+      updatedAt: dateNow(),
+    })
+    .where(eq(conversations.commentThreadId, input.threadId))
     .run()
 }
 
@@ -273,6 +407,7 @@ async function loadThreadView(threadId: string): Promise<RippleCommentThreadView
       threadId: revision.threadId,
       projectId: revision.projectId,
       compositionId: revision.compositionId,
+      conversationId: revision.conversationId,
       chatId: revision.chatId,
       subChatId: revision.subChatId,
       status: revision.status,
@@ -328,6 +463,7 @@ export async function createCommentThread(
   assertComposition(db, input.projectId, input.compositionId)
 
   const body = assertBody(input.body)
+  assertAttachments(input.attachments)
   const clientRequestId = normalizeClientRequestId(input.clientRequestId)
   if (clientRequestId) {
     const existingThread = db
@@ -374,12 +510,21 @@ export async function createCommentThread(
         threadId: createdThread.id,
         role: "user",
         body,
+        metadataJson: serializeCommentMessageMetadata(input.attachments),
         clientRequestId,
         createdAt: now,
       })
       .run()
 
     return createdThread
+  })
+  appendCommentUserConversationMessage({
+    db,
+    thread,
+    body,
+    messageId,
+    attachments: input.attachments,
+    clientRequestId,
   })
 
   if (input.createRevision ?? true) {
@@ -388,6 +533,8 @@ export async function createCommentThread(
       body,
       project,
       messageId,
+      attachments: input.attachments,
+      agentProvider: input.agentProvider,
       model: input.model,
     })
   }
@@ -405,8 +552,12 @@ export async function addCommentReply(
     .where(eq(commentThreads.id, input.threadId))
     .get()
   if (!thread) throw new Error("Comment thread not found.")
+  if (thread.deletedAt) {
+    throw new Error("Restore this comment before replying.")
+  }
   const project = getProject(db, thread.projectId)
   const body = assertBody(input.body)
+  assertAttachments(input.attachments)
   const clientRequestId = normalizeClientRequestId(input.clientRequestId)
   if (clientRequestId) {
     const existingMessage = db
@@ -431,6 +582,7 @@ export async function addCommentReply(
         threadId: thread.id,
         role: "user",
         body,
+        metadataJson: serializeCommentMessageMetadata(input.attachments),
         clientRequestId,
         createdAt: now,
       })
@@ -440,6 +592,14 @@ export async function addCommentReply(
       .where(eq(commentThreads.id, thread.id))
       .run()
   })
+  appendCommentUserConversationMessage({
+    db,
+    thread,
+    body,
+    messageId,
+    attachments: input.attachments,
+    clientRequestId,
+  })
 
   if (input.createRevision ?? true) {
     await createRevisionForThread({
@@ -448,6 +608,8 @@ export async function addCommentReply(
       project,
       baseRevisionId: thread.latestRevisionId,
       messageId,
+      attachments: input.attachments,
+      agentProvider: input.agentProvider,
       model: input.model,
     })
   }
@@ -461,6 +623,8 @@ export async function createRevisionForThread(input: {
   project?: Project
   baseRevisionId?: string | null
   messageId?: string | null
+  attachments?: AgentRuntimeAttachment[]
+  agentProvider?: AgentProviderId
   model?: string
 }): Promise<Revision> {
   const db = getDatabase()
@@ -470,8 +634,18 @@ export async function createRevisionForThread(input: {
     .where(eq(commentThreads.id, input.threadId))
     .get()
   if (!thread) throw new Error("Comment thread not found.")
+  if (thread.deletedAt) {
+    throw new Error("Restore this comment before creating changes.")
+  }
+  assertAttachments(input.attachments)
   const project = input.project ?? getProject(db, thread.projectId)
   const composition = getCompositionForPrompt(db, thread.compositionId)
+  const chatName = `Comment ${timecodeFromMs(thread.startTime)}`
+  const conversation = ensureCommentConversation({
+    db,
+    thread,
+    title: chatName,
+  })
   const prompt = buildRevisionPrompt({
     thread,
     body: input.body,
@@ -488,22 +662,69 @@ export async function createRevisionForThread(input: {
     baseRevision.threadId === thread.id &&
     baseRevision.projectId === project.id &&
     baseRevision.contextPath &&
-    baseRevision.chatId &&
-    baseRevision.subChatId &&
     (REUSABLE_FOLLOW_UP_STATUSES as readonly string[]).includes(baseRevision.status)
       ? baseRevision
       : null
 
   if (reusableBaseRevision) {
-    await stat(reusableBaseRevision.contextPath!)
-
-    const subChat = db
-      .select({ messages: subChats.messages })
-      .from(subChats)
-      .where(eq(subChats.id, reusableBaseRevision.subChatId!))
-      .get()
-    if (!subChat) {
-      throw new Error("The revision chat is not available.")
+    try {
+      await stat(reusableBaseRevision.contextPath!)
+    } catch (error) {
+      const message = compactOneLineSummary(
+        error instanceof Error ? error.message : String(error),
+      ) || "The previous generated-change workspace is not available."
+      return db.transaction(() => {
+        const failedRevision = db
+          .insert(revisions)
+          .values({
+            id: revisionId,
+            threadId: thread.id,
+            projectId: project.id,
+            compositionId: thread.compositionId,
+            conversationId: conversation.id,
+            chatId: null,
+            subChatId: null,
+            agentProvider:
+              input.agentProvider ??
+              reusableBaseRevision.agentProvider ??
+              inferAgentProviderFromModel(input.model),
+            agentModel: input.model ?? reusableBaseRevision.agentModel ?? null,
+            baseRevisionId: reusableBaseRevision.id,
+            baseProjectCommit: reusableBaseRevision.baseProjectCommit,
+            baseProjectHash: reusableBaseRevision.baseProjectHash,
+            contextPath: reusableBaseRevision.contextPath,
+            branch: reusableBaseRevision.branch,
+            prompt,
+            status: "failed",
+            errorMessage: message,
+            previewContextKey: getRippleRevisionPreviewProjectId(revisionId),
+            createdAt: now,
+            updatedAt: now,
+            resolvedAt: now,
+          })
+          .returning()
+          .get()
+        attachRevisionToCommentMessage({
+          db,
+          messageId: input.messageId,
+          threadId: thread.id,
+          revisionId: failedRevision.id,
+        })
+        db.update(commentThreads)
+          .set({ latestRevisionId: failedRevision.id, updatedAt: now })
+          .where(eq(commentThreads.id, thread.id))
+          .run()
+        db.insert(commentMessages)
+          .values({
+            threadId: thread.id,
+            revisionId: failedRevision.id,
+            role: "system",
+            body: message,
+            createdAt: now,
+          })
+          .run()
+        return failedRevision
+      })
     }
 
     const revision = db.transaction(() => {
@@ -514,10 +735,13 @@ export async function createRevisionForThread(input: {
           threadId: thread.id,
           projectId: project.id,
           compositionId: thread.compositionId,
-          chatId: reusableBaseRevision.chatId,
-          subChatId: reusableBaseRevision.subChatId,
+          conversationId: conversation.id,
+          chatId: null,
+          subChatId: null,
           agentProvider:
-            reusableBaseRevision.agentProvider ?? inferAgentProviderFromModel(input.model),
+            input.agentProvider ??
+            reusableBaseRevision.agentProvider ??
+            inferAgentProviderFromModel(input.model),
           agentModel: input.model ?? reusableBaseRevision.agentModel ?? null,
           baseRevisionId: reusableBaseRevision.id,
           baseProjectCommit: reusableBaseRevision.baseProjectCommit,
@@ -533,22 +757,14 @@ export async function createRevisionForThread(input: {
         .returning()
         .get()
 
-      db.update(subChats)
+      db.update(conversations)
         .set({
-          messages: appendRippleCommentPromptMessage({
-            messages: subChat.messages,
-            prompt,
-            threadId: thread.id,
-            revisionId: createdRevision.id,
-            model: input.model,
-          }),
+          revisionId: createdRevision.id,
+          worktreePath: reusableBaseRevision.contextPath,
+          branch: reusableBaseRevision.branch,
           updatedAt: now,
         })
-        .where(eq(subChats.id, reusableBaseRevision.subChatId!))
-        .run()
-      db.update(chats)
-        .set({ updatedAt: now })
-        .where(eq(chats.id, reusableBaseRevision.chatId!))
+        .where(eq(conversations.id, conversation.id))
         .run()
       if (
         reusableBaseRevision.status === "proposed" ||
@@ -579,41 +795,7 @@ export async function createRevisionForThread(input: {
     return revision
   }
 
-  const chatId = createId()
-  const subChatId = createId()
-  const chatName = `Comment ${timecodeFromMs(thread.startTime)}`
-  const initialMessages = appendRippleCommentPromptMessage({
-    messages: [],
-    prompt,
-    threadId: thread.id,
-    revisionId,
-    model: input.model,
-  })
-
   let revision = db.transaction(() => {
-    db.insert(chats)
-      .values({
-        id: chatId,
-        name: chatName,
-        projectId: project.id,
-        isHidden: true,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run()
-
-    db.insert(subChats)
-      .values({
-        id: subChatId,
-        chatId,
-        name: "Comment changes",
-        mode: "agent",
-        messages: initialMessages,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run()
-
     const createdRevision = db
       .insert(revisions)
       .values({
@@ -621,9 +803,10 @@ export async function createRevisionForThread(input: {
         threadId: thread.id,
         projectId: project.id,
         compositionId: thread.compositionId,
-        chatId,
-        subChatId,
-        agentProvider: inferAgentProviderFromModel(input.model),
+        conversationId: conversation.id,
+        chatId: null,
+        subChatId: null,
+        agentProvider: input.agentProvider ?? inferAgentProviderFromModel(input.model),
         agentModel: input.model ?? null,
         baseRevisionId: input.baseRevisionId ?? null,
         prompt,
@@ -639,6 +822,10 @@ export async function createRevisionForThread(input: {
       threadId: thread.id,
       revisionId: createdRevision.id,
     })
+      db.update(conversations)
+        .set({ revisionId: createdRevision.id, updatedAt: now })
+        .where(eq(conversations.id, conversation.id))
+        .run()
 
     return createdRevision
   })
@@ -650,7 +837,7 @@ export async function createRevisionForThread(input: {
     const result = await createWorktreeForChat(
       base.projectPath,
       sanitizeProjectName(project.name),
-      chatId,
+      revisionId,
       undefined,
       branchType,
     )
@@ -683,14 +870,15 @@ export async function createRevisionForThread(input: {
         .where(eq(revisions.id, revision.id))
         .returning()
         .get()
-      db.update(chats)
+      db.update(conversations)
         .set({
+          revisionId: updatedRevision.id,
           worktreePath: contextPath,
           branch: result.branch ?? null,
           baseBranch: result.baseBranch ?? null,
           updatedAt: dateNow(),
         })
-        .where(eq(chats.id, chatId))
+        .where(eq(conversations.id, conversation.id))
         .run()
       db.update(commentThreads)
         .set({ latestRevisionId: updatedRevision.id, updatedAt: dateNow() })
@@ -735,6 +923,12 @@ export async function createRevisionForThread(input: {
 export async function deleteCommentThread(threadId: string): Promise<RippleCommentThreadView> {
   const db = getDatabase()
   const now = dateNow()
+  const thread = db
+    .select()
+    .from(commentThreads)
+    .where(eq(commentThreads.id, threadId))
+    .get()
+  if (!thread) throw new Error("Comment thread not found.")
   const threadRevisions = db
     .select()
     .from(revisions)
@@ -793,15 +987,28 @@ export async function deleteCommentThread(threadId: string): Promise<RippleComme
     .set({ deletedAt: now, updatedAt: now })
     .where(eq(commentThreads.id, threadId))
     .run()
+  updateCommentConversationStatus({
+    db,
+    threadId,
+    status: "deleted",
+    deletedAt: now,
+  })
   return loadThreadView(threadId)
 }
 
 export async function restoreCommentThread(threadId: string): Promise<RippleCommentThreadView> {
   const db = getDatabase()
+  const now = dateNow()
   db.update(commentThreads)
-    .set({ deletedAt: null, updatedAt: dateNow() })
+    .set({ deletedAt: null, updatedAt: now })
     .where(eq(commentThreads.id, threadId))
     .run()
+  updateCommentConversationStatus({
+    db,
+    threadId,
+    status: "open",
+    deletedAt: null,
+  })
   return loadThreadView(threadId)
 }
 
@@ -812,6 +1019,12 @@ export async function resolveCommentThread(threadId: string): Promise<RippleComm
     .set({ status: "resolved", resolvedAt: now, updatedAt: now })
     .where(eq(commentThreads.id, threadId))
     .run()
+  updateCommentConversationStatus({
+    db,
+    threadId,
+    status: "resolved",
+    deletedAt: null,
+  })
   return loadThreadView(threadId)
 }
 
@@ -920,47 +1133,30 @@ export async function updateStaleRevisionProposal(id: string): Promise<RippleCom
       return loadThreadView(revision.threadId)
     }
 
-    if (!revision.subChatId) {
-      throw new Error("The revision chat is not available.")
-    }
-    const subChat = db
-      .select({ messages: subChats.messages })
-      .from(subChats)
-      .where(eq(subChats.id, revision.subChatId))
-      .get()
-    if (!subChat) {
-      throw new Error("The revision chat is not available.")
-    }
-
     const now = dateNow()
-    db.update(subChats)
-      .set({
-        messages: appendRippleCommentPromptMessage({
-          messages: subChat.messages,
-          prompt: "Pull and Resolve from Main",
-          threadId: revision.threadId,
-          revisionId: revision.id,
-        }),
-        updatedAt: now,
-      })
-      .where(eq(subChats.id, revision.subChatId))
-      .run()
-    if (revision.chatId) {
-      db.update(chats)
-        .set({ updatedAt: now })
-        .where(eq(chats.id, revision.chatId))
-        .run()
-    }
     db.update(revisions)
       .set({
         status: "queued",
         baseProjectCommit: refresh.currentCommit,
         diffSummary: serializeDiffSummary(summary),
         errorMessage: null,
+        prompt: "Pull and Resolve from Main",
         updatedAt: now,
       })
       .where(eq(revisions.id, id))
       .run()
+    if (revision.conversationId) {
+      appendConversationMessage({
+        db,
+        conversationId: revision.conversationId,
+        role: "system",
+        body: "Updating these changes against Main.",
+        metadata: {
+          source: "ripple-revision-refresh",
+          revisionId: revision.id,
+        },
+      })
+    }
   } catch (error) {
     db.update(revisions)
       .set({
@@ -1026,15 +1222,12 @@ export async function completeRevisionBackgroundRun(id: string): Promise<RippleC
     baseProjectCommit: revision.baseProjectCommit,
   })
   const summary = diffSummaryFromPatch(diff)
-  const subChat = revision.subChatId
-    ? db
-        .select({ messages: subChats.messages })
-        .from(subChats)
-        .where(eq(subChats.id, revision.subChatId))
-        .get()
-    : null
   summary.summary =
-    extractAssistantFinalResponseFromMessages(subChat?.messages) ||
+    extractAssistantFinalResponseFromMessages(
+      revision.conversationId
+        ? getConversationMessagesJson(revision.conversationId, db)
+        : null,
+    ) ||
     fallbackRevisionSummary(summary)
 
   const completedRevision = db.update(revisions)
@@ -1172,6 +1365,12 @@ export async function acceptRevision(id: string): Promise<RippleCommentThreadVie
       })
       .where(eq(commentThreads.id, revision.threadId))
       .run()
+    updateCommentConversationStatus({
+      db,
+      threadId: revision.threadId,
+      status: "resolved",
+      deletedAt: null,
+    })
     if (acceptance.acceptedProjectCommit) {
       markStaleProjectRevisionsUpdating({
         db,

@@ -77,6 +77,8 @@ export function RippleReviewPane({
   compositionId,
   currentTime,
   timelineSelection,
+  selectedCommentThreadId,
+  onSelectedCommentThreadChange,
   activePreviewRevisionId,
   onPreviewRevision,
   onShowPrimaryPreview,
@@ -90,9 +92,11 @@ export function RippleReviewPane({
   compositionId?: string | null
   currentTime: number
   timelineSelection: RippleTimelineRangeSelection | null
+  selectedCommentThreadId?: string | null
+  onSelectedCommentThreadChange?: (threadId: string | null) => void
   activePreviewRevisionId?: string | null
   onPreviewRevision: (revisionId: string, time: number) => void
-  onShowPrimaryPreview: () => void
+  onShowPrimaryPreview: (time?: number | null) => void
   onOpenRevisionChat: (
     chatId: string,
     revisionId?: string | null,
@@ -103,7 +107,7 @@ export function RippleReviewPane({
   return (
     <aside
       className={cn(
-        "flex h-full min-h-0 flex-col border-l border-border/60 bg-tl-background",
+        "flex h-full min-h-0 flex-col overflow-hidden border-l border-border/60 bg-tl-background",
         expanded
           ? "w-auto min-w-[340px] max-w-none flex-1"
           : "w-[390px] min-w-[340px] max-w-[430px]",
@@ -136,7 +140,7 @@ export function RippleReviewPane({
       </div>
       <div
         className={cn(
-          "min-h-0 flex-1",
+          "min-h-0 min-w-0 flex-1 overflow-hidden",
           mode === "comments" ? "flex" : "hidden",
         )}
       >
@@ -145,6 +149,9 @@ export function RippleReviewPane({
           compositionId={compositionId}
           currentTime={currentTime}
           selection={timelineSelection}
+          selectedThreadId={selectedCommentThreadId}
+          onSelectedThreadIdChange={onSelectedCommentThreadChange}
+          agentTextResetKey={mode}
           activePreviewRevisionId={activePreviewRevisionId}
           onPreviewRevision={onPreviewRevision}
           onShowPrimaryPreview={onShowPrimaryPreview}

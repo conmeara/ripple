@@ -1146,7 +1146,7 @@ export function NewChatForm({
       }
     }
 
-    // Build message parts array (images first, then text, then hidden file contents)
+    // Build message parts array (attachments first, then text, then hidden file contents)
     type MessagePart =
       | { type: "text"; text: string }
       | {
@@ -1156,6 +1156,16 @@ export function NewChatForm({
             mediaType?: string
             filename?: string
             base64Data?: string
+          }
+        }
+      | {
+          type: "data-file"
+          data: {
+            url: string
+            mediaType?: string
+            filename: string
+            base64Data?: string
+            size?: number
           }
         }
       | {
@@ -1175,6 +1185,21 @@ export function NewChatForm({
           base64Data: img.base64Data,
         },
       }))
+
+    parts.push(
+      ...files
+        .filter((file) => !file.isLoading && file.url)
+        .map((file) => ({
+          type: "data-file" as const,
+          data: {
+            url: file.url,
+            mediaType: file.mediaType || file.type,
+            filename: file.filename,
+            base64Data: file.base64Data,
+            size: file.size,
+          },
+        })),
+    )
 
     // Add pasted text as pasted mentions (format: pasted:size:preview|filepath)
     // Using | as separator since filepath can contain colons

@@ -73,6 +73,7 @@ export interface RippleRevisionView {
   threadId: string
   projectId: string
   compositionId: string | null
+  conversationId?: string | null
   chatId: string | null
   subChatId: string | null
   status: RippleRevisionStatus
@@ -88,6 +89,7 @@ export interface RippleCommentThreadView {
   id: string
   projectId: string
   compositionId: string | null
+  conversationId?: string | null
   anchorType: RippleCommentAnchorType
   startTime: number
   endTime: number | null
@@ -117,6 +119,18 @@ export function parseRippleRevisionPreviewProjectId(
 ): string | null {
   return previewProjectId.startsWith("revision-")
     ? previewProjectId.slice("revision-".length)
+    : null
+}
+
+export function getRippleChatWorktreePreviewProjectId(chatId: string): string {
+  return `chat-worktree-${chatId}`
+}
+
+export function parseRippleChatWorktreePreviewProjectId(
+  previewProjectId: string,
+): string | null {
+  return previewProjectId.startsWith("chat-worktree-")
+    ? previewProjectId.slice("chat-worktree-".length)
     : null
 }
 
@@ -160,6 +174,26 @@ export function normalizeCommentAnchor(input: RippleCommentAnchorInput): {
 export function msToSeconds(value: number | null | undefined): number {
   if (!Number.isFinite(value)) return 0
   return Math.max(0, value ?? 0) / 1000
+}
+
+export function commentAnchorPreviewTimeSeconds(
+  input: { startTime?: number | null; startFrame?: number | null },
+  fps = 30,
+): number {
+  const hasStartTime =
+    typeof input.startTime === "number" && Number.isFinite(input.startTime)
+  const timeFromMs = msToSeconds(input.startTime)
+  const frame = integerNonNegative(input.startFrame)
+  if (frame === null || !Number.isFinite(fps) || fps <= 0) return timeFromMs
+
+  const timeFromFrame = frame / fps
+  if (!hasStartTime) return timeFromFrame
+  const frameMatchToleranceSeconds = Math.max(0.002, 0.5 / fps)
+  if (Math.abs(timeFromFrame - timeFromMs) <= frameMatchToleranceSeconds) {
+    return timeFromFrame
+  }
+
+  return timeFromMs
 }
 
 function finiteNonNegative(value: number | null | undefined): number | null {

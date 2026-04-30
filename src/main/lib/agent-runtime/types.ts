@@ -5,6 +5,9 @@ import type {
   AgentThread,
   Workspace,
 } from "../db"
+import type { AgentRuntimeAttachment } from "../../../shared/agent-runtime-attachments"
+
+export type { AgentRuntimeAttachment } from "../../../shared/agent-runtime-attachments"
 
 export type AgentProviderId = "codex" | "claude" | "fake"
 
@@ -43,6 +46,7 @@ export type WorkspaceKind = "main" | "chat_worktree" | "generated_change"
 
 export type AgentWorkspaceTarget =
   | { type: "project"; projectId: string }
+  | { type: "conversation"; conversationId: string }
   | { type: "chat"; chatId: string }
   | { type: "revision"; revisionId: string }
 
@@ -75,6 +79,7 @@ export interface AgentProviderRunInput extends AgentRunExecutionContext {
   cwd: string
   mode: AgentRunMode
   model: string | null
+  attachments?: AgentRuntimeAttachment[]
   authConfig?: {
     apiKey?: string
   } | null
@@ -118,6 +123,7 @@ export interface StartAgentRunInput {
   runKind: AgentRunKind
   mode?: AgentRunMode
   model?: string | null
+  conversationId?: string | null
   chatId?: string | null
   subChatId?: string | null
   commentThreadId?: string | null

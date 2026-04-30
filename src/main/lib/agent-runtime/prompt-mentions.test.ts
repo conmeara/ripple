@@ -26,4 +26,20 @@ describe("prepareAgentRuntimePrompt", () => {
     expect(prepared.prompt).toContain("Use tools from the good_server MCP server")
     expect(prepared.prompt).not.toContain("bad/tool")
   })
+
+  test("preserves file and folder context while stripping provider-only mention markup", () => {
+    const prepared = prepareAgentRuntimePrompt(
+      "Update @[folder:local:compositions] using @[file:external:brand/brief.md] with @[skill:motion-review].",
+    )
+
+    expect(prepared.folderMentions).toEqual(["local:compositions"])
+    expect(prepared.fileMentions).toEqual(["external:brand/brief.md"])
+    expect(prepared.skillMentions).toEqual(["motion-review"])
+    expect(prepared.cleanedPrompt).toBe(
+      "Update compositions using brand/brief.md with .",
+    )
+    expect(prepared.prompt).toContain('Use the "motion-review" skill(s)')
+    expect(prepared.prompt).toContain("Update compositions using brand/brief.md")
+    expect(prepared.prompt).not.toContain("@[")
+  })
 })

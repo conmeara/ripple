@@ -16,7 +16,8 @@ import {
 } from "../../../../shared/codex-tool-normalizer"
 import { getClaudeShellEnvironment } from "../../claude/env"
 import { resolveProjectPathFromWorktree } from "../../claude-config"
-import { getDatabase, projects as projectsTable, subChats } from "../../db"
+import { getConversationUiMessages, replaceConversationMessages } from "../../conversations/service"
+import { conversations, getDatabase, projects as projectsTable } from "../../db"
 import {
   fetchMcpTools,
   fetchMcpToolsStdio,
@@ -1619,17 +1620,17 @@ export const codexRouter = router({
           try {
             const db = getDatabase()
 
-            const existingSubChat = db
+            const existingConversation = db
               .select()
-              .from(subChats)
-              .where(eq(subChats.id, input.subChatId))
+              .from(conversations)
+              .where(eq(conversations.id, input.subChatId))
               .get()
 
-            if (!existingSubChat) {
-              throw new Error("Sub-chat not found")
+            if (!existingConversation) {
+              throw new Error("Conversation not found")
             }
 
-            const existingMessages = parseStoredMessages(existingSubChat.messages)
+            const existingMessages = getConversationUiMessages(input.subChatId, db)
             const requestedModelId =
               extractCodexModelId(input.model) || DEFAULT_CODEX_MODEL
             const selectedModelId = preprocessCodexModelName({
@@ -1643,24 +1644,22 @@ export const codexRouter = router({
               lastMessage?.role === "user" &&
               extractPromptFromStoredMessage(lastMessage) === input.prompt
 
-            let messagesForStream = existingMessages
+            let messagesForStream: any[] = existingMessages
             const isAuthoritativeRun = () => {
               const currentStream = activeStreams.get(input.subChatId)
               return !currentStream || currentStream.runId === input.runId
             }
 
-            const persistSubChatMessages = (messages: any[]) => {
+            const persistConversationMessages = (messages: any[]) => {
               if (!isAuthoritativeRun()) {
                 return false
               }
 
-              db.update(subChats)
-                .set({
-                  messages: JSON.stringify(messages),
-                  updatedAt: new Date(),
-                })
-                .where(eq(subChats.id, input.subChatId))
-                .run()
+              replaceConversationMessages({
+                db,
+                conversationId: input.subChatId,
+                messages,
+              })
               return true
             }
 
@@ -1696,13 +1695,11 @@ export const codexRouter = router({
 
               messagesForStream = [...existingMessages, userMessage]
 
-              db.update(subChats)
-                .set({
-                  messages: JSON.stringify(messagesForStream),
-                  updatedAt: new Date(),
-                })
-                .where(eq(subChats.id, input.subChatId))
-                .run()
+              replaceConversationMessages({
+                db,
+                conversationId: input.subChatId,
+                messages: messagesForStream,
+              })
             }
 
             if (input.forceNewSession) {
@@ -1819,7 +1816,7 @@ export const codexRouter = router({
                     cleanAssistantMessageForPersistence(responseWithUsage)
 
                   if (!cleanedResponseMessage) {
-                    persistSubChatMessages(messagesForStream)
+                    persistConversationMessages(messagesForStream)
                     return
                   }
 
@@ -1830,7 +1827,7 @@ export const codexRouter = router({
                     cleanedResponseMessage,
                   ]
 
-                  persistSubChatMessages(messagesToPersist)
+                  persistConversationMessages(messagesToPersist)
                 } catch (error) {
                   console.error("[codex] Failed to persist messages:", error)
                 }

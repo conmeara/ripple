@@ -7,8 +7,10 @@ import {
   readLivePlaybackPlaying,
   readLivePlaybackTime,
   resolvePlaybackAdapter,
+  resolveSeekTime,
   safeDuration,
   safeTime,
+  shouldHoldProgrammaticSeekReport,
 } from "./timeline-player-adapter-core"
 
 function timeline(time: number, duration: number, active: boolean) {
@@ -39,6 +41,44 @@ describe("Ripple timeline player adapter core", () => {
     expect(safeDuration(0)).toBe(0)
     expect(safeDuration(7200)).toBe(0)
     expect(safeDuration(Number.POSITIVE_INFINITY)).toBe(0)
+  })
+
+  test("does not clamp seeks to zero while duration is still unknown", () => {
+    expect(resolveSeekTime(91 / 30, 0)).toBe(91 / 30)
+    expect(resolveSeekTime(91 / 30, Number.NaN)).toBe(91 / 30)
+    expect(resolveSeekTime(10, 6)).toBe(6)
+    expect(resolveSeekTime(-1, 6)).toBe(0)
+  })
+
+  test("holds stale player time reports briefly after programmatic seeks", () => {
+    expect(
+      shouldHoldProgrammaticSeekReport({
+        requestedTime: 91 / 30,
+        reportedTime: 0,
+        elapsedMs: 120,
+      }),
+    ).toBe(true)
+    expect(
+      shouldHoldProgrammaticSeekReport({
+        requestedTime: 91 / 30,
+        reportedTime: 91 / 30,
+        elapsedMs: 120,
+      }),
+    ).toBe(false)
+    expect(
+      shouldHoldProgrammaticSeekReport({
+        requestedTime: 91 / 30,
+        reportedTime: 0,
+        elapsedMs: 1300,
+      }),
+    ).toBe(false)
+    expect(
+      shouldHoldProgrammaticSeekReport({
+        requestedTime: 0,
+        reportedTime: 0,
+        elapsedMs: 120,
+      }),
+    ).toBe(false)
   })
 
   test("identifies only HyperFrames runtime timeline and state messages", () => {

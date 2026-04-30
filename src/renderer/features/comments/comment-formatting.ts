@@ -50,10 +50,28 @@ export function parseRevisionDiffSummary(
   }
 }
 
+export function compactCommentLine(
+  value: string,
+  maxLength: number | null = 160,
+): string {
+  const compact = value.replace(/\s+/g, " ").trim()
+  if (maxLength === null) return compact
+  if (compact.length <= maxLength) return compact
+
+  const sliceLength = Math.max(0, maxLength - 3)
+  return `${compact.slice(0, sliceLength).trimEnd()}...`
+}
+
 export function formatRevisionResultLine(
   summary: RippleRevisionDiffSummary | null,
+  options: { maxLength?: number | null } = {},
 ): string {
-  if (summary?.summary) return summary.summary
+  if (summary?.summary) {
+    const maxLength = Object.prototype.hasOwnProperty.call(options, "maxLength")
+      ? options.maxLength ?? null
+      : 160
+    return compactCommentLine(summary.summary, maxLength)
+  }
   if (!summary || summary.fileCount === 0) {
     return "Agent finished without project changes."
   }

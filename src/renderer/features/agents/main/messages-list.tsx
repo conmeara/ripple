@@ -931,6 +931,7 @@ interface SimpleIsolatedGroupProps {
     messageId: string
     textContent: string
     imageParts: any[]
+    fileParts?: any[]
     skipTextMentionBlocks?: boolean
   }>
   ToolCallComponent: React.ComponentType<{
@@ -991,6 +992,7 @@ export const SimpleIsolatedGroup = memo(function SimpleIsolatedGroup({
     .join("\n") || ""
 
   const imageParts = userMsg.parts?.filter((p: any) => p.type === "data-image") || []
+  const fileParts = userMsg.parts?.filter((p: any) => p.type === "data-file") || []
 
   // Extract text mentions (quote/diff) to render separately above sticky block
   const { textMentions, cleanedText: textContent } = useMemo(
@@ -1013,12 +1015,13 @@ export const SimpleIsolatedGroup = memo(function SimpleIsolatedGroup({
   return (
     <MessageGroupComponent>
       {/* Attachments - NOT sticky */}
-      {imageParts.length > 0 && (
+      {(imageParts.length > 0 || fileParts.length > 0) && (
         <div className="mb-2 pointer-events-auto">
           <UserBubbleComponent
             messageId={userMsg.id}
             textContent=""
             imageParts={imageParts}
+            fileParts={fileParts}
             skipTextMentionBlocks
           />
         </div>
@@ -1037,7 +1040,7 @@ export const SimpleIsolatedGroup = memo(function SimpleIsolatedGroup({
         className={`[&>div]:!mb-4 pointer-events-auto sticky z-10 ${stickyTopClass}`}
       >
         {/* Show "Using X" summary when no text but have attachments */}
-        {!textContent.trim() && (imageParts.length > 0 || textMentions.length > 0) ? (
+        {!textContent.trim() && (imageParts.length > 0 || fileParts.length > 0 || textMentions.length > 0) ? (
           <div className="flex justify-start drop-shadow-[0_10px_20px_hsl(var(--background))]" data-user-bubble>
             <div className="space-y-2 w-full">
               <div className="bg-input-background border px-3 py-2 rounded-xl text-sm text-muted-foreground italic">
@@ -1045,6 +1048,13 @@ export const SimpleIsolatedGroup = memo(function SimpleIsolatedGroup({
                   const parts: string[] = []
                   if (imageParts.length > 0) {
                     parts.push(imageParts.length === 1 ? "image" : `${imageParts.length} images`)
+                  }
+                  if (fileParts.length > 0) {
+                    if (fileParts.length === 1) {
+                      parts.push(fileParts[0]?.data?.filename || "file")
+                    } else {
+                      parts.push(`${fileParts.length} files`)
+                    }
                   }
                   const quoteCount = textMentions.filter(m => m.type === "quote").length
                   const pastedCount = textMentions.filter(m => m.type === "pasted").length
@@ -1068,6 +1078,7 @@ export const SimpleIsolatedGroup = memo(function SimpleIsolatedGroup({
             messageId={userMsg.id}
             textContent={textContent}
             imageParts={[]}
+            fileParts={[]}
             skipTextMentionBlocks
           />
         )}

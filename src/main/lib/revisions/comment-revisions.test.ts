@@ -68,7 +68,25 @@ describe("comment revision summaries", () => {
     )
   })
 
-  test("adds frame and composition context to hidden revision prompts", () => {
+  test("keeps the final assistant response available for read-more UI", () => {
+    const longResponse = [
+      "Changed the title text in `index.html:85` from \"test 01\" to \"test3\".",
+      "The eyebrow ends at frame 90 and the title is visible at frame 91.",
+      "I kept the existing timing, easing, and composition dimensions intact.",
+      "The lower-third treatment still starts at the same frame.",
+      "No asset paths or export settings were changed.",
+    ].join(" ")
+    const messages = JSON.stringify([
+      {
+        role: "assistant",
+        parts: [{ type: "text", text: longResponse }],
+      },
+    ])
+
+    expect(extractAssistantFinalResponseFromMessages(messages)).toBe(longResponse)
+  })
+
+  test("adds frame and composition context to revision conversation prompts", () => {
     const prompt = buildRevisionPrompt({
       body: "Make this line land harder.",
       project: { name: "Launch Promo" } as any,
@@ -97,7 +115,7 @@ describe("comment revision summaries", () => {
     expect(prompt).toContain("Clip: lower-third:title")
   })
 
-  test("appends follow-up prompts to the same hidden revision chat transcript", () => {
+  test("appends follow-up prompts to the same revision conversation transcript", () => {
     const existing = JSON.stringify([
       {
         id: "msg-1",
@@ -130,6 +148,54 @@ describe("comment revision summaries", () => {
       revisionId: "rev-2",
       model: "opus",
     })
+  })
+
+  test("appends pasted attachments to revision conversation prompts", () => {
+    const next = JSON.parse(
+      appendRippleCommentPromptMessage({
+        messages: [],
+        prompt: "Use this reference.",
+        threadId: "thread-1",
+        revisionId: "rev-1",
+        attachments: [
+          {
+            type: "image",
+            base64Data: "aW1hZ2U=",
+            mediaType: "image/png",
+            filename: "frame.png",
+          },
+          {
+            type: "file",
+            base64Data: "ZmlsZQ==",
+            mediaType: "application/pdf",
+            filename: "brief.pdf",
+            size: 12,
+          },
+        ],
+      }),
+    )
+
+    expect(next).toHaveLength(1)
+    expect(next[0].parts).toEqual([
+      { type: "text", text: "Use this reference." },
+      {
+        type: "data-image",
+        data: {
+          base64Data: "aW1hZ2U=",
+          mediaType: "image/png",
+          filename: "frame.png",
+        },
+      },
+      {
+        type: "data-file",
+        data: {
+          base64Data: "ZmlsZQ==",
+          mediaType: "application/pdf",
+          filename: "brief.pdf",
+          size: 12,
+        },
+      },
+    ])
   })
 
   test("accept patch includes committed and uncommitted revision changes", async () => {

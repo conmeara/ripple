@@ -3,12 +3,16 @@ import { existsSync } from "node:fs"
 import { mkdir } from "node:fs/promises"
 import { basename, extname, isAbsolute, join, normalize, resolve, sep } from "node:path"
 import {
+  chats,
+  conversations,
   projects,
   revisions,
   type Project,
 } from "../db/schema"
 import {
+  getRippleChatWorktreePreviewProjectId,
   getRippleRevisionPreviewProjectId,
+  parseRippleChatWorktreePreviewProjectId,
   parseRippleRevisionPreviewProjectId,
 } from "../../../shared/ripple-comments"
 import { isPathInsideDirectory } from "../ripple-projects/paths"
@@ -52,6 +56,7 @@ export async function resolveHyperframesProjectContext(input: {
 
 export async function resolveHyperframesRevisionContext(input: {
   revisionId: string
+  projectId?: string | null
   allowArchived?: boolean
 }): Promise<HyperframesProjectContext> {
   const { getDatabase } = await import("../db")
@@ -86,6 +91,12 @@ export async function resolveHyperframesRevisionContext(input: {
   if (!project) {
     throw new HyperframesError("Project not found.", "PROJECT_NOT_FOUND")
   }
+  if (input.projectId && revision.projectId !== input.projectId) {
+    throw new HyperframesError(
+      "This generated change does not belong to the selected project.",
+      "REVISION_PROJECT_MISMATCH",
+    )
+  }
   if (project.archivedAt && !input.allowArchived) {
     throw new HyperframesError(
       "Restore this project before previewing revisions.",
@@ -105,17 +116,98 @@ export async function resolveHyperframesRevisionContext(input: {
   }
 }
 
+export async function resolveHyperframesChatWorktreeContext(input: {
+  chatId: string
+  projectId?: string | null
+  allowArchived?: boolean
+}): Promise<HyperframesProjectContext> {
+  const { getDatabase } = await import("../db")
+  const db = getDatabase()
+  const conversation = db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, input.chatId))
+    .get()
+  const legacyChat = conversation
+    ? null
+    : db
+    .select()
+    .from(chats)
+    .where(eq(chats.id, input.chatId))
+    .get()
+  const chat = conversation ?? legacyChat
+
+  if (!chat) {
+    throw new HyperframesError("Chat not found.", "CHAT_NOT_FOUND")
+  }
+  if (input.projectId && chat.projectId !== input.projectId) {
+    throw new HyperframesError(
+      "This chat does not belong to the selected project.",
+      "CHAT_PROJECT_MISMATCH",
+    )
+  }
+
+  const project = db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, chat.projectId))
+    .get()
+  if (!project) {
+    throw new HyperframesError("Project not found.", "PROJECT_NOT_FOUND")
+  }
+  if (project.archivedAt && !input.allowArchived) {
+    throw new HyperframesError(
+      "Restore this project before previewing drafts.",
+      "PROJECT_ARCHIVED",
+    )
+  }
+
+  const projectPath = getHyperframesProjectPath(project)
+  const chatPath = chat.worktreePath ? resolve(chat.worktreePath) : null
+  if (!chat.branch || !chatPath || chatPath === projectPath) {
+    return {
+      key: `project:${project.id}`,
+      projectId: project.id,
+      project,
+      projectPath,
+    }
+  }
+
+  const { assertRegisteredWorktree } = await import("../git/security/path-validation")
+  assertRegisteredWorktree(chatPath)
+
+  return {
+    key: getRippleChatWorktreePreviewProjectId(chat.id),
+    projectId: getRippleChatWorktreePreviewProjectId(chat.id),
+    project,
+    projectPath: chatPath,
+  }
+}
+
 export async function resolveHyperframesPreviewContext(input: {
   projectId: string
   revisionId?: string | null
+  chatId?: string | null
   allowArchived?: boolean
 }): Promise<HyperframesProjectContext> {
+  const explicitRevisionId = input.revisionId ?? null
   const revisionId =
-    input.revisionId ?? parseRippleRevisionPreviewProjectId(input.projectId)
+    explicitRevisionId ?? parseRippleRevisionPreviewProjectId(input.projectId)
 
   if (revisionId) {
     return resolveHyperframesRevisionContext({
       revisionId,
+      projectId: explicitRevisionId ? input.projectId : undefined,
+      allowArchived: input.allowArchived,
+    })
+  }
+
+  const parsedChatId = parseRippleChatWorktreePreviewProjectId(input.projectId)
+  const chatId = input.chatId ?? parsedChatId
+  if (chatId) {
+    return resolveHyperframesChatWorktreeContext({
+      chatId,
+      projectId: input.chatId ? input.projectId : undefined,
       allowArchived: input.allowArchived,
     })
   }

@@ -12,6 +12,7 @@ out/
 *.swp
 *.swo
 .vscode/
+.codex/
 
 # System files
 .DS_Store

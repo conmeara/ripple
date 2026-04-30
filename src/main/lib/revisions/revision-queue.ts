@@ -2,15 +2,16 @@ import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm"
 import {
-  chats,
   commentThreads,
+  conversations,
   getDatabase,
   projects,
   revisions,
-  subChats,
+  type Conversation,
   type Project,
   type Revision,
 } from "../db"
+import { getConversationMessagesJson } from "../conversations/service"
 import { removeWorktree } from "../git/worktree"
 import { resolveRevisionProjectPath } from "./revision-acceptance"
 import {
@@ -35,20 +36,21 @@ const CLEANUP_TERMINAL_STATUSES = ["rejected", "superseded"] as const
 
 interface RevisionQueueCandidate {
   revision: Revision
-  chat: typeof chats.$inferSelect
-  subChat: typeof subChats.$inferSelect
+  conversation: Conversation
   project: Project
 }
 
 export interface RevisionQueueRun {
   revisionId: string
   threadId: string
-  chatId: string
-  subChatId: string
+  conversationId: string | null
+  chatId: string | null
+  subChatId: string | null
   projectId: string
   projectPath: string
   worktreePath: string
   mode: "plan" | "agent"
+  prompt: string
   messages: string | null
   streamId: string | null
 }
@@ -84,6 +86,7 @@ export interface RevisionQueueDiagnostic {
   status: string
   chatId: string | null
   subChatId: string | null
+  conversationId: string | null
   streamId: string | null
   contextPath: string | null
   contextExists: boolean | null
@@ -97,8 +100,7 @@ export interface RevisionQueueDiagnostic {
 
 function toRevisionQueueRun(candidate: RevisionQueueCandidate): RevisionQueueRun | null {
   if (
-    !candidate.revision.chatId ||
-    !candidate.revision.subChatId ||
+    !candidate.revision.conversationId ||
     !candidate.revision.contextPath
   ) {
     return null
@@ -107,14 +109,16 @@ function toRevisionQueueRun(candidate: RevisionQueueCandidate): RevisionQueueRun
   return {
     revisionId: candidate.revision.id,
     threadId: candidate.revision.threadId,
+    conversationId: candidate.revision.conversationId,
     chatId: candidate.revision.chatId,
     subChatId: candidate.revision.subChatId,
     projectId: candidate.revision.projectId,
     projectPath: resolveRevisionProjectPath(candidate.project),
     worktreePath: candidate.revision.contextPath,
-    mode: candidate.subChat.mode === "plan" ? "plan" : "agent",
-    messages: candidate.subChat.messages,
-    streamId: candidate.subChat.streamId,
+    mode: candidate.conversation.mode === "plan" ? "plan" : "agent",
+    prompt: candidate.revision.prompt,
+    messages: getConversationMessagesJson(candidate.conversation.id),
+    streamId: candidate.conversation.streamId,
   }
 }
 
@@ -124,8 +128,7 @@ function listRunnableRevisionCandidates(
 ): RevisionQueueCandidate[] {
   const conditions = [
     inArray(revisions.status, [...RUNNABLE_REVISION_STATUSES]),
-    isNotNull(revisions.chatId),
-    isNotNull(revisions.subChatId),
+    isNotNull(revisions.conversationId),
     isNotNull(revisions.contextPath),
   ]
   if (input.projectId) {
@@ -135,13 +138,11 @@ function listRunnableRevisionCandidates(
   return db
     .select({
       revision: revisions,
-      chat: chats,
-      subChat: subChats,
+      conversation: conversations,
       project: projects,
     })
     .from(revisions)
-    .innerJoin(chats, eq(chats.id, revisions.chatId))
-    .innerJoin(subChats, eq(subChats.id, revisions.subChatId))
+    .innerJoin(conversations, eq(conversations.id, revisions.conversationId))
     .innerJoin(projects, eq(projects.id, revisions.projectId))
     .where(and(...conditions))
     .orderBy(asc(revisions.updatedAt), asc(revisions.createdAt))
@@ -235,7 +236,7 @@ export async function recoverRevisionQueueOnStartup(input: {
   let failed = 0
 
   for (const revision of pending) {
-    if (!revision.chatId || !revision.subChatId || !revision.contextPath) {
+    if (!revision.conversationId || !revision.contextPath) {
       db.update(revisions)
         .set({
           status: "failed",
@@ -269,18 +270,15 @@ export async function claimRevisionRun(revisionId: string): Promise<RevisionRunC
   const candidate = db
     .select({
       revision: revisions,
-      chat: chats,
-      subChat: subChats,
+      conversation: conversations,
       project: projects,
     })
     .from(revisions)
-    .innerJoin(chats, eq(chats.id, revisions.chatId))
-    .innerJoin(subChats, eq(subChats.id, revisions.subChatId))
+    .innerJoin(conversations, eq(conversations.id, revisions.conversationId))
     .innerJoin(projects, eq(projects.id, revisions.projectId))
     .where(and(
       eq(revisions.id, revisionId),
-      isNotNull(revisions.chatId),
-      isNotNull(revisions.subChatId),
+      isNotNull(revisions.conversationId),
       isNotNull(revisions.contextPath),
     ))
     .get()
@@ -417,9 +415,10 @@ export function listRevisionQueueDiagnostics(input: {
       status: revisions.status,
       chatId: revisions.chatId,
       subChatId: revisions.subChatId,
-      streamId: subChats.streamId,
+      conversationId: revisions.conversationId,
+      streamId: conversations.streamId,
       contextPath: revisions.contextPath,
-      chatWorktreePath: chats.worktreePath,
+      chatWorktreePath: conversations.worktreePath,
       branch: revisions.branch,
       baseProjectCommit: revisions.baseProjectCommit,
       errorMessage: revisions.errorMessage,
@@ -429,8 +428,7 @@ export function listRevisionQueueDiagnostics(input: {
     .from(revisions)
     .innerJoin(projects, eq(projects.id, revisions.projectId))
     .innerJoin(commentThreads, eq(commentThreads.id, revisions.threadId))
-    .leftJoin(chats, eq(chats.id, revisions.chatId))
-    .leftJoin(subChats, eq(subChats.id, revisions.subChatId))
+    .leftJoin(conversations, eq(conversations.id, revisions.conversationId))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(revisions.updatedAt), desc(revisions.createdAt))
     .all()

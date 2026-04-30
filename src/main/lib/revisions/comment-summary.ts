@@ -17,6 +17,14 @@ export function compactOneLineSummary(value: string | null | undefined): string 
   return compacted.length > 180 ? `${compacted.slice(0, 177)}...` : compacted
 }
 
+function compactAssistantResponse(value: string | null | undefined): string | null {
+  const compacted = value
+    ?.replace(/\s+/g, " ")
+    .replace(/^summary:\s*/i, "")
+    .trim()
+  return compacted || null
+}
+
 function extractTextFromMessagePart(part: any): string | null {
   if (!part || typeof part !== "object") return null
   if (part.type === "text" && typeof part.text === "string") return part.text
@@ -36,7 +44,7 @@ export function extractAssistantFinalResponseFromMessages(
     if (assistant?.role !== "assistant") continue
     const parts: any[] = Array.isArray(assistant.parts) ? assistant.parts : []
     for (const part of [...parts].reverse()) {
-      const text = compactOneLineSummary(extractTextFromMessagePart(part))
+      const text = compactAssistantResponse(extractTextFromMessagePart(part))
       if (text) return text
     }
   }

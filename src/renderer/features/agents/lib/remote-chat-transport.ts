@@ -275,7 +275,6 @@ export class RemoteChatTransport implements ChatTransport<UIMessage> {
   }
 
   async reconnectToStream(): Promise<ReadableStream<UIMessageChunk> | null> {
-    // TODO: Implement stream reconnection using stream_id from sub-chat
     return null
   }
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react"
 import { useAtomValue, useSetAtom } from "jotai"
-import { Check, CircleDot, Clock3, GitBranch, GitCompare, Plus } from "lucide-react"
+import { Check, CircleDot, Clock3, GitBranch, GitCompare, Plus, Trash2 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import {
   IconSpinner,
@@ -31,35 +31,60 @@ export function RippleEmbeddedChatToolbar({
   isWorktree = false,
   onAcceptWorktree,
   isAcceptingWorktree = false,
+  onDiscardWorktree,
+  isDiscardingWorktree = false,
   onViewMain,
   onViewWorktree,
+  historyChatId,
+  historySubChats,
+  isHistoryLoading = false,
+  onOpenChatFromHistory,
 }: {
   onCreateNew: () => void | Promise<void>
   isWorktree?: boolean
   onAcceptWorktree?: () => void | Promise<void>
   isAcceptingWorktree?: boolean
+  onDiscardWorktree?: () => void | Promise<void>
+  isDiscardingWorktree?: boolean
   onViewMain?: () => void
   onViewWorktree?: () => void
+  historyChatId?: string | null
+  historySubChats?: Array<SubChatMeta & { chatId?: string | null }>
+  isHistoryLoading?: boolean
+  onOpenChatFromHistory?: (
+    chatId: string,
+    subChatId: string,
+    subChats: Array<SubChatMeta & { chatId?: string | null }>,
+  ) => void | Promise<void>
 }) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
+  const storeChatId = useAgentSubChatStore((state) => state.chatId)
   const loadingSubChats = useAtomValue(loadingSubChatsAtom)
   const subChatUnseenChanges = useAtomValue(agentsSubChatUnseenChangesAtom)
   const pendingQuestionsMap = useAtomValue(pendingUserQuestionsAtom)
   const setSubChatUnseenChanges = useSetAtom(agentsSubChatUnseenChangesAtom)
+  const historySourceSubChats = historySubChats ?? allSubChats
 
   const sortedSubChats = useMemo(
     () =>
-      [...allSubChats].sort((a, b) => {
+      [...historySourceSubChats].sort((a, b) => {
         const aTime = new Date(a.updated_at || a.created_at || "0").getTime()
         const bTime = new Date(b.updated_at || b.created_at || "0").getTime()
         return bTime - aTime
       }),
-    [allSubChats],
+    [historySourceSubChats],
   )
 
   const handleSelectFromHistory = useCallback(
-    (subChat: SubChatMeta) => {
+    (subChat: SubChatMeta & { chatId?: string | null }) => {
+      const targetChatId = subChat.chatId ?? historyChatId ?? storeChatId
+      if (targetChatId && onOpenChatFromHistory) {
+        void onOpenChatFromHistory(targetChatId, subChat.id, sortedSubChats)
+        setIsHistoryOpen(false)
+        return
+      }
+
       const store = useAgentSubChatStore.getState()
       if (!store.openSubChatIds.includes(subChat.id)) {
         store.addToOpenSubChats(subChat.id)
@@ -73,7 +98,13 @@ export function RippleEmbeddedChatToolbar({
       })
       setIsHistoryOpen(false)
     },
-    [setSubChatUnseenChanges],
+    [
+      historyChatId,
+      onOpenChatFromHistory,
+      setSubChatUnseenChanges,
+      sortedSubChats,
+      storeChatId,
+    ],
   )
 
   const renderHistoryItem = useCallback(
@@ -115,7 +146,7 @@ export function RippleEmbeddedChatToolbar({
         <div className="flex min-w-0 items-center gap-1.5">
           <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-border/60 px-2 text-xs font-medium text-muted-foreground">
             <GitBranch className="h-3.5 w-3.5" />
-            Worktree
+            Draft
           </span>
           {onViewMain ? (
             <Tooltip>
@@ -142,13 +173,13 @@ export function RippleEmbeddedChatToolbar({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 rounded-md p-0 text-muted-foreground"
-                  aria-label="View Worktree"
+                  aria-label="View draft"
                   onClick={onViewWorktree}
                 >
                   <GitCompare className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">View Worktree</TooltipContent>
+              <TooltipContent side="bottom">View draft</TooltipContent>
             </Tooltip>
           ) : null}
         </div>
@@ -163,7 +194,7 @@ export function RippleEmbeddedChatToolbar({
             size="sm"
             className="h-7 gap-1.5 rounded-md px-2 text-xs text-muted-foreground"
             onClick={() => void onAcceptWorktree()}
-            disabled={isAcceptingWorktree}
+            disabled={isAcceptingWorktree || isDiscardingWorktree}
           >
             {isAcceptingWorktree ? (
               <IconSpinner className="h-3.5 w-3.5" />
@@ -173,13 +204,35 @@ export function RippleEmbeddedChatToolbar({
             Accept
           </Button>
         ) : null}
+        {isWorktree && onDiscardWorktree ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-md p-0 text-muted-foreground"
+                aria-label="Discard draft"
+                onClick={() => void onDiscardWorktree()}
+                disabled={isAcceptingWorktree || isDiscardingWorktree}
+              >
+                {isDiscardingWorktree ? (
+                  <IconSpinner className="h-3.5 w-3.5" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Discard draft</TooltipContent>
+          </Tooltip>
+        ) : null}
         <SearchCombobox
           isOpen={isHistoryOpen}
           onOpenChange={setIsHistoryOpen}
           items={sortedSubChats}
           onSelect={handleSelectFromHistory}
           placeholder="Search chats..."
-          emptyMessage="No chats yet"
+          emptyMessage={isHistoryLoading ? "Loading chats..." : "No chats yet"}
           getItemValue={(subChat) => `${subChat.name || "New Chat"} ${subChat.id}`}
           renderItem={renderHistoryItem}
           align="end"
@@ -194,7 +247,7 @@ export function RippleEmbeddedChatToolbar({
                     size="icon"
                     className="h-7 w-7 rounded-md p-0 text-muted-foreground"
                     aria-label="Chat history"
-                    disabled={sortedSubChats.length === 0}
+                    disabled={!isHistoryLoading && sortedSubChats.length === 0}
                   >
                     <Clock3 className="h-3.5 w-3.5" />
                   </Button>

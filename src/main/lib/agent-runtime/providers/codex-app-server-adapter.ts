@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
+import { resolve } from "node:path"
 import { createInterface } from "node:readline"
 import type {
   AgentProviderAdapter,
@@ -8,11 +9,16 @@ import type {
   ProviderAuthStatus,
 } from "../types"
 import { resolveProjectPathFromWorktree } from "../../claude-config"
+import { agentApprovals, getDatabase } from "../../db"
+import { isPathInsideDirectory } from "../../ripple-projects/paths"
 import {
   resolveCodexMcpSnapshot,
   type CodexMcpSnapshot,
 } from "../../trpc/routers/codex"
 import { prepareAgentRuntimePrompt } from "../prompt-mentions"
+import {
+  prepareRuntimeAttachments,
+} from "../runtime-attachments"
 import { getBundledCodexCliPath } from "./bundled-binaries"
 import {
   extractItemText,
@@ -23,9 +29,20 @@ import {
   type JsonRpcMessage,
 } from "./codex-app-server-events"
 import { buildCodexAppServerEnv } from "./codex-app-server-env"
+import { buildCodexTurnInput } from "./codex-app-server-input"
 import { normalizeCodexModelSelection } from "./codex-model-selection"
 
-const activeClients = new Map<string, CodexAppServerClient>()
+const activeClients = new Map<string, {
+  client: CodexAppServerClient
+  cancel: () => void
+}>()
+
+class CodexRunCancelledError extends Error {
+  constructor() {
+    super("Run cancelled.")
+    this.name = "CodexRunCancelledError"
+  }
+}
 
 function getAppManagedCodexApiKey(input: AgentProviderRunInput): string | null {
   const apiKey = input.authConfig?.apiKey?.trim()
@@ -91,6 +108,73 @@ function formatCodexCapabilityLabel(input: {
   return parts.length > 0 ? `Loaded Codex context: ${parts.join(", ")}` : null
 }
 
+function recordCodexApproval(input: {
+  runId: string
+  providerRequestId: string
+  kind: "command" | "file_change" | "question"
+  status: "approved" | "denied"
+  prompt: string
+  details: Record<string, unknown>
+  response: Record<string, unknown>
+}): void {
+  getDatabase()
+    .insert(agentApprovals)
+    .values({
+      agentRunId: input.runId,
+      providerRequestId: input.providerRequestId,
+      kind: input.kind === "question" ? "question" : input.kind,
+      status: input.status,
+      prompt: input.prompt,
+      detailsJson: JSON.stringify(input.details),
+      responseJson: JSON.stringify(input.response),
+      resolvedAt: new Date(),
+    })
+    .run()
+}
+
+function isWorkspacePath(value: unknown, cwd: string): boolean {
+  if (typeof value !== "string" || !value.trim()) return false
+  const candidate = resolve(cwd, value)
+  return isPathInsideDirectory(cwd, candidate)
+}
+
+function collectApprovalPaths(value: unknown): string[] {
+  if (!value || typeof value !== "object") return []
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectApprovalPaths(item))
+  }
+
+  const paths: string[] = []
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    const normalizedKey = key.toLowerCase()
+    if (
+      typeof nested === "string" &&
+      (
+        normalizedKey === "cwd" ||
+        normalizedKey === "path" ||
+        normalizedKey === "filepath" ||
+        normalizedKey === "file_path" ||
+        normalizedKey === "absolutepath" ||
+        normalizedKey === "absolute_path"
+      )
+    ) {
+      paths.push(nested)
+      continue
+    }
+    paths.push(...collectApprovalPaths(nested))
+  }
+  return paths
+}
+
+function approvalBoundaryError(paths: string[], cwd: string): string | null {
+  for (const candidate of paths) {
+    if (!isWorkspacePath(candidate, cwd)) {
+      return `Approval request references a path outside the Ripple workspace: ${candidate}`
+    }
+  }
+  return null
+}
+
 class CodexAppServerClient {
   private child: ChildProcessWithoutNullStreams | null = null
   private nextId = 1
@@ -120,6 +204,18 @@ class CodexAppServerClient {
     child.on("error", (error) => {
       for (const pending of this.pending.values()) {
         pending.reject(error)
+      }
+      this.pending.clear()
+    })
+    child.on("close", (code, signal) => {
+      if (this.child === child) {
+        this.child = null
+      }
+      const message = signal
+        ? `Codex App Server stopped (${signal}).`
+        : `Codex App Server stopped${typeof code === "number" ? ` with code ${code}` : ""}.`
+      for (const pending of this.pending.values()) {
+        pending.reject(new Error(message))
       }
       this.pending.clear()
     })
@@ -160,6 +256,9 @@ class CodexAppServerClient {
     const child = this.child
     this.child = null
     child.kill()
+    for (const pending of this.pending.values()) {
+      pending.reject(new Error("Codex App Server stopped."))
+    }
     this.pending.clear()
   }
 
@@ -273,12 +372,29 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
       getBundledCodexCliPath(),
       buildCodexAppServerEnv(appManagedApiKey),
     )
-    activeClients.set(input.run.id, client)
+    let cancelled = false
+    let rejectRunPromise: ((error: Error) => void) | null = null
+    const cancelRun = () => {
+      if (cancelled) return
+      cancelled = true
+      rejectRunPromise?.(new CodexRunCancelledError())
+      void client.stop()
+    }
+    activeClients.set(input.run.id, { client, cancel: cancelRun })
     let summary = ""
     let threadId = input.thread.providerThreadId ?? null
     let turnId: string | null = null
     const modelSelection = normalizeCodexModelSelection(input.model)
     const promptContext = prepareAgentRuntimePrompt(input.prompt)
+    const preparedAttachments = await prepareRuntimeAttachments({
+      runId: input.run.id,
+      cwd: input.cwd,
+      attachments: input.attachments,
+    })
+    const finalPrompt = [
+      promptContext.prompt,
+      preparedAttachments.promptSuffix,
+    ].filter(Boolean).join("\n\n")
 
     try {
       await client.start()
@@ -338,38 +454,98 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
 
       const offRequest = client.onRequest(async (message) => {
         if (message.method === "item/commandExecution/requestApproval") {
+          const providerRequestId = String(message.id)
+          const cwd = message.params?.cwd
+          const boundaryError = isWorkspacePath(cwd, input.cwd)
+            ? null
+            : `Command approval requested outside the Ripple workspace: ${cwd ?? "unknown cwd"}`
+          const response = boundaryError
+            ? { decision: "deny", reason: boundaryError }
+            : { decision: "acceptForSession" }
+          recordCodexApproval({
+            runId: input.run.id,
+            providerRequestId,
+            kind: "command",
+            status: boundaryError ? "denied" : "approved",
+            prompt: String(message.params?.reason ?? message.params?.command ?? "Command approval"),
+            details: {
+              command: message.params?.command,
+              cwd,
+              reason: message.params?.reason,
+              boundaryError,
+            },
+            response,
+          })
           await sink.emit({
             type: "approval_request",
             providerType: message.method,
-            providerId: String(message.id),
+            providerId: providerRequestId,
             payload: {
               kind: "command",
               command: message.params?.command,
-              cwd: message.params?.cwd,
+              cwd,
               reason: message.params?.reason,
-              decision: "acceptForSession",
+              decision: response.decision,
+              boundaryError,
             },
           })
-          return { decision: "acceptForSession" }
+          if (boundaryError) throw new Error(boundaryError)
+          return response
         }
         if (message.method === "item/fileChange/requestApproval") {
+          const providerRequestId = String(message.id)
+          const paths = collectApprovalPaths(message.params)
+          const boundaryError = approvalBoundaryError(paths, input.cwd)
+          const response = boundaryError
+            ? { decision: "deny", reason: boundaryError }
+            : { decision: "acceptForSession" }
+          recordCodexApproval({
+            runId: input.run.id,
+            providerRequestId,
+            kind: "file_change",
+            status: boundaryError ? "denied" : "approved",
+            prompt: "File change approval",
+            details: {
+              itemId: message.params?.itemId,
+              paths,
+              boundaryError,
+            },
+            response,
+          })
           await sink.emit({
             type: "approval_request",
             providerType: message.method,
-            providerId: String(message.id),
+            providerId: providerRequestId,
             payload: {
               kind: "file_change",
               itemId: message.params?.itemId,
-              decision: "acceptForSession",
+              paths,
+              decision: response.decision,
+              boundaryError,
             },
           })
-          return { decision: "acceptForSession" }
+          if (boundaryError) throw new Error(boundaryError)
+          return response
         }
         if (message.method === "item/tool/requestUserInput") {
+          const providerRequestId = String(message.id)
+          const response = { answers: {} }
+          recordCodexApproval({
+            runId: input.run.id,
+            providerRequestId,
+            kind: "question",
+            status: "denied",
+            prompt: "Codex requested user input.",
+            details: {
+              itemId: message.params?.itemId,
+              questions: message.params?.questions,
+            },
+            response,
+          })
           await sink.emit({
             type: "approval_request",
             providerType: message.method,
-            providerId: String(message.id),
+            providerId: providerRequestId,
             payload: {
               kind: "user_input",
               itemId: message.params?.itemId,
@@ -377,7 +553,7 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
               decision: "empty_answers",
             },
           })
-          return { answers: {} }
+          return response
         }
         if (message.method === "item/tool/call") {
           const callId = String(message.params?.callId ?? message.id)
@@ -416,9 +592,15 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
       })
 
       const runPromise = new Promise<void>((resolve, reject) => {
+        rejectRunPromise = reject
         const off = client.onNotification((message) => {
           void (async () => {
             try {
+              if (cancelled || sink.isCancellationRequested()) {
+                off()
+                reject(new CodexRunCancelledError())
+                return
+              }
               if (message.method === "turn/started") {
                 turnId = message.params?.turn?.id ?? turnId
                 await sink.setProviderIds({ providerThreadId: threadId, providerTurnId: turnId })
@@ -458,6 +640,7 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
       })
 
       const startThread = async () => {
+        if (cancelled || sink.isCancellationRequested()) throw new CodexRunCancelledError()
         const threadStart = await client.request("thread/start", {
           cwd: input.cwd,
           model: modelSelection.model,
@@ -476,9 +659,10 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
       }
 
       const startTurn = async () => {
+        if (cancelled || sink.isCancellationRequested()) throw new CodexRunCancelledError()
         const turnStart = await client.request("turn/start", {
           threadId,
-          input: [{ type: "text", text: promptContext.prompt, text_elements: [] }],
+          input: buildCodexTurnInput(finalPrompt, preparedAttachments),
           cwd: input.cwd,
           approvalPolicy: "on-failure",
           sandboxPolicy: {
@@ -527,6 +711,9 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
       }
 
       await runPromise
+      if (cancelled || sink.isCancellationRequested()) {
+        throw new CodexRunCancelledError()
+      }
       offRequest()
       return {
         summary: summary.trim() || "Codex finished this run.",
@@ -540,8 +727,8 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
   }
 
   async cancel(runId: string): Promise<void> {
-    const client = activeClients.get(runId)
-    if (!client) return
-    await client.stop()
+    const active = activeClients.get(runId)
+    if (!active) return
+    active.cancel()
   }
 }

@@ -44,6 +44,13 @@ interface MobileChatHeaderProps {
   onOpenLocally?: () => void
   showOpenLocally?: boolean
   isWorktree?: boolean
+  historySubChats?: Array<SubChatMeta & { chatId?: string | null }>
+  isHistoryLoading?: boolean
+  onOpenChatFromHistory?: (
+    chatId: string,
+    subChatId: string,
+    subChats: Array<SubChatMeta & { chatId?: string | null }>,
+  ) => void | Promise<void>
 }
 
 export function MobileChatHeader({
@@ -62,6 +69,9 @@ export function MobileChatHeader({
   onOpenLocally,
   showOpenLocally = false,
   isWorktree = false,
+  historySubChats,
+  isHistoryLoading = false,
+  onOpenChatFromHistory,
 }: MobileChatHeaderProps) {
   const activeSubChatId = useAgentSubChatStore((state) => state.activeSubChatId)
   const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
@@ -69,7 +79,7 @@ export function MobileChatHeader({
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
 
-  // Find active sub-chat metadata
+  // Find active chat metadata from the renderer-local identity store.
   const activeSubChat = useMemo(() => {
     return allSubChats.find((sc) => sc.id === activeSubChatId)
   }, [allSubChats, activeSubChatId])
@@ -78,16 +88,17 @@ export function MobileChatHeader({
     ? loadingSubChatsAtomValue.has(activeSubChatId)
     : false
   const WorkModeIcon = isWorktree ? GitBranch : CircleDot
+  const historySourceSubChats = historySubChats ?? allSubChats
 
-  // Sort sub-chats by most recent first for history
+  // Sort chats by most recent first for history.
   const sortedSubChats = useMemo(
     () =>
-      [...allSubChats].sort((a, b) => {
+      [...historySourceSubChats].sort((a, b) => {
         const aT = new Date(a.updated_at || a.created_at || "0").getTime()
         const bT = new Date(b.updated_at || b.created_at || "0").getTime()
         return bT - aT
       }),
-    [allSubChats],
+    [historySourceSubChats],
   )
 
   const onSwitchFromHistory = useCallback((subChatId: string) => {
@@ -101,11 +112,18 @@ export function MobileChatHeader({
   }, [])
 
   const handleSelectFromHistory = useCallback(
-    (subChat: SubChatMeta) => {
+    (subChat: SubChatMeta & { chatId?: string | null }) => {
+      const targetChatId = subChat.chatId ?? subChat.id
+      if (onOpenChatFromHistory && targetChatId) {
+        void onOpenChatFromHistory(targetChatId, subChat.id, sortedSubChats)
+        setIsHistoryOpen(false)
+        return
+      }
+
       onSwitchFromHistory(subChat.id)
       setIsHistoryOpen(false)
     },
-    [onSwitchFromHistory],
+    [onOpenChatFromHistory, onSwitchFromHistory, sortedSubChats],
   )
 
   return (
@@ -140,7 +158,7 @@ export function MobileChatHeader({
         items={sortedSubChats}
         onSelect={handleSelectFromHistory}
         placeholder="Search chats..."
-        emptyMessage="No results"
+        emptyMessage={isHistoryLoading ? "Loading chats..." : "No results"}
         align="start"
         side="bottom"
         sideOffset={8}

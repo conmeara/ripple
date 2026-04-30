@@ -5,6 +5,7 @@ export interface RippleProjectPaneLayoutInput {
   isMobile: boolean
   isSubChatsSidebarOpen: boolean
   projectPaneOpen: boolean
+  shouldSuppressProjectPane?: boolean
 }
 
 export interface RippleProjectPaneLayout {
@@ -21,15 +22,18 @@ export function resolveRippleProjectPaneLayout({
   isMobile,
   isSubChatsSidebarOpen,
   projectPaneOpen,
+  shouldSuppressProjectPane = false,
 }: RippleProjectPaneLayoutInput): RippleProjectPaneLayout {
   const canUseHyperframesProjectPane =
     canShowHyperframesPreview && !isMobile && !hasDesktopView
+  const isHyperframesProjectPaneOpen =
+    canUseHyperframesProjectPane && projectPaneOpen && !shouldSuppressProjectPane
 
   return {
     canUseHyperframesProjectPane,
-    isHyperframesProjectPaneOpen: canUseHyperframesProjectPane && projectPaneOpen,
+    isHyperframesProjectPaneOpen,
     showProjectRailOpenButton:
-      canUseHyperframesProjectPane && projectPaneOpen && !isProjectRailOpen,
+      isHyperframesProjectPaneOpen && !isProjectRailOpen,
     shouldShowSubChatsSidebar:
       !canUseHyperframesProjectPane && isSubChatsSidebarOpen,
   }

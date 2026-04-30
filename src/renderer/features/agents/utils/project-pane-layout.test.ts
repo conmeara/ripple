@@ -111,4 +111,23 @@ describe("Ripple project pane layout", () => {
       }).showProjectRailOpenButton,
     ).toBe(false)
   })
+
+  test("suppresses the local project pane for full-surface workspace views", () => {
+    expect(
+      resolveRippleProjectPaneLayout({
+        canShowHyperframesPreview: true,
+        hasDesktopView: false,
+        isProjectRailOpen: false,
+        isMobile: false,
+        isSubChatsSidebarOpen: true,
+        projectPaneOpen: true,
+        shouldSuppressProjectPane: true,
+      }),
+    ).toEqual({
+      canUseHyperframesProjectPane: true,
+      isHyperframesProjectPaneOpen: false,
+      showProjectRailOpenButton: false,
+      shouldShowSubChatsSidebar: false,
+    })
+  })
 })

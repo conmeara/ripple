@@ -26,7 +26,7 @@ const workModeOptions = [
   },
   {
     id: "worktree" as const,
-    label: "Worktree",
+    label: "Draft",
     icon: GitBranch,
   },
 ]

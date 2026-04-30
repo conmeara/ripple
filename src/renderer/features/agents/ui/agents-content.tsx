@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import { useQuery } from "@tanstack/react-query"
 // import { useSearchParams, useRouter } from "next/navigation" // Desktop doesn't use next/navigation
@@ -28,6 +28,7 @@ import {
   hyperframesProjectPaneOpenAtom,
   hyperframesProjectPaneWidthAtom,
   selectedProjectAtom,
+  toSelectedProject,
 } from "../atoms"
 import {
   selectedTeamIdAtom,
@@ -105,9 +106,11 @@ export function AgentsContent() {
   const setSelectedChatIsRemote = useSetAtom(selectedChatIsRemoteAtom)
   const setChatSourceMode = useSetAtom(chatSourceModeAtom)
   const chatSourceMode = useAtomValue(chatSourceModeAtom)
-  const selectedProject = useAtomValue(selectedProjectAtom)
+  const [selectedProject, setSelectedProject] = useAtom(selectedProjectAtom)
   const selectedDraftId = useAtomValue(selectedDraftIdAtom)
+  const setSelectedDraftId = useSetAtom(selectedDraftIdAtom)
   const showNewChatForm = useAtomValue(showNewChatFormAtom)
+  const setShowNewChatForm = useSetAtom(showNewChatFormAtom)
   const betaKanbanEnabled = useAtomValue(betaKanbanEnabledAtom)
   const [betaAutomationsEnabled, setBetaAutomationsEnabled] = useAtom(betaAutomationsEnabledAtom)
   const [selectedTeamId] = useAtom(selectedTeamIdAtom)
@@ -151,6 +154,8 @@ export function AgentsContent() {
   const { user } = useUser()
   const { signOut } = useClerk()
   const isAdmin = useIsAdmin()
+  const hasRippleProjectContext =
+    chatSourceMode === "local" && Boolean(selectedProject?.id)
 
   // Quick-switch dialog state - Agents (Opt+Ctrl+Tab)
   const [quickSwitchOpen, setQuickSwitchOpen] = useAtom(
@@ -168,7 +173,7 @@ export function AgentsContent() {
   // Ctrl+Tab target preference
   const ctrlTabTarget = useAtomValue(ctrlTabTargetAtom)
 
-  // Quick-switch dialog state - Sub-chats (Ctrl+Tab)
+  // Quick-switch dialog state for legacy renderer-local chat tabs.
   const [subChatQuickSwitchOpen, setSubChatQuickSwitchOpen] = useAtom(
     subChatsQuickSwitchOpenAtom,
   )
@@ -186,7 +191,7 @@ export function AgentsContent() {
   subChatQuickSwitchOpenRef.current = subChatQuickSwitchOpen
   subChatQuickSwitchSelectedIndexRef.current = subChatQuickSwitchSelectedIndex
 
-  // Get sub-chats from store with shallow comparison
+  // Get renderer-local chat tabs from store with shallow comparison.
   const { allSubChats, openSubChatIds, activeSubChatId, setActiveSubChat } = useAgentSubChatStore(
     useShallow((state) => ({
       allSubChats: state.allSubChats,
@@ -196,7 +201,7 @@ export function AgentsContent() {
     }))
   )
 
-  // Update window title when active sub-chat changes
+  // Update window title when active chat changes.
   const activeSubChatName = useMemo(() => {
     if (!activeSubChatId) return null
     const subChat = allSubChats.find((sc) => sc.id === activeSubChatId)
@@ -247,6 +252,81 @@ export function AgentsContent() {
     if (!projects) return new Map()
     return new Map(projects.map((p) => [p.id, p]))
   }, [projects])
+
+  const projectHistoryChats = trpc.chats.list.useQuery(
+    { projectId: selectedProject?.id ?? "" },
+    { enabled: hasRippleProjectContext },
+  )
+  const projectHistoryItems = useMemo(
+    () =>
+      (projectHistoryChats.data ?? []).map((item) => ({
+        id: item.id,
+        chatId: item.id,
+        name: item.name || "New Chat",
+        created_at: item.createdAt instanceof Date
+          ? item.createdAt.toISOString()
+          : item.createdAt ?? undefined,
+        updated_at: item.updatedAt instanceof Date
+          ? item.updatedAt.toISOString()
+          : item.updatedAt ?? undefined,
+        mode: "agent" as const,
+      })),
+    [projectHistoryChats.data],
+  )
+  const handleOpenProjectChatFromHistory = useCallback(
+    (targetChatId: string) => {
+      const targetChat = projectHistoryChats.data?.find(
+        (item) => item.id === targetChatId,
+      )
+      const targetProject = targetChat?.projectId
+        ? projectsMap.get(targetChat.projectId)
+        : null
+      if (targetProject) {
+        setSelectedProject(toSelectedProject(targetProject))
+      }
+
+      setSelectedDraftId(null)
+      setSelectedChatIsRemote(false)
+      setChatSourceMode("local")
+      setShowNewChatForm(false)
+      setSelectedChatId(targetChatId)
+      setMobileViewMode("chat")
+    },
+    [
+      projectHistoryChats.data,
+      projectsMap,
+      setChatSourceMode,
+      setMobileViewMode,
+      setSelectedChatId,
+      setSelectedChatIsRemote,
+      setSelectedDraftId,
+      setSelectedProject,
+      setShowNewChatForm,
+    ],
+  )
+  const openLocalConversation = useCallback(
+    (chat: { id: string; projectId?: string | null }) => {
+      const project = chat.projectId ? projectsMap.get(chat.projectId) : null
+      if (project) {
+        setSelectedProject(toSelectedProject(project))
+      }
+
+      setSelectedDraftId(null)
+      setSelectedChatIsRemote(false)
+      setChatSourceMode("local")
+      setShowNewChatForm(false)
+      setSelectedChatId(chat.id)
+    },
+    [
+      projectsMap,
+      setChatSourceMode,
+      setSelectedChatId,
+      setSelectedChatIsRemote,
+      setSelectedDraftId,
+      setSelectedProject,
+      setShowNewChatForm,
+    ],
+  )
 
   // Fetch current chat data for preview info
   const { data: chatData } = api.agents.getAgentChat.useQuery(
@@ -501,10 +581,7 @@ export function AgentsContent() {
 
             // If no chat selected, select first one
             if (!selectedChatId) {
-              setSelectedChatId(sortedChats[0].id)
-              // agentChats are local chats only, so always set isRemote to false
-              setSelectedChatIsRemote(false)
-              setChatSourceMode("local")
+              openLocalConversation(sortedChats[0])
               return
             }
 
@@ -514,9 +591,7 @@ export function AgentsContent() {
             )
 
             if (currentIndex === -1) {
-              setSelectedChatId(sortedChats[0].id)
-              setSelectedChatIsRemote(false)
-              setChatSourceMode("local")
+              openLocalConversation(sortedChats[0])
               return
             }
 
@@ -534,9 +609,7 @@ export function AgentsContent() {
               }
             }
 
-            setSelectedChatId(sortedChats[nextIndex].id)
-            setSelectedChatIsRemote(false)
-            setChatSourceMode("local")
+            openLocalConversation(sortedChats[nextIndex])
           }
           return
         }
@@ -547,10 +620,7 @@ export function AgentsContent() {
             frozenRecentChatsRef.current?.[quickSwitchSelectedIndex]
 
           if (selectedChat) {
-            setSelectedChatId(selectedChat.id)
-            // agentChats are local chats only
-            setSelectedChatIsRemote(false)
-            setChatSourceMode("local")
+            openLocalConversation(selectedChat)
           }
 
           setQuickSwitchOpen(false)
@@ -572,43 +642,57 @@ export function AgentsContent() {
   }, [
     agentChats,
     selectedChatId,
-    setSelectedChatId,
     quickSwitchOpen,
     setQuickSwitchOpen,
     quickSwitchSelectedIndex,
     setQuickSwitchSelectedIndex,
     ctrlTabTarget,
+    openLocalConversation,
     // Note: recentChats removed - we use frozenRecentChatsRef instead
   ])
 
-  // Get open sub-chats for quick-switch (only tabs that are open in the selector)
+  // Get open renderer-local chat tabs for quick-switch.
   // Sorted by position in openSubChatIds, with active first
   // Limited to 5 items for quick-switch dialog
   const recentSubChats = useMemo(() => {
+    if (hasRippleProjectContext) return []
     if (!openSubChatIds || openSubChatIds.length === 0) return []
 
-    // Get sub-chat metadata for open tabs
+    // Get chat metadata for open tabs.
     const openSubChats = openSubChatIds
       .map((id) => allSubChats.find((c) => c.id === id))
       .filter((c): c is SubChatMeta => c !== undefined)
 
     if (openSubChats.length === 0) return []
 
-    // Put active sub-chat first, keep rest in tab order, limit to 5
+    // Put the active chat first, keep rest in tab order, limit to 5.
     if (activeSubChatId) {
       const activeChat = openSubChats.find((c) => c.id === activeSubChatId)
       const otherChats = openSubChats.filter((c) => c.id !== activeSubChatId).slice(0, 4)
       return activeChat ? [activeChat, ...otherChats] : openSubChats.slice(0, 5)
     }
     return openSubChats.slice(0, 5)
-  }, [openSubChatIds, allSubChats, activeSubChatId])
+  }, [hasRippleProjectContext, openSubChatIds, allSubChats, activeSubChatId])
 
-  // Keyboard navigation: Quick switch between agents (sub-chats within workspace)
+  // Keyboard navigation: quick switch between legacy renderer-local chat tabs.
   // Shortcut depends on ctrlTabTarget preference:
   // - "workspaces" (default): Opt+Ctrl+Tab switches agents
   // - "agents": Ctrl+Tab switches agents
   // Uses refs for dialog state to avoid effect re-running and losing keyup events
   useEffect(() => {
+    if (hasRippleProjectContext) {
+      subChatModifierKeysHeldRef.current = false
+      subChatQuickSwitchOpenRef.current = false
+      frozenSubChatsRef.current = []
+      if (subChatHoldTimerRef.current) {
+        clearTimeout(subChatHoldTimerRef.current)
+        subChatHoldTimerRef.current = null
+      }
+      setSubChatQuickSwitchOpen(false)
+      setSubChatQuickSwitchSelectedIndex(0)
+      return
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Determine shortcut based on preference
       const isCtrlTabOnly =
@@ -624,7 +708,7 @@ export function AgentsContent() {
         e.preventDefault()
         subChatWasShiftPressedRef.current = e.shiftKey
 
-        // If dialog is open, navigate through sub-chats
+        // If dialog is open, navigate through chat tabs.
         if (subChatQuickSwitchOpenRef.current) {
           let nextIndex: number
           if (e.shiftKey) {
@@ -663,7 +747,7 @@ export function AgentsContent() {
 
           if (openSubChats.length === 0) return
 
-          // Put active sub-chat first, limit to 5
+          // Put active chat first, limit to 5.
           if (currentActiveId) {
             const activeChat = openSubChats.find(
               (c) => c.id === currentActiveId,
@@ -766,7 +850,7 @@ export function AgentsContent() {
           return
         }
 
-        // If dialog is open, navigate to selected sub-chat and close
+        // If dialog is open, navigate to selected chat tab and close.
         if (subChatQuickSwitchOpenRef.current) {
           const selectedSubChat =
             frozenSubChatsRef.current?.[
@@ -793,7 +877,12 @@ export function AgentsContent() {
         clearTimeout(subChatHoldTimerRef.current)
       }
     }
-  }, [setSubChatQuickSwitchOpen, setSubChatQuickSwitchSelectedIndex, ctrlTabTarget])
+  }, [
+    ctrlTabTarget,
+    hasRippleProjectContext,
+    setSubChatQuickSwitchOpen,
+    setSubChatQuickSwitchSelectedIndex,
+  ])
 
   // Note: Cmd+E archive hotkey is handled in AgentsSidebar to share undo stack
 
@@ -813,18 +902,18 @@ export function AgentsContent() {
     }
   }
 
-  // Check if sub-chats data is loaded (use separate selectors to avoid object creation)
+  // Check if renderer-local chat tab data is loaded.
   const subChatsStoreChatId = useAgentSubChatStore((state) => state.chatId)
   const subChatsCount = useAgentSubChatStore(
     (state) => state.allSubChats.length,
   )
 
-  // Check if sub-chats are still loading (store not yet initialized for this chat)
+  // Check if renderer-local chat tabs are still loading.
   const isLoadingSubChats =
     selectedChatId !== null &&
     (subChatsStoreChatId !== selectedChatId || subChatsCount === 0)
 
-  // Track sub-chats sidebar open state for animation control
+  // Track the legacy chat-tab sidebar open state for animation control.
   // Now renders even while loading to show spinner (mobile always uses tabs)
   const isSubChatsSidebarOpen =
     selectedChatId &&
@@ -867,6 +956,19 @@ export function AgentsContent() {
     chatMeta?.sandboxConfig?.port
   )
   const canShowHyperframesPreview = chatSourceMode === "local" && !!selectedProject?.id
+  const isDesktopViewContentActive =
+    desktopView === "settings" ||
+    (betaAutomationsEnabled &&
+      (desktopView === "automations" ||
+        desktopView === "automations-detail" ||
+        desktopView === "inbox"))
+  const shouldShowKanbanView =
+    !isMobile &&
+    betaKanbanEnabled &&
+    !isDesktopViewContentActive &&
+    !selectedChatId &&
+    !selectedDraftId &&
+    !showNewChatForm
   const {
     canUseHyperframesProjectPane,
     isHyperframesProjectPaneOpen,
@@ -879,6 +981,7 @@ export function AgentsContent() {
     isMobile,
     isSubChatsSidebarOpen: Boolean(isSubChatsSidebarOpen),
     projectPaneOpen,
+    shouldSuppressProjectPane: shouldShowKanbanView,
   })
   const shouldUseRippleShell =
     shouldRenderRippleShell({
@@ -1009,6 +1112,17 @@ export function AgentsContent() {
                       }
                     : undefined
                 }
+                historySubChats={
+                  hasRippleProjectContext ? projectHistoryItems : undefined
+                }
+                isHistoryLoading={
+                  hasRippleProjectContext && projectHistoryChats.isLoading
+                }
+                onOpenChatFromHistory={
+                  hasRippleProjectContext
+                    ? handleOpenProjectChatFromHistory
+                    : undefined
+                }
               />
             ) : (
               // NewChatForm for creating new agent
@@ -1119,7 +1233,7 @@ export function AgentsContent() {
             <div className="h-full flex flex-col relative overflow-hidden">
               <NewChatForm key={`new-chat-${newChatFormKeyRef.current}`} />
             </div>
-          ) : betaKanbanEnabled ? (
+          ) : shouldShowKanbanView ? (
             <KanbanView />
           ) : (
             <div className="h-full flex flex-col relative overflow-hidden">
@@ -1141,11 +1255,11 @@ export function AgentsContent() {
         onHover={setQuickSwitchSelectedIndex}
       />
 
-      {/* Quick-switch dialog - Sub-chats (Ctrl+Tab) */}
+      {/* Quick-switch dialog for legacy renderer-local chat tabs. */}
       <SubChatsQuickSwitchDialog
-        isOpen={subChatQuickSwitchOpen}
+        isOpen={!hasRippleProjectContext && subChatQuickSwitchOpen}
         subChats={
-          subChatQuickSwitchOpen
+          !hasRippleProjectContext && subChatQuickSwitchOpen
             ? (frozenSubChatsRef.current ?? [])
             : recentSubChats
         }

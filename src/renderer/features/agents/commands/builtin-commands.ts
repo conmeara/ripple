@@ -60,7 +60,7 @@ export const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
     id: "builtin:clear",
     name: "clear",
     command: "/clear",
-    description: "Start a new conversation (creates new sub-chat)",
+    description: "Start a new chat",
     category: "builtin",
   },
   {

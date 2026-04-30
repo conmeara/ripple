@@ -86,6 +86,7 @@ export function QueueProcessor() {
               url: f.url,
               mediaType: f.mediaType,
               filename: f.filename,
+              base64Data: f.base64Data,
               size: f.size,
             },
           })),

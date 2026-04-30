@@ -2,7 +2,6 @@ import { eq } from "drizzle-orm"
 import {
   getDatabase,
   revisions,
-  subChats,
   type Revision,
 } from "../db"
 import {
@@ -15,7 +14,7 @@ import {
 import { compactOneLineSummary } from "../revisions/comment-summary"
 import { executeAgentRun, startAgentRun } from "./service"
 import { inferAgentProviderFromModel } from "./provider-selection"
-import type { AgentProviderId } from "./types"
+import type { AgentProviderId, AgentRunStatus, AgentRuntimeAttachment } from "./types"
 
 export interface GeneratedChangeSchedulerResult {
   updated: number
@@ -24,6 +23,86 @@ export interface GeneratedChangeSchedulerResult {
   agentRunId: string | null
   status: "idle" | "completed" | "failed" | "running"
   errorMessage?: string | null
+}
+
+const ACTIVE_RUN_STATUSES = new Set<AgentRunStatus>([
+  "queued",
+  "preparing",
+  "running",
+  "awaiting_approval",
+  "cancelling",
+])
+
+const pendingProjectIds = new Set<string | null>()
+let scheduledDrain: ReturnType<typeof setTimeout> | null = null
+let activeDrain: Promise<void> | null = null
+
+function normalizeProjectId(input: {
+  projectId?: string | null
+} = {}): string | null {
+  return input.projectId ?? null
+}
+
+function enqueueProject(input: {
+  projectId?: string | null
+} = {}): void {
+  const projectId = normalizeProjectId(input)
+  if (projectId === null) {
+    pendingProjectIds.clear()
+    pendingProjectIds.add(null)
+    return
+  }
+  if (!pendingProjectIds.has(null)) {
+    pendingProjectIds.add(projectId)
+  }
+}
+
+function takeNextProjectId(): string | null | undefined {
+  if (pendingProjectIds.has(null)) {
+    pendingProjectIds.delete(null)
+    return null
+  }
+  const next = pendingProjectIds.values().next()
+  if (next.done) return undefined
+  pendingProjectIds.delete(next.value)
+  return next.value
+}
+
+async function drainGeneratedChangeQueue(): Promise<void> {
+  while (pendingProjectIds.size > 0) {
+    const projectId = takeNextProjectId()
+    if (projectId === undefined) return
+
+    for (;;) {
+      const result = await processGeneratedChangeQueue({ projectId })
+      if (!result.claimed) break
+    }
+  }
+}
+
+function ensureDrainScheduled(): void {
+  if (scheduledDrain || activeDrain) return
+
+  scheduledDrain = setTimeout(() => {
+    scheduledDrain = null
+    activeDrain = drainGeneratedChangeQueue()
+      .catch((error) => {
+        console.warn("[Ripple] Generated-change queue failed:", error)
+      })
+      .finally(() => {
+        activeDrain = null
+        if (pendingProjectIds.size > 0) {
+          ensureDrainScheduled()
+        }
+      })
+  }, 0)
+}
+
+export function scheduleGeneratedChangeQueue(input: {
+  projectId?: string | null
+} = {}): void {
+  enqueueProject(input)
+  ensureDrainScheduled()
 }
 
 function parseMessages(value: string | null | undefined): any[] {
@@ -49,6 +128,33 @@ function extractPrompt(messages: any[]): string {
   return text || "Continue this generated change."
 }
 
+function extractAttachments(messages: any[]): AgentRuntimeAttachment[] {
+  const message = [...messages].reverse().find((item) => item?.role === "user")
+  const parts = Array.isArray(message?.parts) ? message.parts : []
+  const attachments: AgentRuntimeAttachment[] = []
+
+  for (const part of parts) {
+    if (part?.type === "data-image" && part.data?.base64Data && part.data?.mediaType) {
+      attachments.push({
+        type: "image",
+        base64Data: part.data.base64Data,
+        mediaType: part.data.mediaType,
+        filename: part.data.filename,
+      })
+    } else if (part?.type === "data-file" && part.data?.base64Data) {
+      attachments.push({
+        type: "file",
+        base64Data: part.data.base64Data,
+        mediaType: part.data.mediaType,
+        filename: part.data.filename || "file",
+        size: typeof part.data.size === "number" ? part.data.size : undefined,
+      })
+    }
+  }
+
+  return attachments
+}
+
 function inferProviderFromMessages(messages: any[]): AgentProviderId {
   const model = [...messages]
     .reverse()
@@ -72,6 +178,7 @@ function resolveRunIntent(job: RevisionQueueRun): {
   provider: AgentProviderId
   model: string | null
   requestId: string
+  attachments: AgentRuntimeAttachment[]
 } {
   const revision = loadRevision(job.revisionId)
   const messages = parseMessages(job.messages)
@@ -83,10 +190,11 @@ function resolveRunIntent(job: RevisionQueueRun): {
     null
 
   return {
-    prompt: extractPrompt(messages),
+    prompt: job.prompt || extractPrompt(messages),
     provider: revision.agentProvider ?? inferProviderFromMessages(messages),
     model,
     requestId: `revision:${revision.id}:${revision.updatedAt?.getTime() ?? Date.now()}`,
+    attachments: extractAttachments(messages),
   }
 }
 
@@ -116,13 +224,46 @@ export async function processGeneratedChangeQueue(input: {
       prompt: intent.prompt,
       runKind: "generated_change",
       mode: job.mode,
+      conversationId: job.conversationId,
       chatId: job.chatId,
       subChatId: job.subChatId,
       commentThreadId: job.threadId,
       revisionId: job.revisionId,
     })
 
-    const run = await executeAgentRun(started.run.id)
+    const run = await executeAgentRun(started.run.id, {
+      attachments: intent.attachments,
+    })
+    if (run.status !== "completed") {
+      if (ACTIVE_RUN_STATUSES.has(run.status as AgentRunStatus)) {
+        return {
+          updated: queue.updated,
+          claimed: true,
+          revisionId: job.revisionId,
+          agentRunId: run.id,
+          status: "running",
+        }
+      }
+
+      const errorMessage = compactOneLineSummary(
+        run.status === "cancelled"
+          ? "This generated change was cancelled."
+          : run.errorMessage || `Agent run ended with status ${run.status}.`,
+      ) || "Ripple could not finish this generated change."
+      await failRevisionRun({
+        revisionId: job.revisionId,
+        errorMessage,
+      })
+      return {
+        updated: queue.updated,
+        claimed: true,
+        revisionId: job.revisionId,
+        agentRunId: run.id,
+        status: "failed",
+        errorMessage,
+      }
+    }
+
     await completeRevisionRun(job.revisionId)
     return {
       updated: queue.updated,
@@ -181,13 +322,4 @@ export function backfillRevisionAgentProvider(input: {
     })
     .where(eq(revisions.id, input.revisionId))
     .run()
-}
-
-export function getSubChatPrompt(subChatId: string): string {
-  const subChat = getDatabase()
-    .select({ messages: subChats.messages })
-    .from(subChats)
-    .where(eq(subChats.id, subChatId))
-    .get()
-  return extractPrompt(parseMessages(subChat?.messages))
 }

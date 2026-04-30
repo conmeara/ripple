@@ -29,7 +29,8 @@ import {
   type ClaudeConfig,
   type McpServerConfig,
 } from "../../claude-config"
-import { anthropicAccounts, anthropicSettings, chats, claudeCodeCredentials, getDatabase, projects as projectsTable, subChats } from "../../db"
+import { getConversationUiMessages, replaceConversationMessages } from "../../conversations/service"
+import { anthropicAccounts, anthropicSettings, claudeCodeCredentials, conversations, getDatabase, projects as projectsTable } from "../../db"
 import { createRollbackStash } from "../../git/stash"
 import {
   ensureMcpTokensFresh,
@@ -897,10 +898,13 @@ export const claudeRouter = router({
             // 1. Get existing messages from DB
             const existing = db
               .select()
-              .from(subChats)
-              .where(eq(subChats.id, input.subChatId))
+              .from(conversations)
+              .where(eq(conversations.id, input.subChatId))
               .get()
-            const existingMessages = JSON.parse(existing?.messages || "[]")
+            if (!existing) {
+              throw new Error("Conversation not found")
+            }
+            const existingMessages = getConversationUiMessages(input.subChatId, db)
             const existingSessionId = existing?.sessionId || null
 
             // Get resumeSessionAt UUID only if shouldResume flag was set (by rollbackToMessage)
@@ -925,10 +929,11 @@ export const claudeRouter = router({
                   delete m.metadata.shouldForkResume
                 }
               }
-              db.update(subChats)
-                .set({ messages: JSON.stringify(existingMessages) })
-                .where(eq(subChats.id, input.subChatId))
-                .run()
+              replaceConversationMessages({
+                db,
+                conversationId: input.subChatId,
+                messages: existingMessages,
+              })
             }
 
             // Check if last message is already this user message (avoid duplicate)
@@ -967,13 +972,17 @@ export const claudeRouter = router({
               }
               messagesToSave = [...existingMessages, userMessage]
 
-              db.update(subChats)
+              replaceConversationMessages({
+                db,
+                conversationId: input.subChatId,
+                messages: messagesToSave,
+              })
+              db.update(conversations)
                 .set({
-                  messages: JSON.stringify(messagesToSave),
                   streamId,
                   updatedAt: new Date(),
                 })
-                .where(eq(subChats.id, input.subChatId))
+                .where(eq(conversations.id, input.subChatId))
                 .run()
             }
 
@@ -2504,9 +2513,9 @@ ${prompt}
                   console.log(
                     `[claude] Session not found - clearing invalid sessionId from database`,
                   )
-                  db.update(subChats)
+                  db.update(conversations)
                     .set({ sessionId: null })
-                    .where(eq(subChats.id, input.subChatId))
+                    .where(eq(conversations.id, input.subChatId))
                     .run()
 
                   errorContext = "Previous session expired. Please try again."
@@ -2599,18 +2608,18 @@ ${prompt}
                     metadata,
                   }
                   const finalMessages = [...messagesToSave, assistantMessage]
-                  db.update(subChats)
+                  replaceConversationMessages({
+                    db,
+                    conversationId: input.subChatId,
+                    messages: finalMessages,
+                  })
+                  db.update(conversations)
                     .set({
-                      messages: JSON.stringify(finalMessages),
                       sessionId: metadata.sessionId,
                       streamId: null,
                       updatedAt: new Date(),
                     })
-                    .where(eq(subChats.id, input.subChatId))
-                    .run()
-                  db.update(chats)
-                    .set({ updatedAt: new Date() })
-                    .where(eq(chats.id, input.chatId))
+                    .where(eq(conversations.id, input.subChatId))
                     .run()
 
                   // Create snapshot stash for rollback support (on error)
@@ -2680,31 +2689,35 @@ ${prompt}
 
               const finalMessages = [...messagesToSave, assistantMessage]
 
-              db.update(subChats)
+              replaceConversationMessages({
+                db,
+                conversationId: input.subChatId,
+                messages: finalMessages,
+              })
+              db.update(conversations)
                 .set({
-                  messages: JSON.stringify(finalMessages),
                   sessionId: savedSessionId,
                   streamId: null,
                   updatedAt: new Date(),
                 })
-                .where(eq(subChats.id, input.subChatId))
+                .where(eq(conversations.id, input.subChatId))
                 .run()
             } else {
               // No assistant response - just clear streamId
-              db.update(subChats)
+              db.update(conversations)
                 .set({
                   sessionId: savedSessionId,
                   streamId: null,
                   updatedAt: new Date(),
                 })
-                .where(eq(subChats.id, input.subChatId))
+                .where(eq(conversations.id, input.subChatId))
                 .run()
             }
 
-            // Update parent chat timestamp
-            db.update(chats)
+            // Update conversation timestamp
+            db.update(conversations)
               .set({ updatedAt: new Date() })
-              .where(eq(chats.id, input.chatId))
+              .where(eq(conversations.id, input.subChatId))
               .run()
 
             // Create snapshot stash for rollback support
@@ -2751,9 +2764,9 @@ ${prompt}
           // handles it (saves on normal completion, clears on abort). This avoids
           // a redundant DB write that the cancel mutation would then overwrite.
           const db = getDatabase()
-          db.update(subChats)
+          db.update(conversations)
             .set({ streamId: null })
-            .where(eq(subChats.id, input.subChatId))
+            .where(eq(conversations.id, input.subChatId))
             .run()
         }
       })

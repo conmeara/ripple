@@ -10,6 +10,7 @@ import type {
 import { buildClaudeEnv } from "../../claude"
 import { buildAgentsOption } from "../../trpc/routers/agent-utils"
 import { prepareAgentRuntimePrompt } from "../prompt-mentions"
+import { prepareRuntimeAttachments } from "../runtime-attachments"
 import { getBundledClaudeCodePath } from "./bundled-binaries"
 import {
   formatClaudeCapabilityLabel,
@@ -240,6 +241,15 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
     try {
       const sdk = await import("@anthropic-ai/claude-agent-sdk")
       const promptContext = prepareAgentRuntimePrompt(input.prompt)
+      const preparedAttachments = await prepareRuntimeAttachments({
+        runId: input.run.id,
+        cwd: input.cwd,
+        attachments: input.attachments,
+      })
+      const finalPrompt = [
+        promptContext.prompt,
+        preparedAttachments.promptSuffix,
+      ].filter(Boolean).join("\n\n")
       const agentsOption = await buildAgentsOption(
         promptContext.agentMentions,
         input.cwd,
@@ -274,8 +284,29 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
           CLAUDE_AGENT_SDK_CLIENT_APP: "ripple-desktop/phase-11",
         },
       })
+      const nativeAttachmentBlocks = [
+        ...preparedAttachments.imageContentBlocks,
+        ...preparedAttachments.documentContentBlocks,
+      ]
+      const sdkPrompt = nativeAttachmentBlocks.length > 0
+        ? (async function* () {
+            yield {
+              type: "user" as const,
+              message: {
+                role: "user" as const,
+                content: [
+                  ...nativeAttachmentBlocks,
+                  ...(finalPrompt.trim()
+                    ? [{ type: "text" as const, text: finalPrompt }]
+                    : []),
+                ],
+              },
+              parent_tool_use_id: null,
+            }
+          })()
+        : finalPrompt
       const stream = sdk.query({
-        prompt: promptContext.prompt,
+        prompt: sdkPrompt,
         options: {
           abortController,
           cwd: input.cwd,

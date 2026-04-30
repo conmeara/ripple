@@ -1,5 +1,5 @@
 import { router, publicProcedure } from "../index"
-import { getDatabase, projects, chats, subChats } from "../../db"
+import { chats, conversationMessages, conversations, getDatabase, projects } from "../../db"
 import { app, shell } from "electron"
 import { getAuthManager } from "../../../index"
 import { z } from "zod"
@@ -56,24 +56,25 @@ export const debugRouter = router({
     const db = getDatabase()
     const projectCount = db.select().from(projects).all().length
     const chatCount = db.select().from(chats).all().length
-    const subChatCount = db.select().from(subChats).all().length
+    const conversationCount = db.select().from(conversations).all().length
 
     return {
       projects: projectCount,
       chats: chatCount,
-      subChats: subChatCount,
+      conversations: conversationCount,
+      subChats: conversationCount,
     }
   }),
 
   /**
-   * Clear all chats and sub-chats (keeps projects)
+   * Clear all chats and conversations (keeps projects)
    */
   clearChats: publicProcedure.mutation(() => {
     const db = getDatabase()
-    // Delete sub_chats first (foreign key constraint)
-    db.delete(subChats).run()
+    db.delete(conversationMessages).run()
+    db.delete(conversations).run()
     db.delete(chats).run()
-    console.log("[Debug] Cleared all chats and sub-chats")
+    console.log("[Debug] Cleared all chats and conversations")
     return { success: true }
   }),
 
@@ -83,7 +84,8 @@ export const debugRouter = router({
   clearAllData: publicProcedure.mutation(() => {
     const db = getDatabase()
     // Delete in order due to foreign key constraints
-    db.delete(subChats).run()
+    db.delete(conversationMessages).run()
+    db.delete(conversations).run()
     db.delete(chats).run()
     db.delete(projects).run()
     console.log("[Debug] Cleared all database data")

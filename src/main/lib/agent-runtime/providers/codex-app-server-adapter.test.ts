@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { buildCodexAppServerEnv } from "./codex-app-server-env"
+import { buildCodexTurnInput } from "./codex-app-server-input"
 import {
   getCodexAppServerErrorMessage,
   isCodexAppServerThreadNotFoundError,
@@ -268,6 +269,44 @@ describe("Codex App Server notification normalization", () => {
       JSON.stringify({ detail: "Thread not found after restart." }),
     )).toBe(true)
     expect(isCodexAppServerThreadNotFoundError("model not supported")).toBe(false)
+  })
+})
+
+describe("Codex App Server input", () => {
+  test("passes supported image attachments as localImage inputs", () => {
+    expect(buildCodexTurnInput("Use these.", {
+      promptSuffix: "",
+      imageContentBlocks: [],
+      documentContentBlocks: [],
+      savedAttachments: [
+        {
+          type: "image",
+          originalName: "frame.png",
+          fileName: "frame.png",
+          path: "/tmp/project/.ripple/agent-attachments/run/frame.png",
+          displayPath: ".ripple/agent-attachments/run/frame.png",
+          mediaType: "image/png",
+        },
+        {
+          type: "file",
+          originalName: "brief.pdf",
+          fileName: "brief.pdf",
+          path: "/tmp/project/.ripple/agent-attachments/run/brief.pdf",
+          displayPath: ".ripple/agent-attachments/run/brief.pdf",
+          mediaType: "application/pdf",
+        },
+      ],
+    })).toEqual([
+      {
+        type: "localImage",
+        path: "/tmp/project/.ripple/agent-attachments/run/frame.png",
+      },
+      {
+        type: "text",
+        text: "Use these.",
+        text_elements: [],
+      },
+    ])
   })
 })
 

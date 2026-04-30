@@ -42,7 +42,10 @@ describe("Ripple project Git setup", () => {
       expect(result.baseCommit).toMatch(/^[a-f0-9]{40}$/)
       expect(await git.checkIsRepo()).toBe(true)
       expect((await git.raw(["config", "--get", "ripple.revisionManaged"])).trim()).toBe("true")
-      expect(await readFile(join(projectPath, ".gitignore"), "utf8")).toContain("exports/")
+      const gitignore = await readFile(join(projectPath, ".gitignore"), "utf8")
+      expect(gitignore).toContain("exports/")
+      expect(gitignore).toContain(".ripple/tmp/")
+      expect(gitignore).toContain(".ripple/agent-attachments/")
       expect((await git.status()).isClean()).toBe(true)
     } finally {
       await rm(projectPath, { recursive: true, force: true })

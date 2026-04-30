@@ -59,6 +59,7 @@ const TRACK_GAP = 0
 const CLIP_INSET = 4
 const MIN_CLIP_WIDTH = 8
 const TIMELINE_TRAILING_PADDING = 24
+const TIMELINE_VIEWPORT_HEIGHT = 274
 
 function TimelineIconButton({
   label,
@@ -195,7 +196,8 @@ export function HyperFramesTimeline({
     return null
   }, [selectedClipKey, tracks])
   const trackCount = Math.max(1, tracks.length)
-  const canvasHeight = RULER_HEIGHT + trackCount * (TRACK_HEIGHT + TRACK_GAP) + 14
+  const contentHeight = RULER_HEIGHT + trackCount * (TRACK_HEIGHT + TRACK_GAP) + 14
+  const canvasHeight = Math.max(TIMELINE_VIEWPORT_HEIGHT, contentHeight)
   const fitPixelsPerSecond = getTimelineFitPixelsPerSecond({
     duration: timelineDuration ?? 0,
     viewportWidth,
@@ -378,7 +380,7 @@ export function HyperFramesTimeline({
   return (
     <div
       ref={rootRef}
-      className="-mx-3 mt-1.5 min-h-[236px] overflow-hidden bg-background"
+      className="-mx-3 mt-1.5 h-[310px] overflow-hidden bg-background"
     >
       <div className="flex h-9 items-center border-b border-border/55 px-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -411,11 +413,11 @@ export function HyperFramesTimeline({
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative h-[274px]">
         <div
           ref={scrollRef}
           className={cn(
-            "max-h-[342px] overflow-y-auto",
+            "h-full overflow-y-auto",
             zoomMode === "fit" ? "overflow-x-hidden" : "overflow-x-auto",
           )}
           onPointerDown={handleTimelinePointerDown}

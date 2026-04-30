@@ -11,6 +11,7 @@ import {
 } from "../../../lib/atoms"
 import { appStore } from "../../../lib/jotai-store"
 import { trpcClient } from "../../../lib/trpc"
+import { buildAgentRuntimeMessageInput } from "./agent-runtime-message-input"
 
 type UIMessageChunk = any
 
@@ -31,30 +32,6 @@ type RuntimeEvent = {
   providerType?: string | null
   payloadJson?: string | null
   payload?: Record<string, unknown> | null
-}
-
-function getTextFromMessage(message: UIMessage | undefined): string {
-  if (!message?.parts) return ""
-
-  const textParts: string[] = []
-  const fileContents: string[] = []
-  const imageLabels: string[] = []
-
-  for (const part of message.parts) {
-    if (part.type === "text" && (part as any).text) {
-      textParts.push((part as any).text)
-    } else if ((part as any).type === "file-content") {
-      const filePart = part as any
-      const fileName =
-        filePart.filePath?.split("/").pop() || filePart.filePath || "file"
-      fileContents.push(`\n--- ${fileName} ---\n${filePart.content}`)
-    } else if (part.type === "data-image" && (part as any).data) {
-      const filename = (part as any).data.filename || "image"
-      imageLabels.push(`\n[Attached image: ${filename}]`)
-    }
-  }
-
-  return textParts.join("\n") + fileContents.join("") + imageLabels.join("")
 }
 
 function isRecord(value: unknown): value is Record<string, any> {
@@ -105,7 +82,8 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
     const lastUser = [...options.messages]
       .reverse()
       .find((message) => message.role === "user")
-    const prompt = getTextFromMessage(lastUser)
+    const runtimeInput = buildAgentRuntimeMessageInput(lastUser as any)
+    const prompt = runtimeInput.prompt
     const requestId = `${this.config.subChatId}:${lastUser?.id || crypto.randomUUID()}`
     const codexApiKey = this.config.provider === "codex"
       ? normalizeCodexApiKey(appStore.get(codexApiKeyAtom))
@@ -219,14 +197,16 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
 
         sub = trpcClient.agentRuntime.chat.subscribe(
           {
-            target: { type: "chat", chatId: this.config.chatId },
+            target: { type: "conversation", conversationId: this.config.subChatId },
             provider: this.config.provider,
             prompt,
             requestId,
             mode: this.config.mode,
             model: this.config.model,
-            chatId: this.config.chatId,
-            subChatId: this.config.subChatId,
+            conversationId: this.config.subChatId,
+            chatId: null,
+            subChatId: null,
+            attachments: runtimeInput.attachments,
             ...(codexApiKey
               ? { authConfig: { apiKey: codexApiKey } }
               : {}),

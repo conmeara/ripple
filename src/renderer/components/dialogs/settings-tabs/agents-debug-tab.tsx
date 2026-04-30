@@ -251,7 +251,7 @@ export function AgentsDebugTab() {
         <div className="rounded-lg border bg-muted/30 divide-y">
           <InfoRow label="Projects" value={dbStats?.projects?.toString()} isLoading={isLoading} />
           <InfoRow label="Chats" value={dbStats?.chats?.toString()} isLoading={isLoading} />
-          <InfoRow label="Sub-chats" value={dbStats?.subChats?.toString()} isLoading={isLoading} />
+          <InfoRow label="Conversations" value={(dbStats?.conversations ?? dbStats?.subChats)?.toString()} isLoading={isLoading} />
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-# Phase 9: Renders And Export
+# Phase 11: Export
 
 This ExecPlan must be maintained according to `PLANS.md`.
 
@@ -13,7 +13,7 @@ if needed, and open or reveal the completed file.
 This phase turns the existing Phase 3 HyperFrames render primitive into a
 durable product workflow. The current backend can spawn `hyperframes render`
 and write a video under a project-local `exports/` folder, but the job is
-in-memory and there is no renderer UI. Phase 9 adds the missing export job
+in-memory and there is no renderer UI. Phase 11 adds the missing export job
 model, job history, safe destination handling, progress and recovery states, and
 a Ripple-styled queue UI inspired by HyperFrames Studio's `Renders` panel.
 
@@ -27,7 +27,7 @@ safe, and friendly to non-developer users.
 
 ## Progress
 
-- [x] 2026-04-27 / User + Codex: Started Phase 9 planning for renders/export.
+- [x] 2026-04-27 / User + Codex: Started Phase 11 planning for renders/export.
   User direction: explore HyperFrames Studio's Renders UI and copy the useful
   render functionality under Ripple's renders/export surface.
 - [x] 2026-04-27 / Codex: Read `PLANS.md`, `ROADMAP.md`, Phase 3 render
@@ -47,7 +47,7 @@ safe, and friendly to non-developer users.
   prefer direct `@hyperframes/producer` integration pinned to the same
   HyperFrames package-family version.
 - [x] 2026-04-28 / User + Codex: Removed the CLI fallback executor from the
-  target plan. If Producer fails validation, Phase 9 should resolve that
+  target plan. If Producer fails validation, Phase 11 should resolve that
   blocker instead of carrying two render execution paths.
 - [ ] Implement Milestone 0: Producer integration spike and package/publishing
   verification.
@@ -121,7 +121,7 @@ safe, and friendly to non-developer users.
 
 ## Decision Log
 
-- Decision: Phase 9 should create a Ripple-owned `Renders` pane rather than
+- Decision: Phase 11 should create a Ripple-owned `Renders` pane rather than
   embedding HyperFrames Studio's full app or importing its private render
   components.
   Rationale: Studio's private Renders files are a useful reference, but Ripple
@@ -139,7 +139,7 @@ safe, and friendly to non-developer users.
 
 - Decision: Add a product-level `exports` tRPC router instead of growing
   `hyperframes.render` into a UI workflow.
-  Rationale: `hyperframes` is the low-level runtime namespace. Phase 9 needs
+  Rationale: `hyperframes` is the low-level runtime namespace. Phase 11 needs
   job history, destinations, reveal/open, retry, recovery, and user-facing view
   models. Those belong to a Ripple product service that wraps HyperFrames.
   Date/Author: 2026-04-27 / Codex
@@ -159,7 +159,7 @@ safe, and friendly to non-developer users.
   product-visible destination and final output path.
   Date/Author: 2026-04-27 / Codex
 
-- Decision: Prefer direct `@hyperframes/producer` integration for Phase 9.
+- Decision: Prefer direct `@hyperframes/producer` integration for Phase 11.
   Rationale: This matches Ripple's existing direction of pinning the
   HyperFrames package family and adapting official primitives through
   Ripple-owned boundaries. Producer gives the export service structured
@@ -167,7 +167,7 @@ safe, and friendly to non-developer users.
   queues, advanced settings, revision exports, and deterministic render modes.
   Date/Author: 2026-04-28 / User + Codex
 
-- Decision: Do not implement a CLI fallback executor for Phase 9.
+- Decision: Do not implement a CLI fallback executor for Phase 11.
   Rationale: A fallback would preserve the older shell-command architecture,
   add duplicate behavior to test, and make progress/cancellation semantics
   inconsistent. The implementation can use the CLI for comparison or manual
@@ -283,7 +283,7 @@ renders the default Ripple project to MP4, emits structured progress, cancels
 mid-render with `AbortController`, uses Ripple's app-managed FFmpeg/FFprobe and
 browser paths, and passes a packaged-resource check. If Producer fails a
 must-have Electron or packaging constraint, record the blocker and resolve it
-before proceeding with the Phase 9 implementation.
+before proceeding with the Phase 11 implementation.
 
 Milestone 1 creates the durable export model. Add shared export types in
 `src/shared/ripple-exports.ts`, then add `exportJobs` to
@@ -730,7 +730,7 @@ Research summary:
   the editor/overlay format and WebM as the browser transparency format.
 - Docker is optional for local export. Missing Docker should not block MP4
   export. Docker mode can be advanced/future unless the user explicitly wants
-  deterministic production renders in Phase 9.
+  deterministic production renders in Phase 11.
 - The chosen long-term architecture is direct Producer integration through a
   Ripple-owned executor. This mirrors the preview/timeline/assets approach:
   pin official HyperFrames packages to one exact version and consume them
@@ -741,6 +741,6 @@ Open questions for the implementation kickoff:
 
 - Should the top-bar label stay `Renders` to match Studio, or should it read
   `Export` with `Renders` as the pane/history title?
-- Should Phase 9 export the current revision preview, or require accepting
+- Should Phase 11 export the current revision preview, or require accepting
   generated changes into Main before export? This plan supports both but
   defaults to Main for safety.

@@ -1,4 +1,4 @@
-# Phase 8: Comments And Agent Revisions
+# Phase 8: Comments And Revisions
 
 This ExecPlan must be maintained according to `PLANS.md`.
 
@@ -48,15 +48,15 @@ against the primary project folder.
   anchored time; selecting away returns to the primary preview; accepted
   proposals apply back to the primary project; deleted comments are soft-deleted
   and recoverable through comment filters.
-- [ ] Implement Milestone 1: comment/revision data model and main-process
+- [x] Implement Milestone 1: comment/revision data model and main-process
   service skeleton.
-- [ ] Implement Milestone 2: comment capture UI in the Phase 7 review pane,
+- [x] Implement Milestone 2: comment capture UI in the Phase 7 review pane,
   preview player, and timeline.
-- [ ] Implement Milestone 3: strict isolated revision context creation and
+- [x] Implement Milestone 3: strict isolated revision context creation and
   provider execution routing.
-- [ ] Implement Milestone 4: generated-change preview, diff, accept,
+- [x] Implement Milestone 4: generated-change preview, diff, accept,
   delete/discard, and cleanup.
-- [ ] Implement Milestone 5: follow-up comments, proposal history, and recovery
+- [x] Implement Milestone 5: follow-up comments, proposal history, and recovery
   hardening.
 - [x] 2026-04-27 / Codex: Added the first working Phase 8 implementation
   slice: comment/revision tables and migration, `revisions` tRPC router,
@@ -170,19 +170,53 @@ against the primary project folder.
   boundary. The comment/generated-change domain, queue, stale-update handling,
   recovery, and acceptance services are in place, but the actual provider
   stream still runs through the shell-level `RippleRevisionQueueWorker` and
-  renderer chat transports. Phase 11 will replace that execution bridge with
+  renderer chat transports. Phase 9 will replace that execution bridge with
   Codex App Server and Claude Agent SDK provider runs before Phase 8 polish
   resumes.
 - [x] 2026-04-28 / User + Oracle + Codex: Clarified the Phase 8 handoff:
-  Phase 11 should preserve Phase 8's product semantics and safety guarantees,
+  Phase 9 should preserve Phase 8's product semantics and safety guarantees,
   but may replace hidden chat/sub-chat execution internals, transcript storage,
   and `RevisionQueueRun` shape with provider-native agent threads, agent runs,
   events, approvals, workspace contexts, and transcript projection.
-- [ ] After Phase 11: resume Phase 8 polish on comment-card details,
-  generated-change summaries, stale update/resolution UX, Chat handoff,
-  restore/delete edge cases, and visual QA using the new main-process provider
-  runner.
-
+- [x] 2026-04-29 / Codex: After Phase 9, resumed and completed the scoped
+  Phase 8 finish pass on comment-card details, generated-change summaries,
+  stale update/resolution UX, Chat handoff, restore/delete edge cases, and
+  validation using the new main-process provider runner foundation.
+- [x] 2026-04-29 / Codex: Tightened the post-review seams: comment revisions
+  are scheduled from main-process mutations instead of a renderer worker,
+  queued/preparing/running generated changes no longer expose `View changes`,
+  and the Comments pane only polls while generated changes are active.
+- [x] 2026-04-30 / Codex: Added manual image/file attachment support to
+  comments and replies. Users can paste, drop, or attach screenshots and files
+  from the comment composer; comment metadata stores display-safe attachment
+  facts; hidden generated-change prompts preserve the attachment bytes for the
+  Phase 9 runtime. Automatic frame/screenshot capture remains deferred to the
+  screenshot roadmap work.
+- [x] 2026-04-30 / Codex: Closed the chat-worktree preview gap found during the
+  Phase 8/9 UX walkthrough. Worktree Chat now targets the center HyperFrames
+  preview at that isolated chat workspace by default, `View Main` and
+  `View Worktree` switch between Main and the draft, `Accept` merges the draft
+  back to Main and converts the chat to Main when cleanup succeeds, and
+  `Discard draft` archives the chat while requesting worktree cleanup. Follow-up
+  cleanup collapsed shell preview state into one `PreviewTarget` discriminated
+  union for Main, comment-generated changes, and chat drafts.
+- [x] 2026-04-30 / Codex: Fixed the Phase 8 review findings from the
+  Phase 8/9/10 implementation review. Revision previews now accept registered
+  generated-change workspaces, embedded Worktree Chat passes chat draft preview
+  targets into the center HyperFrames player, app startup always nudges queued
+  generated changes after recovery, and comment attachments are capped before
+  renderer IPC or main-process runtime materialization.
+- [x] 2026-04-30 / Codex: Completed the pre-commit Phase 8/9/10 audit follow-up.
+  Generated-change runs no longer turn cancelled or failed provider work into
+  review proposals, revision preview IDs are checked against the selected
+  project, reused revision workspace failures become recoverable failed
+  revisions, and visible review/chat draft copy no longer says Worktree on the
+  primary Ripple path.
+- [x] 2026-04-30 / Codex: Added the comprehensive pre-commit UX coverage pass
+  for comments and previews. New tests cover Main/comment/draft preview target
+  transitions, anchored timestamp preservation, opening comment conversations
+  in Chat, returning normal chat history to Main, and keeping
+  comment/reply attachments in the generated-change prompt path.
 ## Surprises & Discoveries
 
 - Observation: Phase 7 already created the right UX insertion point for this
@@ -443,7 +477,7 @@ against the primary project folder.
   same workspace.
   Date/Author: 2026-04-28 / Codex
 
-- Decision: Pause Phase 8 final polish until Phase 11 replaces provider
+- Decision: Pause Phase 8 final polish until Phase 9 replaces provider
   execution with main-process Codex App Server and Claude Agent SDK runs.
   Rationale: Phase 8 found and hardened the right domain boundary: Comments is
   a review surface, main owns queue/recovery/acceptance decisions, and hidden
@@ -459,7 +493,7 @@ against the primary project folder.
   strict isolation, explicit accept/delete, stale-update safety, recovery, and
   calm Comments UX. Hidden chats, sub-chats, `sub_chats.messages`,
   `RevisionQueueRun`, and provider inference from model metadata are inherited
-  implementation scaffolding. Phase 11 may replace them with agent
+  implementation scaffolding. Phase 9 may replace them with agent
   threads/runs/events/approvals/workspaces as long as the user-visible review
   semantics and safety guarantees survive.
   Date/Author: 2026-04-28 / User + Oracle + Codex
@@ -520,16 +554,21 @@ generated changes can resume through the queue, and rejected/superseded
 temporary work is cleaned without deleting failed work the user may still want
 to recover.
 
-Phase 8 is intentionally paused here. The implementation has reached the
-provider boundary that Phase 11 now owns: `src/main/lib/revisions/revision-queue.ts`
-decides what generated change should run next, while
-`src/renderer/features/comments/RippleRevisionQueueWorker.tsx` still performs
-the actual hidden-chat provider stream from the renderer. Phase 11 will replace
-that bridge with main-process Codex App Server and Claude Agent SDK provider
-runs. Phase 11 may also replace hidden chat/sub-chat execution internals with a
-canonical agent thread/run/event model. After Phase 11 lands, Phase 8 should
-resume with product polish and regression testing rather than another
-provider-transport refactor.
+Phase 9 has now replaced the provider execution bridge for the core Chat and
+comment-generated-change surfaces. `RippleRevisionQueueWorker` remains mounted
+only as a queue nudge/observer; generated changes run through the main-process
+agent runtime and complete back into the Phase 8 review model. The Phase 8
+finish pass tightened the review surface on top of that new foundation: deleted
+comments no longer preview hidden generated work, deleted threads must be
+restored before follow-up replies or new generated changes, stale update work
+is treated as resolving rather than previewable, compact generated-change
+summaries collapse whitespace and stay bounded, long comment text breaks safely
+inside cards, and selected comments are cleared when the visible thread leaves
+the current filter or loses its previewable generated change.
+
+Phase 8 is now feature-complete for the local review loop described here. The
+remaining screenshot/frame-sheet automation belongs to Phase 14, and final
+export UX belongs to Phase 11.
 
 ## Context and Orientation
 
@@ -1008,102 +1047,43 @@ the durable home for review threads and proposal cards; Chat mode remains the
 general project conversation. Utility modes such as Files, Changes, Plan,
 Terminal, and MCP remain secondary right-pane surfaces.
 
-Implementation evidence from 2026-04-27:
+Evidence summary:
 
-- New schema and migration: `src/main/lib/db/schema/index.ts` and
-  `drizzle/0010_married_jasper_sitwell.sql` add `comment_threads`,
-  `comment_messages`, `revisions`, and hidden chats via `chats.is_hidden`.
-- New main-process surface:
-  `src/main/lib/revisions/comment-revisions.ts` plus
-  `src/main/lib/trpc/routers/revisions.ts`.
-- New renderer surface:
-  `src/renderer/features/comments/RippleCommentsPane.tsx` and helpers under
-  `src/renderer/features/comments/`, wired through
-  `src/renderer/features/ripple-shell/RippleReviewPane.tsx` and
-  `src/renderer/features/ripple-shell/RippleShell.tsx`.
-- Revision preview uses validated revision IDs, not renderer-supplied paths.
-  `src/main/lib/hyperframes/project-context.ts`,
+- `src/main/lib/db/schema/index.ts` and `drizzle/0010_married_jasper_sitwell.sql`
+  added `comment_threads`, `comment_messages`, `revisions`, and hidden chats;
+  `drizzle/0011_violet_purifiers.sql` added duplicate-submit protection.
+- `src/main/lib/revisions/comment-revisions.ts`,
+  `src/main/lib/revisions/revision-queue.ts`,
+  `src/main/lib/revisions/isolated-workspace-acceptance.ts`, and
+  `src/main/lib/trpc/routers/revisions.ts` own comment/revision lifecycle,
+  queue recovery, guarded acceptance, stale update handling, and diagnostics.
+- `src/renderer/features/comments/*` and
+  `src/renderer/features/ripple-shell/*` provide the review pane, comment
+  cards, filters, compact generated-change summaries, soft delete/restore, and
+  attachment chips.
+- `src/main/lib/hyperframes/project-context.ts`,
   `src/main/lib/hyperframes/player-source-protocol.ts`, and
-  `src/main/lib/trpc/routers/hyperframes.ts` resolve `revisionId` into a
-  registered revision context before serving player/timeline content.
-- Validation: `bun test src/shared/ripple-comments.test.ts
-  src/renderer/features/comments` passed, `bun test
-  src/renderer/features/hyperframes src/renderer/features/ripple-shell` passed,
-  `bun run test:ripple` passed, `bun run build` passed, and `git diff --check`
-  passed. `bun run ts:check` still fails on existing baseline errors in older
-  auth/agent/remote surfaces; a filtered scan found no `ts:check` errors in the
-  changed Phase 8 paths.
-- Worktree hardening evidence from 2026-04-27: new
-  `src/main/lib/ripple-projects/project-git.ts` and
-  `src/main/lib/ripple-projects/project-git.test.ts` cover managed baseline
-  initialization, managed baseline refresh, dirty unmanaged repo behavior, and
-  accepted-proposal commits. `bun run test:ripple`, `bun run build`, and
-  `git diff --check` passed. `bun run ts:check` still fails in the existing
-  baseline outside the new revision workspace files. A Computer Use smoke in
-  the dev app created a new comment and showed `Agent ready in revision chat`;
-  the dev database recorded a queued revision whose `context_path` and hidden
-  chat `worktree_path` both pointed under `~/.ripple/worktrees/...`, separate
-  from the primary `/Users/comeara/Ripple/test1` project path.
-- Automatic stale-change update evidence from 2026-04-28:
-  `src/main/lib/revisions/revision-acceptance.ts` can test-apply a generated
-  change onto the latest Main commit and then reset the hidden revision
-  worktree to that latest base. If the Git-level refresh cannot apply cleanly,
-  `src/main/lib/revisions/comment-revisions.ts` keeps the existing generated
-  work intact and queues the existing hidden agent thread with `Pull and Resolve
-  from Main`. `RippleCommentsPane.tsx` renders that state as a disabled spinner
-  accept control with short hover/focus tooltips (`Updating` or `Resolving`) and
-  no extra card status line. Validation passed: `bun test
-  src/main/lib/revisions/comment-revisions.test.ts`, `bun test
-  src/renderer/features/comments src/shared/ripple-comments.test.ts`,
-  `bun run test:ripple`, `bun run build`, and `git diff --check`.
-- Architecture hardening evidence from 2026-04-28:
-  `src/main/lib/revisions/revision-queue.ts` owns queued revision claims and
-  stale-update processing; `src/renderer/features/comments/RippleRevisionQueueWorker.tsx`
-  executes one claimed hidden chat at a time from the shell; and
-  `src/renderer/features/comments/RippleCommentsPane.tsx` no longer owns
-  background run orchestration. `src/main/lib/revisions/isolated-workspace-acceptance.ts`
-  centralizes guarded accept behavior for comment revisions and Worktree chats,
-  and `src/main/lib/trpc/routers/chats.ts` now uses it for `acceptWorktree`.
-  Comment thread/message/revision/chat updates in
-  `src/main/lib/revisions/comment-revisions.ts` were grouped into
-  transactions where a single product action spans multiple rows. Validation
-  passed: `bun test src/main/lib/revisions src/renderer/features/comments
-  src/renderer/features/ripple-shell`, `bun run test:ripple`,
-  `bun run build`, and `git diff --check`. `bun run ts:check` still fails on
-  the known broader app baseline in older Electron/auth/agent/remote surfaces;
-  the current run did not report errors in the new Phase 8 queue, acceptance,
-  comments, or shell files.
-- Durability rail evidence from 2026-04-28:
-  `src/main/lib/revisions/isolated-workspace-acceptance.ts` now serializes
-  accepts per project path. `src/main/lib/revisions/comment-revisions.ts`,
-  `src/main/lib/db/schema/index.ts`, and
-  `drizzle/0011_violet_purifiers.sql` add duplicate-submit protection with
-  `client_request_id` columns and unique indexes for comment threads and
-  messages. `src/main/lib/revisions/revision-queue.ts` now exposes startup
-  recovery, terminal worktree cleanup, and diagnostics; `src/main/index.ts`
-  invokes recovery and cleanup after database initialization. Failed revisions
-  are intentionally preserved for `Open in Chat` recovery. Validation passed:
-  `bun test src/main/lib/revisions src/renderer/features/comments
-  src/renderer/features/ripple-shell`, `bun run test:ripple`, `bun run build`,
-  and `git diff --check`. Additional validation passed:
-  `bun test src/main/lib/revisions src/renderer/features/comments
-  src/renderer/features/ripple-shell src/shared/ripple-comments.test.ts`.
-  `bun run ts:check` still fails on the known broader app baseline, but after
-  fixing the accept-lock helper it no longer reports errors in the new Phase 8
-  durability files. Broader validation also passed: `bun run test:ripple`,
-  `bun run build`, and `git diff --check`.
-- Phase 11 pause/handoff note from 2026-04-28:
-  Phase 8 should not continue by polishing or expanding the shell-level
-  `RippleRevisionQueueWorker` as permanent architecture. The durable handoff to
-  Phase 11 is the product semantics and safety boundaries: queued/runnable
-  generated-change decisions, guarded acceptance in
-  `src/main/lib/revisions/isolated-workspace-acceptance.ts`, fail-closed
-  isolation, stale-update behavior, and the comment/generated-change UI state
-  in `src/renderer/features/comments/RippleCommentsPane.tsx`.
-  `RevisionQueueRun` from `src/main/lib/revisions/revision-queue.ts` is the
-  current bridge shape, not a long-term constraint. Phase 11 should consume or
-  replace that bridge and move provider execution into main. Phase 8 should
-  then resume polish on the new agent-run foundation.
+  `src/main/lib/trpc/routers/hyperframes.ts` resolve revision preview targets
+  by validated IDs rather than renderer-supplied paths.
+- `src/main/lib/ripple-projects/project-git.ts` prepares app-managed Git
+  baselines so local projects can create true hidden worktrees and fail closed
+  instead of falling back to Main.
+- Validation repeatedly passed the focused revision/comment tests,
+  `bun run test:ripple`, `bun run build`, and `git diff --check`. `bun run
+  ts:check` was later blocked by missing `tsgo`; fallback `bunx tsc --noEmit`
+  no longer reported Phase 8 diagnostics and only reported the known
+  `Headers.entries()` baseline errors.
+- Final pre-commit audit validation on 2026-04-30 passed `bun test` with 224
+  tests, `bun run test:ripple` with 218 tests, `bun run db:generate`,
+  `bun run build`, and `git diff --check`. `bun run ts:check` remained blocked
+  by missing `tsgo`; fallback `bun x tsc --noEmit --pretty false` still only
+  reported the two known `Headers.entries` baseline errors.
+- The comprehensive UX coverage pass on 2026-04-30 expanded the automated gate
+  to `bun run test:ripple` with 245 tests and `bun test` with 248 tests. The
+  focused comment/preview/runtime slice passed 87 tests across 19 files.
+- Manual smoke checks verified comment creation into a hidden worktree,
+  generated-change preview switching, `View Main`, Deleted-filter behavior, and
+  attachment handling in the running Electron app.
 
 Current high-risk seams to review during implementation:
 
@@ -1116,11 +1096,11 @@ Current high-risk seams to review during implementation:
 - accepting a proposal after the primary project changed
 - cleaning up rejected or failed revision contexts
 - stale preview/player/timeline state when switching between primary project
-  and proposed revision previews
-- selected deleted comments leaving the preview pointed at a hidden revision
+  and proposed revision previews beyond the comment-selection cleanup covered
+  in the 2026-04-29 finish pass
 - hidden generated paths such as snapshots, exports, `.ripple`, and worktree
   metadata appearing in asset/file views
 
 Phase 8 should not implement final export UX. It may use snapshot and preview
-services to support comment context and proposal review, but Phase 9 remains the
+services to support comment context and proposal review, but Phase 11 remains the
 dedicated export phase.

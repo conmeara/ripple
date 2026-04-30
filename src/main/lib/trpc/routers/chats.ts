@@ -12,7 +12,13 @@ import {
   trackWorkspaceCreated,
   trackWorkspaceDeleted,
 } from "../../analytics"
-import { chats, getDatabase, projects, subChats } from "../../db"
+import { conversations, getDatabase, projects } from "../../db"
+import {
+  createConversation,
+  getConversationMessagesJson,
+  getConversationUiMessages,
+  replaceConversationMessages,
+} from "../../conversations/service"
 import {
   createWorktreeForChat,
   fetchGitHubPRStatus,
@@ -63,22 +69,64 @@ function sendWorktreeSetupFailure(
 }
 
 const publicChatColumns = {
-  id: chats.id,
-  name: chats.name,
-  projectId: chats.projectId,
-  createdAt: chats.createdAt,
-  updatedAt: chats.updatedAt,
-  archivedAt: chats.archivedAt,
-  worktreePath: chats.worktreePath,
-  branch: chats.branch,
-  baseBranch: chats.baseBranch,
-  prUrl: chats.prUrl,
-  prNumber: chats.prNumber,
+  id: conversations.id,
+  name: conversations.title,
+  projectId: conversations.projectId,
+  createdAt: conversations.createdAt,
+  updatedAt: conversations.updatedAt,
+  archivedAt: conversations.archivedAt,
+  worktreePath: conversations.worktreePath,
+  branch: conversations.branch,
+  baseBranch: conversations.baseBranch,
+  prUrl: conversations.prUrl,
+  prNumber: conversations.prNumber,
 }
 
-function omitHiddenFlag<T extends { isHidden?: boolean }>(chat: T) {
-  const { isHidden: _isHidden, ...rest } = chat
-  return rest
+type ConversationChat = typeof conversations.$inferSelect
+
+function conversationToChat(conversation: ConversationChat) {
+  return {
+    id: conversation.id,
+    name: conversation.title,
+    projectId: conversation.projectId,
+    createdAt: conversation.createdAt,
+    updatedAt: conversation.updatedAt,
+    archivedAt: conversation.archivedAt,
+    worktreePath: conversation.worktreePath,
+    branch: conversation.branch,
+    baseBranch: conversation.baseBranch,
+    prUrl: conversation.prUrl,
+    prNumber: conversation.prNumber,
+  }
+}
+
+function conversationToSubChat(conversation: ConversationChat, messagesJson?: string) {
+  return {
+    id: conversation.id,
+    name: conversation.title,
+    chatId: conversation.id,
+    chat_id: conversation.id,
+    sessionId: conversation.sessionId,
+    session_id: conversation.sessionId,
+    streamId: conversation.streamId,
+    stream_id: conversation.streamId,
+    mode: conversation.mode,
+    messages: messagesJson ?? getConversationMessagesJson(conversation.id),
+    createdAt: conversation.createdAt,
+    created_at: conversation.createdAt,
+    updatedAt: conversation.updatedAt,
+    updated_at: conversation.updatedAt,
+  }
+}
+
+function getConversationOrThrow(id: string): ConversationChat {
+  const conversation = getDatabase()
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, id))
+    .get()
+  if (!conversation) throw new Error("Conversation not found")
+  return conversation
 }
 
 function stripLegacyRippleCommentPrompt(text: string): string {
@@ -94,46 +142,31 @@ function stripLegacyRippleCommentPrompt(text: string): string {
 
 function revealRippleCommentChatMessages(chatId: string): void {
   const db = getDatabase()
-  const rows = db
-    .select({ id: subChats.id, messages: subChats.messages })
-    .from(subChats)
-    .where(eq(subChats.chatId, chatId))
-    .all()
+  const messages = getConversationUiMessages(chatId, db)
+  let changed = false
+  const nextMessages = messages.map((message: any) => {
+    if (message?.metadata?.source !== "ripple-comment") return message
+    if (!Array.isArray(message.parts)) return message
 
-  for (const row of rows) {
-    try {
-      const messages = JSON.parse(row.messages)
-      if (!Array.isArray(messages)) continue
+    const nextParts = message.parts.map((part: any) => {
+      if (part?.type !== "text" || typeof part.text !== "string") {
+        return part
+      }
+      const nextText = stripLegacyRippleCommentPrompt(part.text)
+      if (nextText === part.text) return part
+      changed = true
+      return { ...part, text: nextText }
+    })
 
-      let changed = false
-      const nextMessages = messages.map((message: any) => {
-        if (message?.metadata?.source !== "ripple-comment") return message
-        if (!Array.isArray(message.parts)) return message
+    return changed ? { ...message, parts: nextParts } : message
+  })
 
-        const nextParts = message.parts.map((part: any) => {
-          if (part?.type !== "text" || typeof part.text !== "string") {
-            return part
-          }
-          const nextText = stripLegacyRippleCommentPrompt(part.text)
-          if (nextText === part.text) return part
-          changed = true
-          return { ...part, text: nextText }
-        })
-
-        return changed ? { ...message, parts: nextParts } : message
-      })
-
-      if (!changed) continue
-      db.update(subChats)
-        .set({
-          messages: JSON.stringify(nextMessages),
-          updatedAt: new Date(),
-        })
-        .where(eq(subChats.id, row.id))
-        .run()
-    } catch {
-      // A malformed sub-chat should not block revealing the chat.
-    }
+  if (changed) {
+    replaceConversationMessages({
+      db,
+      conversationId: chatId,
+      messages: nextMessages,
+    })
   }
 }
 
@@ -298,22 +331,23 @@ export const chatsRouter = router({
     .query(({ input }) => {
       const db = getDatabase()
       const conditions = [
-        isNull(chats.archivedAt),
-        eq(chats.isHidden, false),
+        isNull(conversations.archivedAt),
+        isNull(conversations.deletedAt),
+        eq(conversations.kind, "project"),
         sql`exists (
           select 1 from projects
-          where ${projects.id} = ${chats.projectId}
+          where ${projects.id} = ${conversations.projectId}
           and ${projects.archivedAt} is null
         )`,
       ]
       if (input.projectId) {
-        conditions.push(eq(chats.projectId, input.projectId))
+        conditions.push(eq(conversations.projectId, input.projectId))
       }
       return db
         .select(publicChatColumns)
-        .from(chats)
+        .from(conversations)
         .where(and(...conditions))
-        .orderBy(desc(chats.updatedAt))
+        .orderBy(desc(conversations.updatedAt))
         .all()
     }),
 
@@ -324,46 +358,46 @@ export const chatsRouter = router({
     .input(z.object({ projectId: z.string().optional() }))
     .query(({ input }) => {
       const db = getDatabase()
-      const conditions = [isNotNull(chats.archivedAt), eq(chats.isHidden, false)]
+      const conditions = [
+        isNotNull(conversations.archivedAt),
+        eq(conversations.kind, "project"),
+      ]
       if (input.projectId) {
-        conditions.push(eq(chats.projectId, input.projectId))
+        conditions.push(eq(conversations.projectId, input.projectId))
       }
       return db
         .select(publicChatColumns)
-        .from(chats)
+        .from(conversations)
         .where(and(...conditions))
-        .orderBy(desc(chats.archivedAt))
+        .orderBy(desc(conversations.archivedAt))
         .all()
     }),
 
   /**
-   * Get a single chat with all sub-chats
+   * Get a single chat-shaped conversation for the existing UI.
    */
   get: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(({ input }) => {
       const db = getDatabase()
-      const chat = db
-        .select(publicChatColumns)
-        .from(chats)
-        .where(eq(chats.id, input.id))
-        .get()
-      if (!chat) return null
-
-      const chatSubChats = db
+      const conversation = db
         .select()
-        .from(subChats)
-        .where(eq(subChats.chatId, input.id))
-        .orderBy(subChats.createdAt)
-        .all()
+        .from(conversations)
+        .where(eq(conversations.id, input.id))
+        .get()
+      if (!conversation || conversation.deletedAt) return null
 
       const project = db
         .select()
         .from(projects)
-        .where(eq(projects.id, chat.projectId))
+        .where(eq(projects.id, conversation.projectId))
         .get()
 
-      return { ...chat, subChats: chatSubChats, project }
+      return {
+        ...conversationToChat(conversation),
+        subChats: [conversationToSubChat(conversation)],
+        project,
+      }
     }),
 
   /**
@@ -387,6 +421,16 @@ export const chatsRouter = router({
                   mediaType: z.string().optional(),
                   filename: z.string().optional(),
                   base64Data: z.string().optional(),
+                }),
+              }),
+              z.object({
+                type: z.literal("data-file"),
+                data: z.object({
+                  url: z.string(),
+                  mediaType: z.string().optional(),
+                  filename: z.string(),
+                  base64Data: z.string().optional(),
+                  size: z.number().optional(),
                 }),
               }),
               // Hidden file content - sent to agent but not displayed in UI
@@ -419,99 +463,54 @@ export const chatsRouter = router({
       console.log("[chats.create] found project:", project)
       if (!project) throw new Error("Project not found")
 
-      const localProjectPaths = getLocalChatReusePaths(project)
-      const localPathConditions = localProjectPaths.map((candidate) =>
-        eq(chats.worktreePath, candidate),
-      )
-      const localPathCondition =
-        localPathConditions.length === 1
-          ? localPathConditions[0]
-          : or(...localPathConditions)
-
-      const existingLocalChat = !input.useWorktree
-        ? db
-            .select()
-            .from(chats)
-            .where(
-              and(
-                eq(chats.projectId, input.projectId),
-                isNull(chats.archivedAt),
-                isNull(chats.branch),
-                isNull(chats.baseBranch),
-                localPathCondition,
-              ),
-            )
-            .orderBy(desc(chats.updatedAt))
-            .get()
-        : null
-
-      const chat = existingLocalChat ??
-        db
-          .insert(chats)
-          .values({
-            name: input.name,
-            projectId: input.projectId,
-          })
-          .returning()
-          .get()
+      const conversation = createConversation({
+        projectId: input.projectId,
+        kind: "project",
+        title: input.name ?? null,
+        mode: input.mode,
+      })
 
       if (requestingWindow) {
-        const claimResult = windowManager.claimChat(chat.id, requestingWindow.id)
+        const claimResult = windowManager.claimChat(conversation.id, requestingWindow.id)
         if (!claimResult.ok) {
-          windowManager.focusChatOwner(chat.id)
+          windowManager.focusChatOwner(conversation.id)
           throw new Error("This project conversation is already open in another window.")
         }
       }
 
-      if (existingLocalChat && input.name) {
-        db.update(chats)
-          .set({ name: existingLocalChat.name ?? input.name, updatedAt: new Date() })
-          .where(eq(chats.id, existingLocalChat.id))
-          .run()
-      }
-
       console.log(
-        existingLocalChat
-          ? "[chats.create] reused project chat:"
-          : "[chats.create] created chat:",
-        chat,
+        "[chats.create] created conversation:",
+        conversation,
       )
 
-      // Create initial sub-chat with user message (AI SDK format)
+      // Create initial conversation messages with user message (AI SDK format)
       // If initialMessageParts is provided, use it; otherwise fallback to text-only message
-      let initialMessages = "[]"
+      let initialMessages: Array<Record<string, any>> = []
       const initialMetadata = input.model ? { model: input.model } : undefined
 
       if (input.initialMessageParts && input.initialMessageParts.length > 0) {
-        initialMessages = JSON.stringify([
-          {
-            id: `msg-${Date.now()}`,
-            role: "user",
-            parts: input.initialMessageParts,
-            ...(initialMetadata ? { metadata: initialMetadata } : {}),
-          },
-        ])
+        initialMessages = [{
+          id: `msg-${Date.now()}`,
+          role: "user",
+          parts: input.initialMessageParts,
+          ...(initialMetadata ? { metadata: initialMetadata } : {}),
+        }]
       } else if (input.initialMessage) {
-        initialMessages = JSON.stringify([
-          {
-            id: `msg-${Date.now()}`,
-            role: "user",
-            parts: [{ type: "text", text: input.initialMessage }],
-            ...(initialMetadata ? { metadata: initialMetadata } : {}),
-          },
-        ])
+        initialMessages = [{
+          id: `msg-${Date.now()}`,
+          role: "user",
+          parts: [{ type: "text", text: input.initialMessage }],
+          ...(initialMetadata ? { metadata: initialMetadata } : {}),
+        }]
       }
 
-      const subChat = db
-        .insert(subChats)
-        .values({
-          chatId: chat.id,
-          mode: input.mode,
-          messages: initialMessages,
-        })
-        .returning()
-        .get()
-      console.log("[chats.create] created subChat:", subChat)
+      replaceConversationMessages({
+        db,
+        conversationId: conversation.id,
+        messages: initialMessages,
+      })
+      let conversationRecord = getConversationOrThrow(conversation.id)
+      console.log("[chats.create] initialized conversation messages:", initialMessages.length)
 
       // Worktree creation result (will be set if useWorktree is true)
       let worktreeResult: {
@@ -534,7 +533,7 @@ export const chatsRouter = router({
         const result = await createWorktreeForChat(
           project.path,
           sanitizeProjectName(project.name),
-          chat.id,
+          conversation.id,
           input.baseBranch,
           branchType,
           {
@@ -558,14 +557,16 @@ export const chatsRouter = router({
           result.worktreePath &&
           path.resolve(result.worktreePath) !== path.resolve(project.path)
         ) {
-          db.update(chats)
+          conversationRecord = db.update(conversations)
             .set({
               worktreePath: result.worktreePath,
               branch: result.branch,
               baseBranch: result.baseBranch,
+              updatedAt: new Date(),
             })
-            .where(eq(chats.id, chat.id))
-            .run()
+            .where(eq(conversations.id, conversation.id))
+            .returning()
+            .get()
           worktreeResult = {
             worktreePath: result.worktreePath,
             branch: result.branch,
@@ -579,38 +580,44 @@ export const chatsRouter = router({
             message,
             projectId: project.id,
           })
-          db.delete(subChats).where(eq(subChats.chatId, chat.id)).run()
-          db.delete(chats).where(eq(chats.id, chat.id)).run()
+          db.delete(conversations).where(eq(conversations.id, conversation.id)).run()
           if (requestingWindow) {
-            windowManager.releaseChat(chat.id, requestingWindow.id)
+            windowManager.releaseChat(conversation.id, requestingWindow.id)
           }
           throw new Error(message)
         }
       } else {
         // Local mode: use project path directly, no branch info
         console.log("[chats.create] local mode - using project path directly")
-        db.update(chats)
+        conversationRecord = db.update(conversations)
           .set({
             worktreePath: project.path,
             branch: null,
             baseBranch: null,
+            updatedAt: new Date(),
           })
-          .where(eq(chats.id, chat.id))
-          .run()
+          .where(eq(conversations.id, conversation.id))
+          .returning()
+          .get()
         worktreeResult = { worktreePath: project.path }
       }
 
       const response = {
-        ...omitHiddenFlag(chat),
+        ...conversationToChat(conversationRecord),
         worktreePath: worktreeResult.worktreePath || project.path,
         branch: worktreeResult.branch ?? null,
         baseBranch: worktreeResult.baseBranch ?? null,
-        subChats: [subChat],
+        subChats: [
+          conversationToSubChat(
+            conversationRecord,
+            JSON.stringify(initialMessages),
+          ),
+        ],
       }
 
       // Track workspace created
       trackWorkspaceCreated({
-        id: chat.id,
+        id: conversation.id,
         projectId: input.projectId,
         useWorktree: input.useWorktree,
       })
@@ -626,12 +633,14 @@ export const chatsRouter = router({
     .input(z.object({ id: z.string(), name: z.string().min(1) }))
     .mutation(({ input }) => {
       const db = getDatabase()
-      return db
-        .update(chats)
-        .set({ name: input.name, updatedAt: new Date() })
-        .where(eq(chats.id, input.id))
+      const updated = db
+        .update(conversations)
+        .set({ title: input.name, updatedAt: new Date() })
+        .where(eq(conversations.id, input.id))
         .returning()
         .get()
+      if (!updated) throw new Error("Conversation not found")
+      return conversationToChat(updated)
     }),
 
   /**
@@ -648,18 +657,13 @@ export const chatsRouter = router({
     .mutation(async ({ input }) => {
       const db = getDatabase()
 
-      // Get chat to check for worktree (before archiving)
-      const chat = db
-        .select()
-        .from(chats)
-        .where(eq(chats.id, input.id))
-        .get()
+      const chat = getConversationOrThrow(input.id)
 
       // Archive immediately (optimistic)
       const result = db
-        .update(chats)
-        .set({ archivedAt: new Date() })
-        .where(eq(chats.id, input.id))
+        .update(conversations)
+        .set({ archivedAt: new Date(), status: "archived", updatedAt: new Date() })
+        .where(eq(conversations.id, input.id))
         .returning()
         .get()
 
@@ -697,9 +701,9 @@ export const chatsRouter = router({
                 `[chats.archive] Deleted worktree for workspace ${input.id}`,
               )
               // Clear worktreePath since it's deleted (keep branch for reference)
-              db.update(chats)
+              db.update(conversations)
                 .set({ worktreePath: null })
-                .where(eq(chats.id, input.id))
+                .where(eq(conversations.id, input.id))
                 .run()
             } else {
               console.warn(
@@ -718,7 +722,7 @@ export const chatsRouter = router({
         gitCache.invalidateParsedDiff(chat.worktreePath)
       }
 
-      return result
+      return result ? conversationToChat(result) : null
     }),
 
   /**
@@ -728,12 +732,13 @@ export const chatsRouter = router({
     .input(z.object({ id: z.string() }))
     .mutation(({ input }) => {
       const db = getDatabase()
-      return db
-        .update(chats)
-        .set({ archivedAt: null })
-        .where(eq(chats.id, input.id))
+      const restored = db
+        .update(conversations)
+        .set({ archivedAt: null, status: "open", updatedAt: new Date() })
+        .where(eq(conversations.id, input.id))
         .returning()
         .get()
+      return restored ? conversationToChat(restored) : null
     }),
 
   reveal: publicProcedure
@@ -742,16 +747,18 @@ export const chatsRouter = router({
       const db = getDatabase()
       revealRippleCommentChatMessages(input.id)
       const chat = db
-        .update(chats)
+        .update(conversations)
         .set({
-          isHidden: false,
+          archivedAt: null,
+          deletedAt: null,
+          status: "open",
           updatedAt: new Date(),
         })
-        .where(eq(chats.id, input.id))
+        .where(eq(conversations.id, input.id))
         .returning()
         .get()
       if (!chat) throw new Error("Chat not found.")
-      return omitHiddenFlag(chat)
+      return conversationToChat(chat)
     }),
 
   /**
@@ -762,8 +769,7 @@ export const chatsRouter = router({
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
       const db = getDatabase()
-      const chat = db.select().from(chats).where(eq(chats.id, input.id)).get()
-      if (!chat) throw new Error("Chat not found.")
+      const chat = getConversationOrThrow(input.id)
       if (!chat.worktreePath || !chat.branch) {
         throw new Error("This chat is already editing Main.")
       }
@@ -796,9 +802,21 @@ export const chatsRouter = router({
         commitMessage: "Accept Ripple worktree changes",
       })
 
-      db.update(chats)
-        .set({ updatedAt: new Date() })
-        .where(eq(chats.id, input.id))
+      const cleanup = await removeWorktree(projectPath, worktreePath)
+      if (!cleanup.success) {
+        console.warn(
+          `[chats.acceptWorktree] Accepted ${input.id} but could not remove worktree: ${cleanup.error}`,
+        )
+      }
+
+      db.update(conversations)
+        .set({
+          updatedAt: new Date(),
+          worktreePath: cleanup.success ? projectPath : chat.worktreePath,
+          branch: cleanup.success ? null : chat.branch,
+          baseBranch: cleanup.success ? null : chat.baseBranch,
+        })
+        .where(eq(conversations.id, input.id))
         .run()
 
       gitCache.invalidateStatus(projectPath)
@@ -813,6 +831,8 @@ export const chatsRouter = router({
         chatId: input.id,
         baseBranch,
         commitHash: acceptance.acceptedWorkspaceCommit ?? undefined,
+        convertedToMain: cleanup.success,
+        cleanupError: cleanup.success ? undefined : cleanup.error,
       }
     }),
 
@@ -827,17 +847,17 @@ export const chatsRouter = router({
 
       // Identify worktree-mode workspaces before archiving (for terminal cleanup)
       const worktreeChats = db
-        .select({ id: chats.id, branch: chats.branch })
-        .from(chats)
-        .where(inArray(chats.id, input.chatIds))
+        .select({ id: conversations.id, branch: conversations.branch })
+        .from(conversations)
+        .where(inArray(conversations.id, input.chatIds))
         .all()
         .filter((c) => c.branch != null)
 
       // Archive immediately (optimistic)
       const result = db
-        .update(chats)
-        .set({ archivedAt: new Date() })
-        .where(inArray(chats.id, input.chatIds))
+        .update(conversations)
+        .set({ archivedAt: new Date(), status: "archived", updatedAt: new Date() })
+        .where(inArray(conversations.id, input.chatIds))
         .returning()
         .all()
 
@@ -859,7 +879,7 @@ export const chatsRouter = router({
         })
       }
 
-      return result
+      return result.map(conversationToChat)
     }),
 
   /**
@@ -870,8 +890,7 @@ export const chatsRouter = router({
     .mutation(async ({ input }) => {
       const db = getDatabase()
 
-      // Get chat before deletion
-      const chat = db.select().from(chats).where(eq(chats.id, input.id)).get()
+      const chat = db.select().from(conversations).where(eq(conversations.id, input.id)).get()
 
       // Cleanup worktree if it was created (has branch = was a real worktree, not just project path)
       if (chat?.worktreePath && chat?.branch) {
@@ -905,7 +924,12 @@ export const chatsRouter = router({
         gitCache.invalidateParsedDiff(chat.worktreePath)
       }
 
-      return db.delete(chats).where(eq(chats.id, input.id)).returning().get()
+      const deleted = db.update(conversations)
+        .set({ status: "deleted", deletedAt: new Date(), updatedAt: new Date() })
+        .where(eq(conversations.id, input.id))
+        .returning()
+        .get()
+      return deleted ? conversationToChat(deleted) : null
     }),
 
   // ============ Sub-chat procedures ============
@@ -917,29 +941,26 @@ export const chatsRouter = router({
     .input(z.object({ id: z.string() }))
     .query(({ input }) => {
       const db = getDatabase()
-      const subChat = db
+      const conversation = db
         .select()
-        .from(subChats)
-        .where(eq(subChats.id, input.id))
+        .from(conversations)
+        .where(eq(conversations.id, input.id))
         .get()
 
-      if (!subChat) return null
+      if (!conversation || conversation.deletedAt) return null
 
-      const chat = db
-        .select()
-        .from(chats)
-        .where(eq(chats.id, subChat.chatId))
-        .get()
-
-      const project = chat
+      const project = conversation
         ? db
             .select()
             .from(projects)
-            .where(eq(projects.id, chat.projectId))
+            .where(eq(projects.id, conversation.projectId))
             .get()
         : null
 
-      return { ...subChat, chat: chat ? { ...chat, project } : null }
+      return {
+        ...conversationToSubChat(conversation),
+        chat: { ...conversationToChat(conversation), project },
+      }
     }),
 
   /**
@@ -955,16 +976,18 @@ export const chatsRouter = router({
     )
     .mutation(({ input }) => {
       const db = getDatabase()
-      return db
-        .insert(subChats)
-        .values({
-          chatId: input.chatId,
-          name: input.name,
-          mode: input.mode,
-          messages: "[]",
-        })
-        .returning()
-        .get()
+      const parent = getConversationOrThrow(input.chatId)
+      const conversation = createConversation({
+        projectId: parent.projectId,
+        compositionId: parent.compositionId,
+        kind: "project",
+        title: input.name ?? "New Chat",
+        mode: input.mode,
+        worktreePath: parent.worktreePath,
+        branch: parent.branch,
+        baseBranch: parent.baseBranch,
+      })
+      return conversationToSubChat(conversation, "[]")
     }),
 
   /**
@@ -984,16 +1007,11 @@ export const chatsRouter = router({
     .mutation(async ({ input }) => {
       const db = getDatabase()
 
-      // 1. Get the source sub-chat
-      const sourceSubChat = db
-        .select()
-        .from(subChats)
-        .where(eq(subChats.id, input.subChatId))
-        .get()
-      if (!sourceSubChat) throw new Error("Source sub-chat not found")
+      // 1. Get the source conversation
+      const sourceConversation = getConversationOrThrow(input.subChatId)
 
       // 2. Parse messages and find the cutoff point
-      const allMessages = JSON.parse(sourceSubChat.messages || "[]")
+      const allMessages = getConversationUiMessages(sourceConversation.id, db)
       let cutoffIndex = allMessages.findIndex(
         (m: any) => m.id === input.messageId,
       )
@@ -1011,7 +1029,7 @@ export const chatsRouter = router({
       // 4. Find sdkMessageUuid of last assistant message (for resumeSessionAt)
       const lastAssistant = [...messagesToFork]
         .reverse()
-        .find((m: any) => m.role === "assistant")
+        .find((m: any) => m.role === "assistant") as any
       const forkAtSdkUuid = lastAssistant?.metadata?.sdkMessageUuid || null
 
       // 5. Generate new IDs for all messages + set shouldForkResume on last assistant
@@ -1032,14 +1050,14 @@ export const chatsRouter = router({
       let forkName = input.name
       if (!forkName) {
         // Strip existing [N] prefix from source name to get base name
-        const sourceName = sourceSubChat.name || "Chat"
+        const sourceName = sourceConversation.title || "Chat"
         const baseName = sourceName.replace(/^\[\d+\]\s*/, "")
 
-        // Find highest [N] among all sibling sub-chats
+        // Find highest [N] among sibling conversations
         const siblings = db
-          .select({ name: subChats.name })
-          .from(subChats)
-          .where(eq(subChats.chatId, sourceSubChat.chatId))
+          .select({ name: conversations.title })
+          .from(conversations)
+          .where(eq(conversations.projectId, sourceConversation.projectId))
           .all()
 
         let maxN = 0
@@ -1053,21 +1071,30 @@ export const chatsRouter = router({
         forkName = `[${maxN + 1}] ${baseName}`
       }
 
-      // 7. Insert new sub-chat with sessionId from original (needed for resume)
-      const newSubChat = db
-        .insert(subChats)
-        .values({
-          chatId: sourceSubChat.chatId,
-          name: forkName,
-          mode: sourceSubChat.mode,
-          messages: JSON.stringify(forkedMessages),
-          sessionId: sourceSubChat.sessionId,
-        })
-        .returning()
-        .get()
+      // 7. Insert new conversation with sessionId from original (needed for resume)
+      const newConversation = createConversation({
+        projectId: sourceConversation.projectId,
+        compositionId: sourceConversation.compositionId,
+        kind: sourceConversation.kind,
+        title: forkName,
+        mode: sourceConversation.mode,
+        sessionId: sourceConversation.sessionId,
+        worktreePath: sourceConversation.worktreePath,
+        branch: sourceConversation.branch,
+        baseBranch: sourceConversation.baseBranch,
+      })
+      replaceConversationMessages({
+        db,
+        conversationId: newConversation.id,
+        messages: forkedMessages,
+      })
+      let newSubChat = conversationToSubChat(
+        getConversationOrThrow(newConversation.id),
+        JSON.stringify(forkedMessages),
+      )
 
       // 8. Copy .jsonl session files to the new isolated config dir
-      if (sourceSubChat.sessionId) {
+      if (sourceConversation.sessionId) {
         try {
           const { app } = await import("electron")
           const userDataPath = app.getPath("userData")
@@ -1100,10 +1127,15 @@ export const chatsRouter = router({
               delete m.metadata.shouldForkResume
             }
           }
-          db.update(subChats)
-            .set({ messages: JSON.stringify(forkedMessages) })
-            .where(eq(subChats.id, newSubChat.id))
-            .run()
+          replaceConversationMessages({
+            db,
+            conversationId: newConversation.id,
+            messages: forkedMessages,
+          })
+          newSubChat = conversationToSubChat(
+            getConversationOrThrow(newConversation.id),
+            JSON.stringify(forkedMessages),
+          )
         }
       }
 
@@ -1123,12 +1155,13 @@ export const chatsRouter = router({
     .input(z.object({ id: z.string(), messages: z.string() }))
     .mutation(({ input }) => {
       const db = getDatabase()
-      return db
-        .update(subChats)
-        .set({ messages: input.messages, updatedAt: new Date() })
-        .where(eq(subChats.id, input.id))
-        .returning()
-        .get()
+      const messages = JSON.parse(input.messages || "[]")
+      replaceConversationMessages({
+        db,
+        conversationId: input.id,
+        messages: Array.isArray(messages) ? messages : [],
+      })
+      return conversationToSubChat(getConversationOrThrow(input.id))
     }),
 
   /**
@@ -1149,18 +1182,16 @@ export const chatsRouter = router({
     > => {
       const db = getDatabase()
 
-      // 1. Get the sub-chat and its messages
-      const subChat = db
+      // 1. Get the conversation and its messages
+      const conversation = db
         .select()
-        .from(subChats)
-        .where(eq(subChats.id, input.subChatId))
+        .from(conversations)
+        .where(eq(conversations.id, input.subChatId))
         .get()
-      if (!subChat) {
-        return { success: false, error: "Sub-chat not found" }
-      }
+      if (!conversation) return { success: false, error: "Conversation not found" }
 
       // 2. Parse messages and find the target message by sdkMessageUuid
-      const messages = JSON.parse(subChat.messages || "[]")
+      const messages = getConversationUiMessages(conversation.id, db)
       const targetIndex = messages.findIndex(
         (m: any) => m.metadata?.sdkMessageUuid === input.sdkMessageUuid,
       )
@@ -1169,16 +1200,9 @@ export const chatsRouter = router({
         return { success: false, error: "Message not found" }
       }
 
-      // 3. Get the parent chat for worktreePath
-      const chat = db
-        .select()
-        .from(chats)
-        .where(eq(chats.id, subChat.chatId))
-        .get()
-
       // 4. Rollback git state first - if this fails, abort the whole operation
-      if (chat?.worktreePath) {
-        const res = await applyRollbackStash(chat.worktreePath, input.sdkMessageUuid)
+      if (conversation.worktreePath) {
+        const res = await applyRollbackStash(conversation.worktreePath, input.sdkMessageUuid)
         if (!res.success) {
           return { success: false, error: `Git rollback failed: ${res.error}` }
         }
@@ -1204,15 +1228,12 @@ export const chatsRouter = router({
         }
       })
 
-      // 6. Update the sub-chat with truncated messages
-      db.update(subChats)
-        .set({
-          messages: JSON.stringify(truncatedMessages),
-          updatedAt: new Date(),
-        })
-        .where(eq(subChats.id, input.subChatId))
-        .returning()
-        .get()
+      // 6. Update the conversation with truncated messages
+      replaceConversationMessages({
+        db,
+        conversationId: input.subChatId,
+        messages: truncatedMessages,
+      })
 
       return {
         success: true,
@@ -1227,12 +1248,13 @@ export const chatsRouter = router({
     .input(z.object({ id: z.string(), sessionId: z.string().nullable() }))
     .mutation(({ input }) => {
       const db = getDatabase()
-      return db
-        .update(subChats)
+      const updated = db
+        .update(conversations)
         .set({ sessionId: input.sessionId })
-        .where(eq(subChats.id, input.id))
+        .where(eq(conversations.id, input.id))
         .returning()
         .get()
+      return updated ? conversationToSubChat(updated) : null
     }),
 
   /**
@@ -1242,12 +1264,14 @@ export const chatsRouter = router({
     .input(z.object({ id: z.string(), mode: z.enum(["plan", "agent"]) }))
     .mutation(({ input }) => {
       const db = getDatabase()
-      return db
-        .update(subChats)
+      const updated = db
+        .update(conversations)
         .set({ mode: input.mode })
-        .where(eq(subChats.id, input.id))
+        .where(eq(conversations.id, input.id))
         .returning()
         .get()
+      if (!updated) throw new Error("Conversation not found")
+      return conversationToSubChat(updated)
     }),
 
   /**
@@ -1257,12 +1281,14 @@ export const chatsRouter = router({
     .input(z.object({ id: z.string(), name: z.string().min(1) }))
     .mutation(({ input }) => {
       const db = getDatabase()
-      return db
-        .update(subChats)
-        .set({ name: input.name })
-        .where(eq(subChats.id, input.id))
+      const updated = db
+        .update(conversations)
+        .set({ title: input.name, updatedAt: new Date() })
+        .where(eq(conversations.id, input.id))
         .returning()
         .get()
+      if (!updated) throw new Error("Conversation not found")
+      return conversationToSubChat(updated)
     }),
 
   /**
@@ -1273,8 +1299,13 @@ export const chatsRouter = router({
     .mutation(({ input }) => {
       const db = getDatabase()
       return db
-        .delete(subChats)
-        .where(eq(subChats.id, input.id))
+        .update(conversations)
+        .set({
+          status: "deleted",
+          deletedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(conversations.id, input.id))
         .returning()
         .get()
     }),
@@ -1288,8 +1319,8 @@ export const chatsRouter = router({
       const db = getDatabase()
       const chat = db
         .select()
-        .from(chats)
-        .where(eq(chats.id, input.chatId))
+        .from(conversations)
+        .where(eq(conversations.id, input.chatId))
         .get()
 
       if (!chat?.worktreePath) {
@@ -1319,8 +1350,8 @@ export const chatsRouter = router({
       const db = getDatabase()
       const chat = db
         .select()
-        .from(chats)
-        .where(eq(chats.id, input.chatId))
+        .from(conversations)
+        .where(eq(conversations.id, input.chatId))
         .get()
 
       if (!chat?.worktreePath) {
@@ -1442,8 +1473,8 @@ export const chatsRouter = router({
       const db = getDatabase()
       const chat = db
         .select()
-        .from(chats)
-        .where(eq(chats.id, input.chatId))
+        .from(conversations)
+        .where(eq(conversations.id, input.chatId))
         .get()
 
       if (!chat?.worktreePath) {
@@ -1691,8 +1722,8 @@ export const chatsRouter = router({
       const db = getDatabase()
       const chat = db
         .select()
-        .from(chats)
-        .where(eq(chats.id, input.chatId))
+        .from(conversations)
+        .where(eq(conversations.id, input.chatId))
         .get()
 
       if (!chat?.worktreePath) {
@@ -1742,12 +1773,13 @@ export const chatsRouter = router({
     .mutation(async ({ input }) => {
       const db = getDatabase()
       const result = db
-        .update(chats)
+        .update(conversations)
         .set({
           prUrl: input.prUrl,
           prNumber: input.prNumber,
+          updatedAt: new Date(),
         })
-        .where(eq(chats.id, input.chatId))
+        .where(eq(conversations.id, input.chatId))
         .returning()
         .get()
 
@@ -1769,8 +1801,8 @@ export const chatsRouter = router({
       const db = getDatabase()
       const chat = db
         .select()
-        .from(chats)
-        .where(eq(chats.id, input.chatId))
+        .from(conversations)
+        .where(eq(conversations.id, input.chatId))
         .get()
 
       if (!chat?.worktreePath) {
@@ -1795,8 +1827,8 @@ export const chatsRouter = router({
       const db = getDatabase()
       const chat = db
         .select()
-        .from(chats)
-        .where(eq(chats.id, input.chatId))
+        .from(conversations)
+        .where(eq(conversations.id, input.chatId))
         .get()
 
       if (!chat?.worktreePath || !chat?.prNumber) {
@@ -1867,38 +1899,22 @@ export const chatsRouter = router({
       return []
     }
 
-    // Query sub-chats based on input mode
-    let allChats: Array<{ chatId: string | null; subChatId: string; messages: string | null }>
-
-    if (input.chatIds && input.chatIds.length > 0) {
-      // Archive mode: query all sub-chats for given chat IDs
-      // Pre-filter with LIKE to skip sub-chats without file edits (avoids loading/parsing large JSON)
-      allChats = db
-        .select({
-          chatId: subChats.chatId,
-          subChatId: subChats.id,
-          messages: subChats.messages,
-        })
-        .from(subChats)
-        .where(
-          and(
-            inArray(subChats.chatId, input.chatIds),
-            sql`(${subChats.messages} LIKE '%tool-Edit%' OR ${subChats.messages} LIKE '%tool-Write%')`
-          )
-        )
-        .all()
-    } else {
-      // Main sidebar mode: query specific sub-chats
-      allChats = db
-        .select({
-          chatId: subChats.chatId,
-          subChatId: subChats.id,
-          messages: subChats.messages,
-        })
-        .from(subChats)
-        .where(inArray(subChats.id, input.openSubChatIds!))
-        .all()
-    }
+    const conversationIds = input.chatIds && input.chatIds.length > 0
+      ? input.chatIds
+      : input.openSubChatIds ?? []
+    const conversationRows = conversationIds.length > 0
+      ? db
+          .select({ id: conversations.id })
+          .from(conversations)
+          .where(inArray(conversations.id, conversationIds))
+          .all()
+      : []
+    const allChats: Array<{ chatId: string | null; subChatId: string; messages: string | null }> =
+      conversationRows.map((conversation) => ({
+        chatId: conversation.id,
+        subChatId: conversation.id,
+        messages: getConversationMessagesJson(conversation.id, db),
+      }))
 
     // Aggregate stats per workspace (chatId)
     const statsMap = new Map<
@@ -2022,16 +2038,15 @@ export const chatsRouter = router({
       return []
     }
 
-    // Query only the specified sub-chats, including mode for filtering
     const allSubChats = db
       .select({
-        chatId: subChats.chatId,
-        subChatId: subChats.id,
-        mode: subChats.mode,
-        messages: subChats.messages,
+        chatId: conversations.id,
+        subChatId: conversations.id,
+        mode: conversations.mode,
+        id: conversations.id,
       })
-      .from(subChats)
-      .where(inArray(subChats.id, input.openSubChatIds))
+      .from(conversations)
+      .where(inArray(conversations.id, input.openSubChatIds))
       .all()
 
     const pendingApprovals: Array<{ subChatId: string; chatId: string }> = []
@@ -2043,10 +2058,11 @@ export const chatsRouter = router({
       if (row.mode === "agent") continue
 
       // Only check for ExitPlanMode in plan mode sub-chats
-      if (!row.messages) continue
+      const messagesJson = getConversationMessagesJson(row.id, db)
+      if (!messagesJson) continue
 
       try {
-        const messages = JSON.parse(row.messages) as Array<{
+        const messages = JSON.parse(messagesJson) as Array<{
           role: string
           content?: string
           parts?: Array<{
@@ -2100,8 +2116,8 @@ export const chatsRouter = router({
       const db = getDatabase()
       const chat = db
         .select()
-        .from(chats)
-        .where(eq(chats.id, input.chatId))
+        .from(conversations)
+        .where(eq(conversations.id, input.chatId))
         .get()
 
       // No worktree if no branch (local mode)
@@ -2141,8 +2157,8 @@ export const chatsRouter = router({
       const db = getDatabase()
       const chat = db
         .select()
-        .from(chats)
-        .where(eq(chats.id, input.chatId))
+        .from(conversations)
+        .where(eq(conversations.id, input.chatId))
         .get()
 
       if (!chat) {
@@ -2155,32 +2171,24 @@ export const chatsRouter = router({
         .where(eq(projects.id, chat.projectId))
         .get()
 
-      // Query sub-chats: either a specific one or all for the chat
-      let chatSubChats
-      if (input.subChatId) {
-        // Export single sub-chat
-        const singleSubChat = db
-          .select()
-          .from(subChats)
-          .where(and(
-            eq(subChats.id, input.subChatId),
-            eq(subChats.chatId, input.chatId) // Ensure sub-chat belongs to this chat
-          ))
-          .get()
-
-        if (!singleSubChat) {
-          throw new Error("Sub-chat not found")
-        }
-        chatSubChats = [singleSubChat]
-      } else {
-        // Export all sub-chats
-        chatSubChats = db
-          .select()
-          .from(subChats)
-          .where(eq(subChats.chatId, input.chatId))
-          .orderBy(subChats.createdAt)
-          .all()
+      const exportConversationId = input.subChatId ?? input.chatId
+      const exportConversation = db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.id, exportConversationId))
+        .get()
+      if (!exportConversation || exportConversation.projectId !== chat.projectId) {
+        throw new Error("Conversation not found")
       }
+      const chatSubChats: Array<{
+        id: string
+        name: string | null
+        messages: string
+      }> = [{
+        id: exportConversation.id,
+        name: exportConversation.title,
+        messages: getConversationMessagesJson(exportConversation.id, db),
+      }]
 
       // parse messages from sub-chats
       const allMessages: Array<{
@@ -2220,8 +2228,8 @@ export const chatsRouter = router({
 
       // Use sub-chat name if exporting single sub-chat, otherwise use chat name
       const exportName = input.subChatId && chatSubChats[0]?.name
-        ? `${chat.name || "chat"}-${chatSubChats[0].name}`
-        : (chat.name || "chat")
+        ? `${chat.title || "chat"}-${chatSubChats[0].name}`
+        : (chat.title || "chat")
       const safeFilename = sanitizeFilename(exportName)
 
       if (input.format === "json") {
@@ -2232,7 +2240,7 @@ export const chatsRouter = router({
               exportedAt: new Date().toISOString(),
               chat: {
                 id: chat.id,
-                name: chat.name,
+                name: chat.title,
                 createdAt: chat.createdAt,
                 branch: chat.branch,
                 baseBranch: chat.baseBranch,
@@ -2256,7 +2264,7 @@ export const chatsRouter = router({
 
       if (input.format === "text") {
         // plain text format
-        let text = `# ${chat.name || "Untitled Chat"}\n`
+        let text = `# ${chat.title || "Untitled Chat"}\n`
         text += `exported: ${new Date().toISOString()}\n`
         if (project) {
           text += `project: ${project.name}\n`
@@ -2291,7 +2299,7 @@ export const chatsRouter = router({
       }
 
       // markdown format (default)
-      let markdown = `# ${chat.name || "Untitled Chat"}\n\n`
+      let markdown = `# ${chat.title || "Untitled Chat"}\n\n`
       markdown += `**Exported:** ${new Date().toISOString()}\n\n`
       if (project) {
         markdown += `**Project:** ${project.name}\n\n`
@@ -2355,27 +2363,18 @@ export const chatsRouter = router({
     .query(({ input }) => {
       const db = getDatabase()
 
-      let chatSubChats
-      if (input.subChatId) {
-        // Get stats for a single sub-chat
-        const singleSubChat = db
-          .select()
-          .from(subChats)
-          .where(and(
-            eq(subChats.id, input.subChatId),
-            eq(subChats.chatId, input.chatId)
-          ))
-          .get()
-
-        chatSubChats = singleSubChat ? [singleSubChat] : []
-      } else {
-        // Get stats for all sub-chats
-        chatSubChats = db
-          .select()
-          .from(subChats)
-          .where(eq(subChats.chatId, input.chatId))
-          .all()
-      }
+      const targetConversationId = input.subChatId ?? input.chatId
+      const targetConversation = db
+        .select({ id: conversations.id })
+        .from(conversations)
+        .where(eq(conversations.id, targetConversationId))
+        .get()
+      const chatSubChats = targetConversation
+        ? [{
+            id: targetConversation.id,
+            messages: getConversationMessagesJson(targetConversation.id, db),
+          }]
+        : []
 
       let messageCount = 0
       let userMessageCount = 0

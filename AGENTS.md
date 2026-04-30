@@ -57,9 +57,11 @@ Current code is still mostly 1Code-shaped:
 - `src/renderer/`: React 19 renderer with the current agents shell, onboarding,
   sidebar, chat, preview, diff, file viewer, terminal, settings, automations,
   and kanban.
-- `src/main/lib/db/schema/index.ts`: current Drizzle schema. It still has
-  `projects`, `chats`, `sub_chats`, and provider credential tables; Ripple
-  domain tables still need to be added.
+- `src/main/lib/db/schema/index.ts`: current Drizzle schema. It includes
+  Ripple project/comment/revision, conversation, workspace, and agent-runtime
+  records. Legacy `chats` and renderer/provider `subChatId` compatibility names
+  still exist in places, but the physical `sub_chats` table is retired from the
+  active Ripple schema.
 - `PLANS.md`: ExecPlan rules and template for complex work.
 - `ROADMAP.md`: active roadmap/spec and durable product context.
 
@@ -67,11 +69,12 @@ Target Ripple additions:
 
 - HyperFrames project service in the main process.
 - tRPC APIs for project creation, environment checks, composition discovery,
-  preview lifecycle, snapshots, render/export, comments, and revisions.
-- Renderer shell with project rail, assets/compositions pane,
-  chat/comment pane, and embedded HyperFrames Studio/player surface.
-- SQLite tables for compositions, assets, comment threads, revisions, export
-  jobs, and environment readiness.
+  preview lifecycle, snapshots, render/export, comments, revisions,
+  conversations, and agent runtime.
+- Renderer shell with project rail, assets/compositions pane, center
+  HyperFrames preview/timeline/export surface, and right chat/comment pane.
+- SQLite coverage for remaining export jobs, environment readiness, and any
+  follow-on conversation fields tracked in `ROADMAP.md`.
 
 ## ExecPlans
 
@@ -167,8 +170,8 @@ Notes:
 - Primary shell target:
   - far-left project rail
   - assets/compositions/templates pane
-  - chat/comment pane
-  - right HyperFrames preview/editor/timeline/export surface
+  - center HyperFrames preview/editor/timeline/export surface
+  - right chat/comment pane
 - Keep the UI dense, focused, and app-like. Avoid marketing-page patterns in
   the desktop shell.
 - Use existing Radix/Tailwind/Ripple component wrappers where possible.

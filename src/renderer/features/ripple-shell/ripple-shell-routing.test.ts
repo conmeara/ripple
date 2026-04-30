@@ -44,7 +44,7 @@ describe("Ripple shell routing", () => {
         hasNewChatSurface: false,
         hasDesktopView: false,
       }),
-    ).toBe(false)
+    ).toBe(true)
 
     expect(
       shouldRenderRippleShell({
@@ -57,7 +57,7 @@ describe("Ripple shell routing", () => {
     ).toBe(false)
   })
 
-  test("keeps the Ripple shell around for a project-scoped new chat draft", () => {
+  test("does not require a legacy chat or draft to show the project shell", () => {
     expect(
       shouldRenderRippleShell({
         canUseHyperframesProjectPane: true,

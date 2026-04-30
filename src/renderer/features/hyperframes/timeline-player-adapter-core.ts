@@ -37,6 +37,31 @@ export function safeTime(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0
 }
 
+export function resolveSeekTime(value: number, duration: number): number {
+  const nextTime = safeTime(value)
+  const maxDuration = safeDuration(duration)
+  return maxDuration > 0 ? Math.min(nextTime, maxDuration) : nextTime
+}
+
+export function shouldHoldProgrammaticSeekReport(input: {
+  requestedTime: number
+  reportedTime: number
+  elapsedMs: number
+  toleranceSeconds?: number
+  timeoutMs?: number
+}): boolean {
+  const requestedTime = safeTime(input.requestedTime)
+  const reportedTime = safeTime(input.reportedTime)
+  const toleranceSeconds = input.toleranceSeconds ?? 0.02
+  const timeoutMs = input.timeoutMs ?? 1200
+
+  if (requestedTime <= toleranceSeconds) return false
+  if (Math.abs(reportedTime - requestedTime) <= toleranceSeconds) return false
+  if (!Number.isFinite(input.elapsedMs) || input.elapsedMs > timeoutMs) return false
+
+  return true
+}
+
 function wrapTimeline(timeline: TimelineLike): RipplePlaybackAdapter {
   return {
     getTime: () => timeline.time(),

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  compactCommentLine,
   formatRevisionResultLine,
   formatCommentRelativeTime,
   formatCommentTimecode,
@@ -53,6 +54,32 @@ describe("comment formatting", () => {
         files: ["index.html", "style.css"],
       }),
     ).toBe("Updated 2 files, +10/-0.")
+  })
+
+  test("compacts generated-change summaries for comment cards", () => {
+    expect(compactCommentLine("  Updated\n\nthe title\tspacing.  ")).toBe(
+      "Updated the title spacing.",
+    )
+    expect(compactCommentLine("abcdefghij", 8)).toBe("abcde...")
+    expect(compactCommentLine("abcdefghij", null)).toBe("abcdefghij")
+    expect(
+      formatRevisionResultLine({
+        fileCount: 1,
+        additions: 1,
+        deletions: 0,
+        files: ["index.html"],
+        summary: "Updated\n\nthe title\tspacing.",
+      }),
+    ).toBe("Updated the title spacing.")
+    expect(
+      formatRevisionResultLine({
+        fileCount: 1,
+        additions: 1,
+        deletions: 0,
+        files: ["index.html"],
+        summary: "abcdefghij",
+      }, { maxLength: null }),
+    ).toBe("abcdefghij")
   })
 
   test("keeps fresh comment timestamps terse", () => {

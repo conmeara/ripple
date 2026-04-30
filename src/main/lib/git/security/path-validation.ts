@@ -1,6 +1,13 @@
 import { isAbsolute, normalize, resolve, sep } from "node:path";
 import { eq } from "drizzle-orm";
-import { getDatabase, projects, chats } from "../../db";
+import {
+	chats,
+	conversations,
+	getDatabase,
+	projects,
+	revisions,
+	workspaces,
+} from "../../db";
 
 /**
  * Security model for desktop app filesystem access:
@@ -54,22 +61,54 @@ export class PathValidationError extends Error {
  * This is THE critical security boundary.
  *
  * Accepts:
- * - Worktree paths (from chats.worktreePath)
+ * - Worktree paths (from chats.worktreePath and conversations.worktreePath)
+ * - Generated-change paths (from revisions.contextPath and workspaces.path)
  * - Project paths (from projects.localPath, with projects.path kept as a compatibility alias)
  *
  * @throws PathValidationError if path is not registered
  */
 export function assertRegisteredWorktree(workspacePath: string): void {
 	const db = getDatabase();
+	const resolvedWorkspacePath = resolve(workspacePath);
 
 	// Check chats.worktreePath first (most common case)
 	const chatExists = db
 		.select()
 		.from(chats)
-		.where(eq(chats.worktreePath, workspacePath))
+		.where(eq(chats.worktreePath, resolvedWorkspacePath))
 		.get();
 
 	if (chatExists) {
+		return;
+	}
+
+	const conversationExists = db
+		.select()
+		.from(conversations)
+		.where(eq(conversations.worktreePath, resolvedWorkspacePath))
+		.get();
+
+	if (conversationExists) {
+		return;
+	}
+
+	const revisionExists = db
+		.select()
+		.from(revisions)
+		.where(eq(revisions.contextPath, resolvedWorkspacePath))
+		.get();
+
+	if (revisionExists) {
+		return;
+	}
+
+	const workspaceExists = db
+		.select()
+		.from(workspaces)
+		.where(eq(workspaces.path, resolvedWorkspacePath))
+		.get();
+
+	if (workspaceExists) {
 		return;
 	}
 
@@ -77,7 +116,7 @@ export function assertRegisteredWorktree(workspacePath: string): void {
 	const projectByLocalPath = db
 		.select()
 		.from(projects)
-		.where(eq(projects.localPath, workspacePath))
+		.where(eq(projects.localPath, resolvedWorkspacePath))
 		.get();
 
 	if (projectByLocalPath) {
@@ -88,7 +127,7 @@ export function assertRegisteredWorktree(workspacePath: string): void {
 	const projectByPath = db
 		.select()
 		.from(projects)
-		.where(eq(projects.path, workspacePath))
+		.where(eq(projects.path, resolvedWorkspacePath))
 		.get();
 
 	if (projectByPath) {

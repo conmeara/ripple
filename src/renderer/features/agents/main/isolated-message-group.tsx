@@ -2,6 +2,7 @@
 
 import { createContext, memo, useCallback, useMemo } from "react"
 import { useAtomValue } from "jotai"
+import { FileText } from "lucide-react"
 import {
   getPerChatMessageKey,
   messageAtomFamily,
@@ -54,6 +55,7 @@ interface IsolatedMessageGroupProps {
     messageId: string
     textContent: string
     imageParts: any[]
+    fileParts?: any[]
     skipTextMentionBlocks?: boolean
   }>
   ToolCallComponent: React.ComponentType<{
@@ -130,6 +132,8 @@ export const IsolatedMessageGroup = memo(function IsolatedMessageGroup({
 
   const imageParts =
     userMsg?.parts?.filter((p: any) => p.type === "data-image") || []
+  const fileParts =
+    userMsg?.parts?.filter((p: any) => p.type === "data-file") || []
 
   // Extract text mentions (quote/diff) to render separately above sticky block
   // NOTE: useMemo must be called before any early returns to follow Rules of Hooks
@@ -148,18 +152,23 @@ export const IsolatedMessageGroup = memo(function IsolatedMessageGroup({
   const shouldShowSetupError =
     sandboxSetupStatus === "error" && isLastGroup && assistantIds.length === 0
 
-  // Check if this is an image-only message (no text content and no text mentions)
-  const isImageOnlyMessage = imageParts.length > 0 && !textContent.trim() && textMentions.length === 0
+  const hasTextContent = textContent.trim().length > 0
+  const hasOnlyAttachedFiles =
+    (imageParts.length > 0 || fileParts.length > 0) &&
+    !hasTextContent &&
+    textMentions.length === 0
 
-  // Check if this is an attachment-only message (no text but has images or text mentions)
-  const isAttachmentOnlyMessage = !textContent.trim() && (imageParts.length > 0 || textMentions.length > 0)
+  // Check if this is an attachment-only message (no text but has attachments or mentions)
+  const isAttachmentOnlyMessage =
+    !hasTextContent &&
+    (imageParts.length > 0 || fileParts.length > 0 || textMentions.length > 0)
 
   return (
     <MessageGroupWrapper isLastGroup={isLastGroup}>
       {/* All attachments in one row - NOT sticky (only when there's also text) */}
-      {((!isImageOnlyMessage && imageParts.length > 0) || textMentions.length > 0) && (
+      {((!hasOnlyAttachedFiles && (imageParts.length > 0 || fileParts.length > 0)) || textMentions.length > 0) && (
         <div className="mb-2 pointer-events-auto flex flex-wrap items-end gap-1.5">
-          {imageParts.length > 0 && !isImageOnlyMessage && (() => {
+          {imageParts.length > 0 && !hasOnlyAttachedFiles && (() => {
             const resolveImgUrl = (img: any) =>
               img.data?.base64Data && img.data?.mediaType
                 ? `data:${img.data.mediaType};base64,${img.data.base64Data}`
@@ -182,6 +191,17 @@ export const IsolatedMessageGroup = memo(function IsolatedMessageGroup({
               />
             ))
           })()}
+          {fileParts.length > 0 && !hasOnlyAttachedFiles ? (
+            fileParts.map((file: any, index: number) => (
+              <div
+                key={`${userMsgId}-file-${file.data?.filename || "file"}-${index}`}
+                className="inline-flex max-w-full items-center gap-1.5 rounded-lg border bg-input-background px-2 py-1 text-xs text-muted-foreground"
+              >
+                <FileText className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{file.data?.filename || "file"}</span>
+              </div>
+            ))
+          ) : null}
           {textMentions.map((mention, idx) => (
             <TextMentionBlock key={`mention-${idx}`} mention={mention} />
           ))}
@@ -195,7 +215,7 @@ export const IsolatedMessageGroup = memo(function IsolatedMessageGroup({
       >
         {/* Show "Using X" summary when no text but have attachments */}
         <div className="relative">
-          {isAttachmentOnlyMessage && !isImageOnlyMessage ? (
+          {isAttachmentOnlyMessage && !hasOnlyAttachedFiles ? (
             <div className="flex justify-start drop-shadow-[0_10px_20px_hsl(var(--background))]" data-user-bubble>
               <div className="space-y-2 w-full">
                 <div className="bg-input-background border px-3 py-2 rounded-xl text-sm text-muted-foreground italic">
@@ -203,6 +223,13 @@ export const IsolatedMessageGroup = memo(function IsolatedMessageGroup({
                   const parts: string[] = []
                   if (imageParts.length > 0) {
                     parts.push(imageParts.length === 1 ? "image" : `${imageParts.length} images`)
+                  }
+                  if (fileParts.length > 0) {
+                    if (fileParts.length === 1) {
+                      parts.push(fileParts[0]?.data?.filename || "file")
+                    } else {
+                      parts.push(`${fileParts.length} files`)
+                    }
                   }
                   const quoteCount = textMentions.filter(m => m.type === "quote").length
                   const pastedCount = textMentions.filter(m => m.type === "pasted").length
@@ -225,8 +252,9 @@ export const IsolatedMessageGroup = memo(function IsolatedMessageGroup({
             <UserBubbleComponent
               messageId={userMsgId}
               textContent={textContent}
-              imageParts={isImageOnlyMessage ? imageParts : []}
-              skipTextMentionBlocks={!isImageOnlyMessage}
+              imageParts={hasOnlyAttachedFiles ? imageParts : []}
+              fileParts={hasOnlyAttachedFiles ? fileParts : []}
+              skipTextMentionBlocks={!hasOnlyAttachedFiles}
             />
           )}
 

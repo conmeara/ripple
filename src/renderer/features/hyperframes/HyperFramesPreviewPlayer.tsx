@@ -22,9 +22,12 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
 } from "react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import type { RippleTimelineRangeSelection } from "../../../shared/hyperframes-timeline-model"
+import type {
+  RippleTimelineModel,
+  RippleTimelineRangeSelection,
+} from "../../../shared/hyperframes-timeline-model"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +50,12 @@ import { trpc } from "../../lib/trpc"
 import { cn } from "../../lib/utils"
 import { HyperFramesTimeline } from "./HyperFramesTimeline"
 import {
+  PREVIEW_COMMENT_MARKER_HALO_CLASSNAMES,
+  PREVIEW_COMMENT_MARKER_TONE_CLASSNAMES,
+  buildPreviewCommentMarkers,
+  hasActivePreviewCommentMarkerWork,
+} from "./preview-comment-markers"
+import {
   PLAYBACK_SPEEDS,
   PREVIEW_SETTINGS_CONTROLS,
   ZOOM_OPTIONS,
@@ -55,21 +64,35 @@ import {
   shouldTogglePreviewPlaybackForSpacebar,
 } from "./preview-player-controls"
 import { resolvePreviewSeekRatio } from "./preview-scrubber"
+import { buildHyperframesPlayerFetchUrl } from "./player-source-url"
+import {
+  prewarmRipplePreparedPreviewDocument,
+  prewarmRipplePreviewPlayer,
+} from "./preview-coordinator"
 import { useRippleTimelinePlayerAdapter } from "./timeline-player-adapter"
 
 interface HyperFramesPreviewPlayerProps {
   projectId: string
   compositionId?: string | null
   revisionId?: string | null
+  chatId?: string | null
+  selectedCommentThreadId?: string | null
   seekToTime?: number | null
   seekRequestId?: number
   onPreviewTimeChange?: (time: number) => void
   onTimelineSelectionChange?: (selection: RippleTimelineRangeSelection | null) => void
+  onCommentMarkerSelect?: (selection: {
+    threadId: string
+    time: number
+    revisionId?: string | null
+  }) => void
   isMobile?: boolean
   onClose?: () => void
 }
 
 const PREVIEW_FPS = 30
+const PREVIEW_PREWARM_LIMIT = 6
+const PREVIEW_BLOCKING_STATUS_DELAY_MS = 500
 
 const timelineThemeStyle = {
   "--preview-timeline-rail":
@@ -95,7 +118,7 @@ function formatTime(seconds: number): string {
 
 function formatTimecode(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "00:00:00:00"
-  const totalFrames = Math.max(0, Math.floor(seconds * PREVIEW_FPS))
+  const totalFrames = Math.max(0, Math.round(seconds * PREVIEW_FPS))
   const frames = totalFrames % PREVIEW_FPS
   const totalSeconds = Math.floor(totalFrames / PREVIEW_FPS)
   const hours = Math.floor(totalSeconds / 3600)
@@ -128,6 +151,22 @@ function isPreviewPlayerVisible(root: HTMLDivElement | null): boolean {
   if (!root?.isConnected) return false
   const rect = root.getBoundingClientRect()
   return rect.width > 0 && rect.height > 0
+}
+
+function useDelayedPreviewStatus(active: boolean, delayMs: number): boolean {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (!active) {
+      setVisible(false)
+      return
+    }
+
+    const timeout = window.setTimeout(() => setVisible(true), delayMs)
+    return () => window.clearTimeout(timeout)
+  }, [active, delayMs])
+
+  return visible
 }
 
 function PlayerIconButton({
@@ -165,10 +204,13 @@ export function HyperFramesPreviewPlayer({
   projectId,
   compositionId,
   revisionId,
+  chatId,
+  selectedCommentThreadId,
   seekToTime,
   seekRequestId,
   onPreviewTimeChange,
   onTimelineSelectionChange,
+  onCommentMarkerSelect,
   onClose,
 }: HyperFramesPreviewPlayerProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -177,6 +219,7 @@ export function HyperFramesPreviewPlayer({
   const timelineHandleRef = useRef<HTMLDivElement | null>(null)
   const timecodeRef = useRef<HTMLDivElement | null>(null)
   const durationRef = useRef(0)
+  const settledDisplayTimeRef = useRef(0)
   const [zoom, setZoom] = useState<ZoomValue>("fit")
   const [isElementFullscreen, setIsElementFullscreen] = useState(false)
   const [isTimelineVisible, setIsTimelineVisible] = useState(true)
@@ -185,19 +228,42 @@ export function HyperFramesPreviewPlayer({
     time: number
   } | null>(null)
   const [isScrubbing, setIsScrubbing] = useState(false)
+  const [settledTimelineSnapshot, setSettledTimelineSnapshot] = useState<{
+    duration: number
+    model: RippleTimelineModel | null
+  }>({ duration: 0, model: null })
+  const [settledSeekRequestId, setSettledSeekRequestId] = useState<number | null>(null)
+  const requestedSeekTime =
+    typeof seekToTime === "number" && Number.isFinite(seekToTime)
+      ? Math.max(0, seekToTime)
+      : null
   const adapter = useRippleTimelinePlayerAdapter({
     projectId,
     compositionId,
     revisionId,
+    chatId,
+    readySeekTime: requestedSeekTime,
   })
+  const trpcUtils = trpc.useUtils()
   const startStudioPreviewMutation = trpc.hyperframes.startPreview.useMutation()
   const timelineQuery = trpc.hyperframes.getTimelineModel.useQuery(
-    { projectId, compositionId, revisionId },
+    { projectId, compositionId, revisionId, chatId },
     {
       enabled: Boolean(projectId),
       refetchOnWindowFocus: false,
       placeholderData: (previousData) => previousData,
       retry: 1,
+    },
+  )
+  const commentThreadsQuery = trpc.revisions.listThreads.useQuery(
+    { projectId, compositionId, filter: "all" },
+    {
+      enabled: Boolean(projectId),
+      refetchOnWindowFocus: false,
+      refetchInterval: (query) => {
+        const threads = Array.isArray(query.state.data) ? query.state.data : []
+        return threads.some(hasActivePreviewCommentMarkerWork) ? 1_000 : false
+      },
     },
   )
 
@@ -219,13 +285,140 @@ export function HyperFramesPreviewPlayer({
     playbackSpeed,
     isLooping,
     isMuted,
+    isLoadingSource,
   } = playerState
   const timelineModel = runtimeTimelineModel ?? timelineQuery.data?.model ?? null
   const aspectRatio = source ? `${source.width} / ${source.height}` : "16 / 9"
   const scale = zoom === "fit" ? 100 : Number(zoom)
-  const progress = duration > 0 ? clamp((currentTime / duration) * 100, 0, 100) : 0
+  const hasPendingPreviewSeek =
+    requestedSeekTime !== null &&
+    typeof seekRequestId === "number" &&
+    settledSeekRequestId !== seekRequestId
+  const isPreviewSourceFetching = sourceQuery.isFetching
+  const isPreviewSettling =
+    isLoadingSource || hasPendingPreviewSeek || isPreviewSourceFetching
+  const pendingDisplayTime =
+    requestedSeekTime !== null && hasPendingPreviewSeek
+      ? requestedSeekTime
+      : null
+  const displayTime =
+    pendingDisplayTime ??
+    (isPreviewSettling && settledTimelineSnapshot.duration > 0
+      ? settledDisplayTimeRef.current
+      : currentTime)
+  const displayDuration =
+    isPreviewSettling && settledTimelineSnapshot.duration > 0
+      ? settledTimelineSnapshot.duration
+      : duration
+  const displayTimelineModel =
+    isPreviewSettling && settledTimelineSnapshot.model
+      ? settledTimelineSnapshot.model
+      : timelineModel
+  const progress =
+    displayDuration > 0 ? clamp((displayTime / displayDuration) * 100, 0, 100) : 0
+  const previewControlsReady =
+    isReady && !isLoadingSource && !hasPendingPreviewSeek && !isPreviewSourceFetching
+  const canUseTimeline = previewControlsReady && displayDuration > 0
+  const commentMarkers = useMemo(
+    () => buildPreviewCommentMarkers(commentThreadsQuery.data ?? [], displayDuration),
+    [commentThreadsQuery.data, displayDuration],
+  )
+  const prewarmTargets = useMemo(() => {
+    const targets: Array<{ revisionId: string | null; chatId: string | null }> = []
+    const seen = new Set<string>()
+    const addTarget = (target: { revisionId: string | null; chatId: string | null }) => {
+      const key = `${target.revisionId ?? "main"}:${target.chatId ?? "main"}`
+      if (seen.has(key)) return
+      seen.add(key)
+      targets.push(target)
+    }
+
+    if (revisionId || chatId) {
+      addTarget({ revisionId: null, chatId: null })
+    }
+
+    commentMarkers
+      .filter((marker) => marker.previewRevisionId && marker.previewRevisionId !== revisionId)
+      .sort((a, b) => {
+        const aSelected = a.id === selectedCommentThreadId ? 0 : 1
+        const bSelected = b.id === selectedCommentThreadId ? 0 : 1
+        const aDistance =
+          requestedSeekTime === null
+            ? 0
+            : Math.abs(a.time - requestedSeekTime)
+        const bDistance =
+          requestedSeekTime === null
+            ? 0
+            : Math.abs(b.time - requestedSeekTime)
+        return (
+          aSelected - bSelected ||
+          aDistance - bDistance ||
+          a.time - b.time ||
+          a.id.localeCompare(b.id)
+        )
+      })
+      .forEach((marker) => {
+        if (marker.previewRevisionId) {
+          addTarget({ revisionId: marker.previewRevisionId, chatId: null })
+        }
+      })
+
+    return targets.slice(0, PREVIEW_PREWARM_LIMIT)
+  }, [chatId, commentMarkers, requestedSeekTime, revisionId, selectedCommentThreadId])
+
+  useEffect(() => {
+    if (!source?.sourceUrl) return
+    prewarmRipplePreparedPreviewDocument(
+      buildHyperframesPlayerFetchUrl(source.sourceUrl, 0),
+    )
+  }, [source?.sourceUrl])
+
+  useEffect(() => {
+    if (!projectId || prewarmTargets.length === 0) return
+
+    let cancelled = false
+    prewarmTargets.forEach((target) => {
+      const input = {
+        projectId,
+        compositionId,
+        revisionId: target.revisionId,
+        chatId: target.chatId,
+      }
+
+      void trpcUtils.hyperframes.getTimelineModel.prefetch(input, {
+        staleTime: 30_000,
+      })
+      void trpcUtils.hyperframes.getPlayerSource
+        .fetch(input)
+        .then((result) => {
+          if (cancelled) return
+          const sourceUrl = buildHyperframesPlayerFetchUrl(result.source.sourceUrl, 0)
+          prewarmRipplePreparedPreviewDocument(
+            sourceUrl,
+          )
+          prewarmRipplePreviewPlayer({
+            sourceUrl,
+            width: result.source.width,
+            height: result.source.height,
+            reason: "likely-target",
+          })
+        })
+        .catch(() => {
+          // Speculative prewarming should never interrupt the visible preview.
+        })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [compositionId, prewarmTargets, projectId, trpcUtils])
   const zoomLabel = optionLabel(ZOOM_OPTIONS, zoom)
   const showCloseControl = shouldRenderPreviewCloseControl(onClose)
+  const showDelayedPreparingPreview = useDelayedPreviewStatus(
+    Boolean(!errorMessage && !isReady),
+    PREVIEW_BLOCKING_STATUS_DELAY_MS,
+  )
+  const showBlockingPreviewStatus = Boolean(errorMessage || showDelayedPreparingPreview)
   const timelinePreview = timelineHover
   const timelinePreviewLeft = timelinePreview
     ? clamp(timelinePreview.percent, 4, 96)
@@ -266,23 +459,62 @@ export function HyperFramesPreviewPlayer({
     }
   }, [])
 
+  useLayoutEffect(() => {
+    if (!isPreviewSettling && isReady) {
+      settledDisplayTimeRef.current = currentTime
+      setSettledTimelineSnapshot((current) => {
+        if (current.duration === duration && current.model === timelineModel) {
+          return current
+        }
+        return { duration, model: timelineModel }
+      })
+    }
+  }, [currentTime, duration, isPreviewSettling, isReady, timelineModel])
+
+  useLayoutEffect(() => {
+    durationRef.current = displayDuration
+    syncLivePreviewTime(displayTime)
+  }, [displayDuration, displayTime, syncLivePreviewTime])
+
   useEffect(() => {
-    durationRef.current = duration
-    syncLivePreviewTime(currentTime)
+    if (isPreviewSettling) return
     onPreviewTimeChange?.(currentTime)
-  }, [currentTime, duration, onPreviewTimeChange, syncLivePreviewTime])
+  }, [currentTime, isPreviewSettling, onPreviewTimeChange])
 
   useEffect(() => subscribeLiveTime((time: number) => {
+    if (isPreviewSettling) return
     syncLivePreviewTime(time)
     onPreviewTimeChange?.(time)
-  }), [onPreviewTimeChange, subscribeLiveTime, syncLivePreviewTime])
+  }), [
+    isPreviewSettling,
+    onPreviewTimeChange,
+    subscribeLiveTime,
+    syncLivePreviewTime,
+  ])
 
-  useEffect(() => {
-    if (!isReady || typeof seekToTime !== "number" || !Number.isFinite(seekToTime)) {
+  useLayoutEffect(() => {
+    if (requestedSeekTime === null) {
+      if (settledSeekRequestId !== null) {
+        setSettledSeekRequestId(null)
+      }
       return
     }
-    adapter.seek(seekToTime)
-  }, [adapter.seek, isReady, seekRequestId, seekToTime])
+    if (!isReady || isLoadingSource || isPreviewSourceFetching) {
+      return
+    }
+    adapter.seek(requestedSeekTime)
+    if (typeof seekRequestId === "number") {
+      setSettledSeekRequestId(seekRequestId)
+    }
+  }, [
+    adapter.seek,
+    isLoadingSource,
+    isPreviewSourceFetching,
+    isReady,
+    requestedSeekTime,
+    seekRequestId,
+    settledSeekRequestId,
+  ])
 
   const handleTogglePlayback = useCallback(() => {
     if (isPlaying) {
@@ -294,7 +526,7 @@ export function HyperFramesPreviewPlayer({
 
   const handlePreviewSpacebarKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      if (!isReady) return
+      if (!previewControlsReady) return
       if (!isPreviewPlayerVisible(rootRef.current)) return
       if (!shouldTogglePreviewPlaybackForSpacebar(event)) return
 
@@ -302,7 +534,7 @@ export function HyperFramesPreviewPlayer({
       event.stopPropagation()
       handleTogglePlayback()
     },
-    [handleTogglePlayback, isReady],
+    [handleTogglePlayback, previewControlsReady],
   )
 
   useEffect(() => {
@@ -311,7 +543,7 @@ export function HyperFramesPreviewPlayer({
   }, [handlePreviewSpacebarKeyDown])
 
   useEffect(() => {
-    if (!isReady) return
+    if (!previewControlsReady) return
 
     let iframeWindow: Window | null = null
     try {
@@ -325,9 +557,10 @@ export function HyperFramesPreviewPlayer({
     return () => {
       iframeWindow?.removeEventListener("keydown", handlePreviewSpacebarKeyDown)
     }
-  }, [handlePreviewSpacebarKeyDown, isReady, playerRef, source?.sourceUrl])
+  }, [handlePreviewSpacebarKeyDown, previewControlsReady, playerRef, source?.sourceUrl])
 
   const handleRestart = () => {
+    if (!previewControlsReady) return
     adapter.restart()
   }
 
@@ -356,6 +589,7 @@ export function HyperFramesPreviewPlayer({
   }
 
   const handleSeek = (value: number) => {
+    if (!previewControlsReady) return
     const nextTime = clamp(value, 0, duration || 0)
     syncLivePreviewTime(nextTime)
     adapter.seek(nextTime)
@@ -363,7 +597,7 @@ export function HyperFramesPreviewPlayer({
 
   const readTimelinePoint = (clientX: number) => {
     const timeline = timelineRef.current
-    if (!timeline || !isReady || duration <= 0) return null
+    if (!timeline || !canUseTimeline) return null
 
     const rect = timeline.getBoundingClientRect()
     const ratio = resolvePreviewSeekRatio({
@@ -388,7 +622,7 @@ export function HyperFramesPreviewPlayer({
   const handleTimelinePointerDown = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
-    if (!isReady || duration <= 0) return
+    if (!canUseTimeline) return
     if (event.button !== 0) return
 
     event.preventDefault()
@@ -409,7 +643,7 @@ export function HyperFramesPreviewPlayer({
   const handleTimelinePointerMove = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
-    if (!isReady || duration <= 0) return
+    if (!canUseTimeline) return
 
     if (isScrubbing) {
       const point = readTimelinePoint(event.clientX)
@@ -452,26 +686,26 @@ export function HyperFramesPreviewPlayer({
   const handleTimelineKeyDown = (
     event: ReactKeyboardEvent<HTMLDivElement>,
   ) => {
-    if (!isReady || duration <= 0) return
+    if (!canUseTimeline) return
 
     const frameStep = 1 / PREVIEW_FPS
     const step = event.shiftKey ? 1 : frameStep
-    let nextTime = currentTime
+    let nextTime = displayTime
 
     switch (event.key) {
       case "ArrowLeft":
       case "ArrowDown":
-        nextTime = currentTime - step
+        nextTime = displayTime - step
         break
       case "ArrowRight":
       case "ArrowUp":
-        nextTime = currentTime + step
+        nextTime = displayTime + step
         break
       case "PageDown":
-        nextTime = currentTime - 1
+        nextTime = displayTime - 1
         break
       case "PageUp":
-        nextTime = currentTime + 1
+        nextTime = displayTime + 1
         break
       case "Home":
         nextTime = 0
@@ -536,8 +770,8 @@ export function HyperFramesPreviewPlayer({
           }}
         >
           <div ref={containerRef} className="absolute inset-0" />
-          {!isReady || errorMessage ? (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/85 p-6 text-center backdrop-blur-sm">
+          {showBlockingPreviewStatus ? (
+            <div className="pointer-events-none absolute inset-0 flex animate-in items-center justify-center bg-background/85 p-6 text-center backdrop-blur-sm fade-in-0 duration-150">
               <div className="max-w-xs">
                 <div className="text-sm font-medium text-foreground">
                   {errorMessage ? "Preview failed" : "Preparing preview"}
@@ -556,13 +790,13 @@ export function HyperFramesPreviewPlayer({
           <div
             ref={timelineRef}
             role="slider"
-            tabIndex={isReady && duration > 0 ? 0 : -1}
-            aria-disabled={!isReady || duration <= 0}
+            tabIndex={canUseTimeline ? 0 : -1}
+            aria-disabled={!canUseTimeline}
             aria-label="Preview time"
             aria-valuemin={0}
-            aria-valuemax={duration || 0}
-            aria-valuenow={Math.min(currentTime, duration || 0)}
-            aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+            aria-valuemax={displayDuration || 0}
+            aria-valuenow={Math.min(displayTime, displayDuration || 0)}
+            aria-valuetext={`${formatTime(displayTime)} of ${formatTime(displayDuration)}`}
             data-scrubbing={isScrubbing}
             onPointerDown={handleTimelinePointerDown}
             onPointerMove={handleTimelinePointerMove}
@@ -571,7 +805,7 @@ export function HyperFramesPreviewPlayer({
             onPointerLeave={handleTimelinePointerLeave}
             onKeyDown={handleTimelineKeyDown}
             style={timelineThemeStyle}
-            className="group/timeline relative flex h-8 min-w-0 flex-1 cursor-pointer items-center outline-none data-[scrubbing=false]:focus-visible:ring-2 data-[scrubbing=false]:focus-visible:ring-primary/40 data-[scrubbing=false]:focus-visible:ring-offset-2 data-[scrubbing=false]:focus-visible:ring-offset-background aria-disabled:cursor-default aria-disabled:opacity-40"
+            className="group/timeline relative flex h-12 min-w-0 flex-1 cursor-pointer items-center outline-none data-[scrubbing=false]:focus-visible:ring-2 data-[scrubbing=false]:focus-visible:ring-primary/40 data-[scrubbing=false]:focus-visible:ring-offset-2 data-[scrubbing=false]:focus-visible:ring-offset-background aria-disabled:cursor-default aria-disabled:opacity-40"
           >
             <div className="relative h-5 w-full">
               <div className="absolute inset-x-0 top-1/2 h-[5px] -translate-y-1/2 bg-[var(--preview-timeline-rail)] transition-[height,background-color] duration-150 group-hover/timeline:h-2 group-hover/timeline:bg-[var(--preview-timeline-rail-hover)] group-data-[scrubbing=true]/timeline:h-2 group-data-[scrubbing=true]/timeline:bg-[var(--preview-timeline-rail-hover)]" />
@@ -580,6 +814,64 @@ export function HyperFramesPreviewPlayer({
                 className="absolute left-0 top-1/2 h-[5px] -translate-y-1/2 bg-primary transition-[height] duration-150 group-hover/timeline:h-2 group-data-[scrubbing=true]/timeline:h-2"
                 style={{ width: `${progress}%` }}
               />
+              {commentMarkers.map((marker) => {
+                const active = marker.id === selectedCommentThreadId
+                return (
+                  <Tooltip key={marker.id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={marker.label}
+                        aria-pressed={active}
+                        data-comment-marker="true"
+                        className="group/comment-marker absolute top-[calc(50%+18px)] z-20 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none transition-transform duration-150 hover:scale-105 focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        style={{
+                          left: `${clamp(marker.positionPercent, 0.75, 99.25)}%`,
+                        }}
+                        onPointerDown={(event) => {
+                          event.stopPropagation()
+                        }}
+                        onPointerMove={(event) => {
+                          event.stopPropagation()
+                        }}
+                        onPointerUp={(event) => {
+                          event.stopPropagation()
+                        }}
+                        onPointerEnter={() => setTimelineHover(null)}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setTimelineHover(null)
+                          if (onCommentMarkerSelect) {
+                            onCommentMarkerSelect({
+                              threadId: marker.id,
+                              time: marker.time,
+                              revisionId: marker.previewRevisionId,
+                            })
+                            return
+                          }
+                          handleSeek(marker.time)
+                        }}
+                      >
+                        <span
+                          className={cn(
+                            "absolute h-5 w-5 rounded-full opacity-0 transition-opacity duration-150 group-hover/comment-marker:opacity-100 group-focus-visible/comment-marker:opacity-100",
+                            PREVIEW_COMMENT_MARKER_HALO_CLASSNAMES[marker.tone],
+                            active && "opacity-100",
+                          )}
+                        />
+                        <span
+                          className={cn(
+                            "relative h-3.5 w-3.5 rounded-full border border-background/90 shadow-sm transition-transform duration-150 group-hover/comment-marker:scale-95",
+                            PREVIEW_COMMENT_MARKER_TONE_CLASSNAMES[marker.tone],
+                          )}
+                        />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">{marker.label}</TooltipContent>
+                  </Tooltip>
+                )
+              })}
               <div
                 ref={timelineHandleRef}
                 className="absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-[var(--preview-timeline-handle)] transition-[height] duration-150 group-hover/timeline:h-5 group-data-[scrubbing=true]/timeline:h-5"
@@ -602,7 +894,7 @@ export function HyperFramesPreviewPlayer({
             <PlayerIconButton
               label={isPlaying ? "Pause" : "Play"}
               onClick={handleTogglePlayback}
-              disabled={!isReady}
+              disabled={!previewControlsReady}
             >
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
             </PlayerIconButton>
@@ -611,7 +903,7 @@ export function HyperFramesPreviewPlayer({
               label={isLooping ? "Loop on" : "Loop off"}
               active={isLooping}
               onClick={handleLoopChange}
-              disabled={!isReady}
+              disabled={!previewControlsReady}
               aria-pressed={isLooping}
             >
               <Repeat2 className="h-4 w-4" />
@@ -624,7 +916,7 @@ export function HyperFramesPreviewPlayer({
                     <button
                       type="button"
                       className="flex h-7 items-center gap-1 rounded-full px-1.5 text-xs tabular-nums text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70 disabled:pointer-events-none disabled:opacity-40"
-                      disabled={!isReady}
+                      disabled={!previewControlsReady}
                     >
                       <Gauge className="h-3.5 w-3.5" />
                       {formatPlaybackSpeed(playbackSpeed)}
@@ -652,7 +944,7 @@ export function HyperFramesPreviewPlayer({
               label={isMuted ? "Unmute preview" : "Mute preview"}
               active={isMuted}
               onClick={handleMuteChange}
-              disabled={!isReady}
+              disabled={!previewControlsReady}
               aria-pressed={isMuted}
             >
               {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
@@ -663,7 +955,7 @@ export function HyperFramesPreviewPlayer({
             <PlayerIconButton
               label="Restart"
               onClick={handleRestart}
-              disabled={!isReady}
+              disabled={!previewControlsReady}
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </PlayerIconButton>
@@ -671,7 +963,7 @@ export function HyperFramesPreviewPlayer({
               ref={timecodeRef}
               className="min-w-[7.75rem] rounded-md bg-muted/40 px-2.5 py-1 text-center text-sm tabular-nums tracking-normal text-foreground shadow-sm ring-1 ring-border/50"
             >
-              {formatTimecode(currentTime)}
+              {formatTimecode(displayTime)}
             </div>
           </div>
 
@@ -766,13 +1058,13 @@ export function HyperFramesPreviewPlayer({
 
         {isTimelineVisible ? (
           <HyperFramesTimeline
-            model={timelineModel}
+            model={displayTimelineModel}
             isLoading={timelineQuery.isLoading && !runtimeTimelineModel}
             error={timelineError}
-            isReady={isReady}
-            currentTime={currentTime}
-            duration={duration}
-            subscribeLiveTime={subscribeLiveTime}
+            isReady={previewControlsReady}
+            currentTime={displayTime}
+            duration={displayDuration}
+            subscribeLiveTime={previewControlsReady ? subscribeLiveTime : undefined}
             onSeek={handleSeek}
             onSelectionChange={onTimelineSelectionChange}
           />

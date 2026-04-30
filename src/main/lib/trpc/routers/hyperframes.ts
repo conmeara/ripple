@@ -1,4 +1,6 @@
 import { app } from "electron"
+import { existsSync } from "node:fs"
+import { resolve, sep } from "node:path"
 import { z } from "zod"
 import { router, publicProcedure } from "../index"
 import { checkRippleEnvironment } from "../../ripple-projects/environment"
@@ -49,15 +51,36 @@ function hasDuplicateCompositionFileRows(
   })
 }
 
+function isInsideProject(projectPath: string, filePath: string): boolean {
+  const root = resolve(projectPath)
+  const resolved = resolve(root, filePath)
+  return resolved === root || resolved.startsWith(`${root}${sep}`)
+}
+
+function hasMissingCompositionFileRows(
+  projectPath: string,
+  compositions: Array<{ filePath: string }>,
+): boolean {
+  return compositions.some((composition) => {
+    if (!isInsideProject(projectPath, composition.filePath)) return true
+    return !existsSync(resolve(projectPath, composition.filePath))
+  })
+}
+
 async function resolvePreviewCompositions(input: {
   projectId: string
   revisionId?: string | null
+  chatId?: string | null
 }) {
   let context = await resolveHyperframesPreviewContext(input)
   assertHyperframesProjectFiles(context.projectPath)
 
   let compositions = await listSavedHyperframesCompositions(context.project.id)
-  if (compositions.length === 0 || hasDuplicateCompositionFileRows(compositions)) {
+  if (
+    compositions.length === 0 ||
+    hasDuplicateCompositionFileRows(compositions) ||
+    hasMissingCompositionFileRows(context.projectPath, compositions)
+  ) {
     const refreshed = await refreshHyperframesCompositions({
       projectId: context.project.id,
       repoRoot: getRepoRoot(),
@@ -118,7 +141,11 @@ export const hyperframesRouter = router({
       assertHyperframesProjectFiles(context.projectPath)
 
       let compositions = await listSavedHyperframesCompositions(input.projectId)
-      if (input.refreshCompositions || compositions.length === 0) {
+      if (
+        input.refreshCompositions ||
+        compositions.length === 0 ||
+        hasMissingCompositionFileRows(context.projectPath, compositions)
+      ) {
         const refreshed = await refreshHyperframesCompositions({
           projectId: input.projectId,
           repoRoot: getRepoRoot(),
@@ -163,6 +190,7 @@ export const hyperframesRouter = router({
     .input(z.object({
       projectId: z.string(),
       revisionId: z.string().nullable().optional(),
+      chatId: z.string().nullable().optional(),
       compositionId: z.string().nullable().optional(),
     }))
     .query(async ({ input }) => {
@@ -189,6 +217,7 @@ export const hyperframesRouter = router({
     .input(z.object({
       projectId: z.string(),
       revisionId: z.string().nullable().optional(),
+      chatId: z.string().nullable().optional(),
       compositionId: z.string().nullable().optional(),
     }))
     .query(async ({ input }) => {

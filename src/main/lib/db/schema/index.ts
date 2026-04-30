@@ -38,6 +38,7 @@ export const projects = sqliteTable("projects", {
 
 export const projectsRelations = relations(projects, ({ many }) => ({
   chats: many(chats),
+  conversations: many(conversations),
   compositions: many(compositions),
   commentThreads: many(commentThreads),
   revisions: many(revisions),
@@ -109,37 +110,60 @@ export const chatsRelations = relations(chats, ({ one, many }) => ({
     fields: [chats.projectId],
     references: [projects.id],
   }),
-  subChats: many(subChats),
   revisions: many(revisions),
 }))
 
-// ============ SUB-CHATS ============
-export const subChats = sqliteTable("sub_chats", {
+// ============ CONVERSATIONS ============
+export const conversations = sqliteTable("conversations", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => createId()),
-  name: text("name"),
-  chatId: text("chat_id")
+  projectId: text("project_id")
     .notNull()
-    .references(() => chats.id, { onDelete: "cascade" }),
-  sessionId: text("session_id"), // Claude SDK session ID for resume
-  streamId: text("stream_id"), // Track in-progress streams
-  mode: text("mode").notNull().default("agent"), // "plan" | "agent"
-  messages: text("messages").notNull().default("[]"), // JSON array
+    .references(() => projects.id, { onDelete: "cascade" }),
+  compositionId: text("composition_id").references(() => compositions.id, {
+    onDelete: "set null",
+  }),
+  commentThreadId: text("comment_thread_id"),
+  revisionId: text("revision_id"),
+  kind: text("kind")
+    .$type<"project" | "comment" | "revision" | "export" | "support">()
+    .notNull()
+    .default("project"),
+  title: text("title"),
+  summary: text("summary"),
+  status: text("status")
+    .$type<"open" | "resolved" | "archived" | "deleted">()
+    .notNull()
+    .default("open"),
+  mode: text("mode").$type<"plan" | "agent">().notNull().default("agent"),
+  sessionId: text("session_id"),
+  streamId: text("stream_id"),
+  worktreePath: text("worktree_path"),
+  branch: text("branch"),
+  baseBranch: text("base_branch"),
+  prUrl: text("pr_url"),
+  prNumber: integer("pr_number"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
     () => new Date(),
   ),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
     () => new Date(),
   ),
-})
-
-export const subChatsRelations = relations(subChats, ({ one }) => ({
-  chat: one(chats, {
-    fields: [subChats.chatId],
-    references: [chats.id],
-  }),
-}))
+  archivedAt: integer("archived_at", { mode: "timestamp" }),
+  deletedAt: integer("deleted_at", { mode: "timestamp" }),
+}, (table) => [
+  index("conversations_project_id_idx").on(table.projectId),
+  index("conversations_composition_id_idx").on(table.compositionId),
+  index("conversations_comment_thread_id_idx").on(table.commentThreadId),
+  index("conversations_revision_id_idx").on(table.revisionId),
+  index("conversations_worktree_path_idx").on(table.worktreePath),
+  index("conversations_project_kind_updated_idx").on(
+    table.projectId,
+    table.kind,
+    table.updatedAt,
+  ),
+])
 
 // ============ AGENT RUNTIME ============
 export const agentConnections = sqliteTable("agent_connections", {
@@ -181,7 +205,9 @@ export const workspaces = sqliteTable("workspaces", {
   kind: text("kind")
     .$type<"main" | "chat_worktree" | "generated_change">()
     .notNull(),
-  targetType: text("target_type").$type<"project" | "chat" | "revision">().notNull(),
+  targetType: text("target_type")
+    .$type<"project" | "conversation" | "chat" | "revision">()
+    .notNull(),
   targetId: text("target_id").notNull(),
   path: text("path").notNull(),
   baseProjectCommit: text("base_project_commit"),
@@ -217,10 +243,11 @@ export const agentThreads = sqliteTable("agent_threads", {
     .references(() => agentConnections.id, { onDelete: "restrict" }),
   provider: text("provider").$type<"codex" | "claude" | "fake">().notNull(),
   purpose: text("purpose").$type<"chat" | "generated_change">().notNull(),
-  chatId: text("chat_id").references(() => chats.id, { onDelete: "set null" }),
-  subChatId: text("sub_chat_id").references(() => subChats.id, {
+  conversationId: text("conversation_id").references(() => conversations.id, {
     onDelete: "set null",
   }),
+  chatId: text("chat_id").references(() => chats.id, { onDelete: "set null" }),
+  subChatId: text("sub_chat_id"),
   revisionId: text("revision_id"),
   providerThreadId: text("provider_thread_id"),
   providerSessionId: text("provider_session_id"),
@@ -235,6 +262,7 @@ export const agentThreads = sqliteTable("agent_threads", {
   index("agent_threads_project_id_idx").on(table.projectId),
   index("agent_threads_workspace_id_idx").on(table.workspaceId),
   index("agent_threads_connection_id_idx").on(table.connectionId),
+  index("agent_threads_conversation_id_idx").on(table.conversationId),
   index("agent_threads_chat_id_idx").on(table.chatId),
   index("agent_threads_revision_id_idx").on(table.revisionId),
 ])
@@ -257,12 +285,13 @@ export const agentRuns = sqliteTable("agent_runs", {
   model: text("model"),
   mode: text("mode").$type<"plan" | "agent">().notNull().default("agent"),
   runKind: text("run_kind").$type<"chat" | "generated_change">().notNull(),
+  conversationId: text("conversation_id").references(() => conversations.id, {
+    onDelete: "set null",
+  }),
   revisionId: text("revision_id"),
   threadId: text("comment_thread_id"),
   chatId: text("chat_id").references(() => chats.id, { onDelete: "set null" }),
-  subChatId: text("sub_chat_id").references(() => subChats.id, {
-    onDelete: "set null",
-  }),
+  subChatId: text("sub_chat_id"),
   providerTurnId: text("provider_turn_id"),
   providerSessionId: text("provider_session_id"),
   providerItemId: text("provider_item_id"),
@@ -297,6 +326,7 @@ export const agentRuns = sqliteTable("agent_runs", {
   index("agent_runs_workspace_id_idx").on(table.workspaceId),
   index("agent_runs_connection_id_idx").on(table.connectionId),
   index("agent_runs_provider_status_idx").on(table.provider, table.status),
+  index("agent_runs_conversation_id_idx").on(table.conversationId),
   index("agent_runs_revision_id_idx").on(table.revisionId),
   index("agent_runs_chat_id_idx").on(table.chatId),
   uniqueIndex("agent_runs_thread_request_idx").on(table.agentThreadId, table.requestId),
@@ -373,10 +403,11 @@ export const transcriptMessages = sqliteTable("transcript_messages", {
   agentRunId: text("agent_run_id").references(() => agentRuns.id, {
     onDelete: "set null",
   }),
-  chatId: text("chat_id").references(() => chats.id, { onDelete: "set null" }),
-  subChatId: text("sub_chat_id").references(() => subChats.id, {
+  conversationId: text("conversation_id").references(() => conversations.id, {
     onDelete: "set null",
   }),
+  chatId: text("chat_id").references(() => chats.id, { onDelete: "set null" }),
+  subChatId: text("sub_chat_id"),
   role: text("role").$type<"user" | "assistant" | "system">().notNull(),
   body: text("body").notNull(),
   sourceEventId: text("source_event_id").references(() => agentRunEvents.id, {
@@ -389,7 +420,36 @@ export const transcriptMessages = sqliteTable("transcript_messages", {
 }, (table) => [
   index("transcript_messages_agent_thread_id_idx").on(table.agentThreadId),
   index("transcript_messages_agent_run_id_idx").on(table.agentRunId),
+  index("transcript_messages_conversation_id_idx").on(table.conversationId),
   index("transcript_messages_sub_chat_id_idx").on(table.subChatId),
+])
+
+export const conversationMessages = sqliteTable("conversation_messages", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => conversations.id, { onDelete: "cascade" }),
+  agentRunId: text("agent_run_id").references(() => agentRuns.id, {
+    onDelete: "set null",
+  }),
+  sourceEventId: text("source_event_id").references(() => agentRunEvents.id, {
+    onDelete: "set null",
+  }),
+  role: text("role")
+    .$type<"user" | "assistant" | "system" | "tool">()
+    .notNull(),
+  body: text("body").notNull().default(""),
+  partsJson: text("parts_json").notNull().default("[]"),
+  metadataJson: text("metadata_json").notNull().default("{}"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+}, (table) => [
+  index("conversation_messages_conversation_id_idx").on(table.conversationId),
+  index("conversation_messages_agent_run_id_idx").on(table.agentRunId),
+  index("conversation_messages_source_event_id_idx").on(table.sourceEventId),
 ])
 
 export const agentConnectionsRelations = relations(agentConnections, ({ many }) => ({
@@ -419,13 +479,13 @@ export const agentThreadsRelations = relations(agentThreads, ({ one, many }) => 
     fields: [agentThreads.connectionId],
     references: [agentConnections.id],
   }),
+  conversation: one(conversations, {
+    fields: [agentThreads.conversationId],
+    references: [conversations.id],
+  }),
   chat: one(chats, {
     fields: [agentThreads.chatId],
     references: [chats.id],
-  }),
-  subChat: one(subChats, {
-    fields: [agentThreads.subChatId],
-    references: [subChats.id],
   }),
   runs: many(agentRuns),
   messages: many(transcriptMessages),
@@ -444,9 +504,43 @@ export const agentRunsRelations = relations(agentRuns, ({ one, many }) => ({
     fields: [agentRuns.connectionId],
     references: [agentConnections.id],
   }),
+  conversation: one(conversations, {
+    fields: [agentRuns.conversationId],
+    references: [conversations.id],
+  }),
   events: many(agentRunEvents),
   approvals: many(agentApprovals),
   messages: many(transcriptMessages),
+  conversationMessages: many(conversationMessages),
+}))
+
+export const conversationsRelations = relations(conversations, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [conversations.projectId],
+    references: [projects.id],
+  }),
+  composition: one(compositions, {
+    fields: [conversations.compositionId],
+    references: [compositions.id],
+  }),
+  messages: many(conversationMessages),
+  runs: many(agentRuns),
+  threads: many(agentThreads),
+}))
+
+export const conversationMessagesRelations = relations(conversationMessages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [conversationMessages.conversationId],
+    references: [conversations.id],
+  }),
+  agentRun: one(agentRuns, {
+    fields: [conversationMessages.agentRunId],
+    references: [agentRuns.id],
+  }),
+  sourceEvent: one(agentRunEvents, {
+    fields: [conversationMessages.sourceEventId],
+    references: [agentRunEvents.id],
+  }),
 }))
 
 // ============ RIPPLE COMMENT THREADS ============
@@ -458,6 +552,9 @@ export const commentThreads = sqliteTable("comment_threads", {
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
   compositionId: text("composition_id").references(() => compositions.id, {
+    onDelete: "set null",
+  }),
+  conversationId: text("conversation_id").references(() => conversations.id, {
     onDelete: "set null",
   }),
   anchorType: text("anchor_type")
@@ -489,6 +586,7 @@ export const commentThreads = sqliteTable("comment_threads", {
 }, (table) => [
   index("comment_threads_project_id_idx").on(table.projectId),
   index("comment_threads_composition_id_idx").on(table.compositionId),
+  index("comment_threads_conversation_id_idx").on(table.conversationId),
   index("comment_threads_project_deleted_idx").on(table.projectId, table.deletedAt),
   index("comment_threads_latest_revision_idx").on(table.latestRevisionId),
   uniqueIndex("comment_threads_project_client_request_idx").on(
@@ -510,10 +608,11 @@ export const revisions = sqliteTable("revisions", {
   compositionId: text("composition_id").references(() => compositions.id, {
     onDelete: "set null",
   }),
-  chatId: text("chat_id").references(() => chats.id, { onDelete: "set null" }),
-  subChatId: text("sub_chat_id").references(() => subChats.id, {
+  conversationId: text("conversation_id").references(() => conversations.id, {
     onDelete: "set null",
   }),
+  chatId: text("chat_id").references(() => chats.id, { onDelete: "set null" }),
+  subChatId: text("sub_chat_id"),
   agentProvider: text("agent_provider").$type<"codex" | "claude" | "fake">(),
   agentModel: text("agent_model"),
   agentThreadId: text("agent_thread_id").references(() => agentThreads.id, {
@@ -555,6 +654,7 @@ export const revisions = sqliteTable("revisions", {
 }, (table) => [
   index("revisions_thread_id_idx").on(table.threadId),
   index("revisions_project_id_idx").on(table.projectId),
+  index("revisions_conversation_id_idx").on(table.conversationId),
   index("revisions_chat_id_idx").on(table.chatId),
   index("revisions_status_idx").on(table.status),
   index("revisions_agent_thread_id_idx").on(table.agentThreadId),
@@ -599,6 +699,10 @@ export const commentThreadsRelations = relations(commentThreads, ({ one, many })
     fields: [commentThreads.compositionId],
     references: [compositions.id],
   }),
+  conversation: one(conversations, {
+    fields: [commentThreads.conversationId],
+    references: [conversations.id],
+  }),
   messages: many(commentMessages),
   revisions: many(revisions),
 }))
@@ -627,13 +731,13 @@ export const revisionsRelations = relations(revisions, ({ one, many }) => ({
     fields: [revisions.compositionId],
     references: [compositions.id],
   }),
+  conversation: one(conversations, {
+    fields: [revisions.conversationId],
+    references: [conversations.id],
+  }),
   chat: one(chats, {
     fields: [revisions.chatId],
     references: [chats.id],
-  }),
-  subChat: one(subChats, {
-    fields: [revisions.subChatId],
-    references: [subChats.id],
   }),
   agentThread: one(agentThreads, {
     fields: [revisions.agentThreadId],
@@ -690,8 +794,10 @@ export type Composition = typeof compositions.$inferSelect
 export type NewComposition = typeof compositions.$inferInsert
 export type Chat = typeof chats.$inferSelect
 export type NewChat = typeof chats.$inferInsert
-export type SubChat = typeof subChats.$inferSelect
-export type NewSubChat = typeof subChats.$inferInsert
+export type Conversation = typeof conversations.$inferSelect
+export type NewConversation = typeof conversations.$inferInsert
+export type ConversationMessage = typeof conversationMessages.$inferSelect
+export type NewConversationMessage = typeof conversationMessages.$inferInsert
 export type AgentConnection = typeof agentConnections.$inferSelect
 export type NewAgentConnection = typeof agentConnections.$inferInsert
 export type Workspace = typeof workspaces.$inferSelect

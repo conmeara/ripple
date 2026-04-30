@@ -15,6 +15,7 @@ exports/
 snapshots/
 .ripple/snapshots/
 .ripple/tmp/
+.ripple/agent-attachments/
 node_modules/
 .DS_Store
 `

@@ -1,51 +1,13 @@
-import { eq } from "drizzle-orm"
 import {
   getDatabase,
-  subChats,
   transcriptMessages,
   type AgentRun,
   type AgentRunEvent,
   type AgentThread,
 } from "../db"
-import { createId } from "../db/utils"
+import { appendConversationMessage } from "../conversations/service"
 
 type Db = ReturnType<typeof getDatabase>
-
-function parseMessages(value: string | null | undefined): any[] {
-  if (!value) return []
-  try {
-    const parsed = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function makeMessage(input: {
-  id?: string
-  role: "user" | "assistant" | "system"
-  text: string
-  parts?: Record<string, unknown>[]
-  metadata?: Record<string, unknown>
-}): Record<string, unknown> {
-  return {
-    id: input.id ?? createId(),
-    role: input.role,
-    parts: input.parts ?? [{ type: "text", text: input.text }],
-    metadata: input.metadata ?? {},
-  }
-}
-
-function extractMessageText(message: any): string {
-  const parts = Array.isArray(message?.parts) ? message.parts : []
-  return parts
-    .map((part: any) =>
-      part?.type === "text" && typeof part.text === "string" ? part.text : null,
-    )
-    .filter((part: string | null): part is string => Boolean(part))
-    .join("\n")
-    .trim()
-}
 
 export function appendTranscriptMessage(input: {
   db?: Db
@@ -61,6 +23,7 @@ export function appendTranscriptMessage(input: {
     .values({
       agentThreadId: input.thread.id,
       agentRunId: input.run.id,
+      conversationId: input.run.conversationId,
       chatId: input.run.chatId,
       subChatId: input.run.subChatId,
       role: input.role,
@@ -72,77 +35,36 @@ export function appendTranscriptMessage(input: {
     .run()
 }
 
-export function appendSubChatMessageProjection(input: {
-  db?: Db
-  subChatId: string | null
-  role: "user" | "assistant" | "system"
-  body: string
-  parts?: Record<string, unknown>[]
-  metadata?: Record<string, unknown>
-}): void {
-  if (!input.subChatId) return
-  const db = input.db ?? getDatabase()
-  const subChat = db
-    .select({ messages: subChats.messages })
-    .from(subChats)
-    .where(eq(subChats.id, input.subChatId))
-    .get()
-  if (!subChat) return
-
-  const messages = parseMessages(subChat.messages)
-  if (input.role === "user") {
-    const last = messages[messages.length - 1]
-    if (last?.role === "user" && extractMessageText(last) === input.body.trim()) {
-      return
-    }
-  }
-
-  messages.push(makeMessage({
-    role: input.role,
-    text: input.body,
-    parts: input.parts,
-    metadata: input.metadata,
-  }))
-
-  db.update(subChats)
-    .set({
-      messages: JSON.stringify(messages),
-      updatedAt: new Date(),
-    })
-    .where(eq(subChats.id, input.subChatId))
-    .run()
-}
-
 export function recordRunUserPromptProjection(input: {
   db?: Db
   thread: AgentThread
   run: AgentRun
 }): void {
+  const metadata = {
+    source: input.run.runKind,
+    provider: input.run.provider,
+    model: input.run.model,
+    agentRunId: input.run.id,
+    agentThreadId: input.thread.id,
+  }
   appendTranscriptMessage({
     db: input.db,
     thread: input.thread,
     run: input.run,
     role: "user",
     body: input.run.prompt,
-    metadata: {
-      source: input.run.runKind,
-      provider: input.run.provider,
-      model: input.run.model,
-    },
+    metadata,
   })
-  appendSubChatMessageProjection({
-    db: input.db,
-    subChatId: input.run.subChatId,
-    role: "user",
-    body: input.run.prompt,
-    metadata: {
-      source: input.run.runKind,
-      provider: input.run.provider,
-      model: input.run.model,
+  if (input.run.runKind !== "generated_change" || !input.run.threadId) {
+    appendConversationMessage({
+      db: input.db,
+      conversationId: input.run.conversationId,
+      role: "user",
+      body: input.run.prompt,
       agentRunId: input.run.id,
-      agentThreadId: input.thread.id,
-    },
-  })
+      metadata,
+    })
+  }
 }
 
 export function recordRunAssistantProjection(input: {
@@ -172,12 +94,14 @@ export function recordRunAssistantProjection(input: {
     sourceEvent: input.sourceEvent,
     metadata,
   })
-  appendSubChatMessageProjection({
+  appendConversationMessage({
     db: input.db,
-    subChatId: input.run.subChatId,
+    conversationId: input.run.conversationId,
     role: "assistant",
     body: input.summary,
     parts: input.parts,
     metadata,
+    agentRunId: input.run.id,
+    sourceEventId: input.sourceEvent?.id ?? null,
   })
 }
