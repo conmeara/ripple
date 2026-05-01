@@ -10,17 +10,16 @@ import {
   buildHyperframesPlayerSourceDocument,
   buildHyperframesProjectBrowserModel,
   buildHyperframesStaticTimelineModel,
-  hyperframesRenderFormats,
-  hyperframesRenderQualities,
+  insertHyperframesTimelineAsset,
   importHyperframesProjectAssets,
   listSavedHyperframesCompositions,
   previewManager,
   refreshHyperframesCompositions,
-  renderManager,
   resolveHyperframesProjectContext,
   resolveHyperframesPreviewContext,
   runHyperframesCommand,
   selectHyperframesPlayerComposition,
+  updateHyperframesTimelineClip,
   type HyperframesCommandResult,
 } from "../../hyperframes"
 
@@ -37,8 +36,6 @@ function commandResultFromError(error: unknown): HyperframesCommandResult {
     error: error instanceof Error ? error : undefined,
   }
 }
-
-const renderFpsInput = z.union([z.literal(24), z.literal(30), z.literal(60)])
 
 function hasDuplicateCompositionFileRows(
   compositions: Array<{ filePath: string }>,
@@ -186,6 +183,85 @@ export const hyperframesRouter = router({
       }
     }),
 
+  insertAssetOnTimeline: publicProcedure
+    .input(z.object({
+      projectId: z.string(),
+      compositionId: z.string().nullable().optional(),
+      assetPath: z.string().min(1),
+      start: z.number().min(0),
+      track: z.number().int().min(0),
+      duration: z.number().min(0.05).max(7200).nullable().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { context, compositions } = await resolvePreviewCompositions({
+        projectId: input.projectId,
+      })
+      const composition = selectHyperframesPlayerComposition({
+        project: context.project,
+        compositions,
+        compositionId: input.compositionId,
+      })
+
+      if (!composition) {
+        throw new Error("No HyperFrames composition is available for this project.")
+      }
+
+      return insertHyperframesTimelineAsset({
+        context,
+        composition,
+        assetPath: input.assetPath,
+        start: input.start,
+        track: input.track,
+        duration: input.duration,
+      })
+    }),
+
+  updateTimelineClip: publicProcedure
+    .input(z.object({
+      projectId: z.string(),
+      compositionId: z.string().nullable().optional(),
+      clip: z.object({
+        key: z.string().nullable().optional(),
+        sourceFile: z.string().nullable().optional(),
+        domId: z.string().nullable().optional(),
+        selector: z.string().nullable().optional(),
+        selectorIndex: z.number().int().min(0).nullable().optional(),
+        label: z.string().nullable().optional(),
+        tagName: z.string().nullable().optional(),
+        start: z.number().nullable().optional(),
+        duration: z.number().nullable().optional(),
+        track: z.number().nullable().optional(),
+      }),
+      start: z.number().min(0),
+      duration: z.number().min(0.05).max(7200),
+      track: z.number().int().min(0),
+      playbackStart: z.number().min(0).nullable().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { context, compositions } = await resolvePreviewCompositions({
+        projectId: input.projectId,
+      })
+      const composition = selectHyperframesPlayerComposition({
+        project: context.project,
+        compositions,
+        compositionId: input.compositionId,
+      })
+
+      if (!composition) {
+        throw new Error("No HyperFrames composition is available for this project.")
+      }
+
+      return updateHyperframesTimelineClip({
+        context,
+        composition,
+        clip: input.clip,
+        start: input.start,
+        duration: input.duration,
+        track: input.track,
+        playbackStart: input.playbackStart,
+      })
+    }),
+
   getPlayerSource: publicProcedure
     .input(z.object({
       projectId: z.string(),
@@ -292,33 +368,4 @@ export const hyperframesRouter = router({
       })
     }),
 
-  render: publicProcedure
-    .input(z.object({
-      projectId: z.string(),
-      format: z.enum(hyperframesRenderFormats).optional(),
-      fps: renderFpsInput.optional(),
-      quality: z.enum(hyperframesRenderQualities).optional(),
-    }))
-    .mutation(async ({ input }) => {
-      const context = await resolveHyperframesProjectContext({ projectId: input.projectId })
-      return renderManager.start({
-        context,
-        format: input.format ?? "mp4",
-        fps: input.fps ?? 30,
-        quality: input.quality ?? "standard",
-        repoRoot: getRepoRoot(),
-      })
-    }),
-
-  getRenderStatus: publicProcedure
-    .input(z.object({ jobId: z.string() }))
-    .query(({ input }) => {
-      return renderManager.getStatus(input.jobId)
-    }),
-
-  cancelRender: publicProcedure
-    .input(z.object({ jobId: z.string() }))
-    .mutation(({ input }) => {
-      return renderManager.cancel(input.jobId)
-    }),
 })

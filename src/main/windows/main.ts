@@ -198,7 +198,10 @@ function registerIpcHandlers(): void {
           headers: options?.headers,
           signal: abortController.signal,
         })
-        const headers = Object.fromEntries(response.headers.entries())
+        const headers: Record<string, string> = {}
+        response.headers.forEach((value, key) => {
+          headers[key] = value
+        })
 
         const reader = response.body?.getReader()
         if (!reader) {

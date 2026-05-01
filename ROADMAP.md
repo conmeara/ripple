@@ -203,18 +203,21 @@ Top-level Ripple workspace stored by default at `~/Ripple/<project-name>`.
 ### Composition
 
 Fields:
-`id`, `projectId`, `name`, `filePath`, `dataCompositionId`, `width`,
-`height`, `parentCompositionId`, `kind`, `createdAt`, `updatedAt`.
+`id`, `projectId`, `name`, `filePath`, `dataCompositionId`, `kind`, `width`,
+`height`, `durationSeconds`, `templateId`, `createdAt`, `updatedAt`.
 
 Purpose:
-HyperFrames HTML composition. `index.html` is usually the entry composition;
-child compositions live under `compositions/`.
+HyperFrames motion document. The default entry composition is usually backed by
+`index.html`; additional reusable composition files can live under
+`compositions/`. A lower third, title card, CTA, chart, caption layer, or
+product-shot module is a composition. `Main` refers to the primary
+project/worktree, not a composition name.
 
 ### Clip
 
 Fields:
-`id`, `compositionId`, `selector`, `type`, `trackIndex`, `startFrame`,
-`durationFrames`, `assetId`, `styleSnapshot`, `timelineLabel`.
+`id`, `compositionId`, `selector`, `type`, `trackIndex`,
+`startFrame`, `durationFrames`, `assetId`, `styleSnapshot`, `timelineLabel`.
 
 Purpose:
 Timed visual or media element in a composition.
@@ -231,9 +234,9 @@ Imported media stored under `assets/`.
 ### CommentThread
 
 Fields:
-`id`, `projectId`, `compositionId`, `conversationId`, `anchorType`,
-`startFrame`, `endFrame`, `elementSelector`, `screenshotPath`, `status`,
-`createdBy`, `createdAt`.
+`id`, `projectId`, `compositionId`, `conversationId`,
+`anchorType`, `startFrame`, `endFrame`, `elementSelector`, `screenshotPath`,
+`status`, `createdBy`, `createdAt`.
 
 Purpose:
 Frame/time/element review feedback attached to motion context. A comment is the
@@ -243,9 +246,9 @@ agent response/proposal status, reply, delete, accept, and open-in-chat actions.
 ### Conversation
 
 Fields:
-`id`, `projectId`, `compositionId`, `commentThreadId`, `revisionId`, `kind`,
-`title`, `summary`, `status`, `createdAt`, `updatedAt`, `archivedAt`,
-`deletedAt`.
+`id`, `projectId`, `compositionId`, `commentThreadId`,
+`revisionId`, `kind`, `title`, `summary`, `status`, `createdAt`, `updatedAt`,
+`archivedAt`, `deletedAt`.
 
 Purpose:
 One user-facing chat thread. Conversations replace the inherited 1Code
@@ -288,7 +291,7 @@ Fields:
 `status`, `errorMessage`, `createdAt`, `completedAt`.
 
 Purpose:
-HyperFrames render/export request for `MP4`, `MOV`, or `WebM`.
+HyperFrames render/export request for a composition as `MP4`, `MOV`, or `WebM`.
 
 ### AgentSession / AgentRun
 
@@ -311,7 +314,8 @@ Verified official docs as of April 26, 2026:
 - Local rendering requires FFmpeg and FFprobe.
 - `npx hyperframes doctor` checks environment readiness.
 - `npx hyperframes preview` launches Studio with hot reload.
-- `npx hyperframes compositions --json` can list compositions.
+- `npx hyperframes compositions --json` can list compositions reachable from
+  `index.html`.
 - `npx hyperframes snapshot` can capture frames/stills.
 - `npx hyperframes render` renders final output.
 - Current CLI package docs use `npx hyperframes init <name> --example blank`
@@ -339,10 +343,11 @@ Verified official docs as of April 26, 2026:
   extraction, validation/linting, runtime helpers, and schemas that can support
   Ripple's assets/compositions pane and future timeline models.
 - `@hyperframes/producer` can support programmatic render pipelines.
-- Current npm registry checks on April 26, 2026 showed `hyperframes`,
-  `@hyperframes/player`, `@hyperframes/studio`, and `@hyperframes/core` all at
-  `0.4.30`; Ripple should pin the HyperFrames package family to one exact
-  version when adopting the scoped packages.
+- Current npm registry/install checks on April 30, 2026 showed `hyperframes`,
+  `@hyperframes/player`, `@hyperframes/studio`, `@hyperframes/core`, and
+  `@hyperframes/producer` all available at `0.4.40`; Ripple pins the
+  HyperFrames package family to one exact version when adopting the scoped
+  packages.
 
 Open verification items:
 
@@ -378,7 +383,7 @@ Reference links to preserve from the old docs:
 ## HyperFrames Authoring Rules
 
 - Compositions are HTML files, not React components.
-- Root composition needs `data-composition-id`, `data-width`, and
+- Composition roots need `data-composition-id`, `data-width`, and
   `data-height`.
 - Timed visible elements need `class="clip"`, `data-start`, `data-duration`,
   and `data-track-index`.
@@ -397,11 +402,11 @@ Reference links to preserve from the old docs:
 ## Templates And Bundled Context
 
 - Project creation should keep a blank/default option that is immediately
-  previewable and demonstrates the HyperFrames composition model, ideally with
-  a top-level composition and at least one nested or reusable composition.
-- Ripple should offer a template chooser from project creation, new index/root
-  composition creation, and new composition creation. Choosing a template must
-  be optional; blank remains a first-class starter.
+  previewable and demonstrates the HyperFrames composition model.
+- Ripple should offer one user-facing template gallery from project creation and
+  new composition creation. The gallery is filtered by context, but users should
+  not need to understand "project template" versus "composition template".
+  Choosing a template must be optional; blank remains a first-class starter.
 - Ripple should support a template library built on HyperFrames conventions:
   lower thirds, title cards, transitions, social overlays, data visualizations,
   and product promos.
@@ -411,9 +416,9 @@ Reference links to preserve from the old docs:
 - Preserve the useful starter/example names from the old docs as candidate
   seed templates: `warm-grain`, `play-mode`, `swiss-grid`, `kinetic-type`,
   `decision-tree`, `product-promo`, `nyt-graph`, `vignelli`, and `blank`.
-- Users should be able to preview, insert, or scaffold templates inside Ripple
+- Users should be able to preview, create, or scaffold templates inside Ripple
   without touching the CLI. The preview UI should make aspect ratio, duration,
-  category, and basic motion feel visible before insertion.
+  category, and basic motion feel visible before creation.
 - Ripple should bundle HyperFrames-aware agent context, skills, and template
   assets so users are not blocked on manual setup before the agent can work.
 - HyperFrames supplies behavior, editing model, timeline semantics, and panel
@@ -431,9 +436,9 @@ Center-stage shell with toggleable context panels:
    - settings/help/profile/footer actions
    - Codex-inspired project/chat navigation density
 
-2. Assets/compositions/templates panel
+2. Compositions/assets/templates panel
+   - compositions
    - assets
-   - composition structure
    - templates
    - project files where useful
    - inspired by HyperFrames Studio `FileTree`, but styled as Ripple
@@ -463,7 +468,8 @@ Center-stage shell with toggleable context panels:
 
 Target behavior:
 
-- User comments on a frame, time range, scene, composition, or visible element.
+- User comments on a frame, time range, scene, composition, or visible
+  element.
 - Ripple captures screenshot/still, frame/range, active composition/project, and
   prompt/conversation context.
 - A revision is created in an isolated context derived from the project.
@@ -900,15 +906,18 @@ Done when:
 
 ### Phase 12: Templates And Starters
 
+ExecPlan: `plans/phase-12-templates-and-starters.md`
+
 Goals:
 
 - Curate official HyperFrames templates from the online gallery and GitHub repo
   into a Ripple-owned local template library.
 - Add template metadata for name, category, aspect ratio, duration, preview
   media, required assets, source files, and compatibility/version notes.
-- Add a polished template chooser for new project, new index/root composition,
-  and new composition flows, with blank/default as the first-class starter.
-- Show fast previews for all available templates before the user inserts or
+- Add a polished template chooser for new project and new composition flows,
+  with blank/default as the first-class starter and user-facing categories such
+  as Social, Product, Data, Title Cards, Lower Thirds, Brand, and Overlays.
+- Show fast previews for all available templates before the user creates or
   scaffolds them.
 - Copy template files, assets, metadata, and runtime dependencies into the
   active project through main-process validated project paths.
@@ -916,12 +925,14 @@ Goals:
 Done when:
 
 - New project creation can start from blank/default or a selected template.
-- New composition and new index/root composition actions open the same template
-  chooser and can insert a valid HyperFrames composition.
+- New Composition opens the same template chooser and can create valid
+  HyperFrames composition files into the active project.
+- New Composition selects and previews the created composition without patching
+  `index.html`.
 - Template previews are visible in the dialog without requiring network access
   or CLI knowledge.
-- Inserted templates appear in the compositions/assets pane, update active
-  composition state, and preview immediately.
+- Created templates appear in the project browser, update active composition
+  state as appropriate, and preview immediately.
 - Template source and asset copying is project-boundary safe and does not fetch
   scripts, fonts, or media at render time.
 
@@ -1065,7 +1076,7 @@ Renderer/component tests:
 
 - project-first onboarding
 - project rail and create/open flows
-- assets/compositions pane behavior
+- compositions/assets pane behavior
 - composition switcher states
 - chat/comment mode switching
 - comment creation surfaces

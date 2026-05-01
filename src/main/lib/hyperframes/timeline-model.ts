@@ -111,9 +111,19 @@ function clipKindForElement(element: Element, rootCompositionId: string | null):
   const compositionSrc =
     element.getAttribute("data-composition-src") ??
     element.getAttribute("data-composition-file")
+  const timelineRole = element.getAttribute("data-timeline-role")?.toLowerCase() ?? ""
+  const timelineGroup = element.getAttribute("data-timeline-group")?.toLowerCase() ?? ""
+  const className = element.getAttribute("class")?.toLowerCase() ?? ""
 
   if (compositionSrc || (compositionId && compositionId !== rootCompositionId)) {
     return "composition"
+  }
+  if (
+    timelineRole.includes("caption") ||
+    timelineGroup.includes("caption") ||
+    className.split(/\s+/).some((part) => part === "caption" || part === "subtitle")
+  ) {
+    return "caption"
   }
   if (tagName === "video") return "video"
   if (tagName === "audio") return "audio"
@@ -127,6 +137,7 @@ function clipKindForElement(element: Element, rootCompositionId: string | null):
 
 function labelForElement(element: Element, id: string, assetUrl: string | null): string {
   const explicit =
+    element.getAttribute("data-timeline-label") ??
     element.getAttribute("data-label") ??
     element.getAttribute("aria-label") ??
     element.getAttribute("title")
@@ -177,6 +188,9 @@ function buildStaticClip(input: {
   const assetUrl = resolveMediaAssetUrl(input.element, input.filePath)
   const selector = selectorForElement(input.element)
   const index = selectorIndex(input.root, input.element, selector)
+  const timelineRole = input.element.getAttribute("data-timeline-role")
+  const timelineGroup = input.element.getAttribute("data-timeline-group")
+  const timelinePriority = parseNumberAttribute(input.element, "data-timeline-priority")
   const id =
     domId ??
     compositionId ??
@@ -207,8 +221,17 @@ function buildStaticClip(input: {
       parseNumberAttribute(input.element, "data-playback-start") ??
       parseNumberAttribute(input.element, "data-media-start") ??
       undefined,
+    playbackStartAttribute: input.element.hasAttribute("data-playback-start")
+      ? "data-playback-start"
+      : input.element.hasAttribute("data-media-start")
+        ? "data-media-start"
+        : undefined,
     sourceDuration: parseNumberAttribute(input.element, "data-source-duration") ?? undefined,
     volume: parseNumberAttribute(input.element, "data-volume") ?? undefined,
+    timelineRole,
+    timelineGroup,
+    timelinePriority,
+    compositionAncestors: input.rootCompositionId ? [input.rootCompositionId] : [],
     editable: false,
     confidence: "static",
   }
@@ -273,6 +296,10 @@ function buildFallbackRootClip(input: {
     parentCompositionId: null,
     compositionSrc: input.filePath,
     assetUrl: null,
+    timelineRole: "composition",
+    timelineGroup: null,
+    timelinePriority: null,
+    compositionAncestors: [],
     editable: false,
     confidence: "fallback",
   }

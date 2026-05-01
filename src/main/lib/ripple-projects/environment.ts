@@ -6,6 +6,7 @@ import {
   getAppManagedCommandCandidates,
   getBundledCommandCandidates,
   getHyperframesCommandCandidates,
+  getProducerBrowserCandidates,
   resolvePackageJsonPath,
 } from "../hyperframes/runtime"
 import type { EnvironmentCheck, SetupReport, SetupStatus } from "./types"
@@ -213,6 +214,29 @@ async function checkOfflineRuntime(
   }
 }
 
+async function checkExportBrowser(
+  repoRoot: string | undefined,
+  probe: EnvironmentProbe,
+): Promise<EnvironmentCheck> {
+  for (const candidate of getProducerBrowserCandidates(repoRoot)) {
+    if (await probe.hasPath(candidate)) {
+      return {
+        name: "exportBrowser",
+        status: "ready",
+        label: "Export browser",
+        message: "Ripple's export browser is available.",
+      }
+    }
+  }
+
+  return {
+    name: "exportBrowser",
+    status: "missing",
+    label: "Export browser",
+    message: "Ripple's packaged export browser is not available in this build.",
+  }
+}
+
 export function setupStatusFromChecks(checks: EnvironmentCheck[]): SetupStatus {
   if (checks.some((check) => check.status === "error")) return "error"
   if (checks.some((check) => check.status === "missing")) return "needs_environment"
@@ -228,6 +252,7 @@ export async function checkRippleEnvironment(
     checkVersionCommand("ffmpeg", "FFmpeg", repoRoot, probe),
     checkVersionCommand("ffprobe", "FFprobe", repoRoot, probe),
     checkHyperFrames(repoRoot, probe),
+    checkExportBrowser(repoRoot, probe),
     checkOfflineRuntime(repoRoot, probe),
   ])
   const status = setupStatusFromChecks(checks)

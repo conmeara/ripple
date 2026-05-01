@@ -33,6 +33,7 @@ export type EnvironmentCheckName =
   | "ffmpeg"
   | "ffprobe"
   | "hyperframes"
+  | "exportBrowser"
   | "offlineRuntime"
 
 export type EnvironmentCheckStatus = "ready" | "missing" | "warning" | "error"

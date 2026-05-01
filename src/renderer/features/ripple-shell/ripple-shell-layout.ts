@@ -1,6 +1,7 @@
 export type RippleRightPaneMode =
   | "chat"
   | "comments"
+  | "renders"
   | "details"
   | "files"
   | "changes"
@@ -50,6 +51,7 @@ export function isRippleRightPaneMode(value: unknown): value is RippleRightPaneM
   return (
     value === "chat" ||
     value === "comments" ||
+    value === "renders" ||
     value === "details" ||
     value === "files" ||
     value === "changes" ||

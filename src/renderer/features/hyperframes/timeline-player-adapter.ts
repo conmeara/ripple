@@ -973,7 +973,10 @@ export function useRippleTimelinePlayerAdapter({
     seek(0)
   }, [seek])
 
-  const reload = useCallback(() => {
+  const reload = useCallback((options?: { seekTime?: number | null }) => {
+    if (typeof options?.seekTime === "number" && Number.isFinite(options.seekTime)) {
+      readySeekTimeRef.current = Math.max(0, options.seekTime)
+    }
     setTimelineModel(null)
     setReloadVersion((version) => version + 1)
     void sourceQuery.refetch()

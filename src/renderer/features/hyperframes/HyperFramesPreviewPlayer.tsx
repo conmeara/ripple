@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  Captions,
   ExternalLink,
   Gauge,
   Maximize2,
@@ -11,6 +12,8 @@ import {
   Repeat2,
   Rows2,
   Settings,
+  StepBack,
+  StepForward,
   Volume2,
   VolumeX,
   X,
@@ -25,8 +28,13 @@ import type {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import type {
+  RippleTimelineClip,
   RippleTimelineModel,
   RippleTimelineRangeSelection,
+} from "../../../shared/hyperframes-timeline-model"
+import {
+  getActiveCaptionOverlayClips,
+  getTimelineFrameIndicator,
 } from "../../../shared/hyperframes-timeline-model"
 import {
   DropdownMenu,
@@ -59,6 +67,7 @@ import {
   PLAYBACK_SPEEDS,
   PREVIEW_SETTINGS_CONTROLS,
   ZOOM_OPTIONS,
+  formatPreviewTimecode,
   type ZoomValue,
   shouldRenderPreviewCloseControl,
   shouldTogglePreviewPlaybackForSpacebar,
@@ -114,25 +123,6 @@ function formatTime(seconds: number): string {
   const minutes = Math.floor(wholeSeconds / 60)
   const remainingSeconds = wholeSeconds % 60
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`
-}
-
-function formatTimecode(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return "00:00:00:00"
-  const totalFrames = Math.max(0, Math.round(seconds * PREVIEW_FPS))
-  const frames = totalFrames % PREVIEW_FPS
-  const totalSeconds = Math.floor(totalFrames / PREVIEW_FPS)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const remainingSeconds = totalSeconds % 60
-
-  return [
-    hours,
-    minutes,
-    remainingSeconds,
-    frames,
-  ]
-    .map((part) => part.toString().padStart(2, "0"))
-    .join(":")
 }
 
 function formatPlaybackSpeed(speed: number): string {
@@ -218,11 +208,14 @@ export function HyperFramesPreviewPlayer({
   const timelineProgressRef = useRef<HTMLDivElement | null>(null)
   const timelineHandleRef = useRef<HTMLDivElement | null>(null)
   const timecodeRef = useRef<HTMLDivElement | null>(null)
+  const frameIndicatorRef = useRef<HTMLDivElement | null>(null)
   const durationRef = useRef(0)
+  const previewFpsRef = useRef(PREVIEW_FPS)
   const settledDisplayTimeRef = useRef(0)
   const [zoom, setZoom] = useState<ZoomValue>("fit")
   const [isElementFullscreen, setIsElementFullscreen] = useState(false)
   const [isTimelineVisible, setIsTimelineVisible] = useState(true)
+  const [isCaptionOverlayVisible, setIsCaptionOverlayVisible] = useState(true)
   const [timelineHover, setTimelineHover] = useState<{
     percent: number
     time: number
@@ -232,6 +225,7 @@ export function HyperFramesPreviewPlayer({
     duration: number
     model: RippleTimelineModel | null
   }>({ duration: 0, model: null })
+  const [timelineEditModel, setTimelineEditModel] = useState<RippleTimelineModel | null>(null)
   const [settledSeekRequestId, setSettledSeekRequestId] = useState<number | null>(null)
   const requestedSeekTime =
     typeof seekToTime === "number" && Number.isFinite(seekToTime)
@@ -287,7 +281,38 @@ export function HyperFramesPreviewPlayer({
     isMuted,
     isLoadingSource,
   } = playerState
-  const timelineModel = runtimeTimelineModel ?? timelineQuery.data?.model ?? null
+  const timelineModel: RippleTimelineModel | null =
+    timelineEditModel ?? runtimeTimelineModel ?? timelineQuery.data?.model ?? null
+  const insertAssetOnTimelineMutation = trpc.hyperframes.insertAssetOnTimeline.useMutation({
+    onSuccess: async () => {
+      toast.success("Media was added to the timeline")
+      setTimelineEditModel(null)
+      await Promise.all([
+        timelineQuery.refetch(),
+        trpcUtils.hyperframes.getProjectBrowserModel.invalidate({ projectId }),
+      ])
+      adapter.reload({ seekTime: displayTime })
+    },
+    onError: (error) => {
+      toast.error("Media was not added", {
+        description: error.message,
+      })
+    },
+  })
+  const updateTimelineClipMutation = trpc.hyperframes.updateTimelineClip.useMutation({
+    onSuccess: (result) => {
+      setTimelineEditModel(result.model)
+      trpcUtils.hyperframes.getTimelineModel.setData(
+        { projectId, compositionId, revisionId, chatId },
+        (current) => current ? { ...current, model: result.model } : current,
+      )
+    },
+    onError: (error) => {
+      toast.error("Timeline edit was not applied", {
+        description: error.message,
+      })
+    },
+  })
   const aspectRatio = source ? `${source.width} / ${source.height}` : "16 / 9"
   const scale = zoom === "fit" ? 100 : Number(zoom)
   const hasPendingPreviewSeek =
@@ -314,14 +339,29 @@ export function HyperFramesPreviewPlayer({
     isPreviewSettling && settledTimelineSnapshot.model
       ? settledTimelineSnapshot.model
       : timelineModel
+  previewFpsRef.current = displayTimelineModel?.fps ?? PREVIEW_FPS
   const progress =
     displayDuration > 0 ? clamp((displayTime / displayDuration) * 100, 0, 100) : 0
   const previewControlsReady =
     isReady && !isLoadingSource && !hasPendingPreviewSeek && !isPreviewSourceFetching
+  const timelineInteractionsReady =
+    isReady && !isLoadingSource && !hasPendingPreviewSeek
   const canUseTimeline = previewControlsReady && displayDuration > 0
   const commentMarkers = useMemo(
     () => buildPreviewCommentMarkers(commentThreadsQuery.data ?? [], displayDuration),
     [commentThreadsQuery.data, displayDuration],
+  )
+  const activeCaptionClips = useMemo(
+    () => getActiveCaptionOverlayClips({
+      model: displayTimelineModel,
+      time: displayTime,
+      limit: 2,
+    }),
+    [displayTime, displayTimelineModel],
+  )
+  const hasCaptionClips = useMemo(
+    () => Boolean(displayTimelineModel?.clips.some((clip) => clip.kind === "caption")),
+    [displayTimelineModel?.clips],
   )
   const prewarmTargets = useMemo(() => {
     const targets: Array<{ revisionId: string | null; chatId: string | null }> = []
@@ -365,6 +405,10 @@ export function HyperFramesPreviewPlayer({
 
     return targets.slice(0, PREVIEW_PREWARM_LIMIT)
   }, [chatId, commentMarkers, requestedSeekTime, revisionId, selectedCommentThreadId])
+
+  useEffect(() => {
+    setTimelineEditModel(null)
+  }, [projectId, compositionId, revisionId, chatId])
 
   useEffect(() => {
     if (!source?.sourceUrl) return
@@ -448,7 +492,16 @@ export function HyperFramesPreviewPlayer({
       timelineHandleRef.current.style.left = `${liveProgress}%`
     }
     if (timecodeRef.current) {
-      timecodeRef.current.textContent = formatTimecode(time)
+      timecodeRef.current.textContent = formatPreviewTimecode(time, previewFpsRef.current)
+    }
+    if (frameIndicatorRef.current) {
+      const indicator = getTimelineFrameIndicator({
+        time,
+        duration: liveDuration,
+        fps: previewFpsRef.current,
+      })
+      frameIndicatorRef.current.textContent = indicator.label
+      frameIndicatorRef.current.setAttribute("aria-label", `${indicator.label}, ${indicator.timecode}`)
     }
     if (timelineRef.current) {
       timelineRef.current.setAttribute("aria-valuenow", String(Math.min(time, liveDuration || 0)))
@@ -564,8 +617,16 @@ export function HyperFramesPreviewPlayer({
     adapter.restart()
   }
 
+  const handleStepFrame = (direction: -1 | 1) => {
+    if (!previewControlsReady) return
+    const fps = Math.max(1, previewFpsRef.current || PREVIEW_FPS)
+    const nextTime = displayTime + direction / fps
+    handleSeek(nextTime)
+  }
+
   const handleReload = () => {
-    adapter.reload()
+    setTimelineEditModel(null)
+    adapter.reload({ seekTime: displayTime })
     void timelineQuery.refetch()
   }
 
@@ -593,6 +654,60 @@ export function HyperFramesPreviewPlayer({
     const nextTime = clamp(value, 0, duration || 0)
     syncLivePreviewTime(nextTime)
     adapter.seek(nextTime)
+  }
+
+  const handleTimelineAssetDrop = (
+    assetPath: string,
+    placement: { start: number; track: number },
+  ) => {
+    if (revisionId || chatId) {
+      toast.error("Switch to Main to add media to the timeline")
+      return
+    }
+
+    insertAssetOnTimelineMutation.mutate({
+      projectId,
+      compositionId: displayTimelineModel?.compositionId ?? compositionId ?? null,
+      assetPath,
+      start: placement.start,
+      track: placement.track,
+    })
+  }
+
+  const handleTimelineClipUpdate = (
+    clip: RippleTimelineClip,
+    updates: {
+      start: number
+      duration: number
+      track: number
+      playbackStart?: number
+    },
+  ) => {
+    if (revisionId || chatId) {
+      toast.error("Switch to Main to edit the timeline")
+      return
+    }
+
+    return updateTimelineClipMutation.mutateAsync({
+      projectId,
+      compositionId: displayTimelineModel?.compositionId ?? compositionId ?? null,
+      clip: {
+        key: clip.key,
+        sourceFile: clip.sourceFile,
+        domId: clip.domId ?? null,
+        selector: clip.selector ?? null,
+        selectorIndex: clip.selectorIndex ?? null,
+        label: clip.label,
+        tagName: clip.tagName,
+        start: clip.start,
+        duration: clip.duration,
+        track: clip.track,
+      },
+      start: updates.start,
+      duration: updates.duration,
+      track: updates.track,
+      playbackStart: updates.playbackStart ?? null,
+    }).then(() => undefined)
   }
 
   const readTimelinePoint = (clientX: number) => {
@@ -688,7 +803,7 @@ export function HyperFramesPreviewPlayer({
   ) => {
     if (!canUseTimeline) return
 
-    const frameStep = 1 / PREVIEW_FPS
+    const frameStep = 1 / Math.max(1, previewFpsRef.current || PREVIEW_FPS)
     const step = event.shiftKey ? 1 : frameStep
     let nextTime = displayTime
 
@@ -770,6 +885,18 @@ export function HyperFramesPreviewPlayer({
           }}
         >
           <div ref={containerRef} className="absolute inset-0" />
+          {isCaptionOverlayVisible && activeCaptionClips.length > 0 ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex flex-col items-center gap-1 px-6">
+              {activeCaptionClips.map((clip) => (
+                <div
+                  key={clip.key}
+                  className="max-w-full truncate rounded-md border border-black/25 bg-black/68 px-3 py-1 text-center text-sm font-medium text-white shadow-lg"
+                >
+                  {clip.label}
+                </div>
+              ))}
+            </div>
+          ) : null}
           {showBlockingPreviewStatus ? (
             <div className="pointer-events-none absolute inset-0 flex animate-in items-center justify-center bg-background/85 p-6 text-center backdrop-blur-sm fade-in-0 duration-150">
               <div className="max-w-xs">
@@ -882,7 +1009,7 @@ export function HyperFramesPreviewPlayer({
                   className="pointer-events-none absolute bottom-full mb-2 -translate-x-1/2 rounded-md bg-popover px-2 py-1 text-[11px] tabular-nums text-popover-foreground shadow-sm ring-1 ring-border/60"
                   style={{ left: `${timelinePreviewLeft}%` }}
                 >
-                  {formatTimecode(timelinePreview.time)}
+                  {formatPreviewTimecode(timelinePreview.time, previewFpsRef.current)}
                 </div>
               ) : null}
             </div>
@@ -959,15 +1086,54 @@ export function HyperFramesPreviewPlayer({
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </PlayerIconButton>
-            <div
-              ref={timecodeRef}
-              className="min-w-[7.75rem] rounded-md bg-muted/40 px-2.5 py-1 text-center text-sm tabular-nums tracking-normal text-foreground shadow-sm ring-1 ring-border/50"
+            <PlayerIconButton
+              label="Previous frame"
+              onClick={() => handleStepFrame(-1)}
+              disabled={!previewControlsReady}
             >
-              {formatTimecode(displayTime)}
+              <StepBack className="h-3.5 w-3.5" />
+            </PlayerIconButton>
+            <div
+              className="min-w-[8.75rem] rounded-md bg-muted/40 px-2.5 py-1 text-center shadow-sm ring-1 ring-border/50"
+            >
+              <div
+                ref={timecodeRef}
+                className="text-sm tabular-nums tracking-normal text-foreground"
+              >
+                {formatPreviewTimecode(displayTime, displayTimelineModel?.fps ?? PREVIEW_FPS)}
+              </div>
+              <div
+                ref={frameIndicatorRef}
+                className="mt-0.5 text-[10px] tabular-nums text-muted-foreground"
+              >
+                {getTimelineFrameIndicator({
+                  time: displayTime,
+                  duration: displayDuration,
+                  fps: displayTimelineModel?.fps ?? PREVIEW_FPS,
+                }).label}
+              </div>
             </div>
+            <PlayerIconButton
+              label="Next frame"
+              onClick={() => handleStepFrame(1)}
+              disabled={!previewControlsReady}
+            >
+              <StepForward className="h-3.5 w-3.5" />
+            </PlayerIconButton>
           </div>
 
           <div className="ml-auto flex min-w-fit items-center gap-1">
+            <PlayerIconButton
+              label={isCaptionOverlayVisible ? "Hide caption overlays" : "Show caption overlays"}
+              active={isCaptionOverlayVisible}
+              aria-pressed={isCaptionOverlayVisible}
+              onClick={() => setIsCaptionOverlayVisible((visible) => !visible)}
+              disabled={!hasCaptionClips}
+              className={isCaptionOverlayVisible && hasCaptionClips ? "text-primary hover:text-primary" : undefined}
+            >
+              <Captions className="h-4 w-4" />
+            </PlayerIconButton>
+
             <PlayerIconButton
               label={isTimelineVisible ? "Hide timeline" : "Show timeline"}
               active={isTimelineVisible}
@@ -1061,12 +1227,14 @@ export function HyperFramesPreviewPlayer({
             model={displayTimelineModel}
             isLoading={timelineQuery.isLoading && !runtimeTimelineModel}
             error={timelineError}
-            isReady={previewControlsReady}
+            isReady={timelineInteractionsReady}
             currentTime={displayTime}
             duration={displayDuration}
             subscribeLiveTime={previewControlsReady ? subscribeLiveTime : undefined}
             onSeek={handleSeek}
             onSelectionChange={onTimelineSelectionChange}
+            onAssetDrop={handleTimelineAssetDrop}
+            onClipUpdate={revisionId || chatId ? undefined : handleTimelineClipUpdate}
           />
         ) : null}
       </div>

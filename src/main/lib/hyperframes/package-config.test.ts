@@ -59,6 +59,7 @@ describe("HyperFrames packaged app configuration", () => {
 
     expect(coreVersion).toMatch(/^\d+\.\d+\.\d+$/)
     expect(pkg.dependencies["@hyperframes/player"]).toBe(coreVersion)
+    expect(pkg.dependencies["@hyperframes/producer"]).toBe(coreVersion)
     expect(pkg.dependencies["@hyperframes/studio"]).toBe(coreVersion)
     expect(pkg.dependencies.hyperframes).toBe(coreVersion)
   })
@@ -68,6 +69,7 @@ describe("HyperFrames packaged app configuration", () => {
     const packageNames = [
       "@hyperframes/core",
       "@hyperframes/player",
+      "@hyperframes/producer",
       "@hyperframes/studio",
       "hyperframes",
     ]
@@ -83,6 +85,8 @@ describe("HyperFrames packaged app configuration", () => {
 
     expect(command).toContain("bun test")
     expect(command).toContain("src/main/lib/hyperframes")
+    expect(command).toContain("src/main/lib/exports")
+    expect(command).toContain("src/renderer/features/renders")
     expect(command).toContain("src/renderer/features/hyperframes")
   })
 
@@ -99,6 +103,17 @@ describe("HyperFrames packaged app configuration", () => {
     expect(importAssetsBlock).not.toContain("allowArchived: true")
   })
 
+  test("keeps product exports out of the legacy HyperFrames render route", () => {
+    const routerSource = readFileSync(
+      "src/main/lib/trpc/routers/hyperframes.ts",
+      "utf-8",
+    )
+
+    expect(routerSource).not.toContain("renderManager")
+    expect(routerSource).not.toContain("getRenderStatus")
+    expect(routerSource).not.toContain("cancelRender")
+  })
+
   test("keeps composition thumbnails isolated from the app origin", () => {
     const paneSource = readFileSync(
       "src/renderer/features/hyperframes/HyperFramesProjectPane.tsx",
@@ -112,6 +127,7 @@ describe("HyperFrames packaged app configuration", () => {
   test("keeps the official HyperFrames surfaces Ripple wraps available", () => {
     const coreExports = readNodePackageJson("@hyperframes/core").exports
     const playerExports = readNodePackageJson("@hyperframes/player").exports
+    const producerExports = readNodePackageJson("@hyperframes/producer").exports
     const cliBin = readNodePackageJson("hyperframes").bin
 
     expect(isRecord(coreExports)).toBe(true)
@@ -125,6 +141,15 @@ describe("HyperFrames packaged app configuration", () => {
     expect(typeof (playerRoot as Record<string, unknown>).import).toBe("string")
     expect(typeof (playerRoot as Record<string, unknown>).require).toBe("string")
     expect(typeof (playerRoot as Record<string, unknown>).types).toBe("string")
+
+    expect(isRecord(producerExports)).toBe(true)
+    const producerRoot = (producerExports as Record<string, unknown>)["."]
+    expect(isRecord(producerRoot)).toBe(true)
+    expect(typeof (producerRoot as Record<string, unknown>).import).toBe("string")
+    expect(typeof (producerRoot as Record<string, unknown>).types).toBe("string")
+    const producerServer = (producerExports as Record<string, unknown>)["./server"]
+    expect(isRecord(producerServer)).toBe(true)
+    expect(typeof (producerServer as Record<string, unknown>).import).toBe("string")
 
     expect(cliBin?.hyperframes).toBe("./dist/cli.js")
   })
@@ -149,8 +174,12 @@ describe("HyperFrames packaged app configuration", () => {
 
     expect(asarUnpack.has("node_modules/@hyperframes/core/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/@hyperframes/player/**/*")).toBe(true)
+    expect(asarUnpack.has("node_modules/@hyperframes/producer/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/@hyperframes/studio/**/*")).toBe(true)
+    expect(asarUnpack.has("node_modules/@puppeteer/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/gsap/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/hyperframes/**/*")).toBe(true)
+    expect(asarUnpack.has("node_modules/puppeteer/**/*")).toBe(true)
+    expect(asarUnpack.has("node_modules/puppeteer-core/**/*")).toBe(true)
   })
 })

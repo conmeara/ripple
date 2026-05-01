@@ -74,6 +74,30 @@ Phase 5 assets/compositions work is now Phase 6.
 - [x] 2026-04-26 / Codex: Fixed code-review issues for stale runtime timeline
   state during source changes, long timelines hidden by Fit mode, and
   duplicate composition refresh races.
+- [x] 2026-04-30 / Codex: Port the useful HyperFrames Studio 0.4.40 NLE
+  affordances into Ripple's timeline: structured clip metadata, frame stepping,
+  current-frame readouts, caption-aware overlays, drag/drop placement helpers,
+  and guarded asset insertion through the main process.
+- [x] 2026-05-01 / Codex: Implement guarded timeline clip editing for Main:
+  horizontal move, row move, persisted row stacking, right trim for patchable
+  clips, and media left trim through `data-media-start` /
+  `data-playback-start`.
+- [x] 2026-05-01 / Codex: Rechecked the current public HyperFrames Studio
+  timeline source and aligned Ripple's gesture handling with Studio's model:
+  normal click selects a clip, Shift creates a range, move/trim gestures clear
+  range overlays, preview immediately, and commit source patches on pointer-up.
+- [x] 2026-05-01 / Codex: Fixed timeline edit commit jank by keeping the
+  optimistic move/trim preview visible until the refreshed timeline model
+  reflects the saved source patch, and enabled left trim handles for patchable
+  HyperFrames DOM clips while keeping media playback offsets media-only.
+- [x] 2026-05-01 / Codex: Refined trim handles to be subtler visual marks
+  while preserving the larger drag hit target, and stopped clip move/trim
+  gestures from seeking the preview so the playhead remains stable.
+- [x] 2026-05-01 / Codex: Stabilized clip-edit commits by following Studio's
+  optimistic timeline update pattern without forcing the visible Ripple
+  preview through a full reload. Clip edit mutations now update the local
+  timeline model directly, while explicit preview reloads and asset insertion
+  preserve the current preview time during hidden handoff.
 
 ## Surprises & Discoveries
 
@@ -161,6 +185,59 @@ Phase 5 assets/compositions work is now Phase 6.
   positions, then calls `onSeek`, leaving one visible scrubber thumb instead
   of a hover marker plus a live marker.
 
+- Observation: HyperFrames Studio 0.4.40's new NLE work is mostly portable as
+  small primitives rather than a component dependency.
+  Evidence: `node_modules/@hyperframes/studio/src/player/components/Timeline.tsx`
+  wires frame/current-time UI, file and asset drops, and move/resize handlers
+  around helpers in `timelineEditing.ts` and `utils/timelineAssetDrop.ts`.
+  Those helpers are small enough to adapt, while the full component still
+  depends on Studio-specific state, icons, CSS, and source-patching rules.
+
+- Observation: The current HyperFrames timeline-editing guide supports move
+  and right-trim for generic DOM/motion clips, but keeps front trim media-only.
+  Evidence: `https://hyperframes.heygen.com/guides/timeline-editing` maps
+  horizontal move to `data-start`, row move to `data-track-index`, right trim
+  to `data-duration`, media left trim to `data-media-start` /
+  `data-playback-start`, and row ordering to inline `z-index`.
+
+- Observation: Studio's current timeline implementation avoids mixing normal
+  clip selection with range selection.
+  Evidence: `packages/studio/src/player/components/Timeline.tsx` clears
+  `rangeSelection` when a move or resize starts, reserves range selection for
+  Shift interactions, keeps gesture state in refs, previews via
+  `resolveTimelineMove` / `resolveTimelineResize`, and calls
+  `onMoveElement` / `onResizeElement` only on pointer-up.
+
+- Observation: Ripple must keep committed edit previews alive while source
+  patching, timeline refetch, and preview reload settle.
+  Evidence: Clearing `clipEditState` immediately on pointer-up briefly redrew
+  clips from the old `model` props, producing a snap-back before the refreshed
+  HyperFrames timeline returned the saved `data-start` / `data-duration` /
+  `data-track-index` values.
+
+- Observation: Left trim handles are valid for patchable DOM clips as a
+  source-level clip-boundary edit, but they are not the same as media playback
+  offset trimming.
+  Evidence: Updating DOM `data-start` and `data-duration` can preserve the
+  clip end without adding `data-media-start` or `data-playback-start`; the
+  main process still rejects playback offset changes for non-media clips.
+
+- Observation: Clip editing and preview seeking need separate interaction
+  paths.
+  Evidence: Calling `onSeek` from clip pointer-down and live move/resize
+  preview made the blue playhead jump to clip boundaries during edits. Keeping
+  seeking on timeline-background interactions only leaves the playhead fixed
+  while the clip preview moves.
+
+- Observation: A persisted clip edit should not make Ripple's visible preview
+  enter the full reload lifecycle.
+  Evidence: HyperFrames Studio applies optimistic timeline state before
+  persisting `onMoveElement` / `onResizeElement`; Ripple previously called
+  `adapter.reload()` after every clip edit, which disabled controls and let the
+  replacement player activate at time zero. Updating the local timeline model
+  from the main-process mutation result keeps the timeline stable after the
+  source write.
+
 ## Decision Log
 
 - Decision: Phase 5 is the timeline under the preview player; assets and
@@ -196,10 +273,34 @@ Phase 5 assets/compositions work is now Phase 6.
   rather than renderer DOM access as the main architecture.
   Date/Author: 2026-04-26 / User + Codex
 
+- Decision: Ripple timeline editing should mirror Studio's interaction split:
+  click selects, Shift selects a time range, drag moves, and trim handles
+  resize. Source edits still go through Ripple's main-process guarded patcher.
+  Rationale: This avoids the confusing blue range overlay during edits while
+  preserving Studio's source-of-truth model and Ripple's project-boundary
+  validation.
+  Date/Author: 2026-05-01 / Codex
+
 - Decision: Use `linkedom/worker` for main-process static timeline parsing.
   Rationale: It provides the DOM APIs needed for source inspection without
   pulling the optional native canvas dependency into Electron's main bundle.
   Date/Author: 2026-04-26 / Codex
+
+- Decision: Port Studio 0.4.40 NLE behavior as Ripple-owned helpers and route
+  every source edit through main-process project-boundary validation.
+  Rationale: Ripple can safely use the same placement, frame, caption, and
+  edit-capability concepts, but renderer-only source patching would violate
+  Ripple's security model and comment/revision isolation rules.
+  Date/Author: 2026-04-30 / Codex
+
+- Decision: `trpc.hyperframes.updateTimelineClip` is the authority for
+  existing clip edits. The renderer may preview drag/trim state, but the main
+  process re-resolves the target clip from the current composition source,
+  rejects source-file mismatches and symlink escapes, then patches only
+  supported HyperFrames attributes and inline `z-index`.
+  Rationale: Timeline editing mutates project files, so it must follow the
+  same project-ID-to-path validation model as asset insertion and preview.
+  Date/Author: 2026-05-01 / Codex
 
 ## Outcomes & Retrospective
 
@@ -273,6 +374,49 @@ single-thumb behavior. Seeking resolves the pointer position with edge
 snapping, immediately syncs the preview fill/thumb/timecode, clears hover
 preview state during pointer capture, and leaves the hover timecode tooltip
 without drawing a second near-overlapping playhead marker.
+
+Studio 0.4.40 NLE affordance port: Ripple's timeline model now preserves
+timeline roles, groups, priorities, track labels, caption clips, and
+composition ancestry from runtime and static HyperFrames sources. The preview
+player has frame stepping, current-frame readouts, and a caption overlay toggle,
+while the detailed timeline shows the current-frame indicator, caption lanes,
+drag placement feedback, and edit-capability affordances. Project media can be
+dragged from the assets pane onto the Main timeline; the write path resolves
+and validates the project, composition, and asset in the main process before
+patching the HyperFrames HTML source and refreshing the runtime model.
+
+Validation for the Studio 0.4.40 port completed:
+
+- `bun test src/renderer/features/hyperframes/timeline-model.test.ts src/main/lib/hyperframes/timeline-model.test.ts src/main/lib/hyperframes/timeline-assets.test.ts`
+  passed: 22 tests.
+- `bun test src/renderer/features/hyperframes/preview-player-controls.test.ts`
+  passed: 8 tests.
+- `bun run test:hyperframes` passed: 106 tests.
+- `bun x tsc --noEmit` passed.
+- `bun run test:ripple` passed: 261 tests.
+- `bun run build` passed.
+
+Timeline clip editing milestone: Ripple now supports the scoped editing model
+from the HyperFrames guide inside the embedded timeline. Dragging a patchable
+clip horizontally updates `data-start`, dragging between rows updates
+`data-track-index`, row ordering is persisted to inline `z-index`, dragging
+the right handle updates `data-duration`, and dragging the left handle on
+media-backed clips updates the clip start plus `data-media-start` or the
+existing `data-playback-start`. Generic DOM clips intentionally do not expose
+front trim because HyperFrames has no generic animation-offset attribute for
+that yet. Editing is disabled for revision/chat previews; users switch to
+Main before mutating project source.
+
+Validation for timeline clip editing completed:
+
+- `bun test src/main/lib/hyperframes/timeline-edits.test.ts src/renderer/features/hyperframes/timeline-model.test.ts`
+  passed: 18 tests.
+- `bun test src/main/lib/hyperframes src/renderer/features/hyperframes`
+  passed: 117 tests.
+- `bun run ts:check` passed.
+- `bun run test:ripple` passed: 281 tests.
+- `git diff --check` passed.
+- `bun run build` passed.
 
 ## Context and Orientation
 
@@ -535,9 +679,6 @@ New main-process interfaces:
 
 - `trpc.hyperframes.getTimelineModel`
 - static timeline model helper under `src/main/lib/hyperframes/`
-
-Future editing interfaces, not part of the first Phase 5 milestone:
-
 - `trpc.hyperframes.updateTimelineClip`
 - structured source patch helper that validates project ID, composition ID,
   source file, selector/key, symlink-safe path, and timing updates

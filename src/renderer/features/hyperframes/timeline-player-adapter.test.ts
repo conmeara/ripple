@@ -71,4 +71,19 @@ describe("Ripple timeline player adapter source changes", () => {
     )
     expect(sourceLoadEffect).toContain("return { sourceUrl, objectUrl }")
   })
+
+  test("reloads can preserve the current preview time for stable handoffs", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/timeline-player-adapter.ts",
+      "utf8",
+    )
+    const reloadStart = source.indexOf("const reload = useCallback")
+    const reloadEnd = source.indexOf("  const setPlaybackSpeed", reloadStart)
+    const reloadBlock = source.slice(reloadStart, reloadEnd)
+
+    expect(reloadStart).toBeGreaterThan(-1)
+    expect(reloadEnd).toBeGreaterThan(reloadStart)
+    expect(reloadBlock).toContain("options?: { seekTime?: number | null }")
+    expect(reloadBlock).toContain("readySeekTimeRef.current = Math.max(0, options.seekTime)")
+  })
 })

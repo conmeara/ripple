@@ -1,6 +1,12 @@
 import { index, sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core"
 import { relations } from "drizzle-orm"
 import { createId } from "../utils"
+import type {
+  RippleExportFormat,
+  RippleExportFps,
+  RippleExportQualityPreset,
+  RippleExportStatus,
+} from "../../../../shared/ripple-exports"
 
 // ============ PROJECTS ============
 export const projects = sqliteTable("projects", {
@@ -42,6 +48,7 @@ export const projectsRelations = relations(projects, ({ many }) => ({
   compositions: many(compositions),
   commentThreads: many(commentThreads),
   revisions: many(revisions),
+  exportJobs: many(exportJobs),
 }))
 
 // ============ COMPOSITIONS ============
@@ -70,10 +77,82 @@ export const compositions = sqliteTable("compositions", {
   index("compositions_project_file_idx").on(table.projectId, table.filePath),
 ])
 
-export const compositionsRelations = relations(compositions, ({ one }) => ({
+export const compositionsRelations = relations(compositions, ({ one, many }) => ({
   project: one(projects, {
     fields: [compositions.projectId],
     references: [projects.id],
+  }),
+  exportJobs: many(exportJobs),
+}))
+
+// ============ EXPORT JOBS ============
+export const exportJobs = sqliteTable("export_jobs", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  compositionId: text("composition_id").references(() => compositions.id, {
+    onDelete: "set null",
+  }),
+  revisionId: text("revision_id").references(() => revisions.id, {
+    onDelete: "set null",
+  }),
+  sourceContextKey: text("source_context_key").notNull(),
+  sourceLabel: text("source_label").notNull().default("Main"),
+  label: text("label").notNull(),
+  format: text("format").$type<RippleExportFormat>().notNull().default("mp4"),
+  fps: integer("fps").$type<RippleExportFps>().notNull().default(30),
+  qualityPreset: text("quality_preset")
+    .$type<RippleExportQualityPreset>()
+    .notNull()
+    .default("standard"),
+  settingsJson: text("settings_json").notNull().default("{}"),
+  outputPath: text("output_path"),
+  destinationPath: text("destination_path"),
+  status: text("status")
+    .$type<RippleExportStatus>()
+    .notNull()
+    .default("queued"),
+  progress: integer("progress").notNull().default(0),
+  progressLabel: text("progress_label"),
+  pid: integer("pid"),
+  stdoutTail: text("stdout_tail").notNull().default(""),
+  stderrTail: text("stderr_tail").notNull().default(""),
+  errorMessage: text("error_message"),
+  outputSizeBytes: integer("output_size_bytes"),
+  durationSeconds: integer("duration_seconds"),
+  width: integer("width"),
+  height: integer("height"),
+  startedAt: integer("started_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(
+    () => new Date(),
+  ),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+  cancelledAt: integer("cancelled_at", { mode: "timestamp" }),
+}, (table) => [
+  index("export_jobs_project_created_idx").on(table.projectId, table.createdAt),
+  index("export_jobs_project_status_idx").on(table.projectId, table.status),
+  index("export_jobs_composition_id_idx").on(table.compositionId),
+  index("export_jobs_revision_id_idx").on(table.revisionId),
+])
+
+export const exportJobsRelations = relations(exportJobs, ({ one }) => ({
+  project: one(projects, {
+    fields: [exportJobs.projectId],
+    references: [projects.id],
+  }),
+  composition: one(compositions, {
+    fields: [exportJobs.compositionId],
+    references: [compositions.id],
+  }),
+  revision: one(revisions, {
+    fields: [exportJobs.revisionId],
+    references: [revisions.id],
   }),
 }))
 
@@ -748,6 +827,7 @@ export const revisionsRelations = relations(revisions, ({ one, many }) => ({
     references: [agentRuns.id],
   }),
   messages: many(commentMessages),
+  exportJobs: many(exportJobs),
 }))
 
 // ============ CLAUDE CODE CREDENTIALS ============
@@ -798,6 +878,8 @@ export type Conversation = typeof conversations.$inferSelect
 export type NewConversation = typeof conversations.$inferInsert
 export type ConversationMessage = typeof conversationMessages.$inferSelect
 export type NewConversationMessage = typeof conversationMessages.$inferInsert
+export type ExportJob = typeof exportJobs.$inferSelect
+export type NewExportJob = typeof exportJobs.$inferInsert
 export type AgentConnection = typeof agentConnections.$inferSelect
 export type NewAgentConnection = typeof agentConnections.$inferInsert
 export type Workspace = typeof workspaces.$inferSelect

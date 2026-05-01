@@ -69,6 +69,7 @@ describe("Ripple shell layout state", () => {
   test("classifies review and utility content modes", () => {
     expect(getRippleRightPaneContentKind("chat")).toBe("chat")
     expect(getRippleRightPaneContentKind("comments")).toBe("comments")
+    expect(getRippleRightPaneContentKind("renders")).toBe("utility")
 
     for (const utilityMode of RIPPLE_UTILITY_MODES) {
       expect(isRippleUtilityMode(utilityMode)).toBe(true)
@@ -77,6 +78,7 @@ describe("Ripple shell layout state", () => {
 
     expect(isRippleUtilityMode("chat")).toBe(false)
     expect(isRippleUtilityMode("comments")).toBe(false)
+    expect(isRippleUtilityMode("renders")).toBe(false)
     expect(isRippleUtilityMode("unknown")).toBe(false)
   })
 
@@ -102,11 +104,13 @@ describe("Ripple shell layout state", () => {
   test("remounts embedded review content when entering and leaving utilities", () => {
     const chatKey = getRippleReviewContentKey("chat-1", "chat")
     const commentsKey = getRippleReviewContentKey("chat-1", "comments")
+    const rendersKey = getRippleReviewContentKey("chat-1", "renders")
     const detailsKey = getRippleReviewContentKey("chat-1", "details")
     const filesKey = getRippleReviewContentKey("chat-1", "files")
 
     expect(chatKey).toBe("ripple-review-chat-1:review")
     expect(commentsKey).toBe(chatKey)
+    expect(rendersKey).toBe("ripple-review-chat-1:utility:renders")
     expect(detailsKey).toBe("ripple-review-chat-1:utility:details")
     expect(filesKey).toBe("ripple-review-chat-1:utility:files")
     expect(detailsKey).not.toBe(chatKey)

@@ -41,6 +41,7 @@ import {
 } from "./lib/revisions/revision-queue"
 import { scheduleGeneratedChangeQueue } from "./lib/agent-runtime/generated-change-scheduler"
 import { recoverAgentRunsOnStartup } from "./lib/agent-runtime/service"
+import { cancelAllExports, recoverExportJobsOnStartup } from "./lib/exports"
 import { ensureRippleRuntimeOnLaunch } from "./lib/ripple-projects/service"
 import { getAllMcpConfigHandler, hasActiveClaudeSessions, abortAllClaudeSessions } from "./lib/trpc/routers/claude"
 import { getAllCodexMcpConfigHandler, hasActiveCodexStreams, abortAllCodexStreams } from "./lib/trpc/routers/codex"
@@ -978,6 +979,16 @@ if (gotTheLock) {
       } catch (error) {
         console.warn("[Ripple] Agent run recovery failed:", error)
       }
+      try {
+        const exportRecovery = recoverExportJobsOnStartup()
+        if (exportRecovery.interrupted) {
+          console.log(
+            `[Ripple] Export recovery: ${exportRecovery.interrupted} interrupted`,
+          )
+        }
+      } catch (error) {
+        console.warn("[Ripple] Export recovery failed:", error)
+      }
       void cleanupTerminalRevisionWorktrees()
         .then((result) => {
           if (result.cleaned || result.failed) {
@@ -1066,6 +1077,7 @@ if (gotTheLock) {
     cancelAllPendingOAuth()
     await previewManager.stopAll()
     renderManager.cancelAll()
+    await cancelAllExports()
     await cleanupGitWatchers()
     await shutdownAnalytics()
     await closeDatabase()

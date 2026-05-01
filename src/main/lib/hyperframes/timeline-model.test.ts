@@ -199,6 +199,42 @@ describe("HyperFrames static timeline model", () => {
     }
   })
 
+  test("extracts caption and timeline metadata from static HTML", () => {
+    const projectDir = mkdtempSync(join(tmpdir(), "ripple-static-caption-"))
+    try {
+      writeFileSync(
+        join(projectDir, "hyperframes.json"),
+        JSON.stringify({ fps: 30, duration: 4 }),
+      )
+      writeFileSync(
+        join(projectDir, "index.html"),
+        [
+          "<!doctype html><html><body>",
+          '<main data-composition-id="main" data-width="1920" data-height="1080" data-duration="4">',
+          '<span id="caption-a" class="clip caption" data-start="1" data-duration="2" data-track-index="3" data-timeline-role="caption" data-timeline-group="captions" data-timeline-priority="-1">Ship the spot</span>',
+          "</main>",
+          "</body></html>",
+        ].join(""),
+      )
+
+      const model = buildHyperframesStaticTimelineModel({
+        context: context(projectDir),
+        composition: composition(),
+      })
+
+      expect(model.clips[0]).toMatchObject({
+        id: "caption-a",
+        label: "Caption",
+        kind: "caption",
+        timelineRole: "caption",
+        timelineGroup: "captions",
+        timelinePriority: -1,
+      })
+    } finally {
+      rmSync(projectDir, { recursive: true, force: true })
+    }
+  })
+
   test("rebases relative media paths from nested composition files and preserves external URLs", () => {
     const projectDir = mkdtempSync(join(tmpdir(), "ripple-static-assets-"))
     try {

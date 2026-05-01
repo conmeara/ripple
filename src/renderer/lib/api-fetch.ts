@@ -22,7 +22,13 @@ function generateStreamId(): string {
 
 function serializeHeaders(headers?: HeadersInit): Record<string, string> {
   if (!headers) return {}
-  if (headers instanceof Headers) return Object.fromEntries(headers.entries())
+  if (headers instanceof Headers) {
+    const serialized: Record<string, string> = {}
+    headers.forEach((value, key) => {
+      serialized[key] = value
+    })
+    return serialized
+  }
   if (Array.isArray(headers)) return Object.fromEntries(headers)
   return { ...headers }
 }

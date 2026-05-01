@@ -4,6 +4,8 @@ import {
   filterTimelineDisplayClips,
   formatTimelineTimecode,
   generateTimelineTicks,
+  getActiveCaptionOverlayClips,
+  getTimelineFrameIndicator,
   getTimelineFitPixelsPerSecond,
   getTimelinePixelsPerSecond,
   getTimelinePlayheadLeft,
@@ -11,6 +13,16 @@ import {
   normalizeRuntimeTimelineManifest,
   type RippleTimelineClip,
 } from "../../../shared/hyperframes-timeline-model"
+import {
+  buildTimelineAssetId,
+  buildTimelineAssetInsertHtml,
+  buildTimelineFileDropPlacements,
+  buildTrackZIndexMap,
+  getTimelineEditCapabilities,
+  resolveTimelineAssetDrop,
+  resolveTimelineMove,
+  resolveTimelineResize,
+} from "../../../shared/hyperframes-timeline-editing"
 
 function clip(overrides: Partial<RippleTimelineClip> = {}): RippleTimelineClip {
   return {
@@ -162,6 +174,42 @@ describe("Ripple timeline model utilities", () => {
     expect(formatTimelineTimecode(model?.clips[0]?.start ?? 0, model?.fps)).toBe("00:00:01:30")
   })
 
+  test("preserves 0.4.40 caption metadata and builds active caption overlays", () => {
+    const model = normalizeRuntimeTimelineManifest({
+      context: {
+        projectId: "project_1",
+        compositionId: "composition_1",
+        filePath: "index.html",
+        width: 1080,
+        height: 1920,
+        fps: 30,
+      },
+      manifest: {
+        durationInFrames: 150,
+        clips: [
+          {
+            id: "caption-1",
+            label: "Launch today",
+            kind: "element",
+            tagName: "span",
+            start: 1,
+            duration: 2,
+            track: 3,
+            timelineRole: "caption",
+            timelineGroup: "captions",
+            timelinePriority: -1,
+          },
+        ],
+      },
+    })
+
+    expect(model?.clips[0]?.kind).toBe("caption")
+    expect(model?.clips[0]?.timelineRole).toBe("caption")
+    expect(model?.clips[0]?.timelinePriority).toBe(-1)
+    expect(getActiveCaptionOverlayClips({ model, time: 1.5 })).toHaveLength(1)
+    expect(getActiveCaptionOverlayClips({ model, time: 3.2 })).toHaveLength(0)
+  })
+
   test("returns null for runtime manifests without usable clips or duration", () => {
     const model = normalizeRuntimeTimelineManifest({
       context: {
@@ -298,5 +346,114 @@ describe("Ripple timeline model utilities", () => {
     expect(selection.endFrame).toBe(90)
     expect(selection.clipKey).toBe("index.html:#title:0")
     expect(selection.selector).toBe("#title")
+  })
+
+  test("builds current-frame indicators with custom fps", () => {
+    expect(getTimelineFrameIndicator({
+      time: 1.25,
+      duration: 2,
+      fps: 60,
+    })).toMatchObject({
+      frame: 75,
+      totalFrames: 120,
+      label: "Frame 75 / 120",
+      timecode: "00:00:01:15",
+    })
+  })
+
+  test("resolves Studio-style timeline drag and trim primitives", () => {
+    expect(resolveTimelineMove({
+      start: 1,
+      duration: 2,
+      track: 1,
+      originClientX: 100,
+      originClientY: 100,
+      pixelsPerSecond: 100,
+      trackHeight: 50,
+      maxStart: 4,
+      trackOrder: [0, 1, 2],
+    }, 250, 151)).toEqual({ start: 2.5, track: 2 })
+
+    expect(resolveTimelineResize({
+      start: 1,
+      duration: 2,
+      originClientX: 100,
+      pixelsPerSecond: 100,
+      minStart: 0,
+      maxEnd: 6,
+      playbackStart: 0.5,
+    }, "start", 50)).toEqual({ start: 0.5, duration: 2.5, playbackStart: 0 })
+
+    expect(resolveTimelineResize({
+      start: 1,
+      duration: 2,
+      originClientX: 100,
+      pixelsPerSecond: 100,
+      minStart: 0,
+      maxEnd: 6,
+      seedPlaybackStart: true,
+    }, "start", 150)).toEqual({ start: 1.5, duration: 1.5, playbackStart: 0.5 })
+
+    expect(getTimelineEditCapabilities({
+      tag: "div",
+      duration: 2,
+      domId: "panel",
+    })).toEqual({ canMove: true, canTrimStart: true, canTrimEnd: true })
+
+    expect(getTimelineEditCapabilities({
+      tag: "video",
+      duration: 2,
+      domId: "hero",
+      playbackStart: 0,
+    })).toEqual({ canMove: true, canTrimStart: true, canTrimEnd: true })
+
+    expect(getTimelineEditCapabilities({
+      tag: "section",
+      duration: 6,
+      sourceFile: "index.html",
+    })).toEqual({ canMove: true, canTrimStart: true, canTrimEnd: true })
+
+    expect(buildTrackZIndexMap([0, 2, 1]).get(0)).toBe(3)
+  })
+
+  test("resolves timeline asset drop placement and collision-aware sequences", () => {
+    expect(resolveTimelineAssetDrop({
+      rectLeft: 10,
+      rectTop: 20,
+      scrollLeft: 0,
+      scrollTop: 0,
+      pixelsPerSecond: 100,
+      duration: 6,
+      trackHeight: 58,
+      trackOrder: [0, 1, 2],
+      gutterWidth: 36,
+      rulerHeight: 28,
+    }, 246, 108)).toEqual({ start: 2, track: 1 })
+
+    expect(buildTimelineFileDropPlacements(
+      { start: 1, track: 1 },
+      [2, 3],
+      [{ start: 0, duration: 4, track: 1 }],
+    )).toEqual([
+      { start: 1, track: 2 },
+      { start: 3, track: 2 },
+    ])
+
+    expect(buildTimelineAssetId("assets/images/Hero Logo.png", ["hero_logo"])).toBe("hero_logo_2")
+  })
+
+  test("escapes inserted timeline asset attributes", () => {
+    const html = buildTimelineAssetInsertHtml({
+      id: 'hero"logo',
+      assetPath: 'assets/images/Hero "Logo" & Badge.png',
+      kind: "image",
+      start: 0,
+      duration: 2,
+      track: 0,
+      zIndex: 1,
+    })
+
+    expect(html).toContain('id="hero&quot;logo"')
+    expect(html).toContain('src="assets/images/Hero &quot;Logo&quot; &amp; Badge.png"')
   })
 })

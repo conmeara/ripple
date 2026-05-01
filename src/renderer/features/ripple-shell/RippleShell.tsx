@@ -45,6 +45,7 @@ import { NewChatForm } from "../agents/main/new-chat-form"
 import { RippleRevisionQueueWorker } from "../comments/RippleRevisionQueueWorker"
 import { HyperFramesPreviewPlayer } from "../hyperframes/HyperFramesPreviewPlayer"
 import { HyperFramesProjectPane } from "../hyperframes/HyperFramesProjectPane"
+import { RippleRendersPane } from "../renders/RippleRendersPane"
 import { RippleEmbeddedChatToolbar } from "./RippleEmbeddedChatToolbar"
 import {
   RippleReviewPane,
@@ -239,6 +240,13 @@ export function RippleShell({
   const projectHistoryChats = trpc.chats.list.useQuery(
     { projectId: selectedProject.id },
     { enabled: Boolean(selectedProject.id) },
+  )
+  const exportActiveCountQuery = trpc.exports.activeCount.useQuery(
+    { projectId: selectedProject.id },
+    {
+      enabled: Boolean(selectedProject.id),
+      refetchInterval: 1500,
+    },
   )
   const projectHistoryItems = useMemo(
     () =>
@@ -564,11 +572,22 @@ export function RippleShell({
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled
-                className="h-7 gap-1.5 rounded-md px-2 text-xs text-muted-foreground"
+                aria-pressed={shellState.rightPaneMode === "renders"}
+                onClick={() => handleModeChange("renders")}
+                className={cn(
+                  "h-7 gap-1.5 rounded-md px-2 text-xs text-muted-foreground",
+                  shellState.reviewPaneOpen &&
+                    shellState.rightPaneMode === "renders" &&
+                    "bg-foreground/[0.10] text-foreground",
+                )}
               >
                 <CirclePlay className="h-3 w-3" />
                 Renders
+                {exportActiveCountQuery.data ? (
+                  <span className="ml-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] leading-none text-primary">
+                    {exportActiveCountQuery.data}
+                  </span>
+                ) : null}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Renders</TooltipContent>
@@ -579,7 +598,8 @@ export function RippleShell({
             active={
               shellState.reviewPaneOpen &&
               shellState.rightPaneMode !== "chat" &&
-              shellState.rightPaneMode !== "comments"
+              shellState.rightPaneMode !== "comments" &&
+              shellState.rightPaneMode !== "renders"
             }
             onModeChange={handleModeChange}
           />
@@ -675,7 +695,14 @@ export function RippleShell({
             onShowPrimaryPreview={handleShowPrimaryPreview}
             onOpenRevisionChat={handleOpenRevisionChat}
           >
-            {chatId ? (
+            {shellState.rightPaneMode === "renders" ? (
+              <RippleRendersPane
+                projectId={selectedProject.id}
+                compositionId={selectedProject.activeCompositionId}
+                activePreviewRevisionId={activePreviewRevisionId}
+                activePreviewChatId={activePreviewChatId}
+              />
+            ) : chatId ? (
               <ChatView
                 key={getRippleReviewContentKey(chatId, shellState.rightPaneMode)}
                 chatId={chatId}

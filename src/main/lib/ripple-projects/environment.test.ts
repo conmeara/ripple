@@ -6,6 +6,7 @@ import {
   setupStatusFromChecks,
   type EnvironmentProbe,
 } from "./environment"
+import { getProducerBrowserCandidates } from "../hyperframes/runtime"
 import type { EnvironmentCheck } from "./types"
 
 function createProbe(input: {
@@ -32,6 +33,12 @@ function createProbe(input: {
   }
 }
 
+function getBundledBrowserFixture(repoRoot: string): string {
+  return getProducerBrowserCandidates(repoRoot).find((candidate) =>
+    candidate.includes(join("resources", "browser")),
+  ) ?? join(repoRoot, "resources", "browser", "browser")
+}
+
 describe("Ripple environment checks", () => {
   test("parses Node.js major versions", () => {
     expect(parseNodeMajor("v25.9.0")).toBe(25)
@@ -49,7 +56,7 @@ describe("Ripple environment checks", () => {
           ffprobe: { stdout: "ffprobe version 7.0\n" },
           "/repo/node_modules/.bin/hyperframes": { stdout: "1.2.3\n" },
         },
-        existingPaths: ["/repo/node_modules/gsap"],
+        existingPaths: ["/repo/node_modules/gsap", getBundledBrowserFixture("/repo")],
       }),
     )
 
@@ -60,6 +67,7 @@ describe("Ripple environment checks", () => {
       "ffmpeg",
       "ffprobe",
       "hyperframes",
+      "exportBrowser",
       "offlineRuntime",
     ])
   })
@@ -89,6 +97,9 @@ describe("Ripple environment checks", () => {
     expect(report.checks.find((check) => check.name === "hyperframes")?.status).toBe(
       "missing",
     )
+    expect(report.checks.find((check) => check.name === "exportBrowser")?.status).toBe(
+      "missing",
+    )
     expect(report.checks.find((check) => check.name === "offlineRuntime")?.status).toBe(
       "ready",
     )
@@ -104,6 +115,7 @@ describe("Ripple environment checks", () => {
           ffprobe: { stdout: "ffprobe version 7.0\n" },
           hyperframes: { stdout: "1.2.3\n" },
         },
+        existingPaths: [getBundledBrowserFixture("/repo")],
       }),
     )
 

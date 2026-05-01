@@ -49,17 +49,49 @@ safe, and friendly to non-developer users.
 - [x] 2026-04-28 / User + Codex: Removed the CLI fallback executor from the
   target plan. If Producer fails validation, Phase 11 should resolve that
   blocker instead of carrying two render execution paths.
-- [ ] Implement Milestone 0: Producer integration spike and package/publishing
-  verification.
-- [ ] Implement Milestone 1: persistent export job model, shared types, and
+- [x] 2026-04-30 / User + Codex: Upgraded the HyperFrames package family to
+  `0.4.40` and added `@hyperframes/producer@0.4.40` as a direct dependency.
+  `node_modules/.bin/hyperframes --version` reports `0.4.40`, and
+  `hyperframes render --help` still exposes MP4, MOV, WebM, FPS, quality,
+  workers, Docker, HDR/SDR, CRF, bitrate, GPU/browser GPU, strict, and max
+  concurrent producer render flags.
+- [x] 2026-04-30 / Codex: Validated the installed Producer public API. The
+  public exports are `createRenderJob`, `executeRenderJob`,
+  `RenderCancelledError`, and logger/server helpers; `executeRenderJob(job,
+  projectDir, outputPath, onProgress, abortSignal)` is the target integration
+  point.
+- [x] 2026-04-30 / Codex: Implemented the persistent Phase 11 export stack:
+  shared export contract, Drizzle `export_jobs` table and migration,
+  Producer-backed export service, product-level `exports` tRPC router,
+  startup recovery, and the right-pane Renders UI.
+- [x] 2026-04-30 / Codex: Validated real Producer outputs. A direct Node-based
+  smoke rendered MP4, MOV, and WebM with nonzero outputs; FFprobe confirmed MOV
+  as ProRes in a QuickTime container and WebM as VP9 in a WebM container, both
+  at 640x360 and 1.0s.
+- [x] 2026-05-01 / Codex: Ran live Electron QA with Computer Use. The Renders
+  pane exported MP4, MOV, WebM, and a `Current Preview` revision export from
+  the actual UI; progress, cancellation, retry, open, and reveal paths were
+  exercised. The format picker and source block were polished after the first
+  pass exposed cramped/overlapping copy in the right pane.
+- [x] Implement Milestone 0: Producer public API, cancellation,
+  composition-targeting, and packaging verification.
+- [x] Implement Milestone 1: persistent export job model, shared types, and
   migration.
-- [ ] Implement Milestone 2: DB-backed export manager around HyperFrames render
+- [x] Implement Milestone 2: DB-backed export manager around HyperFrames render
   with recovery, cancellation, and FFprobe validation.
-- [ ] Implement Milestone 3: product-level `exports` tRPC router with safe
+- [x] Implement Milestone 3: product-level `exports` tRPC router with safe
   destination, reveal/open, retry, and job-history operations.
-- [ ] Implement Milestone 4: Ripple `Renders` pane and top-bar entry point.
-- [ ] Implement Milestone 5: validation, smoke renders, packaging checks, and
+- [x] Implement Milestone 4: Ripple `Renders` pane and top-bar entry point.
+- [x] Implement Milestone 5: validation, smoke renders, packaging checks, and
   recovery hardening.
+- [x] Implement Milestone 6: MP4, MOV, and WebM real-output validation.
+- [x] Implement Milestone 7: narrow Producer boundary without a CLI fallback.
+- [x] 2026-05-01 / Codex: Remediated the Phase 11 audit findings: default
+  export paths now reject symlink escapes, export readiness includes the
+  Producer browser runtime, `Current Preview` exports support chat worktree
+  previews as well as comment revisions, completion requires FFprobe media
+  facts, the legacy public HyperFrames render route is removed, and explicit
+  stale composition IDs fail instead of falling back.
 
 ## Surprises & Discoveries
 
@@ -105,19 +137,67 @@ safe, and friendly to non-developer users.
   `hyperframes.render({ projectId, format, fps, quality })`; preview and
   timeline routes already know about revision contexts, but export does not.
 
-- Observation: The standalone `@hyperframes/producer` package is not installed
-  in this checkout, although Studio lists it as a dev dependency and official
-  docs describe it as the programmatic render path.
-  Evidence: `bun pm ls @hyperframes/producer` shows no installed dependency.
-  The bundled CLI contains internal producer code, but that is not a stable
-  package import surface for Ripple.
+- Observation: Earlier Phase 11 planning could not locally validate the
+  standalone `@hyperframes/producer` package because it was not installed. The
+  package is now installed, so the remaining work is to validate its actual
+  public API and Electron behavior before relying on it.
+  Evidence: The earlier audit found no installed Producer dependency. The
+  2026-04-30 package update added `@hyperframes/producer@0.4.40`.
 
 - Observation: Official HyperFrames docs and installed CLI agree on the core
   export surface.
   Evidence: The docs describe MP4, MOV, and WebM rendering; local and Docker
-  modes; FPS, quality, CRF, bitrate, workers, GPU, HDR, and producer
-  concurrency options. Installed `hyperframes render --help` reported the same
-  main flags for version `0.4.30`.
+  modes; FPS, quality, CRF, bitrate, workers, GPU/browser GPU, SDR/HDR, and
+  producer concurrency options. Installed `hyperframes render --help` reported
+  the same main flags for version `0.4.30`, and the 2026-04-30 `0.4.40`
+  upgrade retained them and added explicit `--sdr` / `--browser-gpu` help.
+
+- Observation: The standalone `@hyperframes/producer` package is now installed
+  and pinned with the rest of the HyperFrames package family.
+  Evidence: On 2026-04-30, `bun add hyperframes@0.4.40
+  @hyperframes/core@0.4.40 @hyperframes/player@0.4.40
+  @hyperframes/studio@0.4.40 @hyperframes/producer@0.4.40` updated
+  `package.json` and `bun.lock`; `bun pm ls @hyperframes/producer` reports
+  `@hyperframes/producer@0.4.40`.
+
+- Observation: Producer's public API is usable directly from Ripple's main
+  process boundary, but a static type import pulls in
+  `@hyperframes/engine/src` declarations that break the current TypeScript
+  check. The implementation uses a dynamic import boundary with local minimal
+  types in `producer-executor.ts`.
+  Evidence: `node_modules/@hyperframes/producer/dist/index.d.ts` exports
+  `createRenderJob`, `executeRenderJob`, and `RenderCancelledError`; `bun x tsc
+  --noEmit` passes after keeping Producer types behind the executor boundary.
+
+- Observation: Bun-based direct Producer smoke is not reliable in this
+  checkout, but Node-based Producer smoke succeeds when local server/browser
+  binding is allowed.
+  Evidence: A Bun smoke stalled/fell over with `Failed to start server. Is port
+  0 in use?`; the Node smoke initially failed under the sandbox with `listen
+  EPERM: operation not permitted 0.0.0.0`, then succeeded with escalation and
+  produced MP4/MOV/WebM outputs.
+
+- Observation: Producer requires a page implementing the seek protocol, not
+  just HyperFrames clip markup.
+  Evidence: A malformed smoke fixture failed with `window.__hf not ready after
+  45000ms. Page must expose window.__hf = { duration, seek }`; adding
+  `window.__hf = { duration, seek }` made MP4/MOV/WebM smokes pass.
+
+- Observation: Export path validation must use filesystem facts, not only
+  lexical path checks.
+  Evidence: The Phase 11 audit found that a project-local `exports` symlink
+  could resolve outside the project. `createExportOutputPath` now validates the
+  export directory with `lstat` and `realpath`, and
+  `ExportService` has a regression that rejects the symlink escape before
+  Producer starts.
+
+- Observation: HyperFrames Studio does not expose a composition-specific render
+  choice in its Renders UI.
+  Evidence: Studio's `RenderQueue` calls
+  `renderQueue.startRender(30, quality, format)`, and `useRenderQueue` posts
+  `{ fps, quality, format }` to `/api/projects/:projectId/render` without a
+  composition id or batch target. It is effectively a project-entry render
+  surface, while its preview can drill into composition files separately.
 
 ## Decision Log
 
@@ -136,6 +216,14 @@ safe, and friendly to non-developer users.
   review-pane area, alongside Chat, Comments, Details, Files, and the other
   utility pages. The primary action inside that pane is `Export`.
   Date/Author: 2026-04-27 / Codex
+
+- Decision: Phase 11 targets the `0.4.40` HyperFrames package family.
+  Rationale: The local checkout has been moved to `hyperframes`,
+  `@hyperframes/core`, `@hyperframes/player`, `@hyperframes/studio`, and
+  `@hyperframes/producer` at `0.4.40`. The implementation should keep those
+  versions pinned together, avoid mixed package-family assumptions, and run the
+  HyperFrames-focused regression tests after touching the adapter boundary.
+  Date/Author: 2026-04-30 / User + Codex
 
 - Decision: Add a product-level `exports` tRPC router instead of growing
   `hyperframes.render` into a UI workflow.
@@ -176,9 +264,68 @@ safe, and friendly to non-developer users.
   packaging validation, record and fix the blocker before continuing.
   Date/Author: 2026-04-28 / User + Codex
 
+- Decision: Keep Producer package access behind a dynamic executor boundary.
+  Rationale: Ripple needs a stable main-process integration point that shields
+  the renderer and tRPC router from Producer internals and avoids current
+  upstream declaration leakage into the app TypeScript build.
+  Date/Author: 2026-04-30 / Codex
+
+- Decision: Phase 11 exports one selected composition/source at a time.
+  Rationale: Studio keeps rendering project-level and simple; Ripple has a
+  stronger composition model, so the pane should make the selected composition
+  and source (`Main` or `Current Preview`) explicit. Batch export across
+  multiple compositions should be a later Renders queue enhancement, not hidden
+  behind the first export button.
+  Date/Author: 2026-05-01 / Codex
+
 ## Outcomes & Retrospective
 
-Not started. This plan is currently a research-backed implementation outline.
+Phase 11 is implemented as a durable product export workflow.
+
+The implementation adds `src/shared/ripple-exports.ts`,
+`src/main/lib/exports/`, `src/main/lib/trpc/routers/exports.ts`,
+`src/renderer/features/renders/`, and the Drizzle migration
+`drizzle/0015_big_dorian_gray.sql`. The `export_jobs` table records project,
+composition, optional revision, source label/context, format, FPS, quality,
+settings JSON, output/destination paths, progress, log tails, errors, output
+facts, and timestamps. The main process owns project/revision resolution,
+destination tokens, output path safety, Producer execution, cancellation,
+retry, open/reveal, and startup interruption recovery.
+
+The renderer now has a first-class right-pane Renders surface opened by the
+existing top-bar `Renders` button. It offers MP4, MOV, and WebM; FPS choices
+24/30/60; draft/standard/high quality where meaningful; project-local output by
+default; main-process save dialog support; active job count; progress rows;
+cancel; retry; clear completed; open; reveal; and remove. When a revision
+preview is active, the pane exposes `Main` vs `Current Preview` and defaults to
+`Main`.
+
+Validation completed:
+
+- `bun test src/shared/ripple-exports.test.ts src/main/lib/exports src/renderer/features/ripple-shell/ripple-shell-layout.test.ts src/renderer/features/renders/export-target.test.ts`
+  passed.
+- `bun run test:ripple` passed with 254 tests.
+- `bun x tsc --noEmit` passed.
+- `bun run build` passed.
+- Direct Node Producer smoke rendered MP4, MOV, and WebM. FFprobe confirmed MOV
+  `mov,mp4,m4a,3gp,3g2,mj2` / ProRes / 640x360 / 1.0s and WebM
+  `matroska,webm` / VP9 / 640x360 / 1.0s.
+- `bun run ts:check` now passes after switching the script to the local
+  TypeScript compiler (`tsc --noEmit`).
+- Live app QA exported MP4, MOV, WebM, and Current Preview MP4 from the Renders
+  pane. Cancel, Retry, Open, and Reveal controls were exercised through the UI.
+
+Retrospective notes:
+
+- The narrow Producer executor boundary was the right pressure valve. It kept
+  the product service clean while absorbing public API and declaration quirks.
+- The destination-token model keeps renderer inputs product-level and avoids
+  trusting arbitrary absolute paths.
+- Revision export is implemented through the same validated preview-context
+  resolver as revision preview, so export does not silently fall back to Main if
+  isolation fails.
+- The right-pane Renders surface needs especially terse trigger text. Select
+  descriptions belong inside the menu rows, not inside the collapsed trigger.
 
 ## Context and Orientation
 
@@ -237,7 +384,7 @@ Terms:
 - The destination is the product-visible final output location. It may start as
   project-local `exports/` and later copy or save to a user-selected file path.
 
-Installed HyperFrames `0.4.30` render command:
+Installed HyperFrames `0.4.40` render command:
 
 ```bash
 hyperframes render [OPTIONS] [DIR]
@@ -253,9 +400,11 @@ Verified options:
 -w, --workers                  number or auto
 --docker
 --hdr
+--sdr
 --crf
 --video-bitrate
 --gpu
+--browser-gpu
 --quiet
 --strict
 --strict-all
@@ -275,15 +424,18 @@ Format behavior to carry into UX:
 
 ## Plan of Work
 
-Milestone 0 proves the Producer integration. Add and pin
-`@hyperframes/producer` to the exact HyperFrames package-family version already
+Milestone 0 proves the Producer integration. `@hyperframes/producer` is now
+installed and pinned to the exact `0.4.40` HyperFrames package-family version
 used by `hyperframes`, `@hyperframes/core`, `@hyperframes/player`, and
 `@hyperframes/studio`. Build a small main-process-adjacent prototype that
-renders the default Ripple project to MP4, emits structured progress, cancels
-mid-render with `AbortController`, uses Ripple's app-managed FFmpeg/FFprobe and
-browser paths, and passes a packaged-resource check. If Producer fails a
-must-have Electron or packaging constraint, record the blocker and resolve it
-before proceeding with the Phase 11 implementation.
+imports the public Producer API, renders the default Ripple project to MP4,
+emits structured progress, verifies the actual public cancellation mechanism,
+uses Ripple's app-managed FFmpeg/FFprobe and browser paths, and passes a
+packaged-resource check. Package configuration now unpacks
+`@hyperframes/producer` beside the other HyperFrames packages. If Producer
+fails a must-have Electron, cancellation, composition-targeting, or packaging
+constraint, record the blocker and resolve it before proceeding with the Phase
+11 implementation.
 
 Milestone 1 creates the durable export model. Add shared export types in
 `src/shared/ripple-exports.ts`, then add `exportJobs` to
@@ -300,9 +452,10 @@ Milestone 2 builds a persistent export service under
 the single target execution path. It writes job state at every transition,
 resolves project, composition, and revision IDs in the main process, creates
 safe project-local output paths, starts HyperFrames rendering with the
-app-managed environment, captures structured progress, supports
-`AbortController` cancellation, marks stale running jobs as interrupted at
-startup, and uses app-managed FFprobe to verify completed outputs.
+app-managed environment, captures structured progress, maps Producer stages to
+Ripple export statuses, supports the verified Producer cancellation mechanism,
+marks stale running jobs as interrupted at startup, and uses app-managed
+FFprobe to verify completed outputs.
 
 Milestone 3 adds a product-level `exports` router. The router should expose
 `list`, `get`, `start`, `cancel`, `retry`, `clearCompleted`, `chooseDestination`,
@@ -348,7 +501,7 @@ Producer API changes, not for carrying a second CLI execution path.
 
 ## Concrete Steps
 
-Run commands from `/Users/comeara/Projects/ripple` unless noted otherwise.
+Run commands from `/Users/conmeara/code/ripple` unless noted otherwise.
 
 1. Re-read the planning and current implementation context:
 
@@ -374,17 +527,20 @@ Run commands from `/Users/comeara/Projects/ripple` unless noted otherwise.
        sed -n '1,260p' node_modules/@hyperframes/studio/src/components/renders/useRenderQueue.ts
        sed -n '1,260p' node_modules/@hyperframes/studio/src/components/renders/RenderQueueItem.tsx
 
-4. Prototype and pin Producer:
+4. Prototype and verify Producer:
 
        bun pm ls @hyperframes/producer
-       bun add @hyperframes/producer@0.4.30
 
-   Then build a focused main-process-adjacent smoke that imports the public
-   Producer API, renders a default Ripple fixture to MP4, reports structured
-   progress, cancels with `AbortController`, and verifies the output with
-   app-managed FFprobe. If the package API or Electron build path fails, record
-   the exact blocker in `Surprises & Discoveries` and resolve it before moving
-   past this milestone.
+   If the package family is not pinned together, update all HyperFrames
+   packages to the same exact version before continuing. Then build a focused
+   main-process-adjacent smoke that imports the public Producer API, renders a
+   default Ripple fixture to MP4, reports structured progress, verifies the
+   public cancellation mechanism, and verifies the output with app-managed
+   FFprobe. Keep `src/main/lib/hyperframes/package-config.test.ts` covering the
+   Producer package surface and `asarUnpack`. If the package API, cancellation
+   behavior, composition targeting, or Electron build path fails, record the
+   exact blocker in `Surprises & Discoveries` and resolve it before moving past
+   this milestone.
 
 5. Create `src/shared/ripple-exports.ts` with shared statuses, format labels,
    quality labels, settings, and renderer view-model helpers.
@@ -439,13 +595,16 @@ Run commands from `/Users/comeara/Projects/ripple` unless noted otherwise.
    - `producer-executor.ts` for the direct Producer execution path
    - tests near those files
 
-9. Extend the low-level HyperFrames render path as needed:
+9. Keep the low-level HyperFrames render path narrow:
 
-   - accept `compositionId` if HyperFrames can render a specific composition
-     through project source preparation or CLI support
-   - accept `revisionId` by resolving through `resolveHyperframesPreviewContext`
-   - pass advanced settings only after validation and tests
-   - keep output creation inside trusted main-process helpers
+   - do not grow `hyperframes.render` into the product export workflow
+   - keep it available for tests/debug while product exports use the new
+     `exports` router and Producer-backed service
+   - validate composition targeting in the Producer spike, likely through a
+     public Producer option or prepared project entry source rather than a
+     renderer-supplied path
+   - keep revision resolution and output creation inside trusted main-process
+     helpers
 
 10. Add `src/main/lib/trpc/routers/exports.ts` and wire it into
    `src/main/lib/trpc/routers/index.ts`.
@@ -636,29 +795,29 @@ created if missing. If a user-selected destination is unavailable, the job
 should fail before rendering or fall back only after explicit user choice; it
 must not silently write somewhere unexpected.
 
-If `@hyperframes/producer` is adopted and then proves unstable in Electron or
-packaging, recovery is to keep the DB-backed export router and swap its
-execution backend back to the existing CLI-based `RenderManager`.
+If `@hyperframes/producer` proves unstable in Electron or packaging, recovery
+is to keep the DB-backed export router plan, record the exact blocker, and fix
+the Producer integration before continuing rather than carrying a second
+shipped render executor.
 
 ## Interfaces and Dependencies
 
 Existing dependencies:
 
-- `hyperframes@0.4.30`
-- `@hyperframes/core@0.4.30`
-- `@hyperframes/player@0.4.30`
-- `@hyperframes/studio@0.4.30`
+- `hyperframes@0.4.40`
+- `@hyperframes/core@0.4.40`
+- `@hyperframes/player@0.4.40`
+- `@hyperframes/producer@0.4.40`
+- `@hyperframes/studio@0.4.40`
 - `@ffmpeg-installer/ffmpeg`
 - `@ffprobe-installer/ffprobe`
 - Electron main process, tRPC, Drizzle, SQLite, React, Jotai, TanStack Query,
   Radix/Tailwind, Sonner, and lucide-react.
 
-New dependency:
+Packaging note:
 
-- `@hyperframes/producer@0.4.30`, pinned to the same exact HyperFrames version
-  family as the CLI/player/core/studio packages. The implementation should
-  verify public exports, Electron main-process import behavior, and packaged
-  resource handling before relying on it for the default export path.
+- `@hyperframes/producer` is unpacked with the other HyperFrames packages in
+  `package.json` so packaged render experiments can use its runtime files.
 
 Likely new main-process interfaces:
 
@@ -667,6 +826,7 @@ Likely new main-process interfaces:
 - `src/main/lib/exports/service.ts`
 - `src/main/lib/exports/paths.ts`
 - `src/main/lib/exports/progress.ts`
+- `src/main/lib/exports/producer-executor.ts`
 - `src/main/lib/trpc/routers/exports.ts`
 - startup recovery call from the main process or router initialization
 
@@ -737,10 +897,9 @@ Research summary:
   through Ripple adapters rather than importing private Studio internals or
   rebuilding HyperFrames behavior.
 
-Open questions for the implementation kickoff:
+Resolved implementation questions:
 
-- Should the top-bar label stay `Renders` to match Studio, or should it read
-  `Export` with `Renders` as the pane/history title?
-- Should Phase 11 export the current revision preview, or require accepting
-  generated changes into Main before export? This plan supports both but
-  defaults to Main for safety.
+- The top-bar label stays `Renders` to match Studio and the queue/history
+  mental model; the primary action inside the pane is `Export`.
+- Phase 11 supports exporting either `Main` or `Current Preview` when a revision
+  preview is active, but defaults to `Main` for safety.

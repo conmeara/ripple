@@ -7,6 +7,7 @@ import {
   Info,
   ListChecks,
   MessageSquare,
+  CirclePlay,
   Puzzle,
   TerminalSquare,
 } from "lucide-react"
@@ -18,6 +19,7 @@ import type { RippleRightPaneMode } from "./ripple-shell-layout"
 export const rightPaneLabels: Record<RippleRightPaneMode, string> = {
   chat: "Chat",
   comments: "Comments",
+  renders: "Renders",
   details: "Details",
   files: "Files",
   changes: "Changes",
@@ -40,6 +42,8 @@ export function UtilityModeIcon({ mode }: { mode: RippleRightPaneMode }) {
       return <TerminalSquare className="h-4 w-4" />
     case "mcp":
       return <Puzzle className="h-4 w-4" />
+    case "renders":
+      return <CirclePlay className="h-4 w-4" />
     default:
       return <MessageSquare className="h-4 w-4" />
   }

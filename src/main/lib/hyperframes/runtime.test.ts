@@ -4,6 +4,7 @@ import {
   buildHyperframesEnvironment,
   getAppManagedCommandCandidates,
   getHyperframesCommandCandidates,
+  getProducerBrowserCandidates,
   resolveHyperframesCommand,
 } from "./runtime"
 
@@ -35,6 +36,24 @@ describe("HyperFrames runtime resolution", () => {
     expect(env.HYPERFRAMES_NO_TELEMETRY).toBe("1")
     expect(env.HYPERFRAMES_NO_UPDATE_CHECK).toBe("1")
     expect(env.HYPERFRAMES_NO_AUTO_INSTALL).toBe("1")
+  })
+
+  test("passes an app-managed export browser path through to Producer", () => {
+    const env = buildHyperframesEnvironment({
+      PATH: "/system/bin",
+      PRODUCER_HEADLESS_SHELL_PATH: "/managed/chrome",
+    })
+
+    expect(env.PRODUCER_HEADLESS_SHELL_PATH).toBe("/managed/chrome")
+  })
+
+  test("includes bundled export browser candidates", () => {
+    const candidates = getProducerBrowserCandidates("/repo")
+    const platformArch = `${process.platform}-${process.arch}`
+
+    expect(candidates.some((candidate) =>
+      candidate.includes(join("resources", "browser", platformArch)),
+    )).toBe(true)
   })
 
   test("uses local command candidates without npx downloads", () => {

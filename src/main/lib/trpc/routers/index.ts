@@ -19,6 +19,7 @@ import { commandsRouter } from "./commands"
 import { voiceRouter } from "./voice"
 import { pluginsRouter } from "./plugins"
 import { hyperframesRouter } from "./hyperframes"
+import { exportsRouter } from "./exports"
 import { revisionsRouter } from "./revisions"
 import { agentRuntimeRouter } from "./agent-runtime"
 import { conversationsRouter } from "./conversations"
@@ -51,6 +52,7 @@ export function createAppRouter(getWindow: () => BrowserWindow | null) {
     voice: voiceRouter,
     plugins: pluginsRouter,
     hyperframes: hyperframesRouter,
+    exports: exportsRouter,
     revisions: revisionsRouter,
     conversations: conversationsRouter,
     agentRuntime: agentRuntimeRouter,

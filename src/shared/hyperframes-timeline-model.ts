@@ -6,6 +6,7 @@ export type RippleTimelineClipKind =
   | "video"
   | "audio"
   | "image"
+  | "caption"
   | "element"
   | "composition"
 export type RippleTimelineClipConfidence =
@@ -39,8 +40,13 @@ export interface RippleTimelineClip {
   compositionSrc?: string | null
   assetUrl?: string | null
   playbackStart?: number
+  playbackStartAttribute?: "data-media-start" | "data-playback-start"
   sourceDuration?: number
   volume?: number
+  timelineRole?: string | null
+  timelineGroup?: string | null
+  timelinePriority?: number | null
+  compositionAncestors?: string[]
   editable: boolean
   confidence: RippleTimelineClipConfidence
 }
@@ -72,8 +78,11 @@ export interface RippleTimelineRuntimeClip {
   compositionSrc?: string | null
   assetUrl?: string | null
   playbackStart?: number | null
+  playbackStartAttr?: string | null
+  playbackStartAttribute?: string | null
   sourceDuration?: number | null
   volume?: number | null
+  compositionAncestors?: string[] | null
   timelineRole?: string | null
   timelineLabel?: string | null
   timelineGroup?: string | null
@@ -104,6 +113,17 @@ export interface RippleTimelineRuntimeContext {
 export interface RippleTimelineTrack {
   track: number
   clips: RippleTimelineClip[]
+  kind: RippleTimelineClipKind
+  label: string
+  timelineRole?: string | null
+}
+
+export interface RippleTimelineFrameIndicator {
+  frame: number
+  totalFrames: number | null
+  fps: number
+  timecode: string
+  label: string
 }
 
 export interface RippleTimelineRangeSelection {
@@ -163,6 +183,33 @@ export function timelineFrameToSeconds(frame: number, fps = RIPPLE_TIMELINE_FPS)
   return roundTimelineSecond(Math.max(0, frame) / fps)
 }
 
+export function getTimelineFrameIndicator(input: {
+  time: number
+  duration?: number | null
+  fps?: number | null
+}): RippleTimelineFrameIndicator {
+  const fps =
+    typeof input.fps === "number" && Number.isFinite(input.fps) && input.fps > 0
+      ? Math.round(input.fps)
+      : RIPPLE_TIMELINE_FPS
+  const duration =
+    typeof input.duration === "number" && Number.isFinite(input.duration) && input.duration > 0
+      ? input.duration
+      : null
+  const totalFrames = duration !== null ? timelineSecondsToFrame(duration, fps) : null
+  const frame = totalFrames !== null
+    ? Math.min(totalFrames, timelineSecondsToFrame(clampRippleTimelineTime(input.time, duration), fps))
+    : timelineSecondsToFrame(input.time, fps)
+
+  return {
+    frame,
+    totalFrames,
+    fps,
+    timecode: formatTimelineTimecode(timelineFrameToSeconds(frame, fps), fps),
+    label: totalFrames !== null ? `Frame ${frame} / ${totalFrames}` : `Frame ${frame}`,
+  }
+}
+
 export function formatTimelineTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00"
   const wholeSeconds = Math.floor(seconds)
@@ -211,8 +258,47 @@ export function sortTimelineClips(clips: RippleTimelineClip[]): RippleTimelineCl
   return [...clips].sort((a, b) => {
     if (a.track !== b.track) return a.track - b.track
     if (a.start !== b.start) return a.start - b.start
+    const priorityA = finiteNumber(a.timelinePriority) ?? 0
+    const priorityB = finiteNumber(b.timelinePriority) ?? 0
+    if (priorityA !== priorityB) return priorityA - priorityB
     return a.label.localeCompare(b.label)
   })
+}
+
+export function isCaptionTimelineClip(clip: Pick<
+  RippleTimelineClip,
+  "kind" | "label" | "tagName" | "timelineRole" | "timelineGroup"
+>): boolean {
+  if (clip.kind === "caption") return true
+  const role = clip.timelineRole?.toLowerCase() ?? ""
+  const group = clip.timelineGroup?.toLowerCase() ?? ""
+  const label = clip.label.toLowerCase()
+  if (role.includes("caption") || group.includes("caption")) return true
+  if (label.includes("caption") || label.includes("subtitle")) return true
+  return clip.tagName?.toLowerCase() === "span" && role.includes("text")
+}
+
+function timelineTrackKind(clips: RippleTimelineClip[]): RippleTimelineClipKind {
+  const firstCaption = clips.find(isCaptionTimelineClip)
+  if (firstCaption) return "caption"
+  const firstComposition = clips.find((clip) => clip.kind === "composition")
+  if (firstComposition) return "composition"
+  return clips[0]?.kind ?? "element"
+}
+
+function timelineTrackLabel(input: {
+  track: number
+  kind: RippleTimelineClipKind
+  clips: RippleTimelineClip[]
+}): string {
+  if (input.kind === "caption") return "Captions"
+  if (input.kind === "composition") return "Composition"
+  if (input.kind === "video") return "Video"
+  if (input.kind === "audio") return "Audio"
+  if (input.kind === "image") return "Images"
+  const firstRole = input.clips.find((clip) => clip.timelineRole)?.timelineRole
+  if (firstRole) return labelFromTimelineIdentifier(firstRole)
+  return `Track ${input.track + 1}`
 }
 
 export function groupTimelineClipsByTrack(
@@ -228,7 +314,50 @@ export function groupTimelineClipsByTrack(
 
   return Array.from(tracks.entries())
     .sort(([a], [b]) => a - b)
-    .map(([track, trackClips]) => ({ track, clips: trackClips }))
+    .map(([track, trackClips]) => {
+      const kind = timelineTrackKind(trackClips)
+      return {
+        track,
+        clips: trackClips,
+        kind,
+        label: timelineTrackLabel({ track, kind, clips: trackClips }),
+        timelineRole: trackClips.find((clip) => clip.timelineRole)?.timelineRole ?? null,
+      }
+    })
+}
+
+export function getActiveTimelineClips(input: {
+  model: RippleTimelineModel | null
+  time: number
+  includeEndingFrame?: boolean
+}): RippleTimelineClip[] {
+  const model = input.model
+  if (!model || !Number.isFinite(input.time)) return []
+  const time = Math.max(0, input.time)
+  const epsilon = 0.001
+
+  return sortTimelineClips(model.clips).filter((clip) => {
+    const start = Math.max(0, clip.start)
+    const end = start + Math.max(0, clip.duration)
+    if (input.includeEndingFrame) {
+      return time >= start - epsilon && time <= end + epsilon
+    }
+    return time >= start - epsilon && time < end - epsilon
+  })
+}
+
+export function getActiveCaptionOverlayClips(input: {
+  model: RippleTimelineModel | null
+  time: number
+  limit?: number
+}): RippleTimelineClip[] {
+  const limit = Math.max(1, Math.round(input.limit ?? 3))
+  return getActiveTimelineClips({
+    model: input.model,
+    time: input.time,
+  })
+    .filter(isCaptionTimelineClip)
+    .slice(0, limit)
 }
 
 export function getTimelineDurationFromClips(
@@ -263,12 +392,14 @@ function isBetterCompositionDuplicate(
   const sameComposition =
     (clip.compositionId && clip.compositionId === candidate.compositionId) ||
     (clip.compositionId && clip.compositionId === candidate.id) ||
-    (candidate.compositionId && candidate.compositionId === clip.id)
+    (candidate.compositionId && candidate.compositionId === clip.id) ||
+    (clip.compositionSrc && clip.compositionSrc === candidate.compositionSrc)
   const sameStructuralHost =
     candidate.kind === "composition" &&
     !isGenericRuntimeLabel(candidate.label) &&
     Boolean(candidate.compositionId || candidate.compositionSrc) &&
-    (!clip.compositionId || clip.compositionId === candidate.compositionId) &&
+    (!clip.compositionId || !candidate.compositionId || clip.compositionId === candidate.compositionId) &&
+    (!clip.compositionSrc || !candidate.compositionSrc || clip.compositionSrc === candidate.compositionSrc) &&
     (clip.tagName === "div" || clip.tagName === "section" || clip.tagName === "main")
 
   return Boolean(
@@ -388,11 +519,50 @@ export function buildTimelineRangeSelection(input: {
   }
 }
 
-function normalizeRuntimeClipKind(value: unknown): RippleTimelineClipKind {
-  if (value === "video" || value === "audio" || value === "image" || value === "composition") {
+function hasCaptionMetadata(input: {
+  kind?: unknown
+  label?: string | null
+  tagName?: string | null
+  timelineRole?: string | null
+  timelineGroup?: string | null
+}): boolean {
+  if (input.kind === "caption") return true
+  const role = input.timelineRole?.toLowerCase() ?? ""
+  const group = input.timelineGroup?.toLowerCase() ?? ""
+  const label = input.label?.toLowerCase() ?? ""
+  const tagName = input.tagName?.toLowerCase() ?? ""
+  return (
+    role.includes("caption") ||
+    group.includes("caption") ||
+    label.includes("caption") ||
+    label.includes("subtitle") ||
+    (tagName === "span" && role.includes("text"))
+  )
+}
+
+function normalizeRuntimeClipKind(clip: RippleTimelineRuntimeClip): RippleTimelineClipKind {
+  if (hasCaptionMetadata(clip)) return "caption"
+  const value = clip.kind
+  if (
+    value === "video" ||
+    value === "audio" ||
+    value === "image" ||
+    value === "caption" ||
+    value === "composition"
+  ) {
     return value
   }
   return "element"
+}
+
+function normalizePlaybackStartAttribute(
+  value: string | null | undefined,
+): RippleTimelineClip["playbackStartAttribute"] {
+  if (value === "data-media-start" || value === "media-start") return "data-media-start"
+  if (value === "data-playback-start" || value === "playback-start") {
+    return "data-playback-start"
+  }
+  return undefined
 }
 
 function normalizeRuntimeClip(input: {
@@ -428,7 +598,7 @@ function normalizeRuntimeClip(input: {
     id,
     key: `${sourceFile}:${id}:${input.index}`,
     label,
-    kind: normalizeRuntimeClipKind(input.clip.kind),
+    kind: normalizeRuntimeClipKind(input.clip),
     tagName: input.clip.tagName ?? null,
     start,
     duration: roundTimelineSecond(clippedDuration),
@@ -441,8 +611,17 @@ function normalizeRuntimeClip(input: {
     compositionSrc: input.clip.compositionSrc ?? null,
     assetUrl: input.clip.assetUrl ?? null,
     playbackStart: finiteNumber(input.clip.playbackStart) ?? undefined,
+    playbackStartAttribute: normalizePlaybackStartAttribute(
+      input.clip.playbackStartAttribute ?? input.clip.playbackStartAttr,
+    ),
     sourceDuration: finiteNumber(input.clip.sourceDuration) ?? undefined,
     volume: finiteNumber(input.clip.volume) ?? undefined,
+    timelineRole: input.clip.timelineRole ?? null,
+    timelineGroup: input.clip.timelineGroup ?? null,
+    timelinePriority: finiteNumber(input.clip.timelinePriority) ?? null,
+    compositionAncestors: Array.isArray(input.clip.compositionAncestors)
+      ? input.clip.compositionAncestors.filter((ancestor): ancestor is string => typeof ancestor === "string")
+      : [],
     editable: false,
     confidence: "authoritative",
   }

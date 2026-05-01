@@ -17,6 +17,8 @@ export const PREVIEW_SETTINGS_CONTROLS = [
 export type ZoomValue = (typeof ZOOM_OPTIONS)[number]["value"]
 export type PreviewSettingsControl = (typeof PREVIEW_SETTINGS_CONTROLS)[number]
 
+const PREVIEW_TIMECODE_FALLBACK_FPS = 30
+
 export interface PreviewPlaybackKeyboardShortcutEvent {
   key?: string
   code?: string
@@ -57,6 +59,30 @@ export function shouldRenderPreviewCloseControl(
   onClose: (() => void) | null | undefined,
 ): boolean {
   return typeof onClose === "function"
+}
+
+export function formatPreviewTimecode(
+  seconds: number,
+  fps = PREVIEW_TIMECODE_FALLBACK_FPS,
+): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "00:00:00:00"
+  const safeFps =
+    Number.isFinite(fps) && fps > 0 ? Math.round(fps) : PREVIEW_TIMECODE_FALLBACK_FPS
+  const totalFrames = Math.max(0, Math.round(seconds * safeFps))
+  const frames = totalFrames % safeFps
+  const totalSeconds = Math.floor(totalFrames / safeFps)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const remainingSeconds = totalSeconds % 60
+
+  return [
+    hours,
+    minutes,
+    remainingSeconds,
+    frames,
+  ]
+    .map((part) => part.toString().padStart(2, "0"))
+    .join(":")
 }
 
 function getTargetElement(target: EventTarget | null | undefined): Element | null {

@@ -1,7 +1,8 @@
 import { execFile, spawn } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { stat } from "node:fs/promises"
 import { createRequire } from "node:module"
+import { homedir } from "node:os"
 import { delimiter, dirname, join } from "node:path"
 import type {
   HyperframesCommandCandidate,
@@ -134,16 +135,119 @@ export function getAppManagedBinaryDirectories(): string[] {
   )
 }
 
+function getBrowserExecutableNames(): string[] {
+  if (process.platform === "darwin") {
+    return [
+      join("Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"),
+      "chrome-headless-shell",
+      "Chromium",
+    ]
+  }
+  if (process.platform === "win32") {
+    return ["chrome.exe", "chrome-headless-shell.exe"]
+  }
+  return ["chrome", "chrome-headless-shell"]
+}
+
+function getBrowserResourceCandidates(repoRoot?: string): string[] {
+  const platformArch = `${process.platform}-${process.arch}`
+  const candidates: string[] = []
+  const executableNames = getBrowserExecutableNames()
+
+  if (repoRoot) {
+    for (const executableName of executableNames) {
+      candidates.push(join(repoRoot, "resources", "browser", platformArch, executableName))
+    }
+  }
+
+  const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+  if (typeof resourcesPath === "string") {
+    for (const executableName of executableNames) {
+      candidates.push(join(resourcesPath, "browser", executableName))
+    }
+  }
+
+  return candidates
+}
+
+function getPuppeteerCacheCandidates(): string[] {
+  const cacheRoot = join(homedir(), ".cache", "puppeteer")
+  const families = ["chrome-headless-shell", "chrome"]
+  const candidates: string[] = []
+
+  for (const family of families) {
+    const familyRoot = join(cacheRoot, family)
+    if (!existsSync(familyRoot)) continue
+
+    let versions: string[]
+    try {
+      versions = readdirSync(familyRoot).sort().reverse()
+    } catch {
+      continue
+    }
+
+    for (const version of versions) {
+      const versionRoot = join(familyRoot, version)
+      if (process.platform === "darwin") {
+        const arch = process.arch === "arm64" ? "mac-arm64" : "mac-x64"
+        candidates.push(
+          join(versionRoot, `chrome-headless-shell-${arch}`, "chrome-headless-shell"),
+          join(
+            versionRoot,
+            `chrome-${arch}`,
+            "Google Chrome for Testing.app",
+            "Contents",
+            "MacOS",
+            "Google Chrome for Testing",
+          ),
+        )
+      } else if (process.platform === "win32") {
+        candidates.push(
+          join(versionRoot, "chrome-headless-shell-win64", "chrome-headless-shell.exe"),
+          join(versionRoot, "chrome-win64", "chrome.exe"),
+        )
+      } else {
+        candidates.push(
+          join(versionRoot, "chrome-headless-shell-linux64", "chrome-headless-shell"),
+          join(versionRoot, "chrome-linux64", "chrome"),
+        )
+      }
+    }
+  }
+
+  return candidates
+}
+
+export function getProducerBrowserCandidates(repoRoot?: string): string[] {
+  return Array.from(
+    new Set([
+      process.env.PRODUCER_HEADLESS_SHELL_PATH,
+      ...getBrowserResourceCandidates(repoRoot),
+      ...getPuppeteerCacheCandidates(),
+    ].filter((path): path is string => Boolean(path))),
+  )
+}
+
+export function resolveProducerBrowserPath(repoRoot?: string): string | null {
+  return getProducerBrowserCandidates(repoRoot).find((candidate) => existsSync(candidate)) ?? null
+}
+
 export function buildHyperframesEnvironment(
   baseEnv: NodeJS.ProcessEnv = process.env,
+  options: { repoRoot?: string } = {},
 ): NodeJS.ProcessEnv {
   const appManagedPaths = getAppManagedBinaryDirectories()
   const existingPath = baseEnv.PATH ?? baseEnv.Path ?? ""
   const pathValue = [...appManagedPaths, existingPath].filter(Boolean).join(delimiter)
+  const producerBrowserPath =
+    baseEnv.PRODUCER_HEADLESS_SHELL_PATH ??
+    resolveProducerBrowserPath(options.repoRoot ?? process.cwd()) ??
+    undefined
 
   return {
     ...baseEnv,
     ...HYPERFRAMES_APP_ENV,
+    ...(producerBrowserPath ? { PRODUCER_HEADLESS_SHELL_PATH: producerBrowserPath } : {}),
     PATH: pathValue,
     Path: process.platform === "win32" ? pathValue : baseEnv.Path,
   }

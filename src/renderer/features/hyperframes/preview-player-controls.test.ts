@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs"
 import {
   PREVIEW_SETTINGS_CONTROLS,
   ZOOM_OPTIONS,
+  formatPreviewTimecode,
   shouldRenderPreviewCloseControl,
   shouldTogglePreviewPlaybackForSpacebar,
 } from "./preview-player-controls"
@@ -45,6 +46,12 @@ describe("HyperFrames preview player controls", () => {
     ])
   })
 
+  test("formats preview timecode with the active timeline fps", () => {
+    expect(formatPreviewTimecode(1.25, 60)).toBe("00:00:01:15")
+    expect(formatPreviewTimecode(1.25, 24)).toBe("00:00:01:06")
+    expect(formatPreviewTimecode(1.25)).toBe("00:00:01:08")
+  })
+
   test("delays transient preview loading indicators to avoid flicker", () => {
     const source = readFileSync(
       "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",
@@ -69,6 +76,26 @@ describe("HyperFrames preview player controls", () => {
     expect(source).toContain("Math.max(TIMELINE_VIEWPORT_HEIGHT, contentHeight)")
     expect(source).toContain('className="-mx-3 mt-1.5 h-[310px] overflow-hidden bg-background"')
     expect(source).toContain('className="relative h-[274px]"')
+  })
+
+  test("keeps clip-edit commits from blocking or reloading the visible preview", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",
+      "utf8",
+    )
+    const mutationStart = source.indexOf("const updateTimelineClipMutation")
+    const mutationEnd = source.indexOf("const aspectRatio", mutationStart)
+    const mutationBlock = source.slice(mutationStart, mutationEnd)
+
+    expect(mutationStart).toBeGreaterThan(-1)
+    expect(mutationEnd).toBeGreaterThan(mutationStart)
+    expect(mutationBlock).toContain("setTimelineEditModel(result.model)")
+    expect(mutationBlock).toContain("getTimelineModel.setData")
+    expect(mutationBlock).not.toContain("adapter.reload")
+    expect(readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesTimeline.tsx",
+      "utf8",
+    )).toContain("pl-4 pr-3")
   })
 
   test("allows a plain spacebar press to toggle playback on the preview surface", () => {

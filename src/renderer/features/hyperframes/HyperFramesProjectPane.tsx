@@ -30,6 +30,10 @@ import {
   type RippleProjectAssetKind,
   type RippleProjectCompositionItem,
 } from "../../../shared/hyperframes-project-model"
+import {
+  HYPERFRAMES_TIMELINE_ASSET_MIME,
+  RIPPLE_TIMELINE_ASSET_MIME,
+} from "../../../shared/hyperframes-timeline-editing"
 import { Button } from "../../components/ui/button"
 import { IconDoubleChevronLeft, IconOpenSidebar } from "../../components/ui/icons"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
@@ -289,8 +293,30 @@ function AssetPreview({ asset }: { asset: RippleProjectAssetItem }) {
 }
 
 function AssetRow({ asset }: { asset: RippleProjectAssetItem }) {
+  const draggable = asset.kind === "image" || asset.kind === "video" || asset.kind === "audio"
+
+  const handleDragStart = (event: DragEvent<HTMLDivElement>) => {
+    if (!draggable) return
+    const payload = JSON.stringify({
+      relativePath: asset.relativePath,
+      label: asset.label,
+      kind: asset.kind,
+    })
+    event.dataTransfer.effectAllowed = "copy"
+    event.dataTransfer.setData(RIPPLE_TIMELINE_ASSET_MIME, payload)
+    event.dataTransfer.setData(HYPERFRAMES_TIMELINE_ASSET_MIME, asset.relativePath)
+    event.dataTransfer.setData("text/plain", asset.relativePath)
+  }
+
   return (
-    <div className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left">
+    <div
+      className={cn(
+        "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left",
+        draggable && "cursor-grab active:cursor-grabbing",
+      )}
+      draggable={draggable}
+      onDragStart={handleDragStart}
+    >
       <AssetPreview asset={asset} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-medium text-foreground">
