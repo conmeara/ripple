@@ -1032,7 +1032,69 @@ Done when:
 - Product name, app id, protocol, update channel, menus, and packaging identity
   are Ripple-owned.
 
-### Phase 16: Hardening And Release Readiness
+### Phase 16: Analytics Setup
+
+Goals:
+
+- Define Ripple-owned analytics events for product health, onboarding completion,
+  project creation/opening, preview readiness, comment/revision actions, export
+  attempts, export success/failure, and first-run setup failures.
+- Keep analytics optional, privacy-conscious, and non-blocking for local use.
+- Remove or replace inherited analytics endpoints, event names, product IDs, and
+  identity assumptions with Ripple-owned configuration.
+- Add explicit consent, disablement, and local-development behavior so analytics
+  never gates project creation, preview, comments, review, or export.
+
+Key files:
+
+- `src/main/lib/analytics.ts`
+- `src/main/lib/config.ts`
+- `src/main/index.ts`
+- `src/renderer/features/settings/*`
+- `src/renderer/features/onboarding/*`
+
+Done when:
+
+- Ripple has a documented analytics event map and no primary-path event still
+  reports as `1Code`, `21st.dev`, or upstream product identity.
+- Analytics initializes only when configured and permitted, and failures are
+  logged without interrupting local workflows.
+- Users can understand and change analytics consent from settings or onboarding.
+- Development, test, and packaged-app builds have predictable analytics behavior.
+
+### Phase 17: Onboarding Screen
+
+Goals:
+
+- Replace inherited repo/provider-first onboarding with a Ripple first-run screen
+  centered on creating or opening a motion project.
+- Let users create their first project under `~/Ripple/<project-name>` without
+  account creation, GitHub, provider setup, dependency knowledge, or repo terms.
+- Offer optional setup paths for Codex/Claude connections, analytics consent,
+  and advanced project import without blocking local preview and export basics.
+- Use motion-design language and visual affordances that lead into templates,
+  compositions, preview, comments, revisions, and export.
+
+Key files:
+
+- `src/renderer/features/onboarding/*`
+- `src/renderer/App.tsx`
+- `src/renderer/features/projects/*`
+- `src/main/lib/trpc/routers/projects.ts`
+- `src/main/lib/ripple-projects/*`
+
+Done when:
+
+- Fresh install lands on a Ripple onboarding screen with clear Create Project and
+  Open Existing Project actions.
+- Completing onboarding creates or opens a project and reaches the primary Ripple
+  shell without mandatory account/provider setup.
+- Optional provider and analytics steps can be skipped, revisited from settings,
+  and do not strand returning users.
+- Onboarding copy avoids repo, branch, clone, worktree, dependency install, and
+  developer-tool language in the primary path.
+
+### Phase 18: Hardening And Release Readiness
 
 Goals:
 
