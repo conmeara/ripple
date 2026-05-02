@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useMemo, useState } from "react"
+import type { ReactNode } from "react"
 import { useAtomValue, useSetAtom } from "jotai"
 import { Check, CircleDot, Clock3, GitBranch, GitCompare, Plus, Trash2 } from "lucide-react"
 import { Button } from "../../components/ui/button"
@@ -25,6 +26,10 @@ import {
   type SubChatMeta,
 } from "../agents/stores/sub-chat-store"
 import { formatTimeAgo } from "../agents/utils/format-time-ago"
+import {
+  RippleActiveConversationTabs,
+  type RippleConversationTabMeta,
+} from "./RippleActiveConversationTabs"
 
 export function RippleEmbeddedChatToolbar({
   onCreateNew,
@@ -39,6 +44,10 @@ export function RippleEmbeddedChatToolbar({
   historySubChats,
   isHistoryLoading = false,
   onOpenChatFromHistory,
+  activeConversationId,
+  activeConversations,
+  onSelectActiveConversation,
+  onCloseActiveConversation,
 }: {
   onCreateNew: () => void | Promise<void>
   isWorktree?: boolean
@@ -56,6 +65,10 @@ export function RippleEmbeddedChatToolbar({
     subChatId: string,
     subChats: Array<SubChatMeta & { chatId?: string | null }>,
   ) => void | Promise<void>
+  activeConversationId?: string | null
+  activeConversations?: RippleConversationTabMeta[]
+  onSelectActiveConversation?: (conversationId: string) => void
+  onCloseActiveConversation?: (conversationId: string) => void
 }) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const allSubChats = useAgentSubChatStore((state) => state.allSubChats)
@@ -140,91 +153,139 @@ export function RippleEmbeddedChatToolbar({
     [isWorktree, loadingSubChats, pendingQuestionsMap, subChatUnseenChanges],
   )
 
+  const worktreeControls: ReactNode = isWorktree ? (
+    <>
+      <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-border/60 px-2 text-xs font-medium text-muted-foreground">
+        <GitBranch className="h-3.5 w-3.5" />
+        Draft
+      </span>
+      {onViewMain ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-md p-0 text-muted-foreground"
+              aria-label="View Main"
+              onClick={onViewMain}
+            >
+              <CircleDot className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">View Main</TooltipContent>
+        </Tooltip>
+      ) : null}
+      {onViewWorktree ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-md p-0 text-muted-foreground"
+              aria-label="View draft"
+              onClick={onViewWorktree}
+            >
+              <GitCompare className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">View draft</TooltipContent>
+        </Tooltip>
+      ) : null}
+    </>
+  ) : null
+
+  const worktreeActionControls: ReactNode = isWorktree ? (
+    <>
+      {onAcceptWorktree ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1.5 rounded-md px-2 text-xs text-muted-foreground"
+          onClick={() => void onAcceptWorktree()}
+          disabled={isAcceptingWorktree || isDiscardingWorktree}
+        >
+          {isAcceptingWorktree ? (
+            <IconSpinner className="h-3.5 w-3.5" />
+          ) : (
+            <Check className="h-3.5 w-3.5" />
+          )}
+          Accept
+        </Button>
+      ) : null}
+      {onDiscardWorktree ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-md p-0 text-muted-foreground"
+              aria-label="Discard draft"
+              onClick={() => void onDiscardWorktree()}
+              disabled={isAcceptingWorktree || isDiscardingWorktree}
+            >
+              {isDiscardingWorktree ? (
+                <IconSpinner className="h-3.5 w-3.5" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Discard draft</TooltipContent>
+        </Tooltip>
+      ) : null}
+    </>
+  ) : null
+
+  if (
+    activeConversations &&
+    onSelectActiveConversation &&
+    onCloseActiveConversation &&
+    onOpenChatFromHistory
+  ) {
+    return (
+      <RippleActiveConversationTabs
+        activeConversationId={activeConversationId}
+        activeConversations={activeConversations}
+        historyConversations={historySubChats ?? []}
+        isHistoryLoading={isHistoryLoading}
+        leadingContent={
+          isWorktree ? (
+            <>
+              {worktreeControls}
+              {worktreeActionControls}
+            </>
+          ) : null
+        }
+        onSelectConversation={onSelectActiveConversation}
+        onCloseConversation={onCloseActiveConversation}
+        onCreateNew={onCreateNew}
+        onOpenConversationFromHistory={(conversationId) =>
+          onOpenChatFromHistory(
+            conversationId,
+            conversationId,
+            historySubChats ?? [],
+          )
+        }
+      />
+    )
+  }
+
   return (
     <div className="flex h-9 shrink-0 items-center justify-between px-3">
       {isWorktree ? (
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-border/60 px-2 text-xs font-medium text-muted-foreground">
-            <GitBranch className="h-3.5 w-3.5" />
-            Draft
-          </span>
-          {onViewMain ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-md p-0 text-muted-foreground"
-                  aria-label="View Main"
-                  onClick={onViewMain}
-                >
-                  <CircleDot className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">View Main</TooltipContent>
-            </Tooltip>
-          ) : null}
-          {onViewWorktree ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-md p-0 text-muted-foreground"
-                  aria-label="View draft"
-                  onClick={onViewWorktree}
-                >
-                  <GitCompare className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">View draft</TooltipContent>
-            </Tooltip>
-          ) : null}
+          {worktreeControls}
         </div>
       ) : (
         <div />
       )}
       <div className="flex items-center gap-0.5">
         {isWorktree && onAcceptWorktree ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1.5 rounded-md px-2 text-xs text-muted-foreground"
-            onClick={() => void onAcceptWorktree()}
-            disabled={isAcceptingWorktree || isDiscardingWorktree}
-          >
-            {isAcceptingWorktree ? (
-              <IconSpinner className="h-3.5 w-3.5" />
-            ) : (
-              <Check className="h-3.5 w-3.5" />
-            )}
-            Accept
-          </Button>
-        ) : null}
-        {isWorktree && onDiscardWorktree ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded-md p-0 text-muted-foreground"
-                aria-label="Discard draft"
-                onClick={() => void onDiscardWorktree()}
-                disabled={isAcceptingWorktree || isDiscardingWorktree}
-              >
-                {isDiscardingWorktree ? (
-                  <IconSpinner className="h-3.5 w-3.5" />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Discard draft</TooltipContent>
-          </Tooltip>
+          worktreeActionControls
         ) : null}
         <SearchCombobox
           isOpen={isHistoryOpen}

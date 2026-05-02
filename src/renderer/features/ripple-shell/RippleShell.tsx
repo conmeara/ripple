@@ -47,6 +47,7 @@ import { HyperFramesPreviewPlayer } from "../hyperframes/HyperFramesPreviewPlaye
 import { HyperFramesProjectPane } from "../hyperframes/HyperFramesProjectPane"
 import { RippleRendersPane } from "../renders/RippleRendersPane"
 import { RippleEmbeddedChatToolbar } from "./RippleEmbeddedChatToolbar"
+import type { RippleConversationTabMeta } from "./RippleActiveConversationTabs"
 import {
   RippleReviewPane,
   UtilityModeIcon,
@@ -86,6 +87,14 @@ import {
   selectRippleRevisionPreview,
   type RipplePreviewTarget,
 } from "./ripple-preview-target"
+import {
+  addActiveConversationId,
+  closeActiveConversationId,
+  loadActiveConversationIds,
+  mergeConversationHistoryItems,
+  pruneActiveConversationIds,
+  saveActiveConversationIds,
+} from "./active-conversations"
 
 function isEditableEventTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -237,6 +246,13 @@ export function RippleShell({
   } | null>(null)
   const [selectedCommentThreadId, setSelectedCommentThreadId] = useState<string | null>(null)
   const [newChatDraftKey, setNewChatDraftKey] = useState(0)
+  const [activeConversationIds, setActiveConversationIds] = useState<string[]>(() =>
+    loadActiveConversationIds(selectedProject.id),
+  )
+  const [
+    revealedConversationItems,
+    setRevealedConversationItems,
+  ] = useState<Record<string, RippleConversationTabMeta>>({})
   const projectHistoryChats = trpc.chats.list.useQuery(
     { projectId: selectedProject.id },
     { enabled: Boolean(selectedProject.id) },
@@ -261,9 +277,53 @@ export function RippleShell({
           ? item.updatedAt.toISOString()
           : item.updatedAt ?? undefined,
         mode: "agent" as const,
+        kind: item.kind,
+        status: item.status,
+        compositionId: item.compositionId,
+        commentThreadId: item.commentThreadId,
+        revisionId: item.revisionId,
       })),
     [projectHistoryChats.data],
   )
+  const conversationHistoryItems = useMemo(
+    () =>
+      mergeConversationHistoryItems(
+        projectHistoryItems,
+        Object.values(revealedConversationItems),
+      ),
+    [projectHistoryItems, revealedConversationItems],
+  )
+  const activeConversationItemById = useMemo(() => {
+    const map = new Map<string, RippleConversationTabMeta>()
+    for (const item of conversationHistoryItems) map.set(item.id, item)
+    if (chatId && !map.has(chatId)) {
+      map.set(chatId, {
+        id: chatId,
+        chatId,
+        name: "New Chat",
+        mode: "agent",
+      })
+    }
+    return map
+  }, [chatId, conversationHistoryItems])
+  const activeConversationItems = useMemo(
+    () =>
+      activeConversationIds
+        .map((id) => activeConversationItemById.get(id) ?? null)
+        .filter((item): item is RippleConversationTabMeta => Boolean(item)),
+    [activeConversationIds, activeConversationItemById],
+  )
+  const rememberActiveConversation = useCallback((conversationId: string | null | undefined) => {
+    if (!conversationId) return
+    setActiveConversationIds((current) => {
+      const next = addActiveConversationId(current, conversationId)
+      if (next.length === current.length && next.every((id, index) => id === current[index])) {
+        return current
+      }
+      saveActiveConversationIds(selectedProject.id, next)
+      return next
+    })
+  }, [selectedProject.id])
   const shellState = resolveRippleShellState({
     assetsPanelOpen,
     centerStageOpen,
@@ -296,6 +356,39 @@ export function RippleShell({
   const handleModeChange = useCallback((mode: RippleRightPaneMode) => {
     commitShellState(setRippleRightPaneMode(shellState, mode))
   }, [commitShellState, shellState])
+
+  useEffect(() => {
+    const loaded = loadActiveConversationIds(selectedProject.id)
+    setActiveConversationIds(loaded)
+    setRevealedConversationItems({})
+  }, [selectedProject.id])
+
+  useEffect(() => {
+    if (!chatId) return
+    rememberActiveConversation(chatId)
+  }, [chatId, rememberActiveConversation])
+
+  useEffect(() => {
+    if (projectHistoryChats.isLoading) return
+    const availableIds = new Set(activeConversationItemById.keys())
+    setActiveConversationIds((current) => {
+      const next = pruneActiveConversationIds({
+        ids: current,
+        activeId: chatId,
+        availableIds,
+      }).ids
+      if (next.length === current.length && next.every((id, index) => id === current[index])) {
+        return current
+      }
+      saveActiveConversationIds(selectedProject.id, next)
+      return next
+    })
+  }, [
+    activeConversationItemById,
+    chatId,
+    projectHistoryChats.isLoading,
+    selectedProject.id,
+  ])
 
   const requestPreviewSeek = useCallback((time: number) => {
     const nextTime = normalizeRipplePreviewTime(time)
@@ -383,6 +476,7 @@ export function RippleShell({
   ])
 
   const handleOpenProjectChatFromHistory = useCallback((targetChatId: string) => {
+    rememberActiveConversation(targetChatId)
     setSelectedDraftId(null)
     setSelectedChatIsRemote(false)
     setChatSourceMode("local")
@@ -397,6 +491,7 @@ export function RippleShell({
     commitShellState(setRippleRightPaneMode(shellState, "chat"))
   }, [
     commitShellState,
+    rememberActiveConversation,
     requestPreviewSeek,
     setChatSourceMode,
     setSelectedChatId,
@@ -404,6 +499,48 @@ export function RippleShell({
     setSelectedDraftId,
     setShowNewChatForm,
     shellState,
+  ])
+
+  const handleSelectActiveConversation = useCallback((targetChatId: string) => {
+    rememberActiveConversation(targetChatId)
+    setSelectedDraftId(null)
+    setSelectedChatIsRemote(false)
+    setChatSourceMode("local")
+    setShowNewChatForm(false)
+    setSelectedChatId(targetChatId)
+    setSelectedCommentThreadId(null)
+    commitShellState(setRippleRightPaneMode(shellState, "chat"))
+  }, [
+    commitShellState,
+    rememberActiveConversation,
+    setChatSourceMode,
+    setSelectedChatId,
+    setSelectedChatIsRemote,
+    setSelectedDraftId,
+    setShowNewChatForm,
+    shellState,
+  ])
+
+  const handleCloseActiveConversation = useCallback((targetChatId: string) => {
+    const result = closeActiveConversationId({
+      ids: activeConversationIds,
+      activeId: chatId,
+      conversationId: targetChatId,
+    })
+    setActiveConversationIds(result.ids)
+    saveActiveConversationIds(selectedProject.id, result.ids)
+    if (targetChatId !== chatId) return
+    if (result.activeId) {
+      handleSelectActiveConversation(result.activeId)
+      return
+    }
+    handleStartNewChat()
+  }, [
+    activeConversationIds,
+    chatId,
+    handleSelectActiveConversation,
+    handleStartNewChat,
+    selectedProject.id,
   ])
 
   const revealRevisionChat = trpc.chats.reveal.useMutation({
@@ -422,7 +559,28 @@ export function RippleShell({
   ) => {
     void (async () => {
       try {
-        await revealRevisionChat.mutateAsync({ id: revisionChatId })
+        const revealedChat = await revealRevisionChat.mutateAsync({ id: revisionChatId })
+        setRevealedConversationItems((current) => ({
+          ...current,
+          [revealedChat.id]: {
+            id: revealedChat.id,
+            chatId: revealedChat.id,
+            name: revealedChat.name || "New Chat",
+            created_at: revealedChat.createdAt instanceof Date
+              ? revealedChat.createdAt.toISOString()
+              : revealedChat.createdAt ?? undefined,
+            updated_at: revealedChat.updatedAt instanceof Date
+              ? revealedChat.updatedAt.toISOString()
+              : revealedChat.updatedAt ?? undefined,
+            mode: "agent",
+            kind: revealedChat.kind,
+            status: revealedChat.status,
+            compositionId: revealedChat.compositionId,
+            commentThreadId: revealedChat.commentThreadId,
+            revisionId: revealedChat.revisionId,
+          },
+        }))
+        rememberActiveConversation(revisionChatId)
       } catch (error) {
         console.error("[RippleShell] Could not open comment chat:", error)
         return
@@ -439,6 +597,7 @@ export function RippleShell({
     })()
   }, [
     commitShellState,
+    rememberActiveConversation,
     requestPreviewSeek,
     revealRevisionChat,
     setChatSourceMode,
@@ -654,6 +813,7 @@ export function RippleShell({
             projectId={selectedProject.id}
             activeCompositionId={selectedProject.activeCompositionId}
             onClose={() => togglePanel("assets")}
+            onOpenComments={() => handleModeChange("comments")}
           />
         </ResizableSidebar>
 
@@ -718,17 +878,25 @@ export function RippleShell({
                 onPreviewChatWorktree={handlePreviewChatWorktree}
                 activePreviewChatId={activePreviewChatId}
                 onCreateNewChat={handleStartNewChat}
-                historySubChats={projectHistoryItems}
+                historySubChats={conversationHistoryItems}
                 isHistoryLoading={projectHistoryChats.isLoading}
                 onOpenChatFromHistory={handleOpenProjectChatFromHistory}
+                activeConversationId={chatId}
+                activeConversations={activeConversationItems}
+                onSelectActiveConversation={handleSelectActiveConversation}
+                onCloseActiveConversation={handleCloseActiveConversation}
               />
             ) : (
               <div className="flex h-full min-h-0 flex-col">
                 <RippleEmbeddedChatToolbar
                   onCreateNew={handleStartNewChat}
-                  historySubChats={projectHistoryItems}
+                  historySubChats={conversationHistoryItems}
                   isHistoryLoading={projectHistoryChats.isLoading}
                   onOpenChatFromHistory={handleOpenProjectChatFromHistory}
+                  activeConversationId={chatId}
+                  activeConversations={activeConversationItems}
+                  onSelectActiveConversation={handleSelectActiveConversation}
+                  onCloseActiveConversation={handleCloseActiveConversation}
                 />
                 <div className="min-h-0 flex-1">
                   <NewChatForm

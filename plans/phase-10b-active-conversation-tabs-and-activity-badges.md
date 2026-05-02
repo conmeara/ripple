@@ -38,13 +38,20 @@ feel lost.
 - [x] 2026-05-02 / Codex: Read `PLANS.md`, the Phase 10 roadmap section, the
   Phase 10 conversation plan, Phase 7 shell plan, Phase 8 comments plan, and
   current right-pane/project-pane code before drafting this plan.
-- [ ] Implement Milestone 1: active conversation state model and tests.
-- [ ] Implement Milestone 2: right-pane active conversation chip strip.
-- [ ] Implement Milestone 3: activity summary and acknowledgement model for
-  composition rows.
-- [ ] Implement Milestone 4: project browser badges with future sequence-ready
-  helpers.
-- [ ] Implement Milestone 5: end-to-end validation and visual QA.
+- [x] 2026-05-02 / Codex: Implemented Milestone 1: active conversation state
+  model and tests.
+- [x] 2026-05-02 / Codex: Implemented Milestone 2: right-pane active
+  conversation tab strip.
+- [x] 2026-05-02 / Codex: Implemented Milestone 3: activity summary and
+  acknowledgement model for composition rows.
+- [x] 2026-05-02 / Codex: Implemented Milestone 4: project browser badges with
+  future sequence-ready shared helpers.
+- [x] 2026-05-02 / Codex: Completed Milestone 5 validation with focused tests,
+  `bun run test:ripple`, `bun run ts:check`, and `bun run build`. Electron dev
+  smoke loaded the Ripple shell, selected project, composition browser,
+  preview/timeline, and right chat pane; chat history reopen worked in the live
+  shell. Live badge visuals were not exercised because the active project did
+  not have pending revision activity.
 
 ## Surprises & Discoveries
 
@@ -88,6 +95,15 @@ feel lost.
   accepted to `Done`. `src/renderer/features/hyperframes/preview-comment-markers.ts`
   maps similar states to `in-progress`, `needs-input`, and `done`.
 
+- Observation: The first Electron dev smoke attempt opened a blank 1Code window
+  and exited without actionable renderer logs, but a later relaunch produced a
+  usable Ripple shell.
+  Evidence: the successful `bun run dev` pass started the renderer on
+  `localhost:5173`, logged `[Main] Window 1 ready to show` and `[Main] Page
+  finished loading in window 1`, loaded the `new-timeline` project, rendered the
+  composition browser, preview/timeline, and right chat pane, and reopened the
+  existing `hi` chat from history.
+
 ## Decision Log
 
 - Decision: Active conversation chips are an attention set, not conversation
@@ -119,17 +135,29 @@ feel lost.
   cross-window or multi-device sync becomes a product requirement.
   Date/Author: 2026-05-02 / Codex.
 
-- Decision: Add a Ripple-owned active conversation component instead of
-  mounting the inherited `SubChatSelector` wholesale.
-  Rationale: The inherited component assumes a legacy parent chat/sub-chat
-  hierarchy, split panes, and coding-workspace controls. Ripple needs the same
-  closeable-tab idea, but with project conversations as top-level items and
-  motion-language labels.
+- Decision: Resurface the original app's tab UX by adapting the inherited
+  `SubChatSelector` code and visual behavior, but do not mount the entire
+  legacy component unchanged.
+  Rationale: The original tab strip looked and behaved well: close-on-hover,
+  overflow gradients, history search, unread/pending dots, inline rename, and
+  compact density are all worth preserving. The inherited component also
+  assumes a parent chat/sub-chat hierarchy, split panes, and coding-workspace
+  controls, so Ripple should extract or wrap the useful tab strip behavior while
+  feeding it project conversation IDs and Ripple language.
   Date/Author: 2026-05-02 / Codex.
 
 ## Outcomes & Retrospective
 
-Not started.
+Implemented active conversation tabs as renderer UI state and composition
+activity badges as local acknowledgements over a main-process summary route.
+Closing a tab only mutates the active UI set; it does not call archive, delete,
+accept, reject, resolve, or any other destructive API. Normal project
+conversations remain independent from composition selection.
+
+The remaining visual QA caveat is narrow: the real Electron shell loaded and
+history reopening worked, but badge visuals were not exercised against live
+pending revision data. Badge state, priority, and acknowledgement behavior are
+covered by the focused tests.
 
 ## Context and Orientation
 
@@ -199,16 +227,23 @@ and prune IDs that no longer appear in history. Opening a chat from history,
 creating a new chat, or opening a comment chat should add that conversation ID
 to the active set. Closing a chip should remove the ID from the active set only.
 
-Milestone 2 adds the visible right-pane chip strip. Replace or extend
-`RippleEmbeddedChatToolbar` with a Ripple-owned component such as
-`RippleActiveConversationTabs`. The strip should sit inside the `Chat` mode,
-below the `Chat` / `Comments` switcher and above the transcript. Chips show the
-conversation title, a compact type/status cue when useful, and an `X` on hover
-or keyboard focus. The `X` tooltip should say "Close tab, keep in history" or
-similar. The history button remains available for closed conversations, and New
-Chat remains available. When there are many active chats, the strip scrolls
-horizontally or collapses overflow into the history/search affordance without
-resizing the chat body.
+Milestone 2 adds the visible right-pane tab/chip strip. Start from the original
+app's inherited tab implementation in `SubChatSelector` and preserve the parts
+that made it feel good: tight horizontal tabs, active/inactive treatments,
+subtle text truncation, edge fade gradients, close-on-hover/focus, history
+search, unread/pending dots, and the compact New Chat affordance. Implement it
+as a Ripple-owned adapter or extracted component, such as
+`RippleActiveConversationTabs`, rather than mounting the full legacy component
+unchanged. The strip should sit inside the `Chat` mode, below the `Chat` /
+`Comments` switcher and above the transcript. Tabs show the conversation title,
+a compact type/status cue when useful, and an `X` on hover or keyboard focus.
+The `X` tooltip should say "Close tab, keep in history" or similar. The
+history button remains available for closed conversations, and New Chat remains
+available. When there are many active chats, the strip should use the original
+tab strip's horizontal scroll/fade behavior without resizing the chat body.
+Split panes, coding-workspace controls, and parent/sub-chat assumptions should
+stay out of the first Ripple version unless the product deliberately re-adds
+them later.
 
 Do not wire tab selection to the active composition. If the user selects
 `index`, Ripple should not automatically switch to an `index` chat. If the user
@@ -262,9 +297,12 @@ Run commands from `/Users/conmeara/code/ripple` unless noted otherwise.
    `src/renderer/features/ripple-shell/active-conversations.ts`.
    Include tests for add, close, prune, and no-archive semantics.
 3. Add `RippleActiveConversationTabs.tsx` under
-   `src/renderer/features/ripple-shell/`. Start with horizontal chips,
-   hover/focus close affordance, history button, New Chat button, and overflow
-   behavior.
+   `src/renderer/features/ripple-shell/`. Reuse or extract the original
+   `SubChatSelector` tab-strip behavior where practical: horizontal tab
+   layout, active treatment, close-on-hover, truncation gradients, history
+   search, New Chat button, unread/pending indicators, and overflow behavior.
+   Adapt the data contract to project conversation IDs and remove legacy
+   parent/sub-chat and coding-workspace controls from the first pass.
 4. Wire `RippleShell` and `ChatView` so selected project conversations update
    the active set when opened from history, created, or opened from comments.
    Keep `selectedChatId` as the actual active transcript ID.
@@ -292,16 +330,20 @@ Run commands from `/Users/conmeara/code/ripple` unless noted otherwise.
 
 Validation commands:
 
-- `bun test src/renderer/features/ripple-shell`
-- `bun test src/renderer/features/hyperframes`
-- `bun test src/main/lib/revisions src/main/lib/conversations`
-- `bun run test:ripple`
-- `bun run ts:check`
+- `bun test src/renderer/features/ripple-shell` passed on 2026-05-02.
+- `bun test src/renderer/features/hyperframes` passed on 2026-05-02.
+- `bun test src/main/lib/revisions src/main/lib/conversations` passed on
+  2026-05-02.
+- `bun run test:ripple` passed on 2026-05-02 with 304 tests.
+- `bun run ts:check` passed on 2026-05-02.
+- `bun run build` passed on 2026-05-02.
 
 Acceptance criteria:
 
 - The Chat pane shows a compact row of active conversation chips when more than
   one conversation is active.
+- The active conversation strip visibly resembles the original app's polished
+  tab strip rather than a generic new set of pills.
 - Hovering or focusing a chip exposes an `X`; using it removes the chip from
   active chats but leaves the conversation available in history.
 - Opening a conversation from history adds it back to active chips.
@@ -322,11 +364,16 @@ Acceptance criteria:
 
 Manual smoke:
 
-- Start the app with `bun run dev`.
-- Open a Ripple project with at least two normal conversations and one comment
-  conversation.
-- Verify active chips, close/reopen from history, comment `Open in Chat`, and
-  badge acknowledgement in the real Electron shell.
+- `bun run dev` was attempted on 2026-05-02. The first pass built the Electron
+  main and preload bundles and started a renderer dev server on
+  `localhost:5174`, but the captured Electron window stayed blank white and the
+  process exited with code 0 without a useful renderer error.
+- A later relaunch started the renderer dev server on `localhost:5173`, loaded
+  the Ripple shell, opened the `new-timeline` project, showed the composition
+  browser, preview/timeline, and right chat pane, and reopened the existing
+  `hi` chat from the chat history popover without changing the selected
+  composition. The active project had no live pending revision activity, so
+  badge acknowledgement was not visually exercised in this smoke pass.
 
 ## Idempotence and Recovery
 
@@ -353,7 +400,8 @@ composition selection, preview, comments, or chat.
 New or changed renderer interfaces:
 
 - `RippleActiveConversationTabs` component, owned by
-  `src/renderer/features/ripple-shell/`.
+  `src/renderer/features/ripple-shell/`, adapted from the original
+  `SubChatSelector` tab-strip behavior where practical.
 - Active conversation helper/store keyed by project ID.
 - Activity acknowledgement helper keyed by `projectId`, `scopeKind`, and
   `scopeId`.
@@ -386,6 +434,11 @@ add optional context chips in the composer, such as `@index` or `@sequence`, but
 that should be explicit user-provided context, not a hidden binding between the
 active composition row and the current chat.
 
+The visual and interaction reference for active chat tabs is the original app's
+legacy tab strip, especially `SubChatSelector`. The implementation should reuse
+or extract that code where doing so keeps the original feel without carrying
+forward the legacy parent/sub-chat product model.
+
 Potential UI wording:
 
 - Chip close tooltip: `Close tab, keep in history`.
@@ -398,9 +451,22 @@ Potential first-pass file list:
 
 - `src/renderer/features/ripple-shell/RippleActiveConversationTabs.tsx`
 - `src/renderer/features/ripple-shell/active-conversations.ts`
+- `src/renderer/features/ripple-shell/active-conversations.test.ts`
 - `src/renderer/features/ripple-shell/activity-acknowledgements.ts`
+- `src/renderer/features/ripple-shell/activity-acknowledgements.test.ts`
 - `src/shared/ripple-activity.ts`
+- `src/shared/ripple-activity.test.ts`
 - `src/main/lib/revisions/comment-revisions.ts`
 - `src/main/lib/trpc/routers/revisions.ts`
 - `src/renderer/features/hyperframes/HyperFramesProjectPane.tsx`
+- `src/renderer/features/hyperframes/composition-activity-badges.ts`
+- `src/renderer/features/hyperframes/composition-activity-badges.test.ts`
 - focused tests near each changed module
+
+Implementation notes:
+
+- `src/main/lib/trpc/routers/chats.ts` now returns lightweight conversation
+  kind/status context from chat-shaped APIs so comment conversations can appear
+  correctly in active tabs after `Open in Chat`.
+- `package.json` now includes `src/shared/ripple-activity.test.ts` in
+  `bun run test:ripple`.

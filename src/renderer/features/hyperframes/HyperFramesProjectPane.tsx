@@ -7,11 +7,13 @@ import {
   useRef,
   useState,
   type DragEvent,
+  type KeyboardEvent,
   type ReactNode,
 } from "react"
 import { useAtom } from "jotai"
 import {
   AlertTriangle,
+  CheckCircle2,
   Clapperboard,
   FileQuestion,
   Film,
@@ -30,6 +32,10 @@ import {
   type RippleProjectAssetKind,
   type RippleProjectCompositionItem,
 } from "../../../shared/hyperframes-project-model"
+import type {
+  RippleActivityBadgeState,
+  RippleActivitySummary,
+} from "../../../shared/ripple-activity"
 import {
   HYPERFRAMES_TIMELINE_ASSET_MIME,
   RIPPLE_TIMELINE_ASSET_MIME,
@@ -50,12 +56,22 @@ import {
   buildHyperframesPlayerFetchUrl,
   buildHyperframesThumbnailBlobDocument,
 } from "./player-source-url"
+import {
+  acknowledgeCompositionActivity,
+  getCompositionActivityBadgeState,
+} from "./composition-activity-badges"
+import {
+  loadActivityAcknowledgements,
+  saveActivityAcknowledgements,
+  type ActivityAcknowledgementRecords,
+} from "../ripple-shell/activity-acknowledgements"
 
 interface HyperFramesProjectPaneProps {
   projectId: string
   activeCompositionId?: string | null
   onClose?: () => void
   onOpenProjectRail?: () => void
+  onOpenComments?: () => void
 }
 
 type WindowWithElectronWebUtils = Window & {
@@ -240,20 +256,39 @@ function CompositionRow({
   composition,
   disabled,
   onSelect,
+  onOpenActivity,
+  activitySummary,
+  activityBadgeState,
   projectId,
 }: {
   composition: RippleProjectCompositionItem
   disabled: boolean
   onSelect: (compositionId: string) => void
+  onOpenActivity: (compositionId: string) => void
+  activitySummary?: RippleActivitySummary | null
+  activityBadgeState?: RippleActivityBadgeState | null
   projectId: string
 }) {
+  const badge = activityBadgeState
+    ? activityBadgePresentation(activityBadgeState, activitySummary)
+    : null
+  const handleSelect = () => onSelect(composition.id)
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") return
+    event.preventDefault()
+    handleSelect()
+  }
+
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={() => onSelect(composition.id)}
+    <div
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled}
+      onClick={disabled ? undefined : handleSelect}
+      onKeyDown={disabled ? undefined : handleKeyDown}
       className={cn(
         "group flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-left outline-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70 disabled:pointer-events-none disabled:opacity-70",
+        disabled && "pointer-events-none opacity-70",
         composition.isActive
           ? "bg-primary/10 text-foreground"
           : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
@@ -261,15 +296,72 @@ function CompositionRow({
     >
       <CompositionPreview projectId={projectId} composition={composition} />
       <div className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium">
-          {compositionDisplayName(composition)}
-        </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="block min-w-0 flex-1 truncate text-[13px] font-medium">
+            {compositionDisplayName(composition)}
+          </span>
+          {badge ? (
+            <Tooltip delayDuration={400}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex h-5 shrink-0 items-center gap-1 rounded-full border px-1.5 text-[10px] font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97]",
+                    badge.className,
+                  )}
+                  aria-label={badge.tooltip}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onOpenActivity(composition.id)
+                  }}
+                >
+                  {badge.icon}
+                  {badge.count > 1 ? <span>{badge.count}</span> : null}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">{badge.tooltip}</TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
         <div className="mt-0.5 truncate text-[11px] text-muted-foreground/75">
           {composition.filePath}
         </div>
       </div>
-    </button>
+    </div>
   )
+}
+
+function activityBadgePresentation(
+  state: RippleActivityBadgeState,
+  summary: RippleActivitySummary | null | undefined,
+): {
+  count: number
+  tooltip: string
+  className: string
+  icon: ReactNode
+} {
+  if (state === "needsAttention") {
+    return {
+      count: summary?.needsAttention ?? 1,
+      tooltip: "Needs attention",
+      className: "border-destructive/30 bg-destructive/10 text-destructive",
+      icon: <AlertTriangle className="h-3 w-3" />,
+    }
+  }
+  if (state === "ready") {
+    return {
+      count: summary?.ready ?? 1,
+      tooltip: "Changes ready",
+      className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      icon: <CheckCircle2 className="h-3 w-3" />,
+    }
+  }
+  return {
+    count: summary?.working ?? 1,
+    tooltip: "Working",
+    className: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    icon: <Loader2 className="h-3 w-3 animate-spin" />,
+  }
 }
 
 function AssetPreview({ asset }: { asset: RippleProjectAssetItem }) {
@@ -358,11 +450,18 @@ export function HyperFramesProjectPane({
   activeCompositionId,
   onClose,
   onOpenProjectRail,
+  onOpenComments,
 }: HyperFramesProjectPaneProps) {
   const [selectedProject, setSelectedProject] = useAtom(selectedProjectAtom)
   const [tab, setTab] = useState<"compositions" | "assets">("compositions")
   const [isDraggingAssets, setIsDraggingAssets] = useState(false)
   const [compositionChooserOpen, setCompositionChooserOpen] = useState(false)
+  const [
+    activityAcknowledgements,
+    setActivityAcknowledgements,
+  ] = useState<ActivityAcknowledgementRecords>(() =>
+    loadActivityAcknowledgements(projectId),
+  )
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const utils = trpc.useUtils()
   const browserQuery = trpc.hyperframes.getProjectBrowserModel.useQuery(
@@ -371,6 +470,14 @@ export function HyperFramesProjectPane({
       enabled: Boolean(projectId),
       refetchOnWindowFocus: false,
       retry: 1,
+    },
+  )
+  const activitySummaryQuery = trpc.revisions.listActivitySummary.useQuery(
+    { projectId },
+    {
+      enabled: Boolean(projectId),
+      refetchInterval: 2000,
+      placeholderData: (previousData) => previousData,
     },
   )
   const setActiveCompositionMutation = trpc.projects.setActiveComposition.useMutation({
@@ -459,12 +566,46 @@ export function HyperFramesProjectPane({
     () => markActiveRippleProjectCompositions(compositions, activeId),
     [activeId, compositions],
   )
+  const activityByCompositionId = useMemo(() => {
+    const map = new Map<string, RippleActivitySummary>()
+    for (const summary of activitySummaryQuery.data ?? []) {
+      if (summary.scopeKind === "composition") {
+        map.set(summary.scopeId, summary)
+      }
+    }
+    return map
+  }, [activitySummaryQuery.data])
   const setupWarning =
     model?.project.setupStatus === "needs_environment" || model?.project.setupStatus === "error"
       ? model.project.setupError || "Preview setup needs attention."
       : null
 
+  useEffect(() => {
+    setActivityAcknowledgements(loadActivityAcknowledgements(projectId))
+  }, [projectId])
+
+  const acknowledgeComposition = useCallback((compositionId: string) => {
+    const summary = activityByCompositionId.get(compositionId)
+    setActivityAcknowledgements((current) => {
+      const next = acknowledgeCompositionActivity({
+        summary,
+        acknowledgementRecords: current,
+      })
+      if (next === current) return current
+      saveActivityAcknowledgements(projectId, next)
+      return next
+    })
+  }, [activityByCompositionId, projectId])
+
   const handleSelectComposition = (compositionId: string) => {
+    acknowledgeComposition(compositionId)
+    if (compositionId === activeId || setActiveCompositionMutation.isPending) return
+    setActiveCompositionMutation.mutate({ projectId, compositionId })
+  }
+
+  const handleOpenCompositionActivity = (compositionId: string) => {
+    acknowledgeComposition(compositionId)
+    onOpenComments?.()
     if (compositionId === activeId || setActiveCompositionMutation.isPending) return
     setActiveCompositionMutation.mutate({ projectId, compositionId })
   }
@@ -635,6 +776,12 @@ export function HyperFramesProjectPane({
                     composition={composition}
                     disabled={setActiveCompositionMutation.isPending}
                     onSelect={handleSelectComposition}
+                    onOpenActivity={handleOpenCompositionActivity}
+                    activitySummary={activityByCompositionId.get(composition.id)}
+                    activityBadgeState={getCompositionActivityBadgeState({
+                      summary: activityByCompositionId.get(composition.id),
+                      acknowledgementRecords: activityAcknowledgements,
+                    })}
                     projectId={projectId}
                   />
                 ))}

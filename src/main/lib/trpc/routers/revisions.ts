@@ -15,6 +15,7 @@ import {
   createCommentThread,
   createRevisionForThread,
   deleteCommentThread,
+  listCommentActivitySummary,
   listCommentThreads,
   refreshRevisionProposal,
   rejectRevision,
@@ -83,6 +84,10 @@ export const revisionsRouter = router({
       filter: z.enum(RIPPLE_COMMENT_FILTERS).optional(),
     }))
     .query(({ input }) => listCommentThreads(input)),
+
+  listActivitySummary: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(({ input }) => listCommentActivitySummary(input)),
 
   createThread: publicProcedure
     .input(z.object({

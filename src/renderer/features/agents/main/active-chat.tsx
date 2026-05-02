@@ -100,6 +100,7 @@ import { getTerminalScopeKey } from "../../terminal/utils"
 import { HyperFramesPreviewPlayer } from "../../hyperframes/HyperFramesPreviewPlayer"
 import { clearRipplePreviewCoordinator } from "../../hyperframes/preview-coordinator"
 import { RippleEmbeddedChatToolbar } from "../../ripple-shell/RippleEmbeddedChatToolbar"
+import type { RippleConversationTabMeta } from "../../ripple-shell/RippleActiveConversationTabs"
 import { RippleEmbeddedUtilityPane } from "../../ripple-shell/RippleEmbeddedUtilityPane"
 import {
   isRippleUtilityMode,
@@ -5023,6 +5024,10 @@ export function ChatView({
   historySubChats,
   isHistoryLoading = false,
   onOpenChatFromHistory,
+  activeConversationId,
+  activeConversations,
+  onSelectActiveConversation,
+  onCloseActiveConversation,
 }: {
   chatId: string
   isSidebarOpen: boolean
@@ -5049,6 +5054,10 @@ export function ChatView({
     subChatId: string,
     subChats: Array<SubChatMeta & { chatId?: string | null }>,
   ) => void | Promise<void>
+  activeConversationId?: string | null
+  activeConversations?: RippleConversationTabMeta[]
+  onSelectActiveConversation?: (conversationId: string) => void
+  onCloseActiveConversation?: (conversationId: string) => void
 }) {
   const [selectedTeamId] = useAtom(selectedTeamIdAtom)
 
@@ -7952,6 +7961,10 @@ Make sure to preserve all functionality from both branches when resolving confli
               historySubChats={historySubChats}
               isHistoryLoading={isHistoryLoading}
               onOpenChatFromHistory={onOpenChatFromHistory}
+              activeConversationId={activeConversationId}
+              activeConversations={activeConversations}
+              onSelectActiveConversation={onSelectActiveConversation}
+              onCloseActiveConversation={onCloseActiveConversation}
             />
           )}
 

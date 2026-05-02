@@ -12,6 +12,10 @@ import {
   type RippleRevisionDiffSummary,
 } from "../../../shared/ripple-comments"
 import {
+  summarizeRippleActivity,
+  type RippleActivitySummary,
+} from "../../../shared/ripple-activity"
+import {
   validateAgentRuntimeAttachments,
   type AgentRuntimeAttachment,
 } from "../../../shared/agent-runtime-attachments"
@@ -453,6 +457,67 @@ export async function listCommentThreads(input: {
     .all()
 
   return Promise.all(threads.map((thread) => loadThreadView(thread.id)))
+}
+
+export function listCommentActivitySummary(input: {
+  projectId: string
+}): RippleActivitySummary[] {
+  const db = getDatabase()
+  getProject(db, input.projectId)
+
+  const threads = db
+    .select({
+      id: commentThreads.id,
+      projectId: commentThreads.projectId,
+      compositionId: commentThreads.compositionId,
+      status: commentThreads.status,
+      latestRevisionId: commentThreads.latestRevisionId,
+      updatedAt: commentThreads.updatedAt,
+    })
+    .from(commentThreads)
+    .where(and(
+      eq(commentThreads.projectId, input.projectId),
+      isNull(commentThreads.deletedAt),
+      isNotNull(commentThreads.compositionId),
+    ))
+    .all()
+
+  const latestRevisionIds = threads
+    .map((thread) => thread.latestRevisionId)
+    .filter((id): id is string => Boolean(id))
+  const revisionRows = latestRevisionIds.length > 0
+    ? db
+      .select({
+        id: revisions.id,
+        status: revisions.status,
+        updatedAt: revisions.updatedAt,
+      })
+      .from(revisions)
+      .where(inArray(revisions.id, latestRevisionIds))
+      .all()
+    : []
+  const revisionsById = new Map(revisionRows.map((revision) => [
+    revision.id,
+    revision,
+  ]))
+
+  return summarizeRippleActivity(
+    threads.flatMap((thread) => {
+      if (!thread.compositionId) return []
+      const revision = thread.latestRevisionId
+        ? revisionsById.get(thread.latestRevisionId) ?? null
+        : null
+      return [{
+        projectId: thread.projectId,
+        scopeKind: "composition" as const,
+        scopeId: thread.compositionId,
+        threadStatus: thread.status,
+        threadUpdatedAt: thread.updatedAt,
+        latestRevisionStatus: revision?.status ?? null,
+        latestRevisionUpdatedAt: revision?.updatedAt ?? null,
+      }]
+    }),
+  )
 }
 
 export async function createCommentThread(
