@@ -61,6 +61,7 @@ export target.
 - [ ] Milestone 6: Add shared runtime context packaging for project,
   composition, comment, revision, preview, and export state.
 - [ ] Milestone 7: Validate both providers end to end.
+- [ ] Milestone 8: Complete full QA and Phase 13 test suite.
 
 ## Surprises & Discoveries
 
@@ -344,6 +345,22 @@ skills, and a desktop smoke where Claude and Codex each receive their native
 instruction file and can answer using HyperFrames concepts in a project or
 revision workspace.
 
+Milestone 8 completes the full QA pass and test suite for everything introduced
+in this phase. This is broader than "the code compiles." Build a Phase 13 test
+matrix that names every changed behavior and its automated or manual proof:
+project instruction scaffolding, existing-project backfill, managed-baseline
+propagation, revision-worktree visibility, Claude native `CLAUDE.md` loading,
+Codex `AGENTS.md` loading, Codex skills/list and typed skill invocation,
+HyperFrames skill registration, provider-specific skill/MCP settings display,
+runtime context payload validation, normal chat, continued/old chat, comment
+revision, and fallback/error states. Add the missing automated tests first, then
+run a Computer Use desktop smoke against the live Electron app. The Computer Use
+smoke should cover new project creation, settings skills/MCP visibility, a
+Claude run, a Codex run, a frame-anchored comment revision, app restart
+persistence, and failure-state UX for missing auth or unavailable skills. Record
+the exact commands, smoke steps, observations, screenshots or notes, and any
+remaining risk in this ExecPlan before marking the phase complete.
+
 ## Concrete Steps
 
 Run commands from `/Users/conmeara/code/ripple` unless noted otherwise.
@@ -376,7 +393,12 @@ Run commands from `/Users/conmeara/code/ripple` unless noted otherwise.
 11. Add runtime context payload, main-process validator/enricher, and shared
     context builder.
 12. Use the shared context builder from normal chat and comment revision paths.
-13. Run validation commands and update this ExecPlan with evidence.
+13. Create the Phase 13 QA matrix and add automated tests for every changed
+    behavior in that matrix.
+14. Run validation commands, Computer Use desktop smoke, restart/persistence
+    smoke, and packaged-app resource smoke.
+15. Update this ExecPlan with command output summaries, smoke observations,
+    screenshots or notes, and remaining risks.
 
 ## Validation and Acceptance
 
@@ -384,10 +406,31 @@ Automated validation:
 
 - `bun test src/main/lib/ripple-projects`
 - `bun test src/main/lib/agent-runtime`
+- `bun test src/renderer`
 - `bun run test:ripple`
 - `bun run ts:check`
 - `bun run build`
 - `bun run package`
+
+Full Phase 13 test-suite requirements:
+
+- Add scaffold/backfill tests proving `AGENTS.md` and `CLAUDE.md` are created,
+  detected, and never overwritten silently.
+- Add managed-baseline tests proving backfilled instruction files propagate to
+  future generated-change revision worktrees.
+- Add Claude capability tests proving native `CLAUDE.md` loading is used and
+  manual `CLAUDE.md` duplication is avoided.
+- Add Codex adapter tests proving `AGENTS.md` is passed through the verified App
+  Server instruction fields.
+- Add Codex skill tests for `skills/list`, typed skill input items, disabled or
+  missing skills, and the explicit fallback path.
+- Add HyperFrames skill registration tests proving local `hyperframes`,
+  `hyperframes-cli`, and `gsap` skills install/register idempotently without
+  deleting user skills or MCP config.
+- Add runtime context tests proving renderer-supplied composition/frame/export
+  data is validated and enriched in the main process before reaching providers.
+- Add settings or capability UI tests proving Claude and Codex skills/MCP are
+  labeled by provider and do not imply unsupported skill loading.
 
 Provider smoke validation:
 
@@ -408,6 +451,26 @@ Provider smoke validation:
 - Submit a frame-anchored comment and verify the generated-change prompt still
   includes comment context and uses the isolated revision workspace.
 
+Computer Use desktop QA:
+
+- Launch the Electron app and create a new Ripple project from the normal entry
+  surface.
+- Verify `AGENTS.md` and `CLAUDE.md` status appears in setup/readiness surfaces
+  without exposing repo-first terminology.
+- Open Settings and verify skills/MCP are clearly grouped or labeled by
+  provider, including the HyperFrames skills status.
+- Run one Claude chat action and one Codex chat action in the project and verify
+  each provider reports the expected instruction file, skills, and MCP context.
+- Continue an older chat and verify context is not lost or duplicated.
+- Add a frame-anchored comment, generate a revision, preview the isolated
+  revision, and verify Main is not edited silently.
+- Restart the app and verify project instruction status, skill/MCP readiness,
+  chat history, and pending/completed revision state persist.
+- Exercise failure states for missing provider auth, missing instruction files,
+  unavailable HyperFrames skills, and Codex native skill fallback.
+- Capture screenshots or concise observation notes for each smoke path and link
+  or summarize them in `Artifacts and Notes`.
+
 Acceptance criteria:
 
 - New Ripple projects scaffold both `AGENTS.md` and `CLAUDE.md`.
@@ -424,6 +487,11 @@ Acceptance criteria:
   be installed or registered idempotently for the supported providers.
 - Live Ripple context is included per run and is not stored in static
   instruction files.
+- A full Phase 13 automated test suite exists and passes for every behavior
+  introduced in this phase.
+- Computer Use desktop QA has been run across the required new project,
+  existing project, settings, provider-run, comment-revision, restart, and
+  failure-state paths.
 - Primary user-facing language stays motion-editor oriented and avoids repo,
   branch, worktree, dependency-install, and developer-terminal language outside
   advanced/debug surfaces.
