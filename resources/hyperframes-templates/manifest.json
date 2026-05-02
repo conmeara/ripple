@@ -1,0 +1,2227 @@
+{
+  "version": "2026.05.01-full-catalog",
+  "generatedAt": "2026-05-02T02:00:46.993Z",
+  "templates": [
+    {
+      "id": "blank",
+      "name": "Blank",
+      "description": "Minimal black HyperFrames starter for agent-generated motion work.",
+      "category": "Blank",
+      "sourceKind": "ripple-blank",
+      "supportedTargets": [
+        "new-project",
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 6,
+      "previewPosterPath": "previews/examples/blank.svg",
+      "previewVideoPath": "previews/videos/blank.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/examples",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
+      "version": "0.4.40-ripple.2",
+      "sourceFiles": [
+        {
+          "source": "project/starter.html",
+          "target": "index.html",
+          "type": "composition"
+        },
+        {
+          "source": "block/starter.html",
+          "target": "compositions/blank.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Blank",
+        "title": "Untitled",
+        "subtitle": "Start with a clean stage",
+        "background": "#050505",
+        "surface": "#121212",
+        "accent": "#f4f4f5",
+        "ink": "#ffffff",
+        "secondary": "#8b8b8f",
+        "motif": "minimal"
+      }
+    },
+    {
+      "id": "warm-grain",
+      "name": "Warm Grain",
+      "description": "Organic branding starter with warm texture and soft reveal motion.",
+      "category": "Brand",
+      "sourceKind": "official-example",
+      "supportedTargets": [
+        "new-project"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 8,
+      "previewPosterPath": "previews/examples/warm-grain.svg",
+      "previewVideoPath": "previews/videos/warm-grain.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/examples#warm-grain",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
+      "version": "0.4.40-ripple.2",
+      "sourceFiles": [
+        {
+          "source": "project/starter.html",
+          "target": "index.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Brand film",
+        "title": "Warm Grain",
+        "subtitle": "Texture, tone, and a human launch beat",
+        "background": "#2f261f",
+        "surface": "#f3d7b6",
+        "accent": "#e86f3a",
+        "ink": "#fff8ec",
+        "secondary": "#ac8b68",
+        "motif": "grain"
+      }
+    },
+    {
+      "id": "play-mode",
+      "name": "Play Mode",
+      "description": "High-energy social starter with elastic type and punchy color.",
+      "category": "Social",
+      "sourceKind": "official-example",
+      "supportedTargets": [
+        "new-project"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 7,
+      "previewPosterPath": "previews/examples/play-mode.svg",
+      "previewVideoPath": "previews/videos/play-mode.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/examples#play-mode",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
+      "version": "0.4.40-ripple.2",
+      "sourceFiles": [
+        {
+          "source": "project/starter.html",
+          "target": "index.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Social drop",
+        "title": "Play Mode",
+        "subtitle": "Bouncy motion for launches and promos",
+        "background": "#111827",
+        "surface": "#19d3da",
+        "accent": "#ff4d8d",
+        "ink": "#ffffff",
+        "secondary": "#facc15",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "swiss-grid",
+      "name": "Swiss Grid",
+      "description": "Structured corporate starter with modular typography and grid motion.",
+      "category": "Product",
+      "sourceKind": "official-example",
+      "supportedTargets": [
+        "new-project"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 8,
+      "previewPosterPath": "previews/examples/swiss-grid.svg",
+      "previewVideoPath": "previews/videos/swiss-grid.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/examples#swiss-grid",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
+      "version": "0.4.40-ripple.2",
+      "sourceFiles": [
+        {
+          "source": "project/starter.html",
+          "target": "index.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "System update",
+        "title": "Swiss Grid",
+        "subtitle": "Precise panels for product and technical stories",
+        "background": "#f5f5f2",
+        "surface": "#111111",
+        "accent": "#e60023",
+        "ink": "#111111",
+        "secondary": "#7a7a74",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "kinetic-type",
+      "name": "Kinetic Type",
+      "description": "Dramatic title-card starter with bold typography and staged reveals.",
+      "category": "Title Cards",
+      "sourceKind": "official-example",
+      "supportedTargets": [
+        "new-project"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 7,
+      "previewPosterPath": "previews/examples/kinetic-type.svg",
+      "previewVideoPath": "previews/videos/kinetic-type.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/examples#kinetic-type",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
+      "version": "0.4.40-ripple.2",
+      "sourceFiles": [
+        {
+          "source": "project/starter.html",
+          "target": "index.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Title card",
+        "title": "Kinetic Type",
+        "subtitle": "Large words, timed beats, clean exits",
+        "background": "#0f0f12",
+        "surface": "#f8fafc",
+        "accent": "#ffcc00",
+        "ink": "#ffffff",
+        "secondary": "#7dd3fc",
+        "motif": "type"
+      }
+    },
+    {
+      "id": "decision-tree",
+      "name": "Decision Tree",
+      "description": "Explainer starter with branching lines and progressive reveal motion.",
+      "category": "Data",
+      "sourceKind": "official-example",
+      "supportedTargets": [
+        "new-project"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 9,
+      "previewPosterPath": "previews/examples/decision-tree.svg",
+      "previewVideoPath": "previews/videos/decision-tree.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/examples#decision-tree",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
+      "version": "0.4.40-ripple.2",
+      "sourceFiles": [
+        {
+          "source": "project/starter.html",
+          "target": "index.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Explainer",
+        "title": "Decision Tree",
+        "subtitle": "Reveal choices, branches, and outcomes",
+        "background": "#101820",
+        "surface": "#e6fffb",
+        "accent": "#36cfc9",
+        "ink": "#f8fafc",
+        "secondary": "#94a3b8",
+        "motif": "diagram"
+      }
+    },
+    {
+      "id": "product-promo",
+      "name": "Product Promo",
+      "description": "Multi-scene product starter with hero panels and feature beats.",
+      "category": "Product",
+      "sourceKind": "official-example",
+      "supportedTargets": [
+        "new-project"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 10,
+      "previewPosterPath": "previews/examples/product-promo.svg",
+      "previewVideoPath": "previews/videos/product-promo.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/examples#product-promo",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
+      "version": "0.4.40-ripple.2",
+      "sourceFiles": [
+        {
+          "source": "project/starter.html",
+          "target": "index.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Launch",
+        "title": "Product Promo",
+        "subtitle": "Scene cards for feature, proof, and payoff",
+        "background": "#071013",
+        "surface": "#dcfce7",
+        "accent": "#22c55e",
+        "ink": "#f8fafc",
+        "secondary": "#86efac",
+        "motif": "product"
+      }
+    },
+    {
+      "id": "nyt-graph",
+      "name": "NYT Graph",
+      "description": "Editorial data starter with chart bars, annotations, and measured timing.",
+      "category": "Data",
+      "sourceKind": "official-example",
+      "supportedTargets": [
+        "new-project"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 8,
+      "previewPosterPath": "previews/examples/nyt-graph.svg",
+      "previewVideoPath": "previews/videos/nyt-graph.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/examples#nyt-graph",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
+      "version": "0.4.40-ripple.2",
+      "sourceFiles": [
+        {
+          "source": "project/starter.html",
+          "target": "index.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Data story",
+        "title": "NYT Graph",
+        "subtitle": "A print-inspired chart reveal",
+        "background": "#fbfaf6",
+        "surface": "#111111",
+        "accent": "#2563eb",
+        "ink": "#111111",
+        "secondary": "#8b8178",
+        "motif": "chart"
+      }
+    },
+    {
+      "id": "vignelli",
+      "name": "Vignelli",
+      "description": "Portrait headline starter with bold type and restrained red accents.",
+      "category": "Title Cards",
+      "sourceKind": "official-example",
+      "supportedTargets": [
+        "new-project"
+      ],
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "durationSeconds": 8,
+      "previewPosterPath": "previews/examples/vignelli.svg",
+      "previewVideoPath": "previews/videos/vignelli.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/examples#vignelli",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
+      "version": "0.4.40-ripple.2",
+      "sourceFiles": [
+        {
+          "source": "project/starter.html",
+          "target": "index.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Portrait",
+        "title": "Vignelli",
+        "subtitle": "A tall typographic opener",
+        "background": "#f7f2eb",
+        "surface": "#111111",
+        "accent": "#d00000",
+        "ink": "#111111",
+        "secondary": "#7a7066",
+        "motif": "type"
+      }
+    },
+    {
+      "id": "app-showcase",
+      "name": "App Showcase",
+      "description": "Fitness app product showcase with three floating smartphone screens",
+      "category": "Showcases",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 5.5,
+      "previewPosterPath": "previews/catalog/app-showcase.png",
+      "previewVideoPath": "previews/videos/app-showcase.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/app-showcase",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/app-showcase/app-showcase.html",
+          "target": "compositions/app-showcase.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Showcases",
+        "title": "App Showcase",
+        "subtitle": "Fitness app product showcase with three floating smartphone screens",
+        "background": "#06130d",
+        "surface": "#163d2d",
+        "accent": "#22c55e",
+        "ink": "#f8fafc",
+        "secondary": "#a7f3d0",
+        "motif": "product"
+      }
+    },
+    {
+      "id": "apple-money-count",
+      "name": "Apple Money Count",
+      "description": "Apple-style finance counter that counts from $0 to $10,000, flashes green, and bursts money icons with sound.",
+      "category": "Showcases",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 5,
+      "previewPosterPath": "previews/catalog/apple-money-count.png",
+      "previewVideoPath": "previews/videos/apple-money-count.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/apple-money-count",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/apple-money-count/apple-money-count.html",
+          "target": "compositions/apple-money-count.html",
+          "type": "composition"
+        },
+        {
+          "source": "catalog/apple-money-count/assets/sfx-production.wav",
+          "target": "assets/hyperframes-catalog/apple-money-count/sfx-production.wav",
+          "type": "asset"
+        }
+      ],
+      "requiredAssets": [
+        "catalog/apple-money-count/assets/sfx-production.wav"
+      ],
+      "visual": {
+        "eyebrow": "Showcases",
+        "title": "Apple Money Count",
+        "subtitle": "Apple-style finance counter that counts from $0 to $10,000, flashes green, and bursts money icons with sound.",
+        "background": "#06130d",
+        "surface": "#163d2d",
+        "accent": "#22c55e",
+        "ink": "#f8fafc",
+        "secondary": "#a7f3d0",
+        "motif": "product"
+      }
+    },
+    {
+      "id": "chromatic-radial-split",
+      "name": "Chromatic Radial Split",
+      "description": "Shader transition with chromatic aberration radial split",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/chromatic-radial-split.png",
+      "previewVideoPath": "previews/videos/chromatic-radial-split.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/chromatic-radial-split",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/chromatic-radial-split/chromatic-radial-split.html",
+          "target": "compositions/chromatic-radial-split.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Chromatic Radial Split",
+        "subtitle": "Shader transition with chromatic aberration radial split",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "cinematic-zoom",
+      "name": "Cinematic Zoom",
+      "description": "Shader transition with dramatic zoom blur",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/cinematic-zoom.png",
+      "previewVideoPath": "previews/videos/cinematic-zoom.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/cinematic-zoom",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/cinematic-zoom/cinematic-zoom.html",
+          "target": "compositions/cinematic-zoom.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Cinematic Zoom",
+        "subtitle": "Shader transition with dramatic zoom blur",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "cross-warp-morph",
+      "name": "Cross Warp Morph",
+      "description": "Shader transition with cross-warped morphing",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/cross-warp-morph.png",
+      "previewVideoPath": "previews/videos/cross-warp-morph.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/cross-warp-morph",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/cross-warp-morph/cross-warp-morph.html",
+          "target": "compositions/cross-warp-morph.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Cross Warp Morph",
+        "subtitle": "Shader transition with cross-warped morphing",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "data-chart",
+      "name": "Data Chart",
+      "description": "Animated bar + line chart with staggered reveal, NYT-style typography, and value labels",
+      "category": "Data",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 15,
+      "previewPosterPath": "previews/catalog/data-chart.png",
+      "previewVideoPath": "previews/videos/data-chart.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/data-chart",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/data-chart/data-chart.html",
+          "target": "compositions/data-chart.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Data",
+        "title": "Data Chart",
+        "subtitle": "Animated bar + line chart with staggered reveal, NYT-style typography, and value labels",
+        "background": "#0f172a",
+        "surface": "#1e293b",
+        "accent": "#38bdf8",
+        "ink": "#f8fafc",
+        "secondary": "#cbd5e1",
+        "motif": "chart"
+      }
+    },
+    {
+      "id": "domain-warp-dissolve",
+      "name": "Domain Warp Dissolve",
+      "description": "Shader transition with fractal noise domain warping",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/domain-warp-dissolve.png",
+      "previewVideoPath": "previews/videos/domain-warp-dissolve.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/domain-warp-dissolve",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/domain-warp-dissolve/domain-warp-dissolve.html",
+          "target": "compositions/domain-warp-dissolve.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Domain Warp Dissolve",
+        "subtitle": "Shader transition with fractal noise domain warping",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "flash-through-white",
+      "name": "Flash Through White",
+      "description": "Shader transition with white flash crossfade",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/flash-through-white.png",
+      "previewVideoPath": "previews/videos/flash-through-white.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/flash-through-white",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/flash-through-white/flash-through-white.html",
+          "target": "compositions/flash-through-white.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Flash Through White",
+        "subtitle": "Shader transition with white flash crossfade",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "flowchart",
+      "name": "Flowchart",
+      "description": "Animated decision tree with SVG connectors, sticky-note nodes, cursor interaction, and typing correction",
+      "category": "Blocks",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 12,
+      "previewPosterPath": "previews/catalog/flowchart.png",
+      "previewVideoPath": "previews/videos/flowchart.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/flowchart",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/flowchart/flowchart.html",
+          "target": "compositions/flowchart.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Blocks",
+        "title": "Flowchart",
+        "subtitle": "Animated decision tree with SVG connectors, sticky-note nodes, cursor interaction, and typing correction",
+        "background": "#111827",
+        "surface": "#293548",
+        "accent": "#eab308",
+        "ink": "#f8fafc",
+        "secondary": "#d1d5db",
+        "motif": "diagram"
+      }
+    },
+    {
+      "id": "glitch",
+      "name": "Glitch",
+      "description": "Shader transition with digital glitch artifacts",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/glitch.png",
+      "previewVideoPath": "previews/videos/glitch.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/glitch",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/glitch/glitch.html",
+          "target": "compositions/glitch.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Glitch",
+        "subtitle": "Shader transition with digital glitch artifacts",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "goonvpn-youtube-spot",
+      "name": "GoonVPN YouTube Spot",
+      "description": "Snappy Apple-style YouTube insert showing a phone finding and installing a fictional VPN app with sound effects.",
+      "category": "Showcases",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 7,
+      "previewPosterPath": "previews/catalog/goonvpn-youtube-spot.png",
+      "previewVideoPath": "previews/videos/goonvpn-youtube-spot.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/goonvpn-youtube-spot",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/goonvpn-youtube-spot/goonvpn-youtube-spot.html",
+          "target": "compositions/goonvpn-youtube-spot.html",
+          "type": "composition"
+        },
+        {
+          "source": "catalog/goonvpn-youtube-spot/assets/goonvpn-sfx.wav",
+          "target": "assets/hyperframes-catalog/goonvpn-youtube-spot/goonvpn-sfx.wav",
+          "type": "asset"
+        }
+      ],
+      "requiredAssets": [
+        "catalog/goonvpn-youtube-spot/assets/goonvpn-sfx.wav"
+      ],
+      "visual": {
+        "eyebrow": "Showcases",
+        "title": "GoonVPN YouTube Spot",
+        "subtitle": "Snappy Apple-style YouTube insert showing a phone finding and installing a fictional VPN app with sound effects.",
+        "background": "#06130d",
+        "surface": "#163d2d",
+        "accent": "#22c55e",
+        "ink": "#f8fafc",
+        "secondary": "#a7f3d0",
+        "motif": "product"
+      }
+    },
+    {
+      "id": "grain-overlay",
+      "name": "Grain Overlay",
+      "description": "Animated film grain texture overlay using CSS keyframes — adds warmth and analog character to any composition",
+      "category": "Effects",
+      "sourceKind": "official-component",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 5,
+      "previewPosterPath": "previews/catalog/grain-overlay.png",
+      "previewVideoPath": "previews/videos/grain-overlay.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/components/grain-overlay",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/grain-overlay/demo.html",
+          "target": "compositions/grain-overlay.html",
+          "type": "composition"
+        },
+        {
+          "source": "catalog/grain-overlay/grain-overlay.html",
+          "target": "compositions/components/grain-overlay.html",
+          "type": "snippet"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Effects",
+        "title": "Grain Overlay",
+        "subtitle": "Animated film grain texture overlay using CSS keyframes — adds warmth and analog character to any composition",
+        "background": "#14110f",
+        "surface": "#2f261f",
+        "accent": "#f97316",
+        "ink": "#fff7ed",
+        "secondary": "#fdba74",
+        "motif": "grain"
+      }
+    },
+    {
+      "id": "gravitational-lens",
+      "name": "Gravitational Lens",
+      "description": "Shader transition with gravitational lensing distortion",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/gravitational-lens.png",
+      "previewVideoPath": "previews/videos/gravitational-lens.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/gravitational-lens",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/gravitational-lens/gravitational-lens.html",
+          "target": "compositions/gravitational-lens.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Gravitational Lens",
+        "subtitle": "Shader transition with gravitational lensing distortion",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "grid-pixelate-wipe",
+      "name": "Grid Pixelate Wipe",
+      "description": "Transition effect where the screen dissolves into a grid of squares that fade out with staggered timing — use between scenes",
+      "category": "Effects",
+      "sourceKind": "official-component",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 8,
+      "previewPosterPath": "previews/catalog/grid-pixelate-wipe.png",
+      "previewVideoPath": "previews/videos/grid-pixelate-wipe.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/components/grid-pixelate-wipe",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/grid-pixelate-wipe/demo.html",
+          "target": "compositions/grid-pixelate-wipe.html",
+          "type": "composition"
+        },
+        {
+          "source": "catalog/grid-pixelate-wipe/grid-pixelate-wipe.html",
+          "target": "compositions/components/grid-pixelate-wipe.html",
+          "type": "snippet"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Effects",
+        "title": "Grid Pixelate Wipe",
+        "subtitle": "Transition effect where the screen dissolves into a grid of squares that fade out with staggered timing — use between scenes",
+        "background": "#14110f",
+        "surface": "#2f261f",
+        "accent": "#f97316",
+        "ink": "#fff7ed",
+        "secondary": "#fdba74",
+        "motif": "grain"
+      }
+    },
+    {
+      "id": "instagram-follow",
+      "name": "Instagram Follow",
+      "description": "Animated Instagram follow overlay with profile card and follow button",
+      "category": "Social Overlays",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "durationSeconds": 4.5,
+      "previewPosterPath": "previews/catalog/instagram-follow.png",
+      "previewVideoPath": "previews/videos/instagram-follow.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/instagram-follow",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/instagram-follow/instagram-follow.html",
+          "target": "compositions/instagram-follow.html",
+          "type": "composition"
+        },
+        {
+          "source": "catalog/instagram-follow/assets/avatar.jpg",
+          "target": "assets/hyperframes-catalog/instagram-follow/avatar.jpg",
+          "type": "asset"
+        }
+      ],
+      "requiredAssets": [
+        "catalog/instagram-follow/assets/avatar.jpg"
+      ],
+      "visual": {
+        "eyebrow": "Social Overlays",
+        "title": "Instagram Follow",
+        "subtitle": "Animated Instagram follow overlay with profile card and follow button",
+        "background": "#101114",
+        "surface": "#20242b",
+        "accent": "#4f8cff",
+        "ink": "#ffffff",
+        "secondary": "#9ca3af",
+        "motif": "card"
+      }
+    },
+    {
+      "id": "light-leak",
+      "name": "Light Leak",
+      "description": "Shader transition with cinematic light leak overlay",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/light-leak.png",
+      "previewVideoPath": "previews/videos/light-leak.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/light-leak",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/light-leak/light-leak.html",
+          "target": "compositions/light-leak.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Light Leak",
+        "subtitle": "Shader transition with cinematic light leak overlay",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "logo-outro",
+      "name": "Logo Outro",
+      "description": "Cinematic logo reveal with piece-by-piece assembly, glow bloom, tagline fade-in, and URL pill",
+      "category": "Blocks",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 6,
+      "previewPosterPath": "previews/catalog/logo-outro.png",
+      "previewVideoPath": "previews/videos/logo-outro.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/logo-outro",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/logo-outro/logo-outro.html",
+          "target": "compositions/logo-outro.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Blocks",
+        "title": "Logo Outro",
+        "subtitle": "Cinematic logo reveal with piece-by-piece assembly, glow bloom, tagline fade-in, and URL pill",
+        "background": "#111827",
+        "surface": "#293548",
+        "accent": "#eab308",
+        "ink": "#f8fafc",
+        "secondary": "#d1d5db",
+        "motif": "diagram"
+      }
+    },
+    {
+      "id": "macos-notification",
+      "name": "macOS Notification",
+      "description": "Animated macOS-style notification banner with app icon and message",
+      "category": "Social Overlays",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 5,
+      "previewPosterPath": "previews/catalog/macos-notification.png",
+      "previewVideoPath": "previews/videos/macos-notification.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/macos-notification",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/macos-notification/macos-notification.html",
+          "target": "compositions/macos-notification.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Social Overlays",
+        "title": "macOS Notification",
+        "subtitle": "Animated macOS-style notification banner with app icon and message",
+        "background": "#101114",
+        "surface": "#20242b",
+        "accent": "#4f8cff",
+        "ink": "#ffffff",
+        "secondary": "#9ca3af",
+        "motif": "card"
+      }
+    },
+    {
+      "id": "north-korea-locked-down",
+      "name": "North Korea Locked Down",
+      "description": "Realistic map zoom into North Korea with a red scribble circle, locked-down pop-up label, and reddish editorial wash.",
+      "category": "Showcases",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 7,
+      "previewPosterPath": "previews/catalog/north-korea-locked-down.png",
+      "previewVideoPath": "previews/videos/north-korea-locked-down.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/north-korea-locked-down",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/north-korea-locked-down/north-korea-locked-down.html",
+          "target": "compositions/north-korea-locked-down.html",
+          "type": "composition"
+        },
+        {
+          "source": "catalog/north-korea-locked-down/assets/korea-map.png",
+          "target": "assets/hyperframes-catalog/north-korea-locked-down/korea-map.png",
+          "type": "asset"
+        }
+      ],
+      "requiredAssets": [
+        "catalog/north-korea-locked-down/assets/korea-map.png"
+      ],
+      "visual": {
+        "eyebrow": "Showcases",
+        "title": "North Korea Locked Down",
+        "subtitle": "Realistic map zoom into North Korea with a red scribble circle, locked-down pop-up label, and reddish editorial wash.",
+        "background": "#06130d",
+        "surface": "#163d2d",
+        "accent": "#22c55e",
+        "ink": "#f8fafc",
+        "secondary": "#a7f3d0",
+        "motif": "product"
+      }
+    },
+    {
+      "id": "nyc-paris-flight",
+      "name": "NYC Paris Flight",
+      "description": "Apple-style realistic map animation with a plane flying from New York to Paris, marker circle, landing pop, and sound effects.",
+      "category": "Showcases",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 6,
+      "previewPosterPath": "previews/catalog/nyc-paris-flight.png",
+      "previewVideoPath": "previews/videos/nyc-paris-flight.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/nyc-paris-flight",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/nyc-paris-flight/nyc-paris-flight.html",
+          "target": "compositions/nyc-paris-flight.html",
+          "type": "composition"
+        },
+        {
+          "source": "catalog/nyc-paris-flight/assets/map-nyc-paris.png",
+          "target": "assets/hyperframes-catalog/nyc-paris-flight/map-nyc-paris.png",
+          "type": "asset"
+        },
+        {
+          "source": "catalog/nyc-paris-flight/assets/sfx-mix.wav",
+          "target": "assets/hyperframes-catalog/nyc-paris-flight/sfx-mix.wav",
+          "type": "asset"
+        }
+      ],
+      "requiredAssets": [
+        "catalog/nyc-paris-flight/assets/map-nyc-paris.png",
+        "catalog/nyc-paris-flight/assets/sfx-mix.wav"
+      ],
+      "visual": {
+        "eyebrow": "Showcases",
+        "title": "NYC Paris Flight",
+        "subtitle": "Apple-style realistic map animation with a plane flying from New York to Paris, marker circle, landing pop, and sound effects.",
+        "background": "#06130d",
+        "surface": "#163d2d",
+        "accent": "#22c55e",
+        "ink": "#f8fafc",
+        "secondary": "#a7f3d0",
+        "motif": "product"
+      }
+    },
+    {
+      "id": "reddit-post",
+      "name": "Reddit Post Card",
+      "description": "Animated Reddit post card overlay with upvotes and comments",
+      "category": "Social Overlays",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 5,
+      "previewPosterPath": "previews/catalog/reddit-post.png",
+      "previewVideoPath": "previews/videos/reddit-post.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/reddit-post",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/reddit-post/reddit-post.html",
+          "target": "compositions/reddit-post.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Social Overlays",
+        "title": "Reddit Post Card",
+        "subtitle": "Animated Reddit post card overlay with upvotes and comments",
+        "background": "#101114",
+        "surface": "#20242b",
+        "accent": "#4f8cff",
+        "ink": "#ffffff",
+        "secondary": "#9ca3af",
+        "motif": "card"
+      }
+    },
+    {
+      "id": "ridged-burn",
+      "name": "Ridged Burn",
+      "description": "Shader transition with ridged turbulence burn effect",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/ridged-burn.png",
+      "previewVideoPath": "previews/videos/ridged-burn.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/ridged-burn",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/ridged-burn/ridged-burn.html",
+          "target": "compositions/ridged-burn.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Ridged Burn",
+        "subtitle": "Shader transition with ridged turbulence burn effect",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "ripple-waves",
+      "name": "Ripple Waves",
+      "description": "Shader transition with concentric ripple wave distortion",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/ripple-waves.png",
+      "previewVideoPath": "previews/videos/ripple-waves.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/ripple-waves",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/ripple-waves/ripple-waves.html",
+          "target": "compositions/ripple-waves.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Ripple Waves",
+        "subtitle": "Shader transition with concentric ripple wave distortion",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "sdf-iris",
+      "name": "SDF Iris",
+      "description": "Shader transition with signed distance field iris reveal",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/sdf-iris.png",
+      "previewVideoPath": "previews/videos/sdf-iris.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/sdf-iris",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/sdf-iris/sdf-iris.html",
+          "target": "compositions/sdf-iris.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "SDF Iris",
+        "subtitle": "Shader transition with signed distance field iris reveal",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "shimmer-sweep",
+      "name": "Shimmer Sweep",
+      "description": "Animated light sweep across text or elements using a CSS gradient mask — ideal for AI accents and premium reveals",
+      "category": "Effects",
+      "sourceKind": "official-component",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 6,
+      "previewPosterPath": "previews/catalog/shimmer-sweep.png",
+      "previewVideoPath": "previews/videos/shimmer-sweep.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/components/shimmer-sweep",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/shimmer-sweep/demo.html",
+          "target": "compositions/shimmer-sweep.html",
+          "type": "composition"
+        },
+        {
+          "source": "catalog/shimmer-sweep/shimmer-sweep.html",
+          "target": "compositions/components/shimmer-sweep.html",
+          "type": "snippet"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Effects",
+        "title": "Shimmer Sweep",
+        "subtitle": "Animated light sweep across text or elements using a CSS gradient mask — ideal for AI accents and premium reveals",
+        "background": "#14110f",
+        "surface": "#2f261f",
+        "accent": "#f97316",
+        "ink": "#fff7ed",
+        "secondary": "#fdba74",
+        "motif": "grain"
+      }
+    },
+    {
+      "id": "spotify-card",
+      "name": "Spotify Now Playing",
+      "description": "Animated Spotify now-playing card with album art and progress bar",
+      "category": "Social Overlays",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "durationSeconds": 5,
+      "previewPosterPath": "previews/catalog/spotify-card.png",
+      "previewVideoPath": "previews/videos/spotify-card.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/spotify-card",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/spotify-card/spotify-card.html",
+          "target": "compositions/spotify-card.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Social Overlays",
+        "title": "Spotify Now Playing",
+        "subtitle": "Animated Spotify now-playing card with album art and progress bar",
+        "background": "#101114",
+        "surface": "#20242b",
+        "accent": "#4f8cff",
+        "ink": "#ffffff",
+        "secondary": "#9ca3af",
+        "motif": "card"
+      }
+    },
+    {
+      "id": "swirl-vortex",
+      "name": "Swirl Vortex",
+      "description": "Shader transition with swirling vortex distortion",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/swirl-vortex.png",
+      "previewVideoPath": "previews/videos/swirl-vortex.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/swirl-vortex",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/swirl-vortex/swirl-vortex.html",
+          "target": "compositions/swirl-vortex.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Swirl Vortex",
+        "subtitle": "Shader transition with swirling vortex distortion",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "thermal-distortion",
+      "name": "Thermal Distortion",
+      "description": "Shader transition with heat haze thermal distortion",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/thermal-distortion.png",
+      "previewVideoPath": "previews/videos/thermal-distortion.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/thermal-distortion",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/thermal-distortion/thermal-distortion.html",
+          "target": "compositions/thermal-distortion.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Thermal Distortion",
+        "subtitle": "Shader transition with heat haze thermal distortion",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "tiktok-follow",
+      "name": "TikTok Follow",
+      "description": "Animated TikTok follow overlay with profile card and follow button",
+      "category": "Social Overlays",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "durationSeconds": 4.5,
+      "previewPosterPath": "previews/catalog/tiktok-follow.png",
+      "previewVideoPath": "previews/videos/tiktok-follow.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/tiktok-follow",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/tiktok-follow/tiktok-follow.html",
+          "target": "compositions/tiktok-follow.html",
+          "type": "composition"
+        },
+        {
+          "source": "catalog/tiktok-follow/assets/avatar.jpg",
+          "target": "assets/hyperframes-catalog/tiktok-follow/avatar.jpg",
+          "type": "asset"
+        }
+      ],
+      "requiredAssets": [
+        "catalog/tiktok-follow/assets/avatar.jpg"
+      ],
+      "visual": {
+        "eyebrow": "Social Overlays",
+        "title": "TikTok Follow",
+        "subtitle": "Animated TikTok follow overlay with profile card and follow button",
+        "background": "#101114",
+        "surface": "#20242b",
+        "accent": "#4f8cff",
+        "ink": "#ffffff",
+        "secondary": "#9ca3af",
+        "motif": "card"
+      }
+    },
+    {
+      "id": "transitions-3d",
+      "name": "3D Transitions",
+      "description": "Showcase of 3D perspective flip and rotate transitions",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 11,
+      "previewPosterPath": "previews/catalog/transitions-3d.png",
+      "previewVideoPath": "previews/videos/transitions-3d.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-3d",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-3d/transitions-3d.html",
+          "target": "compositions/transitions-3d.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "3D Transitions",
+        "subtitle": "Showcase of 3D perspective flip and rotate transitions",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "transitions-blur",
+      "name": "Blur Transitions",
+      "description": "Showcase of blur-based transitions between scenes",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 20,
+      "previewPosterPath": "previews/catalog/transitions-blur.png",
+      "previewVideoPath": "previews/videos/transitions-blur.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-blur",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-blur/transitions-blur.html",
+          "target": "compositions/transitions-blur.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "Blur Transitions",
+        "subtitle": "Showcase of blur-based transitions between scenes",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "transitions-cover",
+      "name": "Cover Transitions",
+      "description": "Showcase of cover/uncover slide transitions",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 21,
+      "previewPosterPath": "previews/catalog/transitions-cover.png",
+      "previewVideoPath": "previews/videos/transitions-cover.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-cover",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-cover/transitions-cover.html",
+          "target": "compositions/transitions-cover.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "Cover Transitions",
+        "subtitle": "Showcase of cover/uncover slide transitions",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "transitions-destruction",
+      "name": "Destruction Transitions",
+      "description": "Showcase of destructive break-apart transitions",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 14,
+      "previewPosterPath": "previews/catalog/transitions-destruction.png",
+      "previewVideoPath": "previews/videos/transitions-destruction.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-destruction",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-destruction/transitions-destruction.html",
+          "target": "compositions/transitions-destruction.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "Destruction Transitions",
+        "subtitle": "Showcase of destructive break-apart transitions",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "transitions-dissolve",
+      "name": "Dissolve Transitions",
+      "description": "Showcase of dissolve and fade transitions",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 24,
+      "previewPosterPath": "previews/catalog/transitions-dissolve.png",
+      "previewVideoPath": "previews/videos/transitions-dissolve.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-dissolve",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-dissolve/transitions-dissolve.html",
+          "target": "compositions/transitions-dissolve.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "Dissolve Transitions",
+        "subtitle": "Showcase of dissolve and fade transitions",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "transitions-distortion",
+      "name": "Distortion Transitions",
+      "description": "Showcase of warp and distortion transitions",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 21,
+      "previewPosterPath": "previews/catalog/transitions-distortion.png",
+      "previewVideoPath": "previews/videos/transitions-distortion.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-distortion",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-distortion/transitions-distortion.html",
+          "target": "compositions/transitions-distortion.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "Distortion Transitions",
+        "subtitle": "Showcase of warp and distortion transitions",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "transitions-grid",
+      "name": "Grid Transitions",
+      "description": "Showcase of grid-based tile transitions",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 11,
+      "previewPosterPath": "previews/catalog/transitions-grid.png",
+      "previewVideoPath": "previews/videos/transitions-grid.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-grid",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-grid/transitions-grid.html",
+          "target": "compositions/transitions-grid.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "Grid Transitions",
+        "subtitle": "Showcase of grid-based tile transitions",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "transitions-light",
+      "name": "Light Transitions",
+      "description": "Showcase of light-based glow and flash transitions",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 21,
+      "previewPosterPath": "previews/catalog/transitions-light.png",
+      "previewVideoPath": "previews/videos/transitions-light.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-light",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-light/transitions-light.html",
+          "target": "compositions/transitions-light.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "Light Transitions",
+        "subtitle": "Showcase of light-based glow and flash transitions",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "transitions-mechanical",
+      "name": "Mechanical Transitions",
+      "description": "Showcase of mechanical shutter and iris transitions",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 15,
+      "previewPosterPath": "previews/catalog/transitions-mechanical.png",
+      "previewVideoPath": "previews/videos/transitions-mechanical.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-mechanical",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-mechanical/transitions-mechanical.html",
+          "target": "compositions/transitions-mechanical.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "Mechanical Transitions",
+        "subtitle": "Showcase of mechanical shutter and iris transitions",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "transitions-other",
+      "name": "Other Transitions",
+      "description": "Showcase of miscellaneous creative transitions",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 20,
+      "previewPosterPath": "previews/catalog/transitions-other.png",
+      "previewVideoPath": "previews/videos/transitions-other.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-other",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-other/transitions-other.html",
+          "target": "compositions/transitions-other.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "Other Transitions",
+        "subtitle": "Showcase of miscellaneous creative transitions",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "transitions-push",
+      "name": "Push Transitions",
+      "description": "Showcase of push and slide transitions",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 24,
+      "previewPosterPath": "previews/catalog/transitions-push.png",
+      "previewVideoPath": "previews/videos/transitions-push.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-push",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-push/transitions-push.html",
+          "target": "compositions/transitions-push.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "Push Transitions",
+        "subtitle": "Showcase of push and slide transitions",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "transitions-radial",
+      "name": "Radial Transitions",
+      "description": "Showcase of radial wipe and reveal transitions",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 20,
+      "previewPosterPath": "previews/catalog/transitions-radial.png",
+      "previewVideoPath": "previews/videos/transitions-radial.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-radial",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-radial/transitions-radial.html",
+          "target": "compositions/transitions-radial.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "Radial Transitions",
+        "subtitle": "Showcase of radial wipe and reveal transitions",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "transitions-scale",
+      "name": "Scale Transitions",
+      "description": "Showcase of scale and zoom transitions",
+      "category": "CSS Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 15,
+      "previewPosterPath": "previews/catalog/transitions-scale.png",
+      "previewVideoPath": "previews/videos/transitions-scale.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/transitions-scale",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/transitions-scale/transitions-scale.html",
+          "target": "compositions/transitions-scale.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "CSS Transitions",
+        "title": "Scale Transitions",
+        "subtitle": "Showcase of scale and zoom transitions",
+        "background": "#08111f",
+        "surface": "#1f2937",
+        "accent": "#f59e0b",
+        "ink": "#f9fafb",
+        "secondary": "#93c5fd",
+        "motif": "grid"
+      }
+    },
+    {
+      "id": "ui-3d-reveal",
+      "name": "3D UI Reveal",
+      "description": "Perspective 3D reveal animation for UI elements",
+      "category": "Showcases",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 13,
+      "previewPosterPath": "previews/catalog/ui-3d-reveal.png",
+      "previewVideoPath": "previews/videos/ui-3d-reveal.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/ui-3d-reveal",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/ui-3d-reveal/ui-3d-reveal.html",
+          "target": "compositions/ui-3d-reveal.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Showcases",
+        "title": "3D UI Reveal",
+        "subtitle": "Perspective 3D reveal animation for UI elements",
+        "background": "#06130d",
+        "surface": "#163d2d",
+        "accent": "#22c55e",
+        "ink": "#f8fafc",
+        "secondary": "#a7f3d0",
+        "motif": "product"
+      }
+    },
+    {
+      "id": "whip-pan",
+      "name": "Whip Pan",
+      "description": "Shader transition simulating a fast camera whip pan",
+      "category": "Shader Transitions",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4,
+      "previewPosterPath": "previews/catalog/whip-pan.png",
+      "previewVideoPath": "previews/videos/whip-pan.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/whip-pan",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/whip-pan/whip-pan.html",
+          "target": "compositions/whip-pan.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Shader Transitions",
+        "title": "Whip Pan",
+        "subtitle": "Shader transition simulating a fast camera whip pan",
+        "background": "#050712",
+        "surface": "#171a35",
+        "accent": "#7c3aed",
+        "ink": "#f8fafc",
+        "secondary": "#67e8f9",
+        "motif": "burst"
+      }
+    },
+    {
+      "id": "x-post",
+      "name": "X Post Card",
+      "description": "Animated X/Twitter post card overlay with engagement metrics",
+      "category": "Social Overlays",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 5,
+      "previewPosterPath": "previews/catalog/x-post.png",
+      "previewVideoPath": "previews/videos/x-post.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/x-post",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/x-post/x-post.html",
+          "target": "compositions/x-post.html",
+          "type": "composition"
+        }
+      ],
+      "requiredAssets": [],
+      "visual": {
+        "eyebrow": "Social Overlays",
+        "title": "X Post Card",
+        "subtitle": "Animated X/Twitter post card overlay with engagement metrics",
+        "background": "#101114",
+        "surface": "#20242b",
+        "accent": "#4f8cff",
+        "ink": "#ffffff",
+        "secondary": "#9ca3af",
+        "motif": "card"
+      }
+    },
+    {
+      "id": "yt-lower-third",
+      "name": "YouTube Lower Third",
+      "description": "Animated YouTube subscribe lower third with avatar and channel info",
+      "category": "Social Overlays",
+      "sourceKind": "official-block",
+      "supportedTargets": [
+        "new-composition"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "durationSeconds": 4.5,
+      "previewPosterPath": "previews/catalog/yt-lower-third.png",
+      "previewVideoPath": "previews/videos/yt-lower-third.mp4",
+      "sourceUrl": "https://hyperframes.heygen.com/catalog/blocks/yt-lower-third",
+      "license": "Apache-2.0",
+      "compatibility": "HyperFrames 0.4.x, official catalog source sanitized for local GSAP runtime",
+      "version": "0.4.40-official-catalog",
+      "sourceFiles": [
+        {
+          "source": "catalog/yt-lower-third/yt-lower-third.html",
+          "target": "compositions/yt-lower-third.html",
+          "type": "composition"
+        },
+        {
+          "source": "catalog/yt-lower-third/assets/avatar.jpg",
+          "target": "assets/hyperframes-catalog/yt-lower-third/avatar.jpg",
+          "type": "asset"
+        }
+      ],
+      "requiredAssets": [
+        "catalog/yt-lower-third/assets/avatar.jpg"
+      ],
+      "visual": {
+        "eyebrow": "Social Overlays",
+        "title": "YouTube Lower Third",
+        "subtitle": "Animated YouTube subscribe lower third with avatar and channel info",
+        "background": "#101114",
+        "surface": "#20242b",
+        "accent": "#4f8cff",
+        "ink": "#ffffff",
+        "secondary": "#9ca3af",
+        "motif": "card"
+      }
+    }
+  ]
+}

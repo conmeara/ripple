@@ -1,0 +1,139 @@
+<template>
+  <section
+    id="{{COMPOSITION_ID}}"
+    class="ripple-template-block"
+    data-composition-id="{{COMPOSITION_ID}}"
+    data-start="0"
+    data-duration="{{DURATION}}"
+    data-width="{{WIDTH}}"
+    data-height="{{HEIGHT}}"
+    data-template-id="{{TEMPLATE_ID}}"
+  >
+    <style>
+      [data-composition-id="{{COMPOSITION_ID}}"] {
+        position: relative;
+        width: {{WIDTH}}px;
+        height: {{HEIGHT}}px;
+        overflow: hidden;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: {{INK}};
+        background:
+          radial-gradient(circle at 22% 18%, {{ACCENT}}44, transparent 28%),
+          linear-gradient(135deg, {{BACKGROUND}} 0%, {{SURFACE}} 160%);
+      }
+
+      [data-composition-id="{{COMPOSITION_ID}}"] .ripple-block-card {
+        position: absolute;
+        left: clamp(72px, 8vw, 168px);
+        right: clamp(72px, 8vw, 168px);
+        bottom: clamp(76px, 9vw, 150px);
+        min-height: clamp(190px, 24vw, 360px);
+        display: grid;
+        grid-template-columns: minmax(120px, 0.24fr) minmax(0, 1fr);
+        gap: clamp(32px, 5vw, 84px);
+        align-items: center;
+        padding: clamp(42px, 5vw, 84px);
+        border: 1px solid {{ACCENT}}66;
+        background: color-mix(in srgb, {{SURFACE}} 82%, transparent);
+        box-shadow: 0 34px 120px rgba(0, 0, 0, 0.32);
+      }
+
+      [data-composition-id="{{COMPOSITION_ID}}"] .ripple-block-avatar {
+        width: clamp(108px, 12vw, 210px);
+        aspect-ratio: 1;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: {{SURFACE}};
+        background:
+          linear-gradient(135deg, {{ACCENT}}, {{SECONDARY}}),
+          {{ACCENT}};
+        font-size: clamp(48px, 6vw, 96px);
+        font-weight: 820;
+        letter-spacing: 0;
+      }
+
+      [data-composition-id="{{COMPOSITION_ID}}"] .ripple-block-copy {
+        min-width: 0;
+      }
+
+      [data-composition-id="{{COMPOSITION_ID}}"] .ripple-block-eyebrow {
+        margin: 0 0 20px;
+        color: {{ACCENT}};
+        font-size: clamp(22px, 2vw, 36px);
+        line-height: 1;
+        font-weight: 780;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      [data-composition-id="{{COMPOSITION_ID}}"] .ripple-block-title {
+        margin: 0;
+        color: {{INK}};
+        font-size: clamp(58px, 6vw, 124px);
+        line-height: 0.96;
+        font-weight: 820;
+        letter-spacing: 0;
+      }
+
+      [data-composition-id="{{COMPOSITION_ID}}"] .ripple-block-subtitle {
+        max-width: 860px;
+        margin: 20px 0 0;
+        color: {{SECONDARY}};
+        font-size: clamp(25px, 2.5vw, 48px);
+        line-height: 1.08;
+        letter-spacing: 0;
+      }
+
+      [data-composition-id="{{COMPOSITION_ID}}"] .ripple-block-progress {
+        position: absolute;
+        left: clamp(42px, 5vw, 84px);
+        right: clamp(42px, 5vw, 84px);
+        bottom: clamp(30px, 4vw, 58px);
+        height: 10px;
+        overflow: hidden;
+        background: {{INK}}22;
+      }
+
+      [data-composition-id="{{COMPOSITION_ID}}"] .ripple-block-progress span {
+        display: block;
+        width: 72%;
+        height: 100%;
+        background: {{ACCENT}};
+        transform-origin: left center;
+      }
+    </style>
+
+    <div class="clip ripple-block-card" data-start="0" data-duration="{{DURATION}}" data-track-index="1">
+      <div class="clip ripple-block-avatar" data-start="0.05" data-duration="{{AVATAR_DURATION}}" data-track-index="2">{{INITIAL}}</div>
+      <div class="ripple-block-copy">
+        <p class="clip ripple-block-eyebrow" data-start="0.12" data-duration="{{TEXT_DURATION}}" data-track-index="3">{{EYEBROW}}</p>
+        <h2 class="clip ripple-block-title" data-start="0.2" data-duration="{{TEXT_DURATION}}" data-track-index="4">{{TITLE}}</h2>
+        <p class="clip ripple-block-subtitle" data-start="0.34" data-duration="{{TEXT_DURATION}}" data-track-index="5">{{SUBTITLE}}</p>
+      </div>
+      <div class="clip ripple-block-progress" data-start="0.55" data-duration="{{PROGRESS_DURATION}}" data-track-index="6">
+        <span></span>
+      </div>
+    </div>
+
+    <script src="{{RUNTIME_PATH}}"></script>
+    <script>
+      (() => {
+        window.__timelines = window.__timelines || {};
+        const root = document.querySelector('[data-composition-id="{{COMPOSITION_ID}}"]');
+        const tl = window.gsap.timeline({ paused: true });
+        tl
+          .set(root, { opacity: 1 }, 0)
+          .fromTo(root.querySelector(".ripple-block-card"), { opacity: 0, y: 54, scale: 0.985 }, { opacity: 1, y: 0, scale: 1, duration: 0.52, ease: "power3.out" }, 0)
+          .fromTo(root.querySelector(".ripple-block-avatar"), { opacity: 0, scale: 0.72 }, { opacity: 1, scale: 1, duration: 0.54, ease: "back.out(1.7)" }, 0.12)
+          .fromTo(root.querySelector(".ripple-block-eyebrow"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.32, ease: "power2.out" }, 0.18)
+          .fromTo(root.querySelector(".ripple-block-title"), { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.42, ease: "power3.out" }, 0.28)
+          .fromTo(root.querySelector(".ripple-block-subtitle"), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.36, ease: "power2.out" }, 0.42)
+          .fromTo(root.querySelector(".ripple-block-progress span"), { scaleX: 0 }, { scaleX: 1, duration: {{PROGRESS_DURATION}}, ease: "power1.inOut" }, 0.58)
+          .to(root.querySelector(".ripple-block-card"), { opacity: 0, y: -24, duration: 0.42, ease: "power2.in" }, Math.max(0, {{DURATION}} - 0.48))
+          .set(root, { duration: {{DURATION}} }, 0);
+        window.__timelines["{{COMPOSITION_ID}}"] = tl;
+      })();
+    </script>
+  </section>
+</template>

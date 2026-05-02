@@ -23,6 +23,7 @@ import { exportsRouter } from "./exports"
 import { revisionsRouter } from "./revisions"
 import { agentRuntimeRouter } from "./agent-runtime"
 import { conversationsRouter } from "./conversations"
+import { templatesRouter } from "./templates"
 import { createGitRouter } from "../../git"
 import { BrowserWindow } from "electron"
 
@@ -56,6 +57,7 @@ export function createAppRouter(getWindow: () => BrowserWindow | null) {
     revisions: revisionsRouter,
     conversations: conversationsRouter,
     agentRuntime: agentRuntimeRouter,
+    templates: templatesRouter,
     // Git operations - named "changes" to match Superset API
     changes: createGitRouter(),
   })

@@ -11,6 +11,7 @@ import { Input } from "../../components/ui/input"
 import { Logo } from "../../components/ui/logo"
 import { trpc } from "../../lib/trpc"
 import { showProjectSetupNotice } from "../../lib/project-setup-toast"
+import { TemplateGallery } from "../templates/TemplateChooserDialog"
 import {
   projectEntryReturnProjectAtom,
   selectedProjectAtom,
@@ -21,9 +22,13 @@ export function ProjectEntryPage() {
   const [, setSelectedProject] = useAtom(selectedProjectAtom)
   const [returnProject, setReturnProject] = useAtom(projectEntryReturnProjectAtom)
   const [projectName, setProjectName] = useState("")
+  const [selectedTemplateId, setSelectedTemplateId] = useState("blank")
   const utils = trpc.useUtils()
   const { data: projects } = trpc.projects.list.useQuery()
   const { data: archivedProjects } = trpc.projects.listArchived.useQuery()
+  const { data: templates = [] } = trpc.templates.list.useQuery({
+    target: "new-project",
+  })
 
   const selectProject = (project: Parameters<typeof toSelectedProject>[0]) => {
     setSelectedProject(toSelectedProject(project))
@@ -119,6 +124,7 @@ export function ProjectEntryPage() {
     if (!name || isBusy) return
     await createProject.mutateAsync({
       name,
+      templateId: selectedTemplateId,
     })
   }
 
@@ -135,7 +141,7 @@ export function ProjectEntryPage() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center bg-background select-none">
+    <div className="h-screen w-screen overflow-y-auto bg-background select-none">
       <div
         className="fixed top-0 left-0 right-0 h-10"
         style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
@@ -156,9 +162,9 @@ export function ProjectEntryPage() {
 
       <form
         onSubmit={handleCreateProject}
-        className="w-full max-w-[460px] space-y-7 px-5"
+        className="mx-auto flex min-h-screen w-full max-w-[920px] flex-col justify-center space-y-7 px-5 py-20"
       >
-        <div className="text-center space-y-4">
+        <div className="mx-auto w-full max-w-[460px] text-center space-y-4">
           <div className="flex items-center justify-center mx-auto w-max">
             <div className="w-12 h-12 rounded-md bg-primary flex items-center justify-center">
               <Logo className="w-6 h-6" fill="white" />
@@ -174,7 +180,7 @@ export function ProjectEntryPage() {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="mx-auto w-full max-w-[460px] space-y-4">
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground" htmlFor="project-name">
               Project name
@@ -191,7 +197,7 @@ export function ProjectEntryPage() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="mx-auto w-full max-w-[460px] space-y-3">
           <Button
             type="submit"
             className="h-9 w-full gap-2"
@@ -248,6 +254,18 @@ export function ProjectEntryPage() {
               </div>
             </div>
           )}
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-foreground">Templates</h2>
+          </div>
+          <TemplateGallery
+            templates={templates}
+            selectedTemplateId={selectedTemplateId}
+            onSelectTemplate={setSelectedTemplateId}
+            disabled={isBusy}
+          />
         </div>
       </form>
     </div>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <rect width="960" height="540" fill="#fbfaf6"/>
+  <circle cx="764" cy="92" r="152" fill="#2563eb" opacity=".28"/>
+  <rect x="58" y="58" width="844" height="424" fill="#111111" opacity=".36" stroke="#2563eb" stroke-width="3"/>
+  <path d="M96 396h180v24H96zM96 350h268v24H96zM96 304h132v24H96z" fill="#2563eb" opacity=".9"/>
+  <text x="96" y="154" fill="#2563eb" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">Data story</text>
+  <text x="96" y="236" fill="#111111" font-family="Inter, Arial, sans-serif" font-size="70" font-weight="850">NYT Graph</text>
+  <text x="96" y="282" fill="#8b8178" font-family="Inter, Arial, sans-serif" font-size="28">Editorial data starter with chart bars, annotations, and measured timing.</text>
+  <text x="742" y="436" fill="#111111" opacity=".72" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">1920x1080</text>
+</svg>

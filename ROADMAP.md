@@ -886,6 +886,21 @@ Done when:
   cleanup is limited to compatibility names once it can be done without a UI
   regression.
 
+Follow-up ExecPlan:
+`plans/phase-10b-active-conversation-tabs-and-activity-badges.md`
+
+Follow-up goals:
+
+- Add active conversation tabs/chips inside the Ripple Chat pane so users can
+  keep multiple conversations visible without digging through history.
+- Treat active conversation chips as an attention set, not as permanent
+  `Main`, composition, or future sequence ownership.
+- Closing a chip removes it from active chats but keeps the conversation in
+  history.
+- Add dismissible activity badges to composition rows, and future sequence
+  rows, for unacknowledged comment/revision activity such as working, changes
+  ready, and needs attention.
+
 ### Phase 11: Export
 
 ExecPlan: `plans/phase-11-renders-and-export.md`

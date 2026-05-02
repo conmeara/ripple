@@ -59,7 +59,7 @@ describe("HyperFrames player source URLs", () => {
 
     expect(csp).toContain("connect-src 'self' ripple-preview:")
     expect(csp).toContain("frame-src 'self' blob: ripple-preview:")
-    expect(csp).toContain("media-src 'self' blob: ripple-preview:")
+    expect(csp).toContain("media-src 'self' data: blob: ripple-preview:")
     expect(csp).not.toContain("cdn.jsdelivr.net")
   })
 })

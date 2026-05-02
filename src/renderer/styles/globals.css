@@ -185,6 +185,111 @@
   animation: chroma-slide 2s ease-out infinite;
 }
 
+@keyframes template-preview-pan {
+  0%,
+  100% {
+    transform: scale(1.02) translate3d(0, 0, 0);
+  }
+  38% {
+    transform: scale(1.095) translate3d(-1.8%, -1.4%, 0);
+  }
+  70% {
+    transform: scale(1.06) translate3d(1.4%, 0.9%, 0);
+  }
+}
+
+@keyframes template-preview-shine {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.42;
+  }
+  58%,
+  100% {
+    transform: translateX(320%) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
+@keyframes template-preview-progress {
+  0% {
+    transform: scaleX(0);
+  }
+  72% {
+    transform: scaleX(1);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+.template-hover-preview-poster,
+.template-hover-preview-active,
+.template-hover-preview-video {
+  transition: opacity 180ms ease-out, transform 220ms ease-out;
+}
+
+.template-hover-preview-active {
+  will-change: opacity;
+}
+
+.template-hover-preview-shine {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.36),
+    transparent
+  );
+  mix-blend-mode: screen;
+}
+
+.template-hover-preview-timeline span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(var(--template-preview-progress, 0));
+  transform-origin: left center;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.group:hover .template-hover-preview-active,
+.group:focus-visible .template-hover-preview-active {
+  opacity: 1;
+}
+
+.group:hover .template-hover-preview-poster,
+.group:focus-visible .template-hover-preview-poster {
+  opacity: 0;
+}
+
+.group:hover .template-hover-preview-image,
+.group:focus-visible .template-hover-preview-image {
+  animation: template-preview-pan 2.8s ease-in-out infinite;
+}
+
+.group:hover .template-hover-preview-shine,
+.group:focus-visible .template-hover-preview-shine {
+  animation: template-preview-shine 1.65s ease-out infinite;
+}
+
+.group:hover .template-hover-preview-progress-fallback,
+.group:focus-visible .template-hover-preview-progress-fallback {
+  animation: template-preview-progress 2.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .template-hover-preview-image,
+  .group:focus-visible .template-hover-preview-image,
+  .group:hover .template-hover-preview-shine,
+  .group:focus-visible .template-hover-preview-shine,
+  .group:hover .template-hover-preview-progress-fallback,
+  .group:focus-visible .template-hover-preview-progress-fallback {
+    animation: none;
+  }
+}
+
 /* Dark theme chroma colors */
 .dark .chroma-text {
   background-image: linear-gradient(

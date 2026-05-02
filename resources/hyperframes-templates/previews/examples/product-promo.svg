@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <rect width="960" height="540" fill="#071013"/>
+  <circle cx="764" cy="92" r="152" fill="#22c55e" opacity=".28"/>
+  <rect x="58" y="58" width="844" height="424" fill="#dcfce7" opacity=".36" stroke="#22c55e" stroke-width="3"/>
+  <path d="M96 396h180v24H96zM96 350h268v24H96zM96 304h132v24H96z" fill="#22c55e" opacity=".9"/>
+  <text x="96" y="154" fill="#22c55e" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">Launch</text>
+  <text x="96" y="236" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="70" font-weight="850">Product Promo</text>
+  <text x="96" y="282" fill="#86efac" font-family="Inter, Arial, sans-serif" font-size="28">Multi-scene product starter with hero panels and feature beats.</text>
+  <text x="742" y="436" fill="#f8fafc" opacity=".72" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">1920x1080</text>
+</svg>

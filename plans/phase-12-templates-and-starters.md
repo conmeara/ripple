@@ -52,13 +52,66 @@ entry composition is a later editing workflow.
 - [x] 2026-05-01 / User + Codex: Agreed that users should see one template
   gallery of starting points, context-filtered for New Project or New
   Composition, while project/composition compatibility stays internal.
-- [ ] Implement Milestone 0: template source audit, bundle policy, and curated
-  first gallery.
-- [ ] Implement Milestone 1: typed template library and offline bundle.
-- [ ] Implement Milestone 2: New Project template chooser.
-- [ ] Implement Milestone 3: New Composition action.
-- [ ] Implement Milestone 4: offline template preview media and thumbnail QA.
-- [ ] Implement Milestone 5: validation, packaging, and recovery hardening.
+- [x] 2026-05-01 / Codex: Implemented Milestone 0. The first catalog uses
+  Ripple-authored, offline-safe template sources keyed to official
+  HyperFrames example/block IDs and records source URL, license, compatibility,
+  version, category, dimensions, duration, and supported targets in the bundle
+  manifest.
+- [x] 2026-05-01 / Codex: Implemented Milestone 1. Added
+  `resources/hyperframes-templates/`, shared template types, the main-process
+  catalog loader, validation tests, and Electron package resources.
+- [x] 2026-05-01 / Codex: Implemented Milestone 2. New Project now shows the
+  reusable template gallery below the name/open controls and passes the
+  selected template ID through project creation.
+- [x] 2026-05-01 / Codex: Implemented Milestone 3. The project browser
+  Compositions pane now has a New Composition action that opens the filtered
+  template chooser, creates the composition through main-process tRPC, selects
+  it, refreshes project browser state, and does not patch `index.html`.
+- [x] 2026-05-01 / Codex: Implemented Milestone 4. Template previews are
+  bundled offline as poster media loaded from the app-owned resource bundle.
+  Hover video previews remain a future enhancement rather than a runtime
+  network dependency.
+- [x] 2026-05-01 / Codex: Implemented Milestone 5. Added focused catalog,
+  scaffold, and installer regression tests; ran HyperFrames lint against every
+  generated project template and a host project containing every composition
+  template; ran Ripple/HyperFrames suites, type check, build, diff hygiene, and
+  packaging/resource smoke.
+- [x] 2026-05-01 / User + Codex: Added the full public HyperFrames catalog to
+  Phase 12 scope. User direction: include the full catalog of templates,
+  blocks, components, and other items from
+  `https://hyperframes.heygen.com/catalog/`, make them selectable as project or
+  composition starts where appropriate, and replace the generic thumbnail with
+  a real preview for every selectable tile.
+- [x] 2026-05-01 / Codex: Added a bundle refresh script that reads the official
+  docs catalog index, downloads registry item manifests/sources/assets, and
+  vendors official catalog preview PNGs into
+  `resources/hyperframes-templates/`.
+- [x] 2026-05-01 / Codex: Expanded the bundle to 55 selectable items: 9 New
+  Project starters and 47 New Composition starters. Composition starters now
+  include every official catalog block plus every official catalog component as
+  a previewable composition with its snippet copied alongside it.
+- [x] 2026-05-01 / Codex: Replaced the shared generic preview poster with 55
+  distinct preview poster files: official catalog PNGs for catalog items and
+  generated local SVG posters for project starters.
+- [x] 2026-05-01 / Codex: Updated the installer so official catalog HTML is
+  copied through main-process path validation, uses Ripple's local GSAP runtime,
+  rewrites bundled asset references into template-specific asset folders, and
+  removes render-time font/CDN fetches.
+- [x] 2026-05-01 / Codex: Added regression coverage for the full catalog counts,
+  unique preview paths, official components, copied snippets, copied assets, and
+  local runtime sanitization. A generated temp-project audit installed every
+  project template and every catalog composition template; `hyperframes lint
+  --json` reported zero errors.
+- [x] 2026-05-01 / Codex: Added hover previews to every Phase 12 template tile.
+  Cards now crossfade from the static poster into an animated hover/focus
+  preview using the real poster image, a play affordance, a shine pass, and a
+  scrub-style progress sweep. This covers all 55 selectable templates without
+  adding heavy video payloads to the catalog response.
+- [x] 2026-05-01 / User + Codex: Upgraded the hover previews from poster-motion
+  treatments to actual rendered motion previews for the whole catalog. Added a
+  local render script, generated 55 MP4 clips from the bundled HyperFrames
+  template sources, linked them from the manifest, and changed the chooser to
+  play the local MP4 on hover/focus with the poster treatment as fallback.
 
 ## Surprises & Discoveries
 
@@ -129,6 +182,44 @@ entry composition is a later editing workflow.
   includes logos, fonts, audio, and captured site clips; `vibe-video` is an
   agent/render pipeline rather than a template library.
 
+- Observation: The first shipped template bundle was intentionally
+  Ripple-authored rather than a verbatim registry snapshot.
+  Evidence: `resources/hyperframes-templates/manifest.json` preserves official
+  source IDs/URLs/license metadata, while `project/starter.html` and
+  `block/starter.html` render local, parameterized HyperFrames documents with
+  no network URLs.
+
+- Observation: The public docs expose a machine-readable catalog index with
+  official preview PNG URLs for every catalog item.
+  Evidence: `docs/public/catalog-index.json` in the HyperFrames repository lists
+  item name, type, title, description, tags, docs href, and
+  `https://static.heygen.ai/hyperframes-oss/docs/images/catalog/...` preview
+  image URLs for all public catalog blocks and components.
+
+- Observation: Official catalog source files commonly reference CDN GSAP and
+  Google Fonts, and some blocks use project-root asset paths that collide across
+  items.
+  Evidence: Vendored files such as
+  `resources/hyperframes-templates/catalog/instagram-follow/instagram-follow.html`
+  and `resources/hyperframes-templates/catalog/app-showcase/app-showcase.html`
+  include remote runtime/font references in the upstream source. Ripple rewrites
+  those at install time and stores assets under
+  `assets/hyperframes-catalog/<template-id>/...`.
+
+- Observation: Packaged resource lookup works through Electron's resources
+  directory.
+  Evidence: `bun run package` produced
+  `release/mac-arm64/1Code.app/Contents/Resources/hyperframes-templates/`
+  with `manifest.json`, project/block template sources, and preview poster
+  media. The packaged bundle was 44K.
+
+- Observation: The local package smoke required one approved network-capable
+  package run because Electron packaging fetched cached/build dependencies
+  outside the restricted sandbox.
+  Evidence: The first sandboxed `bun run package` failed on DNS during the
+  Electron download path; the approved rerun completed and skipped only macOS
+  notarization because local notarization options are not configured.
+
 ## Decision Log
 
 - Decision: Ripple's user-facing word is "Template"; the UI should present one
@@ -177,9 +268,119 @@ entry composition is a later editing workflow.
   a broader intake surface.
   Date/Author: 2026-05-01 / Codex
 
+- Decision: `templates.list` returns poster data URLs directly; there is no
+  separate `templates.getPreview` endpoint in the first pass.
+  Rationale: The preview media is small, local, and static. Returning it with
+  the catalog simplifies offline chooser rendering while keeping absolute
+  bundle paths out of the renderer.
+  Date/Author: 2026-05-01 / Codex
+
+- Decision: Full public catalog items are installed from vendored official
+  registry sources, while project examples continue to use Ripple-normalized
+  project starters.
+  Rationale: Blocks and components can be added as reusable compositions with
+  their own assets/snippets. Full official examples remain project starters in
+  the New Project flow, but Ripple keeps the project starter implementation
+  normalized for local-first project creation and current scaffold stability.
+  Date/Author: 2026-05-01 / Codex
+
+- Decision: Official components are selectable in New Composition as
+  previewable composition demos, with their original component snippets copied
+  into `compositions/components/`.
+  Rationale: Users asked for the full catalog to be addable from the chooser.
+  Components are not full compositions upstream, so Ripple makes them useful in
+  this UX by installing a previewable composition and preserving the snippet for
+  later editing workflows.
+  Date/Author: 2026-05-01 / Codex
+
+- Decision: Hover previews should prefer rendered local MP4 clips, with the
+  poster-motion treatment kept only as a fallback.
+  Rationale: The official catalog currently exposes poster previews but not
+  motion preview URLs. Rendering clips from the same bundled HyperFrames sources
+  gives the chooser real motion previews while preserving Ripple's local-first
+  behavior and avoiding runtime network fetches.
+  Date/Author: 2026-05-01 / User + Codex
+
+- Decision: Catalog motion preview clips are generated at a maximum dimension
+  of 960 pixels, 24fps, draft quality, and stored as MP4 under
+  `resources/hyperframes-templates/previews/videos/`.
+  Rationale: This preserves real motion and aspect ratio for every template
+  while keeping the complete preview video set around 13M.
+  Date/Author: 2026-05-01 / Codex
+
 ## Outcomes & Retrospective
 
-Not started. This plan is the initial Phase 12 implementation plan.
+Phase 12 full-catalog pass is implemented.
+
+What shipped:
+
+- A packaged, app-owned HyperFrames template bundle with 55 selectable items:
+  9 New Project-compatible starts and 47 New Composition-compatible starts,
+  including Blank first in both contexts.
+- The full public HyperFrames catalog from `https://hyperframes.heygen.com/catalog/`:
+  official blocks, transitions, showcases, social overlays, data blocks, and
+  components.
+- A durable catalog refresh script at
+  `scripts/update-hyperframes-template-bundle.ts` that vendors the official
+  catalog index, registry item manifests/sources/assets, and preview PNGs.
+- Shared template catalog types, main-process manifest validation, and
+  renderer-safe template view models with offline poster previews.
+- A distinct preview poster and a rendered MP4 motion preview for every
+  selectable template. Catalog items use official preview PNGs from the
+  HyperFrames docs site; project starters use generated local SVG posters; all
+  motion previews are generated locally from the vendored HyperFrames sources.
+- Hover previews for every selectable template tile, using the rendered local
+  MP4 on hover and keyboard focus, with the poster animation retained as a
+  fallback.
+- A durable motion-preview render script at
+  `scripts/render-hyperframes-template-motion-previews.ts`, exposed through
+  `bun run templates:motion-previews`.
+- Template-aware project creation that preserves existing safe destination
+  checks, writes local runtime assets, records `templateId`, and derives
+  initial project dimensions from the selected template unless callers
+  explicitly override them.
+- A New Project template gallery that keeps the existing name and Open Existing
+  Project flow intact.
+- A New Composition flow in the project browser that creates reusable
+  composition files under `compositions/`, updates `hyperframes.json`, refreshes
+  composition rows, selects the created composition, and leaves `index.html`
+  unchanged.
+- Official catalog assets are copied into template-specific project folders and
+  official catalog components are copied as both previewable compositions and
+  preserved snippets.
+- Electron packaging configuration that includes the offline template bundle,
+  poster previews, and motion-preview MP4s in packaged app resources.
+
+Validation completed:
+
+- `bun test src/main/lib/hyperframes/templates src/main/lib/ripple-projects/scaffold.test.ts`
+  passed.
+- `bun test src/renderer/features/templates src/main/lib/hyperframes/templates
+  src/main/lib/ripple-projects/scaffold.test.ts` passed.
+- `bun run templates:motion-previews` rendered 55 MP4 clips and updated all 55
+  `previewVideoPath` manifest entries.
+- A manifest/file audit confirmed 55 MP4 files, zero missing video paths, a 13M
+  `previews/videos/` directory, and a 27M total template bundle.
+- An `ffprobe` audit confirmed every MP4 has valid width, height, duration, and
+  frame count.
+- `bun run test:ripple` passed.
+- `bun run test:hyperframes` passed.
+- `bun run ts:check` passed.
+- `bun run build` passed.
+- `git diff --check` passed.
+- `bun run package` passed, and the packaged app bundle contained a 33M
+  `hyperframes-templates/` resource bundle with 55 manifest entries, 55
+  preview poster files, and 55 preview MP4 files.
+- `hyperframes lint --json` reported zero errors for every generated New
+  Project template and for a host project containing every New Composition
+  template from the full catalog.
+
+Remaining follow-up candidates:
+
+- Add live Electron QA for the full click path from New Project and New
+  Composition once a dev app session is requested.
+- Add cleanup-or-error-manifest behavior for rare partial composition install
+  failures after file copy but before metadata write.
 
 ## Context and Orientation
 
@@ -321,12 +522,10 @@ first and keyboard-selectable. Technical labels such as example, block,
 component, project template, and composition template should not be primary UI
 copy.
 
-Template previews should be offline. The first implementation should bundle
-static poster PNGs and short muted WebM/MP4 previews generated during
-development from the same local template files. If size becomes a concern, use
-posters first and add hover video previews only for selected/high-value
-templates. Runtime generation can be a fallback for development, but normal app
-use should not fetch remote media or call a network registry.
+Template previews should be offline. The implementation bundles static poster
+media plus short muted MP4 previews generated during development from the same
+local template files. Runtime app use should not fetch remote media or call a
+network registry.
 
 ## Concrete Steps
 

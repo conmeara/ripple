@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width={{WIDTH}}, height={{HEIGHT}}" />
+    <link rel="icon" href="data:," />
+    <title>{{PROJECT_NAME}}</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: {{BACKGROUND}};
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: {{WIDTH}}px;
+        height: {{HEIGHT}}px;
+        margin: 0;
+        overflow: hidden;
+        background: {{BACKGROUND}};
+      }
+
+      .ripple-template-stage {
+        position: relative;
+        width: {{WIDTH}}px;
+        height: {{HEIGHT}}px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 78% 18%, {{SECONDARY}}66, transparent 30%),
+          linear-gradient(135deg, {{BACKGROUND}} 0%, {{SURFACE}} 145%);
+        color: {{INK}};
+      }
+
+      .ripple-template-stage::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        opacity: 0.2;
+        background-image:
+          linear-gradient({{ACCENT}}33 1px, transparent 1px),
+          linear-gradient(90deg, {{ACCENT}}22 1px, transparent 1px);
+        background-size: 96px 96px;
+        transform: rotate(-2deg) scale(1.08);
+      }
+
+      .ripple-template-stage[data-motif="grain"]::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        opacity: 0.16;
+        background-image:
+          radial-gradient(circle at 10% 20%, {{INK}} 0 1px, transparent 1px),
+          radial-gradient(circle at 80% 40%, {{ACCENT}} 0 1px, transparent 1px),
+          radial-gradient(circle at 45% 85%, {{SURFACE}} 0 1px, transparent 1px);
+        background-size: 22px 24px, 31px 29px, 17px 19px;
+        mix-blend-mode: screen;
+      }
+
+      .ripple-template-stage[data-motif="minimal"]::before {
+        opacity: 0.05;
+      }
+
+      .ripple-template-stage[data-motif="type"]::before,
+      .ripple-template-stage[data-motif="grid"]::before,
+      .ripple-template-stage[data-motif="chart"]::before {
+        opacity: 0.32;
+      }
+
+      .ripple-template-frame {
+        position: absolute;
+        inset: 72px;
+        border: 1px solid {{ACCENT}}66;
+      }
+
+      .ripple-template-content {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 0.38fr);
+        gap: 52px;
+        align-items: end;
+        padding: clamp(72px, 7vw, 132px);
+      }
+
+      .ripple-template-copy {
+        position: relative;
+        z-index: 1;
+        max-width: 1180px;
+      }
+
+      .ripple-template-eyebrow {
+        margin: 0 0 26px;
+        color: {{ACCENT}};
+        font-size: clamp(24px, 2vw, 38px);
+        line-height: 1;
+        font-weight: 760;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .ripple-template-title {
+        margin: 0;
+        color: {{INK}};
+        font-size: clamp(92px, 8vw, 178px);
+        line-height: 0.9;
+        font-weight: 820;
+        letter-spacing: 0;
+      }
+
+      .ripple-template-subtitle {
+        max-width: 760px;
+        margin: 34px 0 0;
+        color: {{SECONDARY}};
+        font-size: clamp(28px, 2.3vw, 48px);
+        line-height: 1.08;
+        letter-spacing: 0;
+      }
+
+      .ripple-template-card {
+        position: relative;
+        z-index: 1;
+        align-self: center;
+        min-height: 420px;
+        border: 1px solid {{ACCENT}}55;
+        background: color-mix(in srgb, {{SURFACE}} 70%, transparent);
+        box-shadow: 0 38px 120px rgba(0, 0, 0, 0.28);
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+
+      .ripple-template-card::before,
+      .ripple-template-card::after {
+        content: "";
+        position: absolute;
+        border-radius: 999px;
+      }
+
+      .ripple-template-card::before {
+        width: 260px;
+        height: 260px;
+        background: {{ACCENT}};
+        opacity: 0.32;
+      }
+
+      .ripple-template-card::after {
+        width: 132px;
+        height: 132px;
+        border: 28px solid {{INK}};
+        opacity: 0.85;
+      }
+
+      .ripple-template-mark {
+        position: absolute;
+        left: 40px;
+        right: 40px;
+        bottom: 38px;
+        display: flex;
+        justify-content: space-between;
+        color: {{INK}};
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+    </style>
+  </head>
+  <body>
+    <main
+      id="main"
+      class="ripple-template-stage"
+      data-motif="{{MOTIF}}"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="{{DURATION}}"
+      data-width="{{WIDTH}}"
+      data-height="{{HEIGHT}}"
+    >
+      <div class="ripple-template-frame"></div>
+      <section class="clip ripple-template-content" data-start="0" data-duration="{{DURATION}}" data-track-index="1">
+        <div class="ripple-template-copy">
+          <p class="clip ripple-template-eyebrow" data-start="0" data-duration="3" data-track-index="2">{{EYEBROW}}</p>
+          <h1 class="clip ripple-template-title" data-start="0" data-duration="{{TITLE_DURATION}}" data-track-index="3">{{TITLE}}</h1>
+          <p class="clip ripple-template-subtitle" data-start="0.4" data-duration="{{SUBTITLE_DURATION}}" data-track-index="4">{{SUBTITLE}}</p>
+        </div>
+        <aside class="clip ripple-template-card" data-start="0.5" data-duration="{{CARD_DURATION}}" data-track-index="5">
+          <div class="ripple-template-mark">
+            <span>{{TEMPLATE_ID}}</span>
+            <span>{{FPS}} fps</span>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script src="{{RUNTIME_PATH}}"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = window.gsap.timeline({ paused: true });
+      tl
+        .set("#main", { opacity: 1 }, 0)
+        .fromTo(".ripple-template-frame", { opacity: 0, scale: 0.985 }, { opacity: 1, scale: 1, duration: 0.55, ease: "power2.out" }, 0)
+        .fromTo(".ripple-template-eyebrow", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 0.12)
+        .fromTo(".ripple-template-title", { opacity: 0, y: 42 }, { opacity: 1, y: 0, duration: 0.72, ease: "power3.out" }, 0.28)
+        .fromTo(".ripple-template-subtitle", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.56, ease: "power2.out" }, 0.62)
+        .fromTo(".ripple-template-card", { opacity: 0, y: 36, rotate: -1.5 }, { opacity: 1, y: 0, rotate: 0, duration: 0.7, ease: "power3.out" }, 0.72)
+        .to(".ripple-template-title", { opacity: 0.92, duration: 0.2 }, Math.max(0, {{DURATION}} - 0.8))
+        .set("#main", { duration: {{DURATION}} }, 0);
+      window.__timelines.main = tl;
+    </script>
+  </body>
+</html>

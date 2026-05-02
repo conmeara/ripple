@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <rect width="960" height="540" fill="#050505"/>
+  <circle cx="764" cy="92" r="152" fill="#f4f4f5" opacity=".28"/>
+  <rect x="58" y="58" width="844" height="424" fill="#121212" opacity=".36" stroke="#f4f4f5" stroke-width="3"/>
+  <path d="M96 396h180v24H96zM96 350h268v24H96zM96 304h132v24H96z" fill="#f4f4f5" opacity=".9"/>
+  <text x="96" y="154" fill="#f4f4f5" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">Blank</text>
+  <text x="96" y="236" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="70" font-weight="850">Blank</text>
+  <text x="96" y="282" fill="#8b8b8f" font-family="Inter, Arial, sans-serif" font-size="28">Minimal black HyperFrames starter for agent-generated motion work.</text>
+  <text x="742" y="436" fill="#ffffff" opacity=".72" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">1920x1080</text>
+</svg>

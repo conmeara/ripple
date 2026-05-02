@@ -9,7 +9,7 @@ const metadata: ScaffoldMetadata = {
   projectName: "Launch Video",
   slug: "launch-video",
   aspectRatioPreset: "wide-16-9",
-  templateId: "starter-title-card",
+  templateId: "blank",
   width: 1920,
   height: 1080,
   fps: 30,
@@ -37,7 +37,7 @@ describe("Ripple project scaffold", () => {
       expect(indexHtml).toContain('data-composition-id="main"')
       expect(indexHtml).toContain('data-width="1920"')
       expect(indexHtml).toContain('data-height="1080"')
-      expect(indexHtml).toContain('class="clip title-card"')
+      expect(indexHtml).toContain('class="clip ripple-template-content"')
       expect(indexHtml).toContain('data-start="0"')
       expect(indexHtml).toContain('data-duration="6"')
       expect(indexHtml).not.toContain("data-composition-src")
@@ -63,7 +63,16 @@ describe("Ripple project scaffold", () => {
         width: 1920,
         height: 1080,
         fps: 30,
+        templateId: "blank",
         compositions: ["index.html"],
+      })
+
+      const metaJson = JSON.parse(await readFile(join(root, "meta.json"), "utf8"))
+      expect(metaJson).toMatchObject({
+        app: "Ripple",
+        projectName: "Launch Video",
+        templateId: "blank",
+        createdWith: "ripple-phase-12",
       })
 
       const gitignore = await readFile(join(root, ".gitignore"), "utf8")
@@ -106,6 +115,82 @@ describe("Ripple project scaffold", () => {
             kind: "root",
           },
         ],
+      })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test("writes a selected project template with offline metadata", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ripple-scaffold-"))
+    try {
+      const result = await writeRippleProjectScaffold(root, {
+        ...metadata,
+        templateId: "vignelli",
+        width: 1080,
+        height: 1920,
+      })
+
+      expect(result.compositions[0]).toMatchObject({
+        filePath: "index.html",
+        width: 1080,
+        height: 1920,
+      })
+
+      const indexHtml = await readFile(join(root, "index.html"), "utf8")
+      expect(indexHtml).toContain("vignelli")
+      expect(indexHtml).toContain('data-width="1080"')
+      expect(indexHtml).toContain('data-height="1920"')
+      expect(indexHtml).not.toContain("https://")
+
+      const hyperframesJson = JSON.parse(
+        await readFile(join(root, "hyperframes.json"), "utf8"),
+      )
+      expect(hyperframesJson).toMatchObject({
+        templateId: "vignelli",
+        width: 1080,
+        height: 1920,
+      })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test("honors caller dimensions for selected project templates", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ripple-scaffold-"))
+    try {
+      const result = await writeRippleProjectScaffold(root, {
+        ...metadata,
+        aspectRatioPreset: "square-1-1",
+        templateId: "warm-grain",
+        width: 1080,
+        height: 1080,
+      })
+
+      expect(result.compositions[0]).toMatchObject({
+        filePath: "index.html",
+        width: 1080,
+        height: 1080,
+      })
+
+      const indexHtml = await readFile(join(root, "index.html"), "utf8")
+      expect(indexHtml).toContain('data-width="1080"')
+      expect(indexHtml).toContain('data-height="1080"')
+
+      const hyperframesJson = JSON.parse(
+        await readFile(join(root, "hyperframes.json"), "utf8"),
+      )
+      expect(hyperframesJson).toMatchObject({
+        templateId: "warm-grain",
+        width: 1080,
+        height: 1080,
+      })
+
+      const metaJson = JSON.parse(await readFile(join(root, "meta.json"), "utf8"))
+      expect(metaJson).toMatchObject({
+        templateId: "warm-grain",
+        width: 1080,
+        height: 1080,
       })
     } finally {
       await rm(root, { recursive: true, force: true })

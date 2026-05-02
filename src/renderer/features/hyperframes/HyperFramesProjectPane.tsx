@@ -45,6 +45,7 @@ import {
 import { trpc } from "../../lib/trpc"
 import { cn } from "../../lib/utils"
 import { selectedProjectAtom, toSelectedProject } from "../agents/atoms"
+import { TemplateChooserDialog } from "../templates/TemplateChooserDialog"
 import {
   buildHyperframesPlayerFetchUrl,
   buildHyperframesThumbnailBlobDocument,
@@ -361,6 +362,7 @@ export function HyperFramesProjectPane({
   const [selectedProject, setSelectedProject] = useAtom(selectedProjectAtom)
   const [tab, setTab] = useState<"compositions" | "assets">("compositions")
   const [isDraggingAssets, setIsDraggingAssets] = useState(false)
+  const [compositionChooserOpen, setCompositionChooserOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const utils = trpc.useUtils()
   const browserQuery = trpc.hyperframes.getProjectBrowserModel.useQuery(
@@ -425,6 +427,26 @@ export function HyperFramesProjectPane({
       })
     },
   })
+  const createCompositionMutation = trpc.templates.createComposition.useMutation({
+    onSuccess: (result) => {
+      utils.hyperframes.getProjectBrowserModel.setData({ projectId }, result.model)
+      setSelectedProject(toSelectedProject(result.project))
+      setCompositionChooserOpen(false)
+      setTab("compositions")
+      void utils.projects.list.invalidate()
+      void utils.projects.listCompositions.invalidate({ projectId })
+      void utils.hyperframes.getPlayerSource.invalidate()
+      void utils.hyperframes.getTimelineModel.invalidate()
+      toast.success("Composition created", {
+        description: result.composition.name,
+      })
+    },
+    onError: (error) => {
+      toast.error("Composition was not created", {
+        description: error.message,
+      })
+    },
+  })
 
   const model = browserQuery.data
   const compositions = model?.compositions ?? []
@@ -484,6 +506,21 @@ export function HyperFramesProjectPane({
 
   return (
     <aside className="flex h-full min-w-0 flex-col overflow-hidden bg-tl-background">
+      <TemplateChooserDialog
+        open={compositionChooserOpen}
+        target="new-composition"
+        title="New composition"
+        actionLabel="Create Composition"
+        isCreating={createCompositionMutation.isPending}
+        onOpenChange={setCompositionChooserOpen}
+        onCreate={(templateId) =>
+          createCompositionMutation.mutate({
+            projectId,
+            templateId,
+            setActive: true,
+          })
+        }
+      />
       {setupWarning && (
         <div className="flex shrink-0 items-start gap-2 border-b border-border/60 px-3 py-2 text-[12px] text-muted-foreground">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-plan-mode" />
@@ -577,6 +614,21 @@ export function HyperFramesProjectPane({
           <TabsContent value="compositions" className="m-0 min-h-0 flex-1 overflow-y-auto p-0">
             {displayedCompositions.length > 0 ? (
               <div className="space-y-2 p-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 w-full gap-1.5 text-[12px]"
+                  disabled={createCompositionMutation.isPending}
+                  onClick={() => setCompositionChooserOpen(true)}
+                >
+                  {createCompositionMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                  New Composition
+                </Button>
                 {displayedCompositions.map((composition) => (
                   <CompositionRow
                     key={composition.id}
@@ -588,10 +640,29 @@ export function HyperFramesProjectPane({
                 ))}
               </div>
             ) : (
-              <PaneEmptyState
-                icon={<Clapperboard className="h-4 w-4" />}
-                title="No compositions"
-              />
+              <div className="flex h-full flex-col">
+                <div className="shrink-0 border-b border-border/60 p-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 w-full gap-1.5 text-[12px]"
+                    disabled={createCompositionMutation.isPending}
+                    onClick={() => setCompositionChooserOpen(true)}
+                  >
+                    {createCompositionMutation.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Plus className="h-3.5 w-3.5" />
+                    )}
+                    New Composition
+                  </Button>
+                </div>
+                <PaneEmptyState
+                  icon={<Clapperboard className="h-4 w-4" />}
+                  title="No compositions"
+                />
+              </div>
             )}
           </TabsContent>
 

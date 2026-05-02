@@ -26,6 +26,7 @@ import {
 } from "./paths"
 import { writeRippleProjectScaffold } from "./scaffold"
 import { defaultRippleProjectSettings } from "./types"
+import { getRippleTemplateForTarget } from "../hyperframes/templates/catalog"
 import type {
   AspectRatioPreset,
   CreateRippleProjectInput,
@@ -35,6 +36,7 @@ import type {
   ScaffoldMetadata,
   SetupReport,
 } from "./types"
+import type { RippleTemplateDefinition } from "../../../shared/hyperframes-templates"
 
 const DIMENSIONS_BY_PRESET: Record<AspectRatioPreset, { width: number; height: number }> = {
   "wide-16-9": { width: 1920, height: 1080 },
@@ -61,6 +63,15 @@ function getSetupError(setup: SetupReport): string | null {
   return setup.summary
 }
 
+function getPresetForDimensions(input: {
+  width: number
+  height: number
+}): AspectRatioPreset {
+  if (input.width === input.height) return "square-1-1"
+  if (input.width < input.height) return "vertical-9-16"
+  return "wide-16-9"
+}
+
 function makeScaffoldMetadata(input: {
   name: string
   slug: string
@@ -69,18 +80,25 @@ function makeScaffoldMetadata(input: {
   height?: number
   fps?: number
   templateId?: string | null
+  template?: RippleTemplateDefinition | null
 }): ScaffoldMetadata {
   const aspectRatioPreset =
-    input.aspectRatioPreset ?? defaultRippleProjectSettings.aspectRatioPreset
+    input.aspectRatioPreset ??
+    (input.template
+      ? getPresetForDimensions(input.template)
+      : defaultRippleProjectSettings.aspectRatioPreset)
   const presetDimensions = DIMENSIONS_BY_PRESET[aspectRatioPreset]
+  const usePresetDimensions = Boolean(input.aspectRatioPreset)
   return {
     projectName: input.name,
     slug: input.slug,
     aspectRatioPreset,
-    templateId: input.templateId ?? "starter-title-card",
-    width: input.width ?? presetDimensions.width,
-    height: input.height ?? presetDimensions.height,
-    fps: input.fps ?? defaultRippleProjectSettings.fps,
+    templateId: input.template?.id ?? input.templateId ?? "blank",
+    width: input.width ??
+      (usePresetDimensions ? presetDimensions.width : input.template?.width ?? presetDimensions.width),
+    height: input.height ??
+      (usePresetDimensions ? presetDimensions.height : input.template?.height ?? presetDimensions.height),
+    fps: input.fps ?? input.template?.fps ?? defaultRippleProjectSettings.fps,
   }
 }
 
@@ -208,6 +226,10 @@ export async function createRippleProject(
   input: CreateRippleProjectInput,
 ): Promise<RippleProjectResult> {
   const projectName = toProjectDisplayName(input.name)
+  const template = await getRippleTemplateForTarget({
+    templateId: input.templateId,
+    target: "new-project",
+  })
   const baseSlug = createProjectSlug(projectName)
   const rippleRoot = getDefaultRippleRoot(app.getPath("home"))
   await mkdir(rippleRoot, { recursive: true })
@@ -233,7 +255,8 @@ export async function createRippleProject(
     width: input.width,
     height: input.height,
     fps: input.fps,
-    templateId: input.templateId,
+    templateId: template.id,
+    template,
   })
 
   const scaffold = await writeRippleProjectScaffold(projectPath, scaffoldMetadata)

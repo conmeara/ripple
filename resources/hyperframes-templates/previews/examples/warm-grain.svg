@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <rect width="960" height="540" fill="#2f261f"/>
+  <circle cx="764" cy="92" r="152" fill="#e86f3a" opacity=".28"/>
+  <rect x="58" y="58" width="844" height="424" fill="#f3d7b6" opacity=".36" stroke="#e86f3a" stroke-width="3"/>
+  <path d="M96 396h180v24H96zM96 350h268v24H96zM96 304h132v24H96z" fill="#e86f3a" opacity=".9"/>
+  <text x="96" y="154" fill="#e86f3a" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">Brand film</text>
+  <text x="96" y="236" fill="#fff8ec" font-family="Inter, Arial, sans-serif" font-size="70" font-weight="850">Warm Grain</text>
+  <text x="96" y="282" fill="#ac8b68" font-family="Inter, Arial, sans-serif" font-size="28">Organic branding starter with warm texture and soft reveal motion.</text>
+  <text x="742" y="436" fill="#fff8ec" opacity=".72" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">1920x1080</text>
+</svg>
