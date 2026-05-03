@@ -93,9 +93,6 @@ run context resolver, not a large policy framework or custom skill loader.
   composition, comment, revision, preview, and export state.
 - [x] Milestone 7: Validate provider paths with automated tests, schema probes,
   build, package, and bundled-resource checks.
-- [ ] Milestone 8: Complete full live desktop/provider QA. The Electron dev app
-  was launched, but Computer Use could not attach to the app window, so live
-  GUI provider/chat/comment smoke remains a follow-up manual pass.
 - [ ] Milestone 9: Add an agent run context resolver that separates app policy,
   project notes, app skill roots, user/provider-native context, and per-run
   runtime context for both Main and isolated revision workspaces.
@@ -109,6 +106,10 @@ run context resolver, not a large policy framework or custom skill loader.
   and explicit tool/skill permissions.
 - [ ] Milestone 13: Harden settings, path validation, revision-worktree
   reporting, and the full QA/test matrix for the revised architecture.
+- [ ] Milestone 14: Complete full live desktop/provider QA and the Phase 13 test
+  suite after the revised architecture lands. The earlier Electron dev app
+  launch succeeded, but Computer Use could not attach to the app window, so live
+  GUI provider/chat/comment smoke remains a follow-up manual pass.
 
 ## Surprises & Discoveries
 
@@ -538,6 +539,24 @@ live QA matrix so it proves new projects, existing projects, managed baselines,
 revision worktrees, Codex, Claude, runtime context validation, settings path
 safety, provider smoke, and failure states under the revised architecture.
 
+Milestone 14 completes the full QA pass and test suite after Milestones 9-13
+land. This is broader than "the code compiles." Build a Phase 13 test matrix
+that names every changed behavior and its automated or manual proof: new
+project notes, existing-project check-only open, explicit project-note actions,
+explicit portable-skill installation, app-managed HyperFrames skill visibility,
+agent-run context resolution, revision-worktree native/fallback status, Codex
+`developerInstructions`, Claude `systemPrompt.append`, Codex skills/list and
+typed skill invocation, provider-specific skill/MCP settings display, runtime
+context payload validation, normal chat, continued/old chat, comment revision,
+and fallback/error states. Add missing automated tests first, then run a
+Computer Use desktop smoke against the live Electron app. The Computer Use smoke
+should cover new project creation, opening an older project without writes,
+settings skills/MCP visibility, a Claude run, a Codex run, a frame-anchored
+comment revision, app restart persistence, and failure-state UX for missing auth
+or unavailable skills. Record exact commands, smoke steps, observations,
+screenshots or notes, and remaining risk in this ExecPlan before marking the
+phase complete.
+
 ### Ripple Provider Policy Draft
 
 Keep the app-owned provider policy short, stable, and non-negotiable. This text
@@ -683,21 +702,9 @@ skills, and a desktop smoke where Claude and Codex each receive their native
 instruction file and can answer using HyperFrames concepts in a project or
 revision workspace.
 
-Milestone 8 completes the full QA pass and test suite for everything introduced
-in this phase. This is broader than "the code compiles." Build a Phase 13 test
-matrix that names every changed behavior and its automated or manual proof:
-project instruction scaffolding, existing-project backfill, managed-baseline
-propagation, revision-worktree visibility, Claude native `CLAUDE.md` loading,
-Codex `AGENTS.md` loading, Codex skills/list and typed skill invocation,
-HyperFrames skill registration, provider-specific skill/MCP settings display,
-runtime context payload validation, normal chat, continued/old chat, comment
-revision, and fallback/error states. Add the missing automated tests first, then
-run a Computer Use desktop smoke against the live Electron app. The Computer Use
-smoke should cover new project creation, settings skills/MCP visibility, a
-Claude run, a Codex run, a frame-anchored comment revision, app restart
-persistence, and failure-state UX for missing auth or unavailable skills. Record
-the exact commands, smoke steps, observations, screenshots or notes, and any
-remaining risk in this ExecPlan before marking the phase complete.
+The original Milestone 8 QA target is superseded by final Milestone 14 above so
+the live/provider smoke validates the revised architecture, not the earlier
+project-file/project-copy implementation.
 
 ## Concrete Steps
 
