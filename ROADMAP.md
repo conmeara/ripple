@@ -957,7 +957,10 @@ Goals:
 
 - Replace generic app/coding-scene prompts with HyperFrames-aware motion editor
   instructions.
-- Bundle or install HyperFrames skills/context.
+- Ship app-managed HyperFrames skills/context once with Ripple and expose them
+  to every project and revision run through provider-native skill loading.
+- Keep `AGENTS.md` and `CLAUDE.md` as short user-editable project notes rather
+  than Ripple's primary app system prompt.
 - Teach agents Ripple workflow: project, composition, clip, timeline, asset,
   comment, revision, preview, export.
 - Remove Remotion/React scene guidance from motion paths.
@@ -968,6 +971,8 @@ Done when:
   and HyperFrames rules.
 - Provider setup is optional until the first agent action that needs it.
 - Agent filesystem access is bounded to project or revision context.
+- Existing projects are checked, not mutated, on open; project-note setup and
+  project skill installation are explicit actions.
 
 ### Phase 14: Agent Visual Context, Screenshots, And Frame Sheets
 
