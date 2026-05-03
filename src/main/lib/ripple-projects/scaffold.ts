@@ -6,6 +6,8 @@ const TOP_LEVEL_ENTRIES = new Set([
   ".git",
   ".gitignore",
   ".ripple",
+  "AGENTS.md",
+  "CLAUDE.md",
   "index.html",
   "compositions",
   "assets",

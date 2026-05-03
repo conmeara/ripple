@@ -1,4 +1,6 @@
 import type { Project, Composition } from "../db"
+import type { RippleAgentNotesResult } from "./project-agent-notes"
+import type { HyperframesSkillInstallResult } from "./hyperframes-skills"
 
 export const aspectRatioPresets = [
   "wide-16-9",
@@ -89,6 +91,8 @@ export interface ScaffoldMetadata {
 export interface ScaffoldResult {
   projectPath: string
   compositions: ScaffoldCompositionMetadata[]
+  agentNotes?: RippleAgentNotesResult
+  hyperframesSkills?: HyperframesSkillInstallResult
 }
 
 export interface RippleProjectResult {
@@ -97,4 +101,6 @@ export interface RippleProjectResult {
   compositions: Composition[]
   generatedPath: string
   setup: SetupReport
+  agentNotes?: RippleAgentNotesResult
+  hyperframesSkills?: HyperframesSkillInstallResult
 }

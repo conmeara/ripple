@@ -20,6 +20,12 @@ import {
   recordRunUserPromptProjection,
 } from "./transcript-projection"
 import {
+  appendRuntimeContextToPrompt,
+  buildAgentRuntimeContextPrompt,
+  parseAgentRuntimeContextPayload,
+  serializeAgentRuntimeContextPayload,
+} from "./run-editor-context"
+import {
   isActiveAgentRunStatus,
   type AgentRuntimeAttachment,
   type AgentProviderEventSink,
@@ -98,7 +104,7 @@ function requireRunContext(db: Db, runId: string) {
     .get()
   if (!row) throw new Error("Agent run not found.")
 
-  const workspace = resolveAgentWorkspaceContext(
+  const resolved = resolveAgentWorkspaceContext(
     row.run.revisionId
       ? { type: "revision", revisionId: row.run.revisionId }
       : row.run.conversationId
@@ -107,7 +113,8 @@ function requireRunContext(db: Db, runId: string) {
         ? { type: "chat", chatId: row.run.chatId }
         : { type: "project", projectId: row.thread.projectId },
     db,
-  ).workspace
+  )
+  const workspace = resolved.workspace
   const connection = db
     .select()
     .from(agentConnections)
@@ -124,6 +131,12 @@ function requireRunContext(db: Db, runId: string) {
     thread: row.thread,
     workspace,
     connection,
+    project: resolved.project,
+    projectPath: resolved.projectPath,
+    writableRoot: resolved.writableRoot,
+    workspaceKind: resolved.kind,
+    targetType: resolved.targetType,
+    targetId: resolved.targetId,
   }
 }
 
@@ -284,6 +297,7 @@ export function startAgentRun(input: StartAgentRunInput): StartAgentRunResult {
   }
 
   const now = new Date()
+  const runtimeContextJson = serializeAgentRuntimeContextPayload(input.runtimeContext ?? null)
   const run = db.transaction(() => {
     const created = db
       .insert(agentRuns)
@@ -301,6 +315,7 @@ export function startAgentRun(input: StartAgentRunInput): StartAgentRunResult {
         threadId: input.commentThreadId ?? null,
         chatId: input.chatId ?? null,
         subChatId: input.subChatId ?? null,
+        runtimeContextJson,
         status: "queued",
         prompt: input.prompt,
         createdAt: now,
@@ -451,9 +466,31 @@ export async function executeAgentRun(
   }
 
   try {
+    const providerPrompt = appendRuntimeContextToPrompt({
+      prompt: context.run.prompt,
+      context: buildAgentRuntimeContextPrompt({
+        db,
+        resolved: {
+          workspace: context.workspace,
+          project: context.project,
+          cwd: context.workspace.path,
+          projectPath: context.projectPath,
+          writableRoot: context.writableRoot,
+          kind: context.workspaceKind,
+          targetType: context.targetType,
+          targetId: context.targetId,
+        },
+        runtime: {
+          runtimeContext: parseAgentRuntimeContextPayload(context.run.runtimeContextJson),
+          runKind: context.run.runKind,
+          commentThreadId: context.run.threadId,
+          revisionId: context.run.revisionId,
+        },
+      }),
+    })
     const result = await adapter.run({
       ...context,
-      prompt: context.run.prompt,
+      prompt: providerPrompt,
       cwd: context.workspace.path,
       mode: context.run.mode,
       model: context.run.model,

@@ -55,6 +55,32 @@ const runtimeAttachmentsSchema = z
     })
   })
 
+const runtimeContextSchema = z.object({
+  compositionId: z.string().nullable().optional(),
+  previewTimeSeconds: z.number().finite().nonnegative().nullable().optional(),
+  previewFrame: z.number().int().nonnegative().nullable().optional(),
+  previewSource: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("main") }),
+    z.object({
+      kind: z.literal("comment-revision"),
+      revisionId: z.string(),
+    }),
+    z.object({
+      kind: z.literal("chat-worktree"),
+      conversationId: z.string().nullable().optional(),
+      chatId: z.string().nullable().optional(),
+    }),
+    z.object({
+      kind: z.literal("export"),
+      exportJobId: z.string().nullable().optional(),
+      sourceLabel: z.string().nullable().optional(),
+    }),
+  ]).nullable().optional(),
+  commentThreadId: z.string().nullable().optional(),
+  revisionId: z.string().nullable().optional(),
+  exportJobId: z.string().nullable().optional(),
+}).optional().nullable()
+
 const targetSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("project"),
@@ -119,6 +145,7 @@ export const agentRuntimeRouter = router({
       revisionId: z.string().nullable().optional(),
       attachments: runtimeAttachmentsSchema.optional(),
       authConfig: runtimeAuthConfigSchema,
+      runtimeContext: runtimeContextSchema,
       execute: z.boolean().optional(),
     }))
     .mutation(async ({ input }) => {
@@ -146,6 +173,7 @@ export const agentRuntimeRouter = router({
       subChatId: z.string().nullable().optional(),
       attachments: runtimeAttachmentsSchema.optional(),
       authConfig: runtimeAuthConfigSchema,
+      runtimeContext: runtimeContextSchema,
     }))
     .subscription(({ input }) => {
       return observable<any>((emit) => {
@@ -223,6 +251,7 @@ export const agentRuntimeRouter = router({
               conversationId: input.conversationId,
               chatId: input.chatId,
               subChatId: input.subChatId,
+              runtimeContext: input.runtimeContext ?? null,
             })
             runId = result.run.id
             unsubscribe = subscribeToAgentRunEvents(result.run.id, (event) => {

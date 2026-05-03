@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { execFile } from "node:child_process"
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
@@ -9,6 +9,7 @@ import {
   commitAcceptedRevisionIfManaged,
   ensureRippleProjectGitRepository,
 } from "./project-git"
+import { ensureRippleProjectAgentNotes } from "./project-agent-notes"
 
 const execFileAsync = promisify(execFile)
 
@@ -63,6 +64,34 @@ describe("Ripple project Git setup", () => {
       expect((await simpleGit(projectPath).status()).isClean()).toBe(true)
     } finally {
       await rm(projectPath, { recursive: true, force: true })
+    }
+  })
+
+  test("includes explicitly added project notes in future revision worktrees", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ripple-project-agent-baseline-"))
+    const projectPath = join(root, "project")
+    const worktreePath = join(root, "revision-worktree")
+    try {
+      await mkdir(projectPath, { recursive: true })
+      await writeFile(join(projectPath, "index.html"), "<main>Ripple</main>", "utf8")
+      await writeFile(join(projectPath, "hyperframes.json"), "{}", "utf8")
+      await ensureRippleProjectAgentNotes(projectPath)
+
+      await ensureRippleProjectGitRepository(projectPath)
+      await execFileAsync("git", [
+        "-C",
+        projectPath,
+        "worktree",
+        "add",
+        "--detach",
+        worktreePath,
+        "HEAD",
+      ])
+
+      await stat(join(worktreePath, "AGENTS.md"))
+      await stat(join(worktreePath, "CLAUDE.md"))
+    } finally {
+      await rm(root, { recursive: true, force: true })
     }
   })
 

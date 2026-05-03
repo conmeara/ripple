@@ -1,4 +1,4 @@
-const APP_SERVER_CLIENT_ID = "ripple-desktop/phase-11"
+const APP_SERVER_CLIENT_ID = "ripple-desktop/phase-13"
 
 export function buildCodexAppServerEnv(apiKey?: string | null): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {

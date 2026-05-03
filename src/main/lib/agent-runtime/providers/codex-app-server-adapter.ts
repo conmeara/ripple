@@ -12,6 +12,10 @@ import { resolveProjectPathFromWorktree } from "../../claude-config"
 import { agentApprovals, getDatabase } from "../../db"
 import { isPathInsideDirectory } from "../../ripple-projects/paths"
 import {
+  buildProjectNoteFallbackInstructions,
+  resolveAgentRunContext,
+} from "../agent-run-context-resolver"
+import {
   resolveCodexMcpSnapshot,
   type CodexMcpSnapshot,
 } from "../../trpc/routers/codex"
@@ -29,7 +33,12 @@ import {
   type JsonRpcMessage,
 } from "./codex-app-server-events"
 import { buildCodexAppServerEnv } from "./codex-app-server-env"
-import { buildCodexTurnInput } from "./codex-app-server-input"
+import { buildCodexTurnInput, type CodexUserInput } from "./codex-app-server-input"
+import {
+  buildCodexSkillInputs,
+  normalizeCodexSkillEntries,
+  type CodexSkillMetadata,
+} from "./codex-app-server-skills"
 import { normalizeCodexModelSelection } from "./codex-model-selection"
 
 const activeClients = new Map<string, {
@@ -90,9 +99,30 @@ function buildCodexMcpSessionInit(snapshot: CodexMcpSnapshot | null): {
   }
 }
 
+async function resolveCodexSkills(input: {
+  client: CodexAppServerClient
+  cwd: string
+  projectPath: string
+  appManagedSkillRoots: string[]
+}): Promise<CodexSkillMetadata[]> {
+  const cwds = Array.from(new Set([input.projectPath, input.cwd]))
+  const response = await input.client.request("skills/list", {
+    cwds,
+    forceReload: false,
+    perCwdExtraUserRoots: cwds.map((cwd) => ({
+      cwd,
+      extraUserRoots: input.appManagedSkillRoots,
+    })),
+  })
+  return normalizeCodexSkillEntries(response)
+}
+
 function formatCodexCapabilityLabel(input: {
   mcpServerNames: string[]
   unavailableMcpServerNames: string[]
+  skillNames: string[]
+  appPolicyLoaded: boolean
+  projectNoteStatus: string | null
   hasMentions: boolean
 }): string | null {
   const parts: string[] = []
@@ -102,10 +132,24 @@ function formatCodexCapabilityLabel(input: {
   if (input.unavailableMcpServerNames.length > 0) {
     parts.push(`${input.unavailableMcpServerNames.length} MCP unavailable`)
   }
+  if (input.skillNames.length > 0) {
+    parts.push(`${input.skillNames.length} skill${input.skillNames.length === 1 ? "" : "s"}`)
+  }
+  if (input.appPolicyLoaded) {
+    parts.push("Ripple policy")
+  }
+  if (input.projectNoteStatus) {
+    parts.push(input.projectNoteStatus)
+  }
   if (input.hasMentions) {
     parts.push("prompt context")
   }
   return parts.length > 0 ? `Loaded Codex context: ${parts.join(", ")}` : null
+}
+
+function isLikelySkillInputError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /\bskill\b/i.test(message)
 }
 
 function recordCodexApproval(input: {
@@ -247,8 +291,11 @@ class CodexAppServerClient {
         title: "Ripple",
         version: "0.0.72",
       },
-      capabilities: {},
+      capabilities: {
+        experimentalApi: true,
+      },
     })
+    this.notify("initialized")
   }
 
   async stop(): Promise<void> {
@@ -282,6 +329,10 @@ class CodexAppServerClient {
       this.pending.set(id, { resolve, reject })
       this.child?.stdin.write(`${JSON.stringify(message)}\n`)
     })
+  }
+
+  notify(method: string, params?: any): void {
+    this.child?.stdin.write(`${JSON.stringify({ method, params })}\n`)
   }
 
   respond(id: number | string, result: any): void {
@@ -382,7 +433,10 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
     }
     activeClients.set(input.run.id, { client, cancel: cancelRun })
     let summary = ""
-    let threadId = input.thread.providerThreadId ?? null
+    // Ripple owns the product transcript in SQLite. Do not resume provider-side
+    // Codex threads here: the app-server can replay unrelated local Codex
+    // history if a stored provider thread id points at a different workspace.
+    let threadId: string | null = null
     let turnId: string | null = null
     const modelSelection = normalizeCodexModelSelection(input.model)
     const promptContext = prepareAgentRuntimePrompt(input.prompt)
@@ -405,7 +459,7 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
 
       let codexMcpSnapshot: CodexMcpSnapshot | null = null
       try {
-        const resolvedProjectPath = resolveProjectPathFromWorktree(input.cwd)
+        const resolvedProjectPath = input.projectPath || resolveProjectPathFromWorktree(input.cwd)
         codexMcpSnapshot = await resolveCodexMcpSnapshot({
           lookupPath: resolvedProjectPath || input.cwd,
         })
@@ -413,7 +467,33 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
         console.warn("[codex-app-server] Failed to resolve Codex MCP context:", error)
       }
 
+      const runContext = await resolveAgentRunContext({
+        provider: "codex",
+        cwd: input.cwd,
+        projectPath: input.projectPath,
+        workspaceKind: input.workspaceKind,
+      })
+      const projectNoteFallback = buildProjectNoteFallbackInstructions(runContext)
+      let codexSkills: CodexSkillMetadata[] = []
+      let codexSkillsError: string | null = null
+      try {
+        codexSkills = await resolveCodexSkills({
+          client,
+          cwd: input.cwd,
+          projectPath: input.projectPath,
+          appManagedSkillRoots: runContext.skillRoots.appManaged,
+        })
+      } catch (error) {
+        codexSkillsError = error instanceof Error ? error.message : String(error)
+        console.warn("[codex-app-server] Failed to resolve Codex skills:", error)
+      }
+
       const codexSessionInit = buildCodexMcpSessionInit(codexMcpSnapshot)
+      const codexSkillNames = codexSkills
+        .filter((skill) => skill.enabled)
+        .map((skill) => skill.name)
+        .sort()
+      const codexSkillInputs = buildCodexSkillInputs(promptContext.skillMentions, codexSkills)
       const hasPromptMentions =
         promptContext.agentMentions.length > 0 ||
         promptContext.skillMentions.length > 0 ||
@@ -421,6 +501,11 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
       const capabilityLabel = formatCodexCapabilityLabel({
         mcpServerNames: codexSessionInit.mcpServerNames,
         unavailableMcpServerNames: codexSessionInit.unavailableMcpServerNames,
+        skillNames: codexSkillNames,
+        appPolicyLoaded: true,
+        projectNoteStatus: runContext.projectNotes.discoveryStatus === "missing"
+          ? null
+          : `${runContext.projectNotes.fileName} ${runContext.projectNotes.discoveryStatus}`,
         hasMentions: hasPromptMentions,
       })
       if (capabilityLabel) {
@@ -434,14 +519,27 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
             capabilities: {
               appServer: true,
               localProfile: true,
+              appPolicy: "developerInstructions",
+              projectNoteFile: runContext.projectNotes.fileName,
+              projectNoteStatus: runContext.projectNotes.discoveryStatus,
+              projectNoteNativePath: runContext.projectNotes.nativePath,
+              projectNoteFallbackPath: runContext.projectNotes.fallbackPath,
+              appManagedSkillRoots: runContext.skillRoots.appManaged,
               mcpServers: codexSessionInit.mcpServerNames,
               unavailableMcpServers: codexSessionInit.unavailableMcpServerNames,
+              skills: codexSkillNames,
+              unavailableSkills: promptContext.skillMentions.filter(
+                (mention) => !codexSkillInputs.some((skill) =>
+                  skill.name.toLowerCase() === mention.toLowerCase()
+                ),
+              ),
+              skillsError: codexSkillsError,
             },
             sessionInit: {
               tools: codexSessionInit.tools,
               mcpServers: codexSessionInit.mcpServers,
               plugins: [],
-              skills: [],
+              skills: codexSkillNames,
             },
             mentions: {
               agents: promptContext.agentMentions,
@@ -639,6 +737,11 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
         })
       })
 
+      const threadInstructionParams = () => ({
+        baseInstructions: projectNoteFallback,
+        developerInstructions: runContext.appPolicy,
+      })
+
       const startThread = async () => {
         if (cancelled || sink.isCancellationRequested()) throw new CodexRunCancelledError()
         const threadStart = await client.request("thread/start", {
@@ -648,21 +751,24 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
           approvalPolicy: "on-failure",
           sandbox: "workspace-write",
           config: null,
-          baseInstructions: null,
-          developerInstructions: null,
+          ...threadInstructionParams(),
           personality: null,
-          ephemeral: false,
+          ephemeral: true,
+          sessionStartSource: "clear",
           experimentalRawEvents: false,
+          persistExtendedHistory: false,
         })
         threadId = threadStart?.thread?.id ?? null
         await sink.setProviderIds({ providerThreadId: threadId })
       }
 
-      const startTurn = async () => {
+      const startTurn = async (
+        skillInputs: Array<Extract<CodexUserInput, { type: "skill" }>>,
+      ) => {
         if (cancelled || sink.isCancellationRequested()) throw new CodexRunCancelledError()
         const turnStart = await client.request("turn/start", {
           threadId,
-          input: buildCodexTurnInput(finalPrompt, preparedAttachments),
+          input: buildCodexTurnInput(finalPrompt, preparedAttachments, skillInputs),
           cwd: input.cwd,
           approvalPolicy: "on-failure",
           sandboxPolicy: {
@@ -683,15 +789,35 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
         await sink.setProviderIds({ providerThreadId: threadId, providerTurnId: turnId })
       }
 
-      if (!threadId) {
-        await startThread()
+      const startTurnWithSkillFallback = async () => {
+        try {
+          await startTurn(codexSkillInputs)
+        } catch (error) {
+          if (codexSkillInputs.length === 0 || !isLikelySkillInputError(error)) {
+            throw error
+          }
+          await sink.emit({
+            type: "status",
+            providerType: "codex:skills",
+            providerId: input.run.id,
+            payload: {
+              status: "running",
+              label: "Codex skill input unavailable; continuing with prompt context",
+              fallback: "typed_skill_input",
+              skills: codexSkillInputs.map((skill) => skill.name),
+            },
+          })
+          await startTurn([])
+        }
       }
 
+      await startThread()
+
       try {
-        await startTurn()
+        await startTurnWithSkillFallback()
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        if (!input.thread.providerThreadId || !isCodexAppServerThreadNotFoundError(message)) {
+        if (!isCodexAppServerThreadNotFoundError(message)) {
           throw error
         }
 
@@ -707,7 +833,7 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
         turnId = null
         await sink.setProviderIds({ providerThreadId: null, providerTurnId: null })
         await startThread()
-        await startTurn()
+        await startTurnWithSkillFallback()
       }
 
       await runPromise

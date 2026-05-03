@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test"
+import { readFile } from "node:fs/promises"
 import { buildCodexAppServerEnv } from "./codex-app-server-env"
 import { buildCodexTurnInput } from "./codex-app-server-input"
+import {
+  buildCodexSkillInputs,
+  normalizeCodexSkillEntries,
+} from "./codex-app-server-skills"
 import {
   getCodexAppServerErrorMessage,
   isCodexAppServerThreadNotFoundError,
@@ -273,7 +278,25 @@ describe("Codex App Server notification normalization", () => {
 })
 
 describe("Codex App Server input", () => {
-  test("passes supported image attachments as localImage inputs", () => {
+  test("starts clean Codex threads with app policy, initialized, and native skills/list discovery", async () => {
+    const source = await readFile(
+      "src/main/lib/agent-runtime/providers/codex-app-server-adapter.ts",
+      "utf8",
+    )
+
+    expect(source).toContain('this.notify("initialized")')
+    expect(source).toContain("experimentalApi: true")
+    expect(source).toContain("let threadId: string | null = null")
+    expect(source).toContain("ephemeral: true")
+    expect(source).toContain('sessionStartSource: "clear"')
+    expect(source).toContain("persistExtendedHistory: false")
+    expect(source).toContain('"skills/list"')
+    expect(source).toContain("baseInstructions: projectNoteFallback")
+    expect(source).toContain("developerInstructions: runContext.appPolicy")
+    expect(source).toContain("buildCodexSkillInputs")
+  })
+
+  test("passes supported image attachments and typed skills as native inputs", () => {
     expect(buildCodexTurnInput("Use these.", {
       promptSuffix: "",
       imageContentBlocks: [],
@@ -296,7 +319,12 @@ describe("Codex App Server input", () => {
           mediaType: "application/pdf",
         },
       ],
-    })).toEqual([
+    }, [{ type: "skill", name: "hyperframes", path: "/tmp/project/.agents/skills/hyperframes" }])).toEqual([
+      {
+        type: "skill",
+        name: "hyperframes",
+        path: "/tmp/project/.agents/skills/hyperframes",
+      },
       {
         type: "localImage",
         path: "/tmp/project/.ripple/agent-attachments/run/frame.png",
@@ -305,6 +333,39 @@ describe("Codex App Server input", () => {
         type: "text",
         text: "Use these.",
         text_elements: [],
+      },
+    ])
+  })
+
+  test("normalizes enabled skills/list entries for typed skill mentions", () => {
+    const skills = normalizeCodexSkillEntries({
+      data: [
+        {
+          cwd: "/tmp/project",
+          skills: [
+            {
+              name: "hyperframes",
+              description: "Author HyperFrames compositions",
+              path: "/tmp/project/.agents/skills/hyperframes",
+              enabled: true,
+            },
+            {
+              name: "disabled",
+              description: "",
+              path: "/tmp/project/.agents/skills/disabled",
+              enabled: false,
+            },
+          ],
+          errors: [],
+        },
+      ],
+    })
+
+    expect(buildCodexSkillInputs(["hyperframes", "disabled", "missing"], skills)).toEqual([
+      {
+        type: "skill",
+        name: "hyperframes",
+        path: "/tmp/project/.agents/skills/hyperframes",
       },
     ])
   })
@@ -342,7 +403,7 @@ describe("Codex App Server environment", () => {
   test("passes app-managed Codex API keys to the app-server process", () => {
     const env = buildCodexAppServerEnv("  sk-test-ripple  ")
 
-    expect(env.CODEX_APP_SERVER_CLIENT).toBe("ripple-desktop/phase-11")
+    expect(env.CODEX_APP_SERVER_CLIENT).toBe("ripple-desktop/phase-13")
     expect(env.CODEX_API_KEY).toBe("sk-test-ripple")
     expect(env.OPENAI_API_KEY).toBe("sk-test-ripple")
   })

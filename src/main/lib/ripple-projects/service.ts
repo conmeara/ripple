@@ -25,6 +25,16 @@ import {
   toProjectDisplayName,
 } from "./paths"
 import { writeRippleProjectScaffold } from "./scaffold"
+import {
+  checkRippleProjectAgentNotes,
+  ensureRippleProjectAgentNotes,
+  refreshRippleProjectAgentNotes,
+} from "./project-agent-notes"
+import {
+  checkAppManagedHyperframesSkills,
+  ensureProjectHyperframesSkills,
+  type RippleSkillProvider,
+} from "./hyperframes-skills"
 import { defaultRippleProjectSettings } from "./types"
 import { getRippleTemplateForTarget } from "../hyperframes/templates/catalog"
 import type {
@@ -313,6 +323,8 @@ export async function createRippleProject(
       compositions: insertedCompositions,
       generatedPath: projectPath,
       setup,
+      agentNotes: scaffold.agentNotes,
+      hyperframesSkills: await checkAppManagedHyperframesSkills(),
     }
   } catch (error) {
     throw new Error(
@@ -336,6 +348,10 @@ export async function openExistingRippleProject(
   input: OpenExistingRippleProjectInput,
 ): Promise<RippleProjectResult> {
   await assertExistingRippleProject(input.projectPath)
+  const [agentNotes, hyperframesSkills] = await Promise.all([
+    checkRippleProjectAgentNotes(input.projectPath),
+    checkAppManagedHyperframesSkills(),
+  ])
 
   const metadata = await readHyperframesMetadata(input.projectPath)
   const metadataName = typeof metadata.name === "string" ? metadata.name : null
@@ -358,7 +374,6 @@ export async function openExistingRippleProject(
     width,
     height,
   })
-  await ensureRippleProjectGitRepository(input.projectPath)
   const setup = await checkRippleEnvironment(getRepoRoot())
   const setupError = getSetupError(setup)
 
@@ -444,7 +459,46 @@ export async function openExistingRippleProject(
     compositions: projectCompositions,
     generatedPath: getProjectLocalPath(updatedProject ?? project),
     setup,
+    agentNotes,
+    hyperframesSkills,
   }
+}
+
+function requireProjectPath(projectId: string): string {
+  const project = getDatabase()
+    .select()
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .get()
+  if (!project) throw new Error("Project not found.")
+  return getProjectLocalPath(project)
+}
+
+export async function checkProjectAssistantReadiness(projectId: string) {
+  const projectPath = requireProjectPath(projectId)
+  const [agentNotes, hyperframesSkills] = await Promise.all([
+    checkRippleProjectAgentNotes(projectPath),
+    checkAppManagedHyperframesSkills(),
+  ])
+  return { projectPath, agentNotes, hyperframesSkills }
+}
+
+export async function addProjectAgentNotes(projectId: string) {
+  return ensureRippleProjectAgentNotes(requireProjectPath(projectId))
+}
+
+export async function updateProjectAgentNotes(projectId: string) {
+  return refreshRippleProjectAgentNotes(requireProjectPath(projectId))
+}
+
+export async function installProjectHyperframesSkills(input: {
+  projectId: string
+  providers?: RippleSkillProvider[]
+}) {
+  return ensureProjectHyperframesSkills({
+    projectPath: requireProjectPath(input.projectId),
+    providers: input.providers,
+  })
 }
 
 export function listProjectCompositions(projectId: string): Composition[] {

@@ -32,7 +32,9 @@ interface UnifiedItem {
   kind: "skill" | "command"
   name: string
   description: string
-  source: "user" | "project" | "plugin"
+  source: "app" | "user" | "project" | "plugin"
+  provider?: "claude" | "codex" | "plugin"
+  readOnly?: boolean
   pluginName?: string
   path: string
   content: string
@@ -55,7 +57,7 @@ function ItemDetail({
   const [content, setContent] = useState(item.content)
   const [viewMode, setViewMode] = useState<"rendered" | "editor">("rendered")
 
-  const isReadOnly = item.source === "plugin"
+  const isReadOnly = item.readOnly || item.source === "app" || item.source === "plugin"
 
   // Reset local state when item changes
   useEffect(() => {
@@ -109,6 +111,11 @@ function ItemDetail({
               )}>
                 {item.kind === "skill" ? "Skill" : "Command"}
               </span>
+              {item.provider && item.kind === "skill" && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 bg-foreground/5 text-muted-foreground">
+                  {item.provider === "codex" ? "Codex" : item.provider === "claude" ? "Claude" : "Plugin"}
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">{item.path}</p>
           </div>
@@ -237,7 +244,7 @@ function CreateItemForm({
   hasProject,
   projectName,
 }: {
-  onCreated: (data: { name: string; description: string; content: string; source: "user" | "project"; kind: "skill" | "command" }) => void
+  onCreated: (data: { name: string; description: string; content: string; source: "user" | "project"; provider: "claude" | "codex"; kind: "skill" | "command" }) => void
   onCancel: () => void
   isSaving: boolean
   hasProject: boolean
@@ -247,6 +254,7 @@ function CreateItemForm({
   const [description, setDescription] = useState("")
   const [content, setContent] = useState("")
   const [source, setSource] = useState<"user" | "project">("user")
+  const [provider, setProvider] = useState<"claude" | "codex">("claude")
   const [kind, setKind] = useState<"skill" | "command">("skill")
 
   const canSave = name.trim().length > 0
@@ -260,7 +268,7 @@ function CreateItemForm({
           </h3>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
-            <Button size="sm" onClick={() => onCreated({ name, description, content, source, kind })} disabled={!canSave || isSaving}>
+            <Button size="sm" onClick={() => onCreated({ name, description, content, source, provider, kind })} disabled={!canSave || isSaving}>
               {isSaving ? "Creating..." : "Create"}
             </Button>
           </div>
@@ -308,11 +316,28 @@ function CreateItemForm({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="user">
-                  {kind === "skill" ? "User (~/.claude/skills/)" : "User (~/.claude/commands/)"}
+                  {kind === "skill"
+                    ? `User (${provider === "claude" ? "~/.claude/skills/" : "~/.agents/skills/"})`
+                    : "User (~/.claude/commands/)"}
                 </SelectItem>
                 <SelectItem value="project">
-                  {projectName ? `Project: ${projectName}` : "Project"} ({kind === "skill" ? ".claude/skills/" : ".claude/commands/"})
+                  {projectName ? `Project: ${projectName}` : "Project"} ({kind === "skill" ? provider === "claude" ? ".claude/skills/" : ".agents/skills/" : ".claude/commands/"})
                 </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {kind === "skill" && (
+          <div className="space-y-1.5">
+            <Label>Provider</Label>
+            <Select value={provider} onValueChange={(v) => setProvider(v as "claude" | "codex")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="claude">Claude</SelectItem>
+                <SelectItem value="codex">Codex</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -362,6 +387,11 @@ function SidebarListItem({
           {item.kind === "command" ? "/" : "@"}
         </span>
         <span className="text-sm truncate">{item.name}</span>
+        {item.kind === "skill" && item.provider && item.provider !== "plugin" && (
+          <span className="text-[10px] text-muted-foreground/70 shrink-0">
+            {item.provider === "codex" ? "Codex" : "Claude"}
+          </span>
+        )}
       </div>
       {item.description && (
         <div className="text-[11px] text-muted-foreground truncate mt-0.5 pl-[18px]">
@@ -425,11 +455,13 @@ export function AgentsSkillsTab() {
   // Build unified items
   const allItems = useMemo<UnifiedItem[]>(() => {
     const skillItems: UnifiedItem[] = skills.map((s) => ({
-      id: `skill:${s.source}:${s.name}`,
+      id: `skill:${s.provider ?? s.source}:${s.source}:${s.name}`,
       kind: "skill" as const,
       name: s.name,
       description: s.description,
       source: s.source,
+      provider: s.provider,
+      readOnly: s.readOnly,
       pluginName: s.pluginName,
       path: s.path,
       content: s.content,
@@ -458,13 +490,14 @@ export function AgentsSkillsTab() {
   }, [allItems, searchQuery])
 
   // Group by source
+  const appItems = filteredItems.filter((i) => i.source === "app")
   const userItems = filteredItems.filter((i) => i.source === "user")
   const projectItems = filteredItems.filter((i) => i.source === "project")
   const pluginItems = filteredItems.filter((i) => i.source === "plugin")
 
   const allItemIds = useMemo(
-    () => [...userItems, ...projectItems, ...pluginItems].map((i) => i.id),
-    [userItems, projectItems, pluginItems]
+    () => [...appItems, ...userItems, ...projectItems, ...pluginItems].map((i) => i.id),
+    [appItems, userItems, projectItems, pluginItems]
   )
 
   const { containerRef: listRef, onKeyDown: listKeyDown } = useListKeyboardNav({
@@ -482,7 +515,7 @@ export function AgentsSkillsTab() {
   }, [allItems, selectedItemId, isLoading])
 
   const handleCreate = useCallback(async (data: {
-    name: string; description: string; content: string; source: "user" | "project"; kind: "skill" | "command"
+    name: string; description: string; content: string; source: "user" | "project"; provider: "claude" | "codex"; kind: "skill" | "command"
   }) => {
     try {
       if (data.kind === "skill") {
@@ -491,12 +524,13 @@ export function AgentsSkillsTab() {
           description: data.description,
           content: data.content,
           source: data.source,
+          provider: data.provider,
           cwd: selectedProject?.path,
         })
         toast.success("Skill created", { description: result.name })
         setShowAddForm(false)
         await refetchAll()
-        setSelectedItemId(`skill:${data.source}:${result.name}`)
+        setSelectedItemId(`skill:${data.provider}:${data.source}:${result.name}`)
       } else {
         const result = await createCommandMutation.mutateAsync({
           name: data.name,
@@ -644,6 +678,25 @@ export function AgentsSkillsTab() {
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Ripple */}
+                {appItems.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2 mb-1">
+                      Ripple
+                    </p>
+                    <div className="space-y-0.5">
+                      {appItems.map((item) => (
+                        <SidebarListItem
+                          key={item.id}
+                          item={item}
+                          isSelected={selectedItemId === item.id}
+                          onSelect={setSelectedItemId}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* User */}
                 {userItems.length > 0 && (
                   <div>
@@ -721,7 +774,7 @@ export function AgentsSkillsTab() {
           <ItemDetail
             item={selectedItem}
             onSave={(data) => handleSave(selectedItem, data)}
-            onDelete={selectedItem.source !== "plugin" ? () => setDeletingItem(selectedItem) : undefined}
+            onDelete={!selectedItem.readOnly && selectedItem.source !== "app" && selectedItem.source !== "plugin" ? () => setDeletingItem(selectedItem) : undefined}
             isSaving={isSaving}
           />
         ) : (

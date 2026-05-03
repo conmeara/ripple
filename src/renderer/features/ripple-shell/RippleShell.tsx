@@ -31,6 +31,10 @@ import { useResolvedHotkeyDisplay } from "../../lib/hotkeys"
 import { trpc } from "../../lib/trpc"
 import { cn } from "../../lib/utils"
 import type { RippleTimelineRangeSelection } from "../../../shared/hyperframes-timeline-model"
+import {
+  RIPPLE_TIMELINE_FPS,
+  timelineSecondsToFrame,
+} from "../../../shared/hyperframes-timeline-model"
 import { TrafficLights } from "../agents/components/traffic-light-spacer"
 import {
   hyperframesProjectPaneWidthAtom,
@@ -41,6 +45,7 @@ import {
   type SelectedProject,
 } from "../agents/atoms"
 import { ChatView } from "../agents/main/active-chat"
+import type { AgentRuntimeChatContext } from "../agents/lib/agent-runtime-chat-transport"
 import { NewChatForm } from "../agents/main/new-chat-form"
 import { RippleRevisionQueueWorker } from "../comments/RippleRevisionQueueWorker"
 import { HyperFramesPreviewPlayer } from "../hyperframes/HyperFramesPreviewPlayer"
@@ -234,7 +239,10 @@ export function RippleShell({
   const setShowNewChatForm = useSetAtom(showNewChatFormAtom)
   const setChatSourceMode = useSetAtom(chatSourceModeAtom)
   const [previewTime, setPreviewTime] = useState(0)
+  const [previewFrame, setPreviewFrame] = useState(0)
   const previewTimeRef = useRef(0)
+  const previewFrameRef = useRef(0)
+  const previewFpsRef = useRef(RIPPLE_TIMELINE_FPS)
   const pendingPreviewSeekTimeRef = useRef<number | null>(null)
   const [timelineSelection, setTimelineSelection] =
     useState<RippleTimelineRangeSelection | null>(null)
@@ -333,6 +341,30 @@ export function RippleShell({
   const activePreviewRevisionId =
     getActiveRipplePreviewRevisionId(previewTarget)
   const activePreviewChatId = getActiveRipplePreviewChatId(previewTarget)
+  const agentRuntimePreviewSource = useMemo<NonNullable<AgentRuntimeChatContext["previewSource"]>>(() => {
+    if (previewTarget.kind === "comment-revision") {
+      return { kind: "comment-revision", revisionId: previewTarget.revisionId }
+    }
+    if (previewTarget.kind === "chat-worktree") {
+      return { kind: "chat-worktree", conversationId: previewTarget.chatId }
+    }
+    return { kind: "main" }
+  }, [previewTarget])
+  const agentRuntimePreviewContext = useMemo<AgentRuntimeChatContext>(() => ({
+    compositionId: selectedProject.activeCompositionId ?? null,
+    previewTimeSeconds: previewTime,
+    previewFrame,
+    previewSource: agentRuntimePreviewSource,
+    commentThreadId: selectedCommentThreadId,
+    revisionId: activePreviewRevisionId,
+  }), [
+    activePreviewRevisionId,
+    agentRuntimePreviewSource,
+    previewFrame,
+    previewTime,
+    selectedCommentThreadId,
+    selectedProject.activeCompositionId,
+  ])
   const commitShellState = useCallback(
     (nextState: RippleShellState) => {
       const resolved = resolveRippleShellState(nextState)
@@ -392,9 +424,12 @@ export function RippleShell({
 
   const requestPreviewSeek = useCallback((time: number) => {
     const nextTime = normalizeRipplePreviewTime(time)
+    const nextFrame = timelineSecondsToFrame(nextTime, previewFpsRef.current)
     previewTimeRef.current = nextTime
+    previewFrameRef.current = nextFrame
     pendingPreviewSeekTimeRef.current = nextTime
     setPreviewTime(nextTime)
+    setPreviewFrame(nextFrame)
     setPreviewSeekRequest((current) => ({
       time: nextTime,
       requestId: (current?.requestId ?? 0) + 1,
@@ -640,12 +675,26 @@ export function RippleShell({
     setTimelineSelection(null)
     setSelectedCommentThreadId(null)
     previewTimeRef.current = transition.seekTime
+    previewFrameRef.current = timelineSecondsToFrame(transition.seekTime, previewFpsRef.current)
     pendingPreviewSeekTimeRef.current = null
     setPreviewTime(transition.seekTime)
+    setPreviewFrame(previewFrameRef.current)
   }, [selectedProject.id, selectedProject.activeCompositionId])
 
-  const handlePreviewTimeChange = useCallback((time: number) => {
+  const handlePreviewTimeChange = useCallback((time: number, context?: {
+    frame: number
+    fps: number
+  }) => {
     const nextTime = normalizeRipplePreviewTime(time)
+    const nextFps =
+      typeof context?.fps === "number" && Number.isFinite(context.fps) && context.fps > 0
+        ? Math.round(context.fps)
+        : previewFpsRef.current
+    const nextFrame =
+      typeof context?.frame === "number" && Number.isFinite(context.frame)
+        ? Math.max(0, Math.round(context.frame))
+        : timelineSecondsToFrame(nextTime, nextFps)
+    previewFpsRef.current = nextFps
     const pendingSeekTime = pendingPreviewSeekTimeRef.current
     if (
       shouldIgnorePendingRipplePreviewTimeUpdate({
@@ -663,6 +712,8 @@ export function RippleShell({
       })
     ) {
       pendingPreviewSeekTimeRef.current = null
+      previewFrameRef.current = nextFrame
+      setPreviewFrame(nextFrame)
       return
     }
 
@@ -673,11 +724,17 @@ export function RippleShell({
         incomingTime: nextTime,
       })
     ) {
+      if (previewFrameRef.current !== nextFrame) {
+        previewFrameRef.current = nextFrame
+        setPreviewFrame(nextFrame)
+      }
       return
     }
 
     previewTimeRef.current = nextTime
+    previewFrameRef.current = nextFrame
     setPreviewTime(nextTime)
+    setPreviewFrame(nextFrame)
   }, [])
 
   return (
@@ -877,6 +934,7 @@ export function RippleShell({
                 onViewPrimaryPreview={handleShowPrimaryPreview}
                 onPreviewChatWorktree={handlePreviewChatWorktree}
                 activePreviewChatId={activePreviewChatId}
+                agentRuntimePreviewContext={agentRuntimePreviewContext}
                 onCreateNewChat={handleStartNewChat}
                 historySubChats={conversationHistoryItems}
                 isHistoryLoading={projectHistoryChats.isLoading}

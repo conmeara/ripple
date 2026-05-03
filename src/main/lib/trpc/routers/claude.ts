@@ -42,6 +42,7 @@ import {
 } from "../../mcp-auth"
 import { fetchOAuthMetadata, getMcpBaseUrl } from "../../oauth"
 import { discoverPluginMcpServers } from "../../plugins"
+import { RIPPLE_PROVIDER_POLICY } from "../../agent-runtime/ripple-provider-policy"
 import { publicProcedure, router } from "../index"
 import { buildAgentsOption } from "./agent-utils"
 import {
@@ -1593,20 +1594,22 @@ export const claudeRouter = router({
               })
             }
 
-            // Read AGENTS.md from project root if it exists
-            let agentsMdContent: string | undefined
+            // Read CLAUDE.md from project root if it exists. Native Claude
+            // sessions load it through settingSources; this legacy path keeps
+            // local-model context aligned without appending Codex instructions.
+            let claudeMdContent: string | undefined
             try {
-              const agentsMdPath = path.join(input.cwd, "AGENTS.md")
-              agentsMdContent = await fs.readFile(agentsMdPath, "utf-8")
-              if (agentsMdContent.trim()) {
+              const claudeMdPath = path.join(input.projectPath || input.cwd, "CLAUDE.md")
+              claudeMdContent = await fs.readFile(claudeMdPath, "utf-8")
+              if (claudeMdContent.trim()) {
                 console.log(
-                  `[claude] Found AGENTS.md at ${agentsMdPath} (${agentsMdContent.length} chars)`,
+                  `[claude] Found CLAUDE.md at ${claudeMdPath} (${claudeMdContent.length} chars)`,
                 )
               } else {
-                agentsMdContent = undefined
+                claudeMdContent = undefined
               }
             } catch {
-              // AGENTS.md doesn't exist or can't be read - that's fine
+              // CLAUDE.md doesn't exist or can't be read - that's fine.
             }
 
             // For Ollama: embed context AND history directly in prompt
@@ -1723,12 +1726,12 @@ IMPORTANT: When using tools, use these EXACT parameter names:
 When asked about the project, use Glob to find files and Read to examine them.
 Be concise and helpful.
 [/CONTEXT]${
-                agentsMdContent
+                claudeMdContent
                   ? `
 
-[AGENTS.MD]
-${agentsMdContent}
-[/AGENTS.MD]`
+[CLAUDE.MD]
+${claudeMdContent}
+[/CLAUDE.MD]`
                   : ""
               }
 
@@ -1739,18 +1742,13 @@ ${prompt}
               console.log("[Ollama] Context prefix added to prompt")
             }
 
-            // System prompt config - use preset for both Claude and Ollama
-            // If AGENTS.md exists, append its content to the system prompt
-            const systemPromptConfig = agentsMdContent
-              ? {
-                  type: "preset" as const,
-                  preset: "claude_code" as const,
-                  append: `\n\n# AGENTS.md\nThe following are the project's AGENTS.md instructions:\n\n${agentsMdContent}`,
-                }
-              : {
-                  type: "preset" as const,
-                  preset: "claude_code" as const,
-                }
+            // System prompt config - use Claude's native project/user settings
+            // rather than manually appending project instruction files.
+            const systemPromptConfig = {
+              type: "preset" as const,
+              preset: "claude_code" as const,
+              append: RIPPLE_PROVIDER_POLICY,
+            }
 
             const queryOptions = {
               prompt: finalQueryPrompt,

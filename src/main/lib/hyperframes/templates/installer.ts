@@ -4,6 +4,7 @@ import { createRequire } from "node:module"
 import { basename, dirname, extname, join } from "node:path"
 import { compositions, projects, type Composition, type Project } from "../../db/schema"
 import type { ScaffoldMetadata, ScaffoldResult } from "../../ripple-projects/types"
+import { ensureRippleProjectAgentNotes } from "../../ripple-projects/project-agent-notes"
 import {
   readHyperframesMetadata,
   type HyperframesProjectMetadata,
@@ -394,9 +395,11 @@ export async function installRippleProjectTemplate(input: {
     join(input.projectPath, "assets", "vendor", "gsap.min.js"),
     await readBundledGsapRuntime(),
   )
+  const agentNotes = await ensureRippleProjectAgentNotes(input.projectPath)
 
   return {
     projectPath: input.projectPath,
+    agentNotes,
     compositions: [
       {
         name: "Main",

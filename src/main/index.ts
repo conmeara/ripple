@@ -122,7 +122,7 @@ export async function handleAuthCode(code: string): Promise<void> {
     console.log("[Auth] Success for user:", authData.user.email)
 
     // Track successful authentication
-    trackAuthCompleted(authData.user.id, authData.user.email)
+    trackAuthCompleted(authData.user.id)
 
     // Fetch and set subscription plan for analytics
     try {

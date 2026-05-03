@@ -974,36 +974,57 @@ Done when:
 - Existing projects are checked, not mutated, on open; project-note setup and
   project skill installation are explicit actions.
 
-### Phase 14: Agent Visual Context, Screenshots, And Frame Sheets
+### Phase 14: Visual Context CLI And Frame Sheets
+
+ExecPlan: `plans/phase-14-agent-visual-context.md`
 
 Goals:
 
-- Build a main-process screenshot tool that captures the active composition or
-  revision preview at a requested frame, time, or selected range.
-- Automatically attach the current-frame still to new comments when a comment
-  is submitted from the review pane.
-- Generate frame sheets for a composition or revision by sampling frames at a
-  selected interval, such as every second, every 10 seconds, or across a marked
-  timeline range.
-- Make screenshots and frame sheets available to the agent during chat and
-  comment workflows through image attachments when the provider supports vision,
-  with timecode/composition metadata and text fallbacks when it does not.
-- Persist screenshot and frame-sheet artifacts project-locally with database
-  references, cleanup rules, size limits, and project/revision boundary checks.
+- Lean on the broader HyperFrames CLI and skills for native motion-project
+  tooling, including preview, inspect, validation, rendering, and screenshots.
+- Add a small Ripple CLI command for frame sheets so agents and humans can
+  sample a composition across time with one command.
+- Let agents choose from both tool families directly: HyperFrames for native
+  project tooling and Ripple for frame sheets.
+- Expose both CLI tool families to normal chat agents and comment-generated
+  change agents in their active project or generated-change workspace.
+- Automatically attach a current-frame still to new comments by calling the
+  same HyperFrames snapshot path.
+- Support time-range comments by calling the Ripple frame-sheet utility with a
+  small default sample count.
+- Bundle the screenshot/frame-sheet workflow as agent skill/context so Codex,
+  Claude Code, Codespaces, and in-app agents know when and how to use it.
 
 Done when:
 
-- Agent chat and comment runs can receive current visual context for the
-  composition they are editing.
-- New comments automatically include a screenshot thumbnail and stable
-  screenshot artifact reference when preview capture is available.
-- Frame sheets can be generated for the default project and for an isolated
-  revision, then included in agent context.
-- Screenshot and frame-sheet capture use HyperFrames snapshot/player paths and
-  main-process validation rather than renderer shell commands or arbitrary
-  filesystem access.
-- The UI keeps this visual context understandable without exposing implementation
-  terms like worktree or snapshot plumbing in primary flows.
+- `ripple frame-sheet` can generate a contact sheet from a HyperFrames project
+  using explicit timestamps, a time range plus sample count, a time interval, or
+  a frame interval.
+- The command writes a sheet image and manifest under project-local `.ripple`
+  output and can print machine-readable JSON for agents.
+- The Ripple CLI has a stable dev/test entrypoint and packaged wrapper, and
+  app-run agents get a shared tool environment that exposes both HyperFrames
+  and Ripple commands.
+- `ripple frame-sheet` is workspace-bounded when launched from Ripple agent
+  runs, so `--dir` and generated outputs stay inside the validated active
+  project or revision workspace.
+- Active-composition screenshot behavior is verified before automatic comment
+  visuals ship; Ripple does not silently capture the wrong composition.
+- New comments can automatically include a current-frame screenshot captured
+  through HyperFrames snapshot.
+- Comment visuals captured from generated-change workspaces are copied to the
+  canonical project root and sent to providers through runtime-only attachment
+  loading, not base64 transcript history.
+- Range comments can generate a compact default frame sheet after the
+  current-frame path is stable.
+- Agent-facing docs or skills explain the broader HyperFrames CLI surface and
+  `ripple frame-sheet`, allowing agents to choose the tool that fits the task.
+- Chat and comment-generated-change agents can resolve and run the app-managed
+  HyperFrames CLI and Ripple CLI from validated project/revision contexts.
+- Generated frame sheets, comment visuals, and transient snapshot intermediates
+  are ignored or excluded from generated-change proposal diffs.
+- Primary UI keeps this understandable as screenshots, current frames, and frame
+  sheets without exposing worktree, branch, or artifact-system terminology.
 
 ### Phase 15: Rebrand And Service Decoupling
 
@@ -1099,7 +1120,53 @@ Done when:
 - Onboarding copy avoids repo, branch, clone, worktree, dependency install, and
   developer-tool language in the primary path.
 
-### Phase 18: Hardening And Release Readiness
+### Phase 18: App Updates
+
+Goals:
+
+- Turn Ripple's Electron update plumbing into a complete user-facing app update
+  flow for packaged builds.
+- Let users check for updates, see release context, download an update, install
+  on restart, and recover from failed or interrupted updates without learning
+  release artifacts or update feeds.
+- Validate stable and beta update channels against Ripple-owned feed URLs,
+  product IDs, protocols, signing identity, and artifact names established in
+  Phase 15.
+- Keep update checks optional and non-blocking. Update failures must not block
+  local project creation/opening, preview, comments, revisions, or export.
+- Add clear packaged-build QA for macOS first, then Windows and Linux as their
+  release targets are prepared.
+
+Key files:
+
+- `src/main/lib/auto-updater.ts`
+- `src/main/index.ts`
+- `src/preload/index.ts`
+- `src/renderer/components/update-banner.tsx`
+- `src/renderer/lib/hooks/use-update-checker.ts`
+- `src/renderer/lib/hooks/use-just-updated.ts`
+- `src/renderer/components/dialogs/settings-tabs/agents-beta-tab.tsx`
+- `scripts/generate-update-manifest.mjs`
+- `electron-builder.yml`
+- `package.json`
+
+Done when:
+
+- A packaged Ripple build can discover a newer packaged Ripple build from a
+  Ripple-owned update feed.
+- Users can manually check, download, and restart to install an update from the
+  app UI.
+- The update UI shows useful release/version state and handles unavailable,
+  failed, cancelled, already-downloaded, and restart-required states.
+- Stable and beta channel selection uses Ripple-owned channels and persists
+  safely without enabling legacy upstream feeds.
+- Update installation is validated on signed/notarized macOS artifacts, with
+  Windows and Linux expectations documented if those platforms are not yet
+  release-ready.
+- Failed update checks or downloads are logged and recoverable without blocking
+  local Ripple workflows.
+
+### Phase 19: Hardening And Release Readiness
 
 Goals:
 
@@ -1117,6 +1184,7 @@ Done when:
 - MP4, MOV, and WebM exports succeed in validated environments.
 - Unit, integration, E2E, render/export, migration, packaging, and manual QA
   gates pass.
+- Packaged app update install flow passes the Phase 18 release gate.
 - Packaging no longer references missing old release scripts or 1Code assets.
 
 ## Testing Strategy

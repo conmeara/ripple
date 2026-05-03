@@ -7,11 +7,15 @@ import matter from "gray-matter"
 import { discoverInstalledPlugins, getPluginComponentPaths } from "../../plugins"
 import { isDirentDirectory } from "../../fs/dirent"
 import { getEnabledPlugins } from "./claude-settings"
+import { isPathInsideDirectory } from "../../ripple-projects/paths"
+import { getAppManagedHyperframesSkillRoot } from "../../ripple-projects/hyperframes-skills"
 
 export interface FileSkill {
   name: string
   description: string
-  source: "user" | "project" | "plugin"
+  source: "app" | "user" | "project" | "plugin"
+  provider: "claude" | "codex" | "plugin"
+  readOnly: boolean
   pluginName?: string
   path: string
   content: string
@@ -39,7 +43,8 @@ function parseSkillMd(rawContent: string): { name?: string; description?: string
  */
 async function scanSkillsDirectory(
   dir: string,
-  source: "user" | "project" | "plugin",
+  source: FileSkill["source"],
+  provider: FileSkill["provider"],
   basePath?: string, // For project skills, the cwd to make paths relative to
 ): Promise<FileSkill[]> {
   const skills: FileSkill[] = []
@@ -88,6 +93,8 @@ async function scanSkillsDirectory(
           name: parsed.name || entry.name,
           description: parsed.description || "",
           source,
+          provider,
+          readOnly: source === "app" || source === "plugin",
           path: displayPath,
           content: parsed.content,
         })
@@ -112,13 +119,32 @@ const listSkillsProcedure = publicProcedure
       .optional(),
   )
   .query(async ({ input }) => {
-    const userSkillsDir = path.join(os.homedir(), ".claude", "skills")
-    const userSkillsPromise = scanSkillsDirectory(userSkillsDir, "user")
+    const userClaudeSkillsDir = path.join(os.homedir(), ".claude", "skills")
+    const userCodexSkillsDir = path.join(os.homedir(), ".agents", "skills")
+    const appClaudeSkillsDir = getAppManagedHyperframesSkillRoot("claude")
+    const appCodexSkillsDir = getAppManagedHyperframesSkillRoot("codex")
+    const appClaudeSkillsPromise = scanSkillsDirectory(appClaudeSkillsDir, "app", "claude")
+    const appCodexSkillsPromise = scanSkillsDirectory(appCodexSkillsDir, "app", "codex")
+    const userClaudeSkillsPromise = scanSkillsDirectory(userClaudeSkillsDir, "user", "claude")
+    const userCodexSkillsPromise = scanSkillsDirectory(userCodexSkillsDir, "user", "codex")
 
-    let projectSkillsPromise = Promise.resolve<FileSkill[]>([])
+    let projectClaudeSkillsPromise = Promise.resolve<FileSkill[]>([])
+    let projectCodexSkillsPromise = Promise.resolve<FileSkill[]>([])
     if (input?.cwd) {
-      const projectSkillsDir = path.join(input.cwd, ".claude", "skills")
-      projectSkillsPromise = scanSkillsDirectory(projectSkillsDir, "project", input.cwd)
+      const projectClaudeSkillsDir = path.join(input.cwd, ".claude", "skills")
+      const projectCodexSkillsDir = path.join(input.cwd, ".agents", "skills")
+      projectClaudeSkillsPromise = scanSkillsDirectory(
+        projectClaudeSkillsDir,
+        "project",
+        "claude",
+        input.cwd,
+      )
+      projectCodexSkillsPromise = scanSkillsDirectory(
+        projectCodexSkillsDir,
+        "project",
+        "codex",
+        input.cwd,
+      )
     }
 
     // Discover plugin skills
@@ -132,7 +158,7 @@ const listSkillsProcedure = publicProcedure
     const pluginSkillsPromises = enabledPlugins.map(async (plugin) => {
       const paths = getPluginComponentPaths(plugin)
       try {
-        const skills = await scanSkillsDirectory(paths.skills, "plugin")
+        const skills = await scanSkillsDirectory(paths.skills, "plugin", "plugin")
         return skills.map((skill) => ({ ...skill, pluginName: plugin.source }))
       } catch {
         return []
@@ -140,15 +166,35 @@ const listSkillsProcedure = publicProcedure
     })
 
     // Scan all directories in parallel
-    const [userSkills, projectSkills, ...pluginSkillsArrays] =
+    const [
+      appClaudeSkills,
+      appCodexSkills,
+      userClaudeSkills,
+      userCodexSkills,
+      projectClaudeSkills,
+      projectCodexSkills,
+      ...pluginSkillsArrays
+    ] =
       await Promise.all([
-        userSkillsPromise,
-        projectSkillsPromise,
+        appClaudeSkillsPromise,
+        appCodexSkillsPromise,
+        userClaudeSkillsPromise,
+        userCodexSkillsPromise,
+        projectClaudeSkillsPromise,
+        projectCodexSkillsPromise,
         ...pluginSkillsPromises,
       ])
     const pluginSkills = pluginSkillsArrays.flat()
 
-    return [...projectSkills, ...userSkills, ...pluginSkills]
+    return [
+      ...appClaudeSkills,
+      ...appCodexSkills,
+      ...projectClaudeSkills,
+      ...projectCodexSkills,
+      ...userClaudeSkills,
+      ...userCodexSkills,
+      ...pluginSkills,
+    ]
   })
 
 /**
@@ -167,10 +213,45 @@ function generateSkillMd(skill: { name: string; description: string; content: st
  * Resolve the absolute filesystem path of a skill given its display path
  */
 function resolveSkillPath(displayPath: string): string {
-  if (displayPath.startsWith("~")) {
-    return path.join(os.homedir(), displayPath.slice(1))
+  if (displayPath.startsWith("~/")) {
+    return path.join(os.homedir(), displayPath.slice(2))
   }
-  return displayPath
+  return path.resolve(displayPath)
+}
+
+function assertMutableSkillPath(input: {
+  absolutePath: string
+  cwd?: string
+}): void {
+  const allowedRoots = [
+    path.join(os.homedir(), ".claude", "skills"),
+    path.join(os.homedir(), ".agents", "skills"),
+  ]
+  if (input.cwd) {
+    allowedRoots.push(path.join(input.cwd, ".claude", "skills"))
+    allowedRoots.push(path.join(input.cwd, ".agents", "skills"))
+  }
+
+  if (!allowedRoots.some((root) => isPathInsideDirectory(root, input.absolutePath))) {
+    throw new Error("Skill edits are only allowed in user or project skill folders.")
+  }
+}
+
+function resolveMutableSkillPath(input: {
+  displayPath: string
+  cwd?: string
+}): string {
+  if (input.displayPath.includes("..")) {
+    throw new Error("Invalid path")
+  }
+  const absolutePath = input.cwd &&
+      !input.displayPath.startsWith("~") &&
+      !path.isAbsolute(input.displayPath)
+    ? path.resolve(input.cwd, input.displayPath)
+    : resolveSkillPath(input.displayPath)
+
+  assertMutableSkillPath({ absolutePath, cwd: input.cwd })
+  return absolutePath
 }
 
 export const skillsRouter = router({
@@ -196,6 +277,7 @@ export const skillsRouter = router({
         description: z.string(),
         content: z.string(),
         source: z.enum(["user", "project"]),
+        provider: z.enum(["claude", "codex"]).optional(),
         cwd: z.string().optional(),
       })
     )
@@ -206,13 +288,22 @@ export const skillsRouter = router({
       }
 
       let targetDir: string
+      const provider = input.provider ?? "claude"
       if (input.source === "project") {
         if (!input.cwd) {
           throw new Error("Project path (cwd) required for project skills")
         }
-        targetDir = path.join(input.cwd, ".claude", "skills")
+        targetDir = path.join(
+          input.cwd,
+          provider === "claude" ? ".claude" : ".agents",
+          "skills",
+        )
       } else {
-        targetDir = path.join(os.homedir(), ".claude", "skills")
+        targetDir = path.join(
+          os.homedir(),
+          provider === "claude" ? ".claude" : ".agents",
+          "skills",
+        )
       }
 
       const skillDir = path.join(targetDir, safeName)
@@ -243,6 +334,7 @@ export const skillsRouter = router({
         name: safeName,
         path: skillMdPath,
         source: input.source,
+        provider,
       }
     }),
 
@@ -260,9 +352,10 @@ export const skillsRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const absolutePath = input.cwd && !input.path.startsWith("~") && !input.path.startsWith("/")
-        ? path.join(input.cwd, input.path)
-        : resolveSkillPath(input.path)
+      const absolutePath = resolveMutableSkillPath({
+        displayPath: input.path,
+        cwd: input.cwd,
+      })
 
       // Verify file exists before writing
       await fs.access(absolutePath)
@@ -289,13 +382,10 @@ export const skillsRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      if (input.path.includes("..")) {
-        throw new Error("Invalid path")
-      }
-
-      const absolutePath = input.cwd && !input.path.startsWith("~") && !input.path.startsWith("/")
-        ? path.join(input.cwd, input.path)
-        : resolveSkillPath(input.path)
+      const absolutePath = resolveMutableSkillPath({
+        displayPath: input.path,
+        cwd: input.cwd,
+      })
 
       // Skills are directories containing SKILL.md — delete the parent directory
       const skillDir = path.dirname(absolutePath)

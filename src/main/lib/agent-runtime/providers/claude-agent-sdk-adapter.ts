@@ -254,7 +254,11 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         promptContext.agentMentions,
         input.cwd,
       )
-      const capabilities = await loadClaudeRuntimeCapabilities(input.cwd)
+      const capabilities = await loadClaudeRuntimeCapabilities(
+        input.cwd,
+        input.projectPath,
+        input.workspaceKind,
+      )
       const capabilityLabel = formatClaudeCapabilityLabel(capabilities.summary)
       if (
         capabilityLabel ||
@@ -281,7 +285,7 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
 
       const env = buildClaudeEnv({
         customEnv: {
-          CLAUDE_AGENT_SDK_CLIENT_APP: "ripple-desktop/phase-11",
+          CLAUDE_AGENT_SDK_CLIENT_APP: "ripple-desktop/phase-13",
         },
       })
       const nativeAttachmentBlocks = [
@@ -316,6 +320,7 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
           includePartialMessages: true,
           tools: { type: "preset", preset: "claude_code" },
           settingSources: capabilities.settingSources,
+          skills: capabilities.skills,
           ...(Object.keys(agentsOption).length > 0 ? { agents: agentsOption } : {}),
           ...(Object.keys(capabilities.mcpServers).length > 0
             ? { mcpServers: capabilities.mcpServers as any }

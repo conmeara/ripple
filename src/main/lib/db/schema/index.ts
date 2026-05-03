@@ -374,6 +374,7 @@ export const agentRuns = sqliteTable("agent_runs", {
   providerTurnId: text("provider_turn_id"),
   providerSessionId: text("provider_session_id"),
   providerItemId: text("provider_item_id"),
+  runtimeContextJson: text("runtime_context_json").notNull().default("{}"),
   status: text("status")
     .$type<
       | "queued"

@@ -1,0 +1,1 @@
+ALTER TABLE `agent_runs` ADD `runtime_context_json` text DEFAULT '{}' NOT NULL;

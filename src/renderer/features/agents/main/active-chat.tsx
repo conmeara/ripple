@@ -183,7 +183,10 @@ import { usePastedTextFiles, type PastedTextFile } from "../hooks/use-pasted-tex
 import { useTextContextSelection } from "../hooks/use-text-context-selection"
 import { useToggleFocusOnCmdEsc } from "../hooks/use-toggle-focus-on-cmd-esc"
 import { ACPChatTransport } from "../lib/acp-chat-transport"
-import { AgentRuntimeChatTransport } from "../lib/agent-runtime-chat-transport"
+import {
+  AgentRuntimeChatTransport,
+  type AgentRuntimeChatContext,
+} from "../lib/agent-runtime-chat-transport"
 import { formatHistoryForContext } from "../lib/export-chat"
 import {
   clearSubChatDraft,
@@ -5028,6 +5031,7 @@ export function ChatView({
   activeConversations,
   onSelectActiveConversation,
   onCloseActiveConversation,
+  agentRuntimePreviewContext,
 }: {
   chatId: string
   isSidebarOpen: boolean
@@ -5058,6 +5062,7 @@ export function ChatView({
   activeConversations?: RippleConversationTabMeta[]
   onSelectActiveConversation?: (conversationId: string) => void
   onCloseActiveConversation?: (conversationId: string) => void
+  agentRuntimePreviewContext?: AgentRuntimeChatContext | null
 }) {
   const [selectedTeamId] = useAtom(selectedTeamIdAtom)
 
@@ -5093,6 +5098,13 @@ export function ChatView({
   const [selectedFilePath, setSelectedFilePath] = useAtom(selectedDiffFilePathAtom)
   const setFilteredDiffFiles = useSetAtom(filteredDiffFilesAtom)
   const { notifyAgentComplete } = useDesktopNotifications()
+  const agentRuntimePreviewContextRef = useRef<AgentRuntimeChatContext | null>(
+    agentRuntimePreviewContext ?? null,
+  )
+
+  useEffect(() => {
+    agentRuntimePreviewContextRef.current = agentRuntimePreviewContext ?? null
+  }, [agentRuntimePreviewContext])
 
   // Check if any chat has unseen changes
   const hasAnyUnseenChanges = unseenChanges.size > 0
@@ -6854,6 +6866,24 @@ Make sure to preserve all functionality from both branches when resolving confli
     clearRuntimeCachesForSubChat(subChatId)
   }, [])
 
+  const buildAgentRuntimeContext = useCallback((conversationId: string): AgentRuntimeChatContext => {
+    const previewContext = agentRuntimePreviewContextRef.current ?? {}
+    const fallbackPreviewSource =
+      worktreePath && selectedProject?.path && worktreePath !== selectedProject.path
+        ? { kind: "chat-worktree" as const, conversationId }
+        : { kind: "main" as const }
+
+    return {
+      ...previewContext,
+      compositionId: previewContext.compositionId ?? selectedProject?.activeCompositionId ?? null,
+      previewSource: previewContext.previewSource ?? fallbackPreviewSource,
+    }
+  }, [
+    selectedProject?.activeCompositionId,
+    selectedProject?.path,
+    worktreePath,
+  ])
+
   // Create or get Chat instance for a sub-chat
   const getOrCreateChat = useCallback(
     (subChatId: string): Chat<any> | null => {
@@ -6966,6 +6996,7 @@ Make sure to preserve all functionality from both branches when resolving confli
           mode: subChatMode,
           provider: chatProvider === "codex" ? "codex" : "claude",
           model: getSelectedAgentRuntimeModel(subChatId, chatProvider),
+          runtimeContext: () => buildAgentRuntimeContext(subChatId),
         })
       }
 
@@ -7069,6 +7100,9 @@ Make sure to preserve all functionality from both branches when resolving confli
       subChatProviderOverrides,
       setSubChatUnseenChanges,
       selectedChatId,
+      selectedProject?.activeCompositionId,
+      selectedProject?.path,
+      buildAgentRuntimeContext,
       setUnseenChanges,
       notifyAgentComplete,
       syncFinishedMessagesToChatCache,
@@ -7241,6 +7275,7 @@ Make sure to preserve all functionality from both branches when resolving confli
         mode: newSubChatMode,
         provider: chatProvider === "codex" ? "codex" : "claude",
         model: getSelectedAgentRuntimeModel(newId, chatProvider),
+        runtimeContext: () => buildAgentRuntimeContext(newId),
       })
     }
 
@@ -7340,6 +7375,9 @@ Make sure to preserve all functionality from both branches when resolving confli
     notifyAgentComplete,
     syncFinishedMessagesToChatCache,
     pruneIfDetachedAndIdle,
+    selectedProject?.activeCompositionId,
+    selectedProject?.path,
+    buildAgentRuntimeContext,
     (agentChat as any)?.isRemote,
     agentChat?.name,
   ])

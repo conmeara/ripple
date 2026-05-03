@@ -14,11 +14,15 @@ import { trackProjectOpened } from "../../analytics"
 import { getLaunchDirectory } from "../../cli"
 import {
   createRippleProject,
+  addProjectAgentNotes,
+  checkProjectAssistantReadiness,
   getProjectSetupStatus,
+  installProjectHyperframesSkills,
   listProjectCompositions,
   openExistingRippleProject,
   refreshProjectSetupStatus,
   setActiveComposition,
+  updateProjectAgentNotes,
 } from "../../ripple-projects/service"
 import { aspectRatioPresets } from "../../ripple-projects/types"
 import {
@@ -120,6 +124,33 @@ export const projectsRouter = router({
     .input(z.object({ projectId: z.string() }))
     .mutation(({ input }) => {
       return refreshProjectSetupStatus(input.projectId)
+    }),
+
+  checkAssistantReadiness: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(({ input }) => {
+      return checkProjectAssistantReadiness(input.projectId)
+    }),
+
+  addProjectNotesForAI: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .mutation(({ input }) => {
+      return addProjectAgentNotes(input.projectId)
+    }),
+
+  updateProjectNotesForAI: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .mutation(({ input }) => {
+      return updateProjectAgentNotes(input.projectId)
+    }),
+
+  makeAISetupPortable: publicProcedure
+    .input(z.object({
+      projectId: z.string(),
+      providers: z.array(z.enum(["claude", "codex"])).optional(),
+    }))
+    .mutation(({ input }) => {
+      return installProjectHyperframesSkills(input)
     }),
 
   listCompositions: publicProcedure

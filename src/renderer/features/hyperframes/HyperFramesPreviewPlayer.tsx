@@ -35,6 +35,7 @@ import type {
 import {
   getActiveCaptionOverlayClips,
   getTimelineFrameIndicator,
+  timelineSecondsToFrame,
 } from "../../../shared/hyperframes-timeline-model"
 import {
   DropdownMenu,
@@ -88,7 +89,10 @@ interface HyperFramesPreviewPlayerProps {
   selectedCommentThreadId?: string | null
   seekToTime?: number | null
   seekRequestId?: number
-  onPreviewTimeChange?: (time: number) => void
+  onPreviewTimeChange?: (time: number, context: {
+    frame: number
+    fps: number
+  }) => void
   onTimelineSelectionChange?: (selection: RippleTimelineRangeSelection | null) => void
   onCommentMarkerSelect?: (selection: {
     threadId: string
@@ -512,6 +516,14 @@ export function HyperFramesPreviewPlayer({
     }
   }, [])
 
+  const emitPreviewTimeChange = useCallback((time: number) => {
+    const fps = Math.max(1, Math.round(previewFpsRef.current || PREVIEW_FPS))
+    onPreviewTimeChange?.(time, {
+      frame: timelineSecondsToFrame(time, fps),
+      fps,
+    })
+  }, [onPreviewTimeChange])
+
   useLayoutEffect(() => {
     if (!isPreviewSettling && isReady) {
       settledDisplayTimeRef.current = currentTime
@@ -531,16 +543,16 @@ export function HyperFramesPreviewPlayer({
 
   useEffect(() => {
     if (isPreviewSettling) return
-    onPreviewTimeChange?.(currentTime)
-  }, [currentTime, isPreviewSettling, onPreviewTimeChange])
+    emitPreviewTimeChange(currentTime)
+  }, [currentTime, emitPreviewTimeChange, isPreviewSettling])
 
   useEffect(() => subscribeLiveTime((time: number) => {
     if (isPreviewSettling) return
     syncLivePreviewTime(time)
-    onPreviewTimeChange?.(time)
+    emitPreviewTimeChange(time)
   }), [
+    emitPreviewTimeChange,
     isPreviewSettling,
-    onPreviewTimeChange,
     subscribeLiveTime,
     syncLivePreviewTime,
   ])

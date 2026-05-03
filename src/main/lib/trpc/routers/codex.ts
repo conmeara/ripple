@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm"
 import { app } from "electron"
 import { spawn, type ChildProcess } from "node:child_process"
 import { createHash } from "node:crypto"
-import { existsSync } from "node:fs"
+import { existsSync, statSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { basename, dirname, join, sep } from "node:path"
@@ -353,39 +353,80 @@ type RunCodexCliOptions = {
   cwd?: string
 }
 
-async function runCodexCli(
-  args: string[],
-  options?: RunCodexCliOptions,
-): Promise<{
+type CodexCliSpawnMode = "direct" | "shell-fallback"
+
+function resolveCodexCliCwd(cwd: string | undefined): string | undefined {
+  if (!cwd || cwd.length === 0) return undefined
+
+  try {
+    if (statSync(cwd).isDirectory()) return cwd
+  } catch {
+    // Fall through to the warning below.
+  }
+
+  console.warn("[codex] Ignoring missing or invalid Codex CLI cwd.", { cwd })
+  return undefined
+}
+
+function spawnCodexCliProcess(input: {
+  codexCliPath: string
+  args: string[]
+  cwd?: string
+  mode: CodexCliSpawnMode
+}): ChildProcess {
+  const commonOptions = {
+    stdio: ["ignore", "pipe", "pipe"] as ["ignore", "pipe", "pipe"],
+    cwd: input.cwd && input.cwd.length > 0 ? input.cwd : undefined,
+    env: process.env,
+    windowsHide: true,
+  }
+
+  if (input.mode === "shell-fallback") {
+    return spawn(
+      "/bin/sh",
+      ["-c", 'exec "$@"', "codex-shim", input.codexCliPath, ...input.args],
+      commonOptions,
+    )
+  }
+
+  return spawn(input.codexCliPath, input.args, commonOptions)
+}
+
+async function runCodexCliAttempt(input: {
+  codexCliPath: string
+  args: string[]
+  cwd?: string
+  mode: CodexCliSpawnMode
+}): Promise<{
   stdout: string
   stderr: string
   exitCode: number | null
 }> {
-  const codexCliPath = resolveBundledCodexCliPath()
-  const cwd = options?.cwd?.trim()
-
   return await new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(codexCliPath, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      cwd: cwd && cwd.length > 0 ? cwd : undefined,
-      env: process.env,
-      windowsHide: true,
-    })
+    const child = spawnCodexCliProcess(input)
 
     let stdout = ""
     let stderr = ""
-    child.stdout.on("data", (chunk) => {
+    child.stdout?.on("data", (chunk) => {
       stdout += chunk.toString("utf8")
     })
 
-    child.stderr.on("data", (chunk) => {
+    child.stderr?.on("data", (chunk) => {
       stderr += chunk.toString("utf8")
     })
 
     child.once("error", (error) => {
+      const nodeError = error as NodeJS.ErrnoException
       rejectPromise(
-        new Error(
-          `[codex] Failed to execute \`codex ${args.join(" ")}\`: ${error.message}`,
+        Object.assign(
+          new Error(
+            `[codex] Failed to execute \`codex ${input.args.join(" ")}\`: ${error.message}`,
+          ),
+          {
+            code: nodeError.code,
+            path: nodeError.path,
+            spawnMode: input.mode,
+          },
         ),
       )
     })
@@ -398,6 +439,51 @@ async function runCodexCli(
       })
     })
   })
+}
+
+async function runCodexCli(
+  args: string[],
+  options?: RunCodexCliOptions,
+): Promise<{
+  stdout: string
+  stderr: string
+  exitCode: number | null
+}> {
+  const codexCliPath = resolveBundledCodexCliPath()
+  const cwd = resolveCodexCliCwd(options?.cwd?.trim())
+
+  try {
+    return await runCodexCliAttempt({
+      codexCliPath,
+      args,
+      cwd,
+      mode: "direct",
+    })
+  } catch (error) {
+    const nodeError = error as NodeJS.ErrnoException
+    if (
+      process.platform !== "win32" &&
+      nodeError.code === "ENOENT" &&
+      existsSync(codexCliPath)
+    ) {
+      console.warn(
+        "[codex] Direct bundled CLI spawn failed even though the binary exists; retrying through /bin/sh.",
+        {
+          binaryPath: codexCliPath,
+          cwd: cwd || null,
+          error: nodeError.message,
+        },
+      )
+      return await runCodexCliAttempt({
+        codexCliPath,
+        args,
+        cwd,
+        mode: "shell-fallback",
+      })
+    }
+
+    throw error
+  }
 }
 
 async function runCodexCliChecked(
@@ -980,8 +1066,9 @@ export async function getAllCodexMcpConfigHandler() {
     const db = getDatabase()
     const dbProjects = db.select({ path: projectsTable.path }).from(projectsTable).all()
     for (const project of dbProjects) {
-      if (typeof project.path === "string" && project.path.trim().length > 0) {
-        projectPathSet.add(project.path)
+      const projectPath = typeof project.path === "string" ? project.path.trim() : ""
+      if (projectPath.length > 0 && existsSync(projectPath)) {
+        projectPathSet.add(projectPath)
       }
     }
   } catch (error) {

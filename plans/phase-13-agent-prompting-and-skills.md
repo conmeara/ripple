@@ -93,23 +93,58 @@ run context resolver, not a large policy framework or custom skill loader.
   composition, comment, revision, preview, and export state.
 - [x] Milestone 7: Validate provider paths with automated tests, schema probes,
   build, package, and bundled-resource checks.
-- [ ] Milestone 9: Add an agent run context resolver that separates app policy,
+- [x] Milestone 9: Add an agent run context resolver that separates app policy,
   project notes, app skill roots, user/provider-native context, and per-run
   runtime context for both Main and isolated revision workspaces.
-- [ ] Milestone 10: Demote generated `AGENTS.md` and `CLAUDE.md`, stop mutating
+- [x] Milestone 10: Demote generated `AGENTS.md` and `CLAUDE.md`, stop mutating
   existing projects on open, and add explicit backfill/refresh/install actions.
-- [ ] Milestone 11: Move canonical HyperFrames skills out of project roots into
+- [x] Milestone 11: Move canonical HyperFrames skills out of project roots into
   an app-managed bundle, while preserving optional project skill installation
   for portability.
-- [ ] Milestone 12: Update Codex and Claude adapters to use provider-native app
+- [x] Milestone 12: Update Codex and Claude adapters to use provider-native app
   policy, deterministic app skill loading, correct resume/handshake behavior,
   and explicit tool/skill permissions.
-- [ ] Milestone 13: Harden settings, path validation, revision-worktree
+- [x] Milestone 13: Harden settings, path validation, revision-worktree
   reporting, and the full QA/test matrix for the revised architecture.
-- [ ] Milestone 14: Complete full live desktop/provider QA and the Phase 13 test
-  suite after the revised architecture lands. The earlier Electron dev app
-  launch succeeded, but Computer Use could not attach to the app window, so live
-  GUI provider/chat/comment smoke remains a follow-up manual pass.
+- [x] Milestone 14: Complete full live desktop/provider QA and the Phase 13 test
+  suite after the revised architecture lands. Automated Phase 13 and broad
+  Ripple checks pass, and live GUI provider smoke now verifies both Codex and
+  Claude receive Ripple policy, live project/composition/frame context, and
+  app-managed HyperFrames skills.
+- [x] 2026-05-03 / Codex: Ran a partial live desktop smoke against
+  `bun run dev` after the revised architecture landed. The app launched on the
+  dev profile, opened an existing Ripple project, loaded the HyperFrames
+  preview/timeline, and Computer Use could inspect the GUI. Settings > Skills
+  showed app-managed `gsap`, `hyperframes`, and `hyperframes-cli` entries for
+  both Claude and Codex under the Ripple group, with detail panes reading from
+  `node_modules/hyperframes/dist/skills/...`.
+- [x] 2026-05-03 / User + Codex: User approved live Phase 13 provider smoke
+  that transmits a tiny test prompt plus active Ripple project/run context to
+  Claude and Codex through the app-managed provider runtimes.
+- [x] 2026-05-03 / Codex: Resolved the live Codex MCP snapshot ENOENT seen
+  during GUI smoke. The bundled Codex binary existed and ran from the shell;
+  the real failure was stale DB project paths being passed as `cwd`, which makes
+  Node report ENOENT against the spawned command. `runCodexCli` now ignores
+  missing/invalid cwd values, and the settings project enumeration filters
+  missing paths before resolving project-scoped Codex MCP snapshots. A dev app
+  rerun no longer logged `codex.getAllMcpConfig` failures. Remaining MCP ENOENT
+  logs came from the user's configured `computer-use` MCP command path, not
+  Ripple's bundled Codex binary.
+- [x] 2026-05-03 / Codex: Completed live Codex provider smoke after fixing two
+  runtime blockers. First, Codex App Server `thread/start` needed
+  `experimentalApi: true`. Second, resuming stored provider-side Codex threads
+  could replay unrelated local Codex history from another workspace, so Ripple
+  now starts clean ephemeral Codex threads with `sessionStartSource: "clear"`
+  and app-owned SQLite transcript state. After a full main-process restart,
+  Codex reported that Ripple policy, `new-timeline` / `Apple Money Count`
+  context, time `0.000s` / frame `0`, and app-managed `hyperframes`,
+  `hyperframes-cli`, and `gsap` skills were all present.
+- [x] 2026-05-03 / Codex: Completed live Claude provider smoke in the dev app.
+  Claude reported that Ripple policy, active `new-timeline` / `Apple Money
+  Count` context, editing target `Main`, preview source `Main`, time `0.000s` /
+  frame `0`, and app-managed HyperFrames skills `hyperframes`,
+  `hyperframes-cli`, and `gsap` were loaded. The live capability banner showed
+  Ripple policy, 1 MCP server, 1 plugin, and 3 skills.
 
 ## Surprises & Discoveries
 
@@ -370,42 +405,65 @@ run context resolver, not a large policy framework or custom skill loader.
   typed Codex skill inputs, native Claude setting sources, skill inventory UI,
   and automated tests.
 
-Implemented the Phase 13 code path and automated proof:
+Implemented the corrected Phase 13 architecture and automated proof:
 
-- `AGENTS.md` and `CLAUDE.md` are rendered from
-  `src/main/lib/ripple-projects/agent-instructions.ts` and are created for new
-  projects.
-- Existing projects get safe instruction-file backfill from project open
-  without overwriting user-modified files.
-- Managed Ripple project baselines are refreshed after backfill so future
-  generated-change worktrees receive the instruction files and registered
-  skills.
-- Local HyperFrames skills from the installed package are registered into
-  project `.claude/skills` and `.agents/skills` roots for Claude and Codex.
-- Claude runtime capability loading now uses native `CLAUDE.md` project/user
-  setting sources instead of manually appending `AGENTS.md`.
-- Codex App Server sessions now load `AGENTS.md` as `baseInstructions`, keep
-  Codex MCP discovery, query `skills/list`, and send typed skill input items
-  for explicit skill mentions with a fallback status if the bundled App Server
-  rejects native skill items.
-- Agent runs persist a normalized `runtimeContextJson` payload separately from
-  the visible user prompt. The provider prompt gets main-process validated
-  project/composition/comment/revision/preview/export context appended per run.
-- Settings skill inventory now includes Claude, Codex, and plugin skill sources
-  with provider labels so duplicate skill names do not collide silently.
+- Added `agent-run-context-resolver` as the per-run assembly point for provider
+  policy, project-note status/content, app-managed skill roots, project skill
+  roots, and native/fallback reporting for Main and isolated revision
+  workspaces.
+- Moved non-negotiable Ripple app policy into provider channels:
+  `developerInstructions` for Codex App Server and `systemPrompt.append` for
+  Claude Agent SDK and the legacy Claude tRPC path.
+- Demoted `AGENTS.md` and `CLAUDE.md` into short user-editable project notes.
+  New projects get the notes; existing projects are check-only on open; explicit
+  actions backfill notes, refresh notes, or install portable project skills.
+- Moved canonical HyperFrames skills to app-managed roots from the installed
+  `hyperframes` package. Codex sees them through `skills/list` with
+  `perCwdExtraUserRoots`; Claude sees them through the runtime capability
+  plugin/skill surface. Project `.agents/skills` and `.claude/skills` writes
+  now happen only through the explicit portability action.
+- Updated Codex App Server startup to send `initialized`, query native skills,
+  resume known provider threads with `thread/resume`, pass app policy through
+  `developerInstructions`, preserve typed skill input items, and use fallback
+  `baseInstructions` only when project notes need injection.
+- Updated Claude runtime capabilities to preserve native project/user settings,
+  append Ripple policy, report app-managed skill roots and project-note status,
+  expose app/plugin/user/project skills, and keep skill invocation available.
+- Hardened runtime editor context validation so renderer-supplied composition,
+  comment, revision, conversation-preview, and export ids must belong to the
+  selected project before provider-visible context is rendered.
+- Updated settings and mentions so app-managed HyperFrames skills, project
+  Claude skills, project Codex skills, user skills, and plugin skills are
+  distinct. App and plugin skills are read-only; create/update/delete resolve
+  through known mutable project/user roots.
+- Added and updated tests for project notes, app-managed HyperFrames skills,
+  new-project scaffold behavior, project baselines, runtime context validation,
+  agent-run context resolution, Codex App Server native instruction/skill
+  handling, and Claude capability loading.
+- Validation on 2026-05-03:
+  `bun run ts:check`, `bun run test:ripple` (320 pass, 0 fail), and
+  `bun run build` all pass. `git diff --check` also passed before this plan
+  update.
 
 Retrospective:
 
-- The code and automated validation met the earlier Phase 13 roadmap
-  requirements around motion-editor instructions, HyperFrames skills/context,
-  Ripple workflow language, and project/revision-bounded execution context, but
-  the 2026-05-03 architecture correction adds follow-up work before Phase 13 is
-  considered complete.
-- The ExecPlan's larger live desktop/provider QA target is not fully closed
-  because Computer Use could not attach to the Electron dev window and live
-  provider actions depend on local auth/resources. Treat the unrun GUI provider
-  smoke as the remaining risk before calling the whole Phase 13 QA matrix
-  complete.
+- The corrected architecture now matches the 2026-05-03 direction: app-owned
+  policy is provider-channel context, project files are short editable notes,
+  app-managed HyperFrames skills are canonical, existing project open is
+  check-only, and per-run editor context is validated in the main process.
+- Automated validation covers the revised provider contracts and broad Ripple
+  regression surface. The remaining Phase 13 risk is live desktop/provider QA:
+  actual Claude/Codex chat runs, frame-comment revision smoke, settings
+  visibility in the GUI, app restart persistence, and failure-state UX with the
+  user's configured provider environment.
+- A 2026-05-03 partial live GUI smoke reduced that risk for app launch,
+  preview/timeline rendering, and app-managed skills visibility. It did not
+  exercise actual provider chat or comment revision runs because that would
+  send project/run context to an external provider and needs explicit user
+  approval. The dev app also surfaced a Codex MCP spawn discrepancy that the
+  automated adapter tests did not cover; that discrepancy was traced to stale
+  project paths used as Codex CLI cwd and fixed before the phase was handed
+  back.
 
 ## Context and Orientation
 

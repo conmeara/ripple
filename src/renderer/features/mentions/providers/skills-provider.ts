@@ -21,7 +21,7 @@ import {
 export interface SkillData {
   name: string
   description: string
-  source: "user" | "project" | "plugin"
+  source: "app" | "user" | "project" | "plugin"
   path: string
 }
 
@@ -68,8 +68,8 @@ export const skillsProvider = createMentionProvider<SkillData>({
           source: skill.source,
           path: skill.path,
         },
-        // Project skills have higher priority
-        priority: skill.source === "project" ? 10 : 0,
+        // App and project skills have higher priority than ambient user/plugin skills.
+        priority: skill.source === "app" ? 20 : skill.source === "project" ? 10 : 0,
         metadata: {
           type: "skill" as const,
         },

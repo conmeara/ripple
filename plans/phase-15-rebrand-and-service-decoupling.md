@@ -23,7 +23,7 @@ explicitly Ripple-owned and optional.
 
 - [x] 2026-05-02 / Codex: Started Phase 15 planning at the user's request.
 - [x] 2026-05-02 / Codex: Read `PLANS.md`, `ROADMAP.md` Phase 15 through
-  Phase 18, Phase 11 export notes, Phase 12 template notes, and current
+  Phase 19, Phase 11 export notes, Phase 12 template notes, and current
   package/main/renderer service surfaces before drafting this plan.
 - [x] 2026-05-02 / Codex: Audited current residual identity and service
   coupling in `package.json`, `src/main/index.ts`, `src/main/auth-manager.ts`,
@@ -31,6 +31,8 @@ explicitly Ripple-owned and optional.
   `src/main/lib/analytics.ts`, platform CLI providers, `resources/cli/1code`,
   renderer logo/settings/update surfaces, project clone paths, and release
   scripts.
+- [x] 2026-05-02 / User + Codex: Added app updates as a dedicated roadmap
+  Phase 18 after onboarding and moved hardening/release readiness to Phase 19.
 - [ ] Implement Milestone 0: central Ripple identity constants and legacy
   migration policy.
 - [ ] Implement Milestone 1: package, app, protocol, icon, menu, title, and

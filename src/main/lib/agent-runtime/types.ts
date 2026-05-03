@@ -3,9 +3,11 @@ import type {
   AgentRun,
   AgentRunEvent,
   AgentThread,
+  Project,
   Workspace,
 } from "../db"
 import type { AgentRuntimeAttachment } from "../../../shared/agent-runtime-attachments"
+import type { AgentRuntimeContextPayload } from "./run-editor-context"
 
 export type { AgentRuntimeAttachment } from "../../../shared/agent-runtime-attachments"
 
@@ -72,6 +74,12 @@ export interface AgentRunExecutionContext {
   thread: AgentThread
   workspace: Workspace
   connection: AgentConnection
+  project: Project
+  projectPath: string
+  writableRoot: string
+  workspaceKind: WorkspaceKind
+  targetType: "project" | "conversation" | "chat" | "revision"
+  targetId: string
 }
 
 export interface AgentProviderRunInput extends AgentRunExecutionContext {
@@ -128,6 +136,7 @@ export interface StartAgentRunInput {
   subChatId?: string | null
   commentThreadId?: string | null
   revisionId?: string | null
+  runtimeContext?: AgentRuntimeContextPayload | null
 }
 
 export interface StartAgentRunResult {

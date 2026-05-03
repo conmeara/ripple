@@ -17,12 +17,28 @@ type UIMessageChunk = any
 
 type AgentRuntimeProvider = "codex" | "claude" | "fake"
 
+export type AgentRuntimeChatContext = {
+  compositionId?: string | null
+  previewTimeSeconds?: number | null
+  previewFrame?: number | null
+  previewSource?:
+    | { kind: "main" }
+    | { kind: "comment-revision"; revisionId: string }
+    | { kind: "chat-worktree"; conversationId?: string | null; chatId?: string | null }
+    | { kind: "export"; exportJobId?: string | null; sourceLabel?: string | null }
+    | null
+  commentThreadId?: string | null
+  revisionId?: string | null
+  exportJobId?: string | null
+}
+
 type AgentRuntimeChatTransportConfig = {
   chatId: string
   subChatId: string
   mode: "plan" | "agent"
   provider: AgentRuntimeProvider
   model?: string | null
+  runtimeContext?: AgentRuntimeChatContext | (() => AgentRuntimeChatContext | null) | null
 }
 
 type RuntimeEvent = {
@@ -85,6 +101,9 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
     const runtimeInput = buildAgentRuntimeMessageInput(lastUser as any)
     const prompt = runtimeInput.prompt
     const requestId = `${this.config.subChatId}:${lastUser?.id || crypto.randomUUID()}`
+    const runtimeContext = typeof this.config.runtimeContext === "function"
+      ? this.config.runtimeContext()
+      : this.config.runtimeContext
     const codexApiKey = this.config.provider === "codex"
       ? normalizeCodexApiKey(appStore.get(codexApiKeyAtom))
       : null
@@ -207,6 +226,7 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
             chatId: null,
             subChatId: null,
             attachments: runtimeInput.attachments,
+            runtimeContext: runtimeContext ?? null,
             ...(codexApiKey
               ? { authConfig: { apiKey: codexApiKey } }
               : {}),

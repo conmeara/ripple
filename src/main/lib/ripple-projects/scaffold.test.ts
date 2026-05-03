@@ -31,6 +31,13 @@ describe("Ripple project scaffold", () => {
       await stat(join(root, "hyperframes.json"))
       await stat(join(root, "meta.json"))
       await stat(join(root, ".gitignore"))
+      await stat(join(root, "AGENTS.md"))
+      await stat(join(root, "CLAUDE.md"))
+      await stat(join(root, ".ripple", "agent-notes.json"))
+      expect(result.agentNotes?.files.map((file) => file.status)).toEqual([
+        "created",
+        "created",
+      ])
 
       const indexHtml = await readFile(join(root, "index.html"), "utf8")
       expect(indexHtml).toContain('<link rel="icon" href="data:," />')
@@ -80,6 +87,12 @@ describe("Ripple project scaffold", () => {
       expect(gitignore).toContain("snapshots/")
       expect(gitignore).toContain(".ripple/tmp/")
       expect(gitignore).toContain(".ripple/agent-attachments/")
+
+      const agentsMd = await readFile(join(root, "AGENTS.md"), "utf8")
+      const claudeMd = await readFile(join(root, "CLAUDE.md"), "utf8")
+      expect(agentsMd).toContain("Ripple Project Notes For Codex")
+      expect(claudeMd).toContain("Ripple Project Notes For Claude")
+      expect(agentsMd).not.toContain("Treat compositions as plain HyperFrames")
     } finally {
       await rm(root, { recursive: true, force: true })
     }
@@ -103,8 +116,15 @@ describe("Ripple project scaffold", () => {
     const root = await mkdtemp(join(tmpdir(), "ripple-scaffold-"))
     try {
       await writeRippleProjectScaffold(root, metadata)
-      await expect(writeRippleProjectScaffold(root, metadata)).resolves.toEqual({
+      const second = await writeRippleProjectScaffold(root, metadata)
+      expect(second).toMatchObject({
         projectPath: root,
+        agentNotes: {
+          files: expect.arrayContaining([
+            expect.objectContaining({ fileName: "AGENTS.md", status: "present" }),
+            expect.objectContaining({ fileName: "CLAUDE.md", status: "present" }),
+          ]),
+        },
         compositions: [
           {
             name: "Main",

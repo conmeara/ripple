@@ -21,6 +21,15 @@ import {
   getApprovedPluginMcpServers,
   getEnabledPlugins,
 } from "../../trpc/routers/claude-settings"
+import {
+  buildProjectNoteFallbackInstructions,
+  resolveAgentRunContext,
+} from "../agent-run-context-resolver"
+import type { WorkspaceKind } from "../types"
+import {
+  getAppManagedHyperframesSkillRoot,
+  getClaudeHyperframesPluginRoot,
+} from "../../ripple-projects/hyperframes-skills"
 
 type SdkPluginConfig = { type: "local"; path: string }
 type SettingSource = "project" | "user"
@@ -32,19 +41,24 @@ export interface ClaudeRuntimeCapabilities {
   systemPrompt:
     | { type: "preset"; preset: "claude_code"; append?: string }
     | undefined
+  skills: string[] | "all"
   summary: {
+    appPolicy: "systemPrompt.append"
+    projectNoteStatus: string
+    projectNoteFile: string
+    appManagedSkillRoots: string[]
     mcpServerNames: string[]
     skippedMcpServerNames: string[]
     pluginNames: string[]
     skillNames: string[]
     settingSources: SettingSource[]
-    agentsMdLoaded: boolean
+    claudeMdLoaded: boolean
   }
 }
 
-async function readAgentsMd(cwd: string): Promise<string | null> {
+async function readClaudeMd(projectPath: string): Promise<string | null> {
   try {
-    const content = await fs.readFile(path.join(cwd, "AGENTS.md"), "utf-8")
+    const content = await fs.readFile(path.join(projectPath, "CLAUDE.md"), "utf-8")
     return content.trim() ? content : null
   } catch {
     return null
@@ -180,26 +194,40 @@ async function mergeClaudeMcpServers(
 
 export async function loadClaudeRuntimeCapabilities(
   cwd: string,
+  projectPath?: string,
+  workspaceKind: WorkspaceKind = "main",
 ): Promise<ClaudeRuntimeCapabilities> {
-  const resolvedCwd = resolveProjectPathFromWorktree(cwd) || cwd
-  const [config, dirConfig, enabledPluginSources, installedPlugins, agentsMd] =
+  const resolvedCwd = projectPath || resolveProjectPathFromWorktree(cwd) || cwd
+  const runContext = await resolveAgentRunContext({
+    provider: "claude",
+    cwd,
+    projectPath: resolvedCwd,
+    workspaceKind,
+  })
+  const projectNoteFallback = buildProjectNoteFallbackInstructions(runContext)
+  const appManagedSkillRoot = getAppManagedHyperframesSkillRoot("claude")
+  const claudeHyperframesPluginRoot = getClaudeHyperframesPluginRoot()
+  const [config, dirConfig, enabledPluginSources, installedPlugins, claudeMd] =
     await Promise.all([
       readClaudeConfig(),
       readClaudeDirConfig(),
       getEnabledPlugins(),
       discoverInstalledPlugins(),
-      readAgentsMd(cwd),
+      readClaudeMd(resolvedCwd),
     ])
 
   const enabledPlugins = installedPlugins.filter((plugin) =>
     enabledPluginSources.includes(plugin.source),
   )
-  const plugins: SdkPluginConfig[] = enabledPlugins.map((plugin) => ({
-    type: "local",
-    path: plugin.path,
-  }))
+  const plugins: SdkPluginConfig[] = [
+    { type: "local", path: claudeHyperframesPluginRoot },
+    ...enabledPlugins.map((plugin) => ({
+      type: "local" as const,
+      path: plugin.path,
+    })),
+  ]
 
-  const mergedServers = await mergeClaudeMcpServers(cwd, config, dirConfig)
+  const mergedServers = await mergeClaudeMcpServers(resolvedCwd, config, dirConfig)
   const freshServers = Object.keys(mergedServers).length > 0
     ? await ensureMcpTokensFresh(mergedServers, resolvedCwd)
     : mergedServers
@@ -210,14 +238,16 @@ export async function loadClaudeRuntimeCapabilities(
     const paths = getPluginComponentPaths(plugin)
     return scanSkillNames(paths.skills)
   })
-  const [projectSkillNames, userSkillNames, ...pluginSkillNameGroups] =
+  const [appSkillNames, projectSkillNames, userSkillNames, ...pluginSkillNameGroups] =
     await Promise.all([
-      scanSkillNames(path.join(cwd, ".claude", "skills")),
+      scanSkillNames(appManagedSkillRoot),
+      scanSkillNames(path.join(resolvedCwd, ".claude", "skills")),
       scanSkillNames(path.join(os.homedir(), ".claude", "skills")),
       ...pluginSkillPromises,
     ])
   const skillNames = Array.from(
     new Set([
+      ...appSkillNames,
       ...projectSkillNames,
       ...userSkillNames,
       ...pluginSkillNameGroups.flat(),
@@ -229,20 +259,29 @@ export async function loadClaudeRuntimeCapabilities(
     mcpServers,
     plugins,
     settingSources,
-    systemPrompt: agentsMd
-      ? {
-          type: "preset",
-          preset: "claude_code",
-          append: `\n\n# AGENTS.md\nThe following are the project's AGENTS.md instructions:\n\n${agentsMd}`,
-        }
-      : { type: "preset", preset: "claude_code" },
+    systemPrompt: {
+      type: "preset",
+      preset: "claude_code",
+      append: [
+        runContext.appPolicy,
+        projectNoteFallback,
+      ].filter(Boolean).join("\n\n"),
+    },
+    skills: "all",
     summary: {
+      appPolicy: "systemPrompt.append",
+      projectNoteStatus: runContext.projectNotes.discoveryStatus,
+      projectNoteFile: runContext.projectNotes.fileName,
+      appManagedSkillRoots: runContext.skillRoots.appManaged,
       mcpServerNames: Object.keys(mcpServers).sort(),
       skippedMcpServerNames: skippedMcpServerNames.sort(),
-      pluginNames: enabledPlugins.map((plugin) => plugin.source).sort(),
+      pluginNames: [
+        "ripple-hyperframes",
+        ...enabledPlugins.map((plugin) => plugin.source),
+      ].sort(),
       skillNames,
       settingSources,
-      agentsMdLoaded: Boolean(agentsMd),
+      claudeMdLoaded: Boolean(claudeMd),
     },
   }
 }
@@ -251,6 +290,9 @@ export function formatClaudeCapabilityLabel(
   summary: ClaudeRuntimeCapabilities["summary"],
 ): string | null {
   const parts: string[] = []
+  if (summary.appPolicy) {
+    parts.push("Ripple policy")
+  }
   if (summary.mcpServerNames.length > 0) {
     parts.push(`${summary.mcpServerNames.length} MCP server${summary.mcpServerNames.length === 1 ? "" : "s"}`)
   }
@@ -260,8 +302,8 @@ export function formatClaudeCapabilityLabel(
   if (summary.skillNames.length > 0) {
     parts.push(`${summary.skillNames.length} skill${summary.skillNames.length === 1 ? "" : "s"}`)
   }
-  if (summary.agentsMdLoaded) {
-    parts.push("AGENTS.md")
+  if (summary.claudeMdLoaded || summary.projectNoteStatus !== "missing") {
+    parts.push(`${summary.projectNoteFile} ${summary.projectNoteStatus}`)
   }
   if (summary.skippedMcpServerNames.length > 0) {
     parts.push(`${summary.skippedMcpServerNames.length} MCP skipped`)
