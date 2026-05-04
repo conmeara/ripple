@@ -113,6 +113,12 @@ preview, comments, revisions, or export.
   repaired Codex download, then failed in `bun run build` with V8 heap
   exhaustion near the default 2 GB limit. Patched the release workflow to export
   `NODE_OPTIONS=--max-old-space-size=8192` for CI builds.
+- [x] 2026-05-04 / Codex: Third beta release run `25345081436` passed the
+  full build and reached electron-builder packaging, then failed importing the
+  Developer ID `.p12` because the `CSC_KEY_PASSWORD` secret did not match the
+  generated bundle. Verified the generated local `.p12` plus
+  `.secrets/signing/p12-password.txt` pair, then refreshed GitHub Actions
+  `CSC_LINK` and `CSC_KEY_PASSWORD` from the generated signing files.
 - [ ] Implement Milestone 4: prototype release channel metadata with two
   prerelease versions before stable publication.
 - [ ] Implement Milestone 5: validate signed/notarized macOS update install,
@@ -349,6 +355,10 @@ Local validation evidence so far:
   packaged agent binary downloads. It failed during renderer production build
   with `Ineffective mark-compacts near heap limit`, so the release workflow now
   gives Node an 8 GB heap limit.
+- GitHub Actions run `25345081436` proved the heap fix by completing
+  `bun run build`. It failed when `security import` rejected the Developer ID
+  `.p12` password, so the repository Actions signing secrets were refreshed from
+  the generated `.secrets/signing/` artifacts.
 
 ## Context and Orientation
 
