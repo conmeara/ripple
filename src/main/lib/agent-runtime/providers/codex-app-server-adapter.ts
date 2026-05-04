@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
+import { app } from "electron"
 import { resolve } from "node:path"
 import { createInterface } from "node:readline"
 import type {
@@ -35,11 +36,16 @@ import {
 import { buildCodexAppServerEnv } from "./codex-app-server-env"
 import { buildCodexTurnInput, type CodexUserInput } from "./codex-app-server-input"
 import {
-  buildCodexSkillInputs,
+  buildCodexTurnSkillInputs,
   normalizeCodexSkillEntries,
   type CodexSkillMetadata,
 } from "./codex-app-server-skills"
 import { normalizeCodexModelSelection } from "./codex-model-selection"
+import { buildRippleAgentToolEnvironment } from "../cli-tools-env"
+
+function getRepoRoot(): string | undefined {
+  return app.isPackaged ? undefined : app.getAppPath()
+}
 
 const activeClients = new Map<string, {
   client: CodexAppServerClient
@@ -419,9 +425,14 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
     sink: AgentProviderEventSink,
   ): Promise<AgentProviderRunResult> {
     const appManagedApiKey = getAppManagedCodexApiKey(input)
+    const appServerEnv = buildRippleAgentToolEnvironment({
+      baseEnv: buildCodexAppServerEnv(appManagedApiKey),
+      repoRoot: getRepoRoot(),
+      workspaceRoot: input.cwd,
+    })
     const client = new CodexAppServerClient(
       getBundledCodexCliPath(),
-      buildCodexAppServerEnv(appManagedApiKey),
+      appServerEnv,
     )
     let cancelled = false
     let rejectRunPromise: ((error: Error) => void) | null = null
@@ -493,7 +504,7 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
         .filter((skill) => skill.enabled)
         .map((skill) => skill.name)
         .sort()
-      const codexSkillInputs = buildCodexSkillInputs(promptContext.skillMentions, codexSkills)
+      const codexSkillInputs = buildCodexTurnSkillInputs(promptContext.skillMentions, codexSkills)
       const hasPromptMentions =
         promptContext.agentMentions.length > 0 ||
         promptContext.skillMentions.length > 0 ||

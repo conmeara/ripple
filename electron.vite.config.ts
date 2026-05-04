@@ -16,7 +16,10 @@ export default defineConfig({
     ],
     build: {
       lib: {
-        entry: resolve(__dirname, "src/main/index.ts"),
+        entry: {
+          index: resolve(__dirname, "src/main/index.ts"),
+          "ripple-cli": resolve(__dirname, "src/cli/node.ts"),
+        },
       },
       rollupOptions: {
         external: [

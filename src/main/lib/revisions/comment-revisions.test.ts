@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { execFile } from "node:child_process"
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
@@ -311,6 +311,42 @@ describe("comment revision summaries", () => {
       expect(patch).toContain("Committed change")
       expect(patch).toContain("untracked.html")
       expect(patch).toContain("Untracked change")
+    } finally {
+      await rm(projectPath, { recursive: true, force: true })
+    }
+  })
+
+  test("proposal patch excludes generated visual outputs", async () => {
+    const projectPath = await mkdtemp(join(tmpdir(), "ripple-proposal-visuals-"))
+    try {
+      await configureGit(projectPath)
+      await writeFile(join(projectPath, "index.html"), "<main>Base</main>", "utf8")
+      await execFileAsync("git", ["-C", projectPath, "add", "-A"])
+      await execFileAsync("git", ["-C", projectPath, "commit", "-m", "Base"])
+      const baseCommit = (await simpleGit(projectPath).revparse(["HEAD"])).trim()
+
+      await writeFile(join(projectPath, "index.html"), "<main>Real change</main>", "utf8")
+      await mkdir(join(projectPath, ".ripple", "frame-sheets", "fs_test"), { recursive: true })
+      await mkdir(join(projectPath, ".ripple", "comment-visuals", "thread-1"), { recursive: true })
+      await writeFile(
+        join(projectPath, ".ripple", "frame-sheets", "fs_test", "sheet.png"),
+        "sheet",
+        "utf8",
+      )
+      await writeFile(
+        join(projectPath, ".ripple", "comment-visuals", "thread-1", "frame.png"),
+        "frame",
+        "utf8",
+      )
+
+      const patch = await buildRevisionProposalPatch({
+        revisionPath: projectPath,
+        baseProjectCommit: baseCommit,
+      })
+
+      expect(patch).toContain("Real change")
+      expect(patch).not.toContain("frame-sheets")
+      expect(patch).not.toContain("comment-visuals")
     } finally {
       await rm(projectPath, { recursive: true, force: true })
     }

@@ -29,10 +29,11 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "ripple": "bun scripts/ripple-cli.ts",
     "templates:motion-previews": "bun scripts/render-hyperframes-template-motion-previews.ts",
     "test": "bun test",
     "test:hyperframes": "bun test src/main/lib/hyperframes src/main/lib/exports src/shared/ripple-exports.test.ts src/renderer/features/hyperframes src/renderer/features/renders",
-    "test:ripple": "bun test src/main/lib/ripple-projects src/main/lib/hyperframes src/main/lib/exports src/main/lib/revisions src/main/lib/agent-runtime src/main/lib/conversations src/main/lib/git/worktree-config.test.ts src/main/windows/chat-ownership.test.ts src/shared/ripple-activity.test.ts src/shared/ripple-comments.test.ts src/shared/ripple-conversations.test.ts src/shared/ripple-exports.test.ts src/renderer/components/ui/resizable-sidebar.test.ts src/renderer/components/dialogs/settings-tabs/agents-capability-settings.test.ts src/renderer/features/sidebar/project-chat-selection.test.ts src/renderer/features/hyperframes src/renderer/features/comments src/renderer/features/agents/lib src/renderer/features/agents/commands src/renderer/features/agents/utils src/renderer/features/ripple-shell src/renderer/features/renders",
+    "test:ripple": "bun test src/cli src/main/lib/ripple-projects src/main/lib/hyperframes src/main/lib/exports src/main/lib/revisions src/main/lib/agent-runtime src/main/lib/conversations src/main/lib/git/worktree-config.test.ts src/main/windows/chat-ownership.test.ts src/shared/ripple-activity.test.ts src/shared/ripple-comments.test.ts src/shared/ripple-conversations.test.ts src/shared/ripple-exports.test.ts src/renderer/components/ui/resizable-sidebar.test.ts src/renderer/components/dialogs/settings-tabs/agents-capability-settings.test.ts src/renderer/features/sidebar/project-chat-selection.test.ts src/renderer/features/hyperframes src/renderer/features/comments src/renderer/features/agents/lib src/renderer/features/agents/commands src/renderer/features/agents/utils src/renderer/features/ripple-shell src/renderer/features/renders",
     "ts:check": "tsc --noEmit",
     "postinstall": "node -e \"if(!process.env.VERCEL){require('child_process').execSync('electron-rebuild -f -w better-sqlite3,node-pty',{stdio:'inherit'})}\" && node scripts/patch-electron-dev.mjs"
   },
@@ -181,12 +182,33 @@
         ]
       },
       {
+        "from": "resources/cli",
+        "to": "bin",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
         "from": "resources/bin/VERSION",
         "to": "bin/VERSION"
       },
       {
         "from": "resources/hyperframes-templates",
         "to": "hyperframes-templates",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources/agent-skills",
+        "to": "agent-skills",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources/claude-plugins",
+        "to": "claude-plugins",
         "filter": [
           "**/*"
         ]

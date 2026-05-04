@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs"
-import { join, relative, resolve, sep } from "node:path"
+import { join } from "node:path"
+import { isPathInsideDirectory as isPathInsideDirectoryShared } from "../../../shared/path-boundary"
 
 export class RippleProjectPathError extends Error {
   constructor(message: string) {
@@ -34,11 +35,7 @@ export function getDefaultRippleRoot(homePath: string): string {
 }
 
 export function isPathInsideDirectory(rootPath: string, candidatePath: string): boolean {
-  const resolvedRoot = resolve(rootPath)
-  const resolvedCandidate = resolve(candidatePath)
-  const result = relative(resolvedRoot, resolvedCandidate)
-
-  return result === "" || (!result.startsWith("..") && result !== ".." && !result.startsWith(`..${sep}`))
+  return isPathInsideDirectoryShared(rootPath, candidatePath)
 }
 
 export function isPathInsideRippleRoot(rippleRoot: string, candidatePath: string): boolean {

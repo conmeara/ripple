@@ -102,8 +102,8 @@ run context resolver, not a large policy framework or custom skill loader.
   an app-managed bundle, while preserving optional project skill installation
   for portability.
 - [x] Milestone 12: Update Codex and Claude adapters to use provider-native app
-  policy, deterministic app skill loading, correct resume/handshake behavior,
-  and explicit tool/skill permissions.
+  policy, deterministic app skill loading, correct clean-thread/handshake
+  behavior, and explicit tool/skill permissions.
 - [x] Milestone 13: Harden settings, path validation, revision-worktree
   reporting, and the full QA/test matrix for the revised architecture.
 - [x] Milestone 14: Complete full live desktop/provider QA and the Phase 13 test
@@ -423,9 +423,11 @@ Implemented the corrected Phase 13 architecture and automated proof:
   plugin/skill surface. Project `.agents/skills` and `.claude/skills` writes
   now happen only through the explicit portability action.
 - Updated Codex App Server startup to send `initialized`, query native skills,
-  resume known provider threads with `thread/resume`, pass app policy through
-  `developerInstructions`, preserve typed skill input items, and use fallback
-  `baseInstructions` only when project notes need injection.
+  start clean ephemeral provider threads with `sessionStartSource: "clear"`,
+  pass app policy through `developerInstructions`, preserve typed skill input
+  items, and use fallback `baseInstructions` only when project notes need
+  injection. Ripple owns product transcript continuity in SQLite instead of
+  resuming stored provider-side Codex thread ids.
 - Updated Claude runtime capabilities to preserve native project/user settings,
   append Ripple policy, report app-managed skill roots and project-note status,
   expose app/plugin/user/project skills, and keep skill invocation available.
@@ -487,8 +489,8 @@ Codex App Server threads and turns with a workspace-write sandbox, loads
 `AGENTS.md` as `baseInstructions`, queries `skills/list`, and can send typed
 skill input items. The revised target keeps the skill and MCP work, but moves
 Ripple app policy to `developerInstructions`, uses native `AGENTS.md` discovery
-or resolver fallback only when needed, and fixes App Server lifecycle/resume
-behavior.
+or resolver fallback only when needed, and fixes App Server clean-thread
+lifecycle behavior.
 
 Claude uses the Agent SDK adapter in
 `src/main/lib/agent-runtime/providers/claude-agent-sdk-adapter.ts`. Capability
@@ -575,9 +577,11 @@ to install project skills for portability/customization.
 
 Milestone 12 fixes provider adapters around the revised layers. Codex should
 send Ripple app policy through `developerInstructions`, send `initialized`
-after `initialize`, use `thread/resume` when continuing known provider threads,
-avoid unconditional `AGENTS.md` `baseInstructions`, and preserve typed skill
-input behavior. Claude should use
+after `initialize`, start clean ephemeral provider threads with
+`sessionStartSource: "clear"` rather than resuming stored provider-side Codex
+thread ids, avoid unconditional `AGENTS.md` `baseInstructions`, and preserve
+typed skill input behavior. Ripple preserves product transcript continuity in
+SQLite. Claude should use
 `systemPrompt: { type: "preset", preset: "claude_code", append: ripplePolicy }`,
 include `Skill` and allowed MCP wildcard entries when tool permissions are
 specified, avoid duplicate `CLAUDE.md` injection, and report whether policy was
@@ -804,8 +808,9 @@ Run commands from `/Users/conmeara/code/ripple` unless noted otherwise.
     `systemPrompt.append`.
 11. Stop passing project notes as Codex `baseInstructions` unless the resolver
     says native discovery cannot work for the execution workspace.
-12. Fix Codex App Server lifecycle for `initialize` / `initialized` and
-    `thread/resume` before continuing known provider threads.
+12. Fix Codex App Server lifecycle for `initialize` / `initialized` and clean
+    ephemeral `thread/start` behavior that ignores stored provider-side Codex
+    thread ids.
 13. Harden runtime context validation for project/composition/comment/revision/
     export ownership and path boundaries.
 14. Harden skill settings create/update/delete so renderer-provided paths are
@@ -850,8 +855,9 @@ Full Phase 13 test-suite requirements:
 - Add Codex adapter tests proving Ripple app policy is passed through
   `developerInstructions`, `AGENTS.md` is not passed as `baseInstructions`
   unless fallback injection is needed, `initialize` is followed by
-  `initialized`, known provider threads call `thread/resume`, and resume
-  failures recover safely.
+  `initialized`, stored provider thread ids are ignored, clean ephemeral threads
+  start with `sessionStartSource: "clear"`, and thread-not-found failures
+  recreate clean threads safely.
 - Add Codex skill tests for `skills/list`, app-managed extra roots, typed skill
   input items, disabled or missing skills, and the explicit fallback path.
 - Add HyperFrames skill tests proving app-managed `hyperframes`,
@@ -925,6 +931,9 @@ Acceptance criteria:
   fallback when needed, and keeps enabled Claude skills/MCP available.
 - Codex uses native `AGENTS.md` loading or fallback only when needed, and keeps
   existing Codex MCP available.
+- Codex starts clean ephemeral provider threads for each run; Ripple preserves
+  conversation continuity through app-owned SQLite transcript state rather than
+  provider-side Codex thread resume.
 - Codex skill discovery uses App Server `skills/list`; explicit skill mentions
   use typed skill input items when possible and a clear fallback otherwise.
 - The local HyperFrames `hyperframes`, `hyperframes-cli`, and `gsap` skills are
@@ -968,6 +977,13 @@ lacks `AGENTS.md` or `CLAUDE.md`, the agent run should still start with app
 policy and runtime context, and capability status should report `missing` or
 `injected` rather than claiming native discovery. Missing files should not cause
 fallback edits outside the project or revision workspace.
+
+Codex provider-thread loading must also fail soft without leaking unrelated
+history. Stored provider-side Codex thread ids are not trusted as continuity
+anchors because they can point at another local workspace. Start clean ephemeral
+Codex App Server threads for provider execution, recreate cleanly on
+thread-not-found errors, and use Ripple's persisted conversation/run events as
+the product transcript.
 
 Runtime context must be derived from validated main-process state. Do not trust
 renderer-provided absolute paths for project, asset, revision, or export

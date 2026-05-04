@@ -66,16 +66,44 @@ and runtime/tool exposure so agents can choose the right command themselves.
   plug into Phase 13's `agent-run-context-resolver`, provider-native
   skill/context loading, `runtimeContextJson`, and centralized
   `executeAgentRun` flow instead of adding a parallel context or skill system.
-- [ ] Implement Milestone 0: CLI entrypoint and frame-sheet prototype.
-- [ ] Implement Milestone 1: CLI contract, manifest, and tests.
-- [ ] Implement Milestone 2: expose HyperFrames and Ripple CLI tools to app
-  chat/comment agents.
-- [ ] Implement Milestone 3: app comment screenshot integration using
-  HyperFrames snapshot.
-- [ ] Implement Milestone 4: app comment range-sheet integration using
-  `ripple frame-sheet`.
-- [ ] Implement Milestone 5: agent skill/context documentation.
-- [ ] Implement Milestone 6: diff hygiene, cleanup, and thin persistence.
+- [x] 2026-05-03 / Codex: Implemented Milestone 0: CLI entrypoint and
+  frame-sheet prototype.
+- [x] 2026-05-03 / Codex: Implemented Milestone 1: CLI contract, manifest, and
+  tests.
+- [x] 2026-05-03 / Codex: Implemented Milestone 2: exposed HyperFrames and
+  Ripple CLI tools to app chat/comment agents.
+- [x] 2026-05-03 / Codex: Implemented Milestone 3: app comment screenshot
+  integration using HyperFrames snapshot for the verified entry/default
+  composition path.
+- [x] 2026-05-03 / Codex: Implemented Milestone 4: app comment range-sheet
+  integration using `ripple frame-sheet`.
+- [x] 2026-05-03 / Codex: Implemented Milestone 5: bundled
+  `ripple-visual-context` skill/context guidance.
+- [x] 2026-05-03 / Codex: Implemented Milestone 6: diff hygiene, cleanup
+  boundaries, and thin path persistence.
+- [x] 2026-05-03 / Codex: Validated Phase 14 with focused tests, full tests,
+  type check, build, package smoke, direct CLI smoke, direct comment visual
+  smoke, and packaged CLI wrapper smoke.
+- [x] 2026-05-03 / User + Codex: Reopened Phase 14 after review found two
+  practical gaps: the documented `ripple frame-sheet` command needed a tracked
+  app-managed wrapper on agent PATH, and comment visual storage needed to reject
+  `.ripple` / `comment-visuals` symlink escapes before any recursive directory
+  creation.
+- [x] 2026-05-03 / Codex: Completed review remediation and packaged-runtime
+  validation. The tracked `ripple` wrapper now works from the packaged app
+  bundle, and packaged `ripple frame-sheet` generated a real 8-sample sheet.
+- [x] 2026-05-04 / User + Codex: Reopened Phase 14 after review found three
+  hardening issues: `file://` fast capture could bypass project-boundary checks
+  through symlinked assets, the path-boundary helper missed Windows cross-drive
+  relative results, and automatic comment visuals could push runtime
+  attachments past the user-accepted limit.
+- [x] 2026-05-04 / Codex: Hardened the frame-sheet capture server, shared path
+  boundary helper, and runtime attachment merge behavior, with focused
+  regressions plus full Ripple/default test validation.
+- [x] 2026-05-04 / Codex: Completed live provider proof for Phase 14. Codex App
+  Server and Claude Agent SDK both chose the app-managed `ripple frame-sheet`
+  tool from generic visual-context prompts, generated real sheets, and reported
+  the artifact paths without the user naming the CLI.
 
 ## Surprises & Discoveries
 
@@ -118,6 +146,15 @@ and runtime/tool exposure so agents can choose the right command themselves.
   screenshots must not claim to capture arbitrary selected compositions until
   the app uses a composition-aware HyperFrames/player path.
 
+- Observation: HyperFrames `snapshot` in 0.4.40 does not expose a composition
+  selector, so Phase 14 v1 only auto-captures when the active composition maps
+  to the project entry/default composition. For other active compositions,
+  comment submit still works and visual capture returns no attachment instead
+  of silently sending the wrong frame.
+  Evidence: `hyperframes snapshot --help` exposes `--frames`, `--at`,
+  `--timeout`, and the project directory argument, but no composition flag; the
+  `comment visual context` tests verify the default-composition guard.
+
 - Observation: Phase 13 created the right runtime seam for Phase 14 visual
   context. `agent_runs.runtimeContextJson` stores validated live editor context,
   `buildAgentRuntimeContextPrompt` appends project/composition/frame/comment
@@ -147,6 +184,63 @@ and runtime/tool exposure so agents can choose the right command themselves.
   `.ripple/snapshots/`, `.ripple/tmp/`, and `.ripple/agent-attachments/`, but
   it does not yet include `.ripple/frame-sheets/` or
   `.ripple/comment-visuals/`.
+
+- Observation: Running real HyperFrames snapshot smoke in this sandbox can fail
+  with `listen EPERM: operation not permitted 0.0.0.0`. The CLI logic worked
+  after rerunning the same smoke with approved escalation, which allowed the
+  local preview/snapshot server path to bind.
+
+- Observation: Electron Builder copies `resources/bin/darwin-arm64/*` into
+  packaged `Contents/Resources/bin/*`, not a nested `bin/darwin-arm64/`
+  folder. The runtime helper covers that packaged location through
+  `process.resourcesPath`, while dev/test uses the platform-arch resource
+  directory.
+
+- Observation: The packaged CLI wrappers run successfully from the built app
+  bundle, but unsigned local execution prints Electron's macOS
+  `SecCodeCheckValidity` warning. The wrappers still exit 0 and return the
+  expected CLI output.
+
+- Observation: The packaged fast frame-sheet path initially failed inside the
+  bundled Puppeteer/ws dependency with `bufferUtil$1.mask is not a function`.
+  Vite replaces the optional native `bufferutil` peer with an empty module in
+  the packaged bundle, so the CLI now forces ws's JS fallback flags
+  (`WS_NO_BUFFER_UTIL=1` and `WS_NO_UTF_8_VALIDATE=1`) for capture processes.
+
+- Observation: A live Codex app-server smoke showed that generic "visual sanity
+  check" wording can push the model toward `npx hyperframes` or unavailable
+  image-view tools if the app-managed skill guidance is too soft. The
+  visual-context skill and app policy now explicitly say to use app-managed
+  bare commands, default to `ripple frame-sheet`, and report the generated
+  sheet path when image viewing is unavailable.
+
+- Observation: `ripple frame-sheet` can still require Codex's on-failure
+  unsandboxed retry path because Chromium launch is blocked inside the
+  app-server workspace sandbox on this macOS host. The app adapter already
+  auto-accepts command retries inside the active workspace, and the live Codex
+  smoke verified that path generates the sheet without a user tool mention.
+
+- Observation: Claude Agent SDK plugin/skill loading was not enough by itself.
+  Claude selected the right `ripple frame-sheet` command from the
+  `ripple-visual-context` skill, but the SDK could stall behind an invisible
+  shell-tool approval. Ripple now auto-allows only the exact app-managed frame
+  sheet command patterns, not arbitrary shell access.
+
+- Observation: HyperFrames' own snapshot/inspect paths generally use temporary
+  loopback HTTP servers for browser capture, but the installed HyperFrames
+  server guards inspected in this checkout are mostly lexical path checks rather
+  than realpath/symlink-boundary checks.
+  Evidence: `node_modules/hyperframes/dist/cli.js` serves snapshot assets over
+  `http://127.0.0.1:<port>/` and checks `relative(projectDir, filePath)`, while
+  Ripple now realpath-checks every served project file before reading it.
+
+- Observation: Automatic comment visual context is helpful but must be
+  opportunistic. User-supplied attachments are the explicit request, so they
+  should keep their full accepted limit even when Ripple has generated a
+  screenshot or frame sheet for the same comment.
+  Evidence: `appendOptionalAgentRuntimeAttachments(...)` now appends automatic
+  visuals only while the combined list still passes
+  `validateAgentRuntimeAttachments(...)`.
 
 ## Decision Log
 
@@ -248,6 +342,25 @@ and runtime/tool exposure so agents can choose the right command themselves.
   provider adapters unaware of comment-visual storage details.
   Date/Author: 2026-05-03 / Oracle + Codex
 
+- Decision: Fast `ripple frame-sheet` capture uses Ripple's guarded loopback
+  server, not `file://`.
+  Rationale: Browser `file://` loading can follow symlinked project assets
+  without returning to Node-side boundary checks. A short-lived `127.0.0.1`
+  server gives Ripple one path gate for HTML, scripts, CSS, images, nested
+  compositions, fonts, and future resource types. Each project file request is
+  realpath-checked against the project root before `readFile`, and the browser
+  request layer aborts unexpected origins.
+  Date/Author: 2026-05-04 / User + Codex
+
+- Decision: Runtime automatic visual attachments are optional after explicit
+  user attachments.
+  Rationale: Comment submission already validates the user's attachments.
+  Ripple-generated screenshots/sheets should not make a generated-change run
+  fail later when the user supplied the maximum accepted files. If the combined
+  list would exceed count or byte limits, drop the automatic visual and omit its
+  prompt context.
+  Date/Author: 2026-05-04 / User + Codex
+
 - Decision: Agent visual-context guidance uses the Phase 13 app-managed
   skill/context resolver.
   Rationale: Phase 13 already separates app policy, project notes,
@@ -263,8 +376,254 @@ and runtime/tool exposure so agents can choose the right command themselves.
 
 ## Outcomes & Retrospective
 
-This section is intentionally empty until implementation begins. Update it with
-what shipped, what changed from the plan, and what follow-up remains.
+Phase 14 shipped the CLI-first visual-context path described in this plan.
+
+What shipped:
+
+- Added the importable Ripple CLI at `src/cli/ripple.ts` and
+  `src/cli/frame-sheet.ts`, the dev wrapper `scripts/ripple-cli.ts`, and macOS
+  app resource wrappers for `ripple` and `hyperframes`.
+- Implemented `ripple frame-sheet` with explicit timestamp, range/sample,
+  time-interval, and frame-interval sampling; project-local output under
+  `.ripple/frame-sheets/`; FFmpeg tile assembly; `manifest.json`; JSON
+  success/error output; capture locking; workspace-root bounds; and symlink
+  escape checks.
+- Optimized `ripple frame-sheet` for agent-loop speed by making the default
+  capture path render directly at agent-sized cell dimensions before tiling.
+  The slower full-resolution HyperFrames `snapshot` path remains available as
+  `--capture hyperframes`, while the default `--capture fast` path uses the
+  app-managed browser, local project server, bundled GSAP rewrite for common
+  CDN starters, and a short settle delay.
+- Added `buildRippleAgentToolEnvironment(...)` and composed it with both Codex
+  App Server and Claude SDK provider env builders so chat and comment runs get
+  HyperFrames, Ripple CLI, FFmpeg/FFprobe, local-first HyperFrames env flags,
+  and `RIPPLE_AGENT_WORKSPACE_ROOT`.
+- Added the bundled app-managed skill root
+  `resources/agent-skills/ripple-visual-context/SKILL.md` and taught the
+  Phase 13 context resolver plus Claude capability loader to expose multiple
+  app-managed skill roots without copying them into user projects.
+- Wired comment creation to request automatic visual context by default. Frame
+  comments capture a current-frame PNG through HyperFrames snapshot when the
+  selected composition is the project entry/default composition. Range comments
+  generate a compact frame sheet through the same `ripple frame-sheet` code
+  path.
+- Copied app-owned comment visuals into canonical project storage under
+  `.ripple/comment-visuals/<threadId>/`, stored only the project-relative path,
+  and loaded those visuals at generated-change execution time as in-memory
+  provider attachments plus prompt context.
+- Kept generated visual output out of user-visible revision proposals and
+  accept patches, and added `.ripple/frame-sheets/` plus
+  `.ripple/comment-visuals/` to scaffolded and managed project `.gitignore`
+  handling.
+
+What changed from the original plan:
+
+- Active-composition screenshots are intentionally narrower in v1. HyperFrames
+  `snapshot` has no composition selector in 0.4.40, so automatic comment
+  screenshots are only claimed for the entry/default composition. Non-entry
+  active compositions can still submit comments; they simply do not receive an
+  automatic visual attachment until Ripple adds a composition-aware capture
+  path.
+- The app uses the existing `comment_threads.screenshot_path` column as a thin
+  path reference for both current-frame PNGs and range-sheet PNGs. No visual
+  artifact table was added.
+- Cleanup for old unreferenced frame-sheet bundles remains deferred. Phase 14
+  guarantees that proposal/accept diffs ignore generated visual output and that
+  failed comment capture does not block user comments.
+- The original HyperFrames `snapshot` CLI was too slow for agent-loop frame
+  sheets because it captures 1920x1080 frames, waits before capture, and only
+  then lets Ripple downscale. The optimized default captures each 16:9 cell
+  around 360x203 for a 4-column 1440px-wide sheet, which keeps cell height just
+  over Claude's small-image caution while staying below common model resize
+  thresholds and avoiding discarded pixels.
+- The documented `ripple` command now resolves through a tracked
+  `resources/cli/ripple` wrapper in development and is packaged into
+  `Resources/bin` with the rest of the app-managed agent tools. The agent PATH
+  puts `resources/cli` ahead of ignored/generated binary directories so the
+  skill does not depend on an untracked local wrapper.
+- `ripple-visual-context` now has provider-readable skill metadata. Codex loads
+  it from the app-managed `resources/agent-skills` root and the Codex adapter
+  includes it as a default typed skill input for Ripple turns, so the user does
+  not need to mention the skill. Claude loads the same skill body through a
+  small app-managed local plugin at
+  `resources/claude-plugins/ripple-visual-context`.
+- Comment visual storage now checks `.ripple`, `.ripple/comment-visuals`, and
+  the target thread directory for symlink escapes before calling recursive
+  `mkdir`, preventing an out-of-project write side effect before the realpath
+  guard runs.
+- The tracked packaged `ripple` wrapper now checks for `app.asar` itself rather
+  than a normal filesystem path inside the archive. The packaged fast capture
+  path also forces ws's JS fallback flags so the bundled Puppeteer connection
+  does not call an empty optional native dependency.
+- The fast frame-sheet capture path now always goes through Ripple's temporary
+  `127.0.0.1` project server instead of a `file://` capture document. The server
+  validates the host, rejects non-`GET`/`HEAD`, denies sensitive hidden paths,
+  resolves every requested project file with `realpath`, and returns `403` for
+  symlink escapes before reading the file. Puppeteer request interception also
+  allows only the capture origin plus `data:`, `blob:`, and `about:` resources.
+- Shared path-boundary checks now reject absolute `path.relative(...)` results,
+  covering Windows cross-drive paths in both the CLI and main-process project
+  helpers.
+- Generated-change runs now append automatic comment visual attachments only
+  when the combined attachment list still satisfies the runtime limits. Explicit
+  user attachments keep priority, and dropped automatic visuals no longer add
+  misleading prompt context.
+- The visual-context skill and app policy now tell agents not to use `npx`,
+  `bunx`, package installs, or unavailable image-view/open/browser tools for
+  generated sheets. In app-server runs, the correct fallback is to report the
+  generated sheet path and manifest details so Ripple can show the artifact.
+- Claude runtime setup now grants a narrow automatic allowance for
+  `Bash(ripple frame-sheet)` and `Bash(ripple frame-sheet *)`. This keeps the
+  visual-context path from hanging on an invisible approval while preserving the
+  normal approval boundary for other shell commands.
+
+Validation evidence:
+
+- `bun test src/cli/frame-sheet.test.ts`: 9 pass.
+- `bun test src/main/lib/ripple-projects/project-git.test.ts src/main/lib/revisions/comment-visuals.test.ts src/main/lib/revisions/comment-revisions.test.ts src/cli/frame-sheet.test.ts src/main/lib/agent-runtime/cli-tools-env.test.ts src/main/lib/agent-runtime/agent-run-context-resolver.test.ts src/main/lib/agent-runtime/providers/codex-app-server-adapter.test.ts src/main/lib/agent-runtime/providers/claude-runtime-capabilities.test.ts`:
+  44 pass.
+- `bun run test:ripple`: 342 pass, 0 fail.
+- `bun run test:hyperframes`: 148 pass, 0 fail.
+- `bun test`: 339 pass, 0 fail.
+- `bun run ts:check`: pass.
+- `bun run build`: pass.
+- `bun run package`: pass for `electron-builder --dir`; notarization skipped
+  because notarize options are not configured.
+- `git diff --check`: pass.
+- Review remediation tests: `bun test src/main/lib/agent-runtime/cli-tools-env.test.ts
+  src/main/lib/agent-runtime/agent-run-context-resolver.test.ts
+  src/main/lib/agent-runtime/providers/codex-app-server-adapter.test.ts
+  src/main/lib/agent-runtime/providers/claude-runtime-capabilities.test.ts
+  src/main/lib/revisions/comment-visuals.test.ts`: 23 pass.
+- Final review remediation tests after packaged-runtime fixes:
+  `bun test src/cli/frame-sheet.test.ts src/main/lib/agent-runtime/providers/codex-app-server-adapter.test.ts
+  src/main/lib/agent-runtime/agent-run-context-resolver.test.ts
+  src/main/lib/agent-runtime/providers/claude-runtime-capabilities.test.ts
+  src/main/lib/agent-runtime/cli-tools-env.test.ts
+  src/main/lib/revisions/comment-visuals.test.ts`: 32 pass. This covers the
+  tracked `ripple` wrapper, packaged resource copy, Codex/Claude visual-context
+  skill roots, proactive visual skill guidance, Codex default typed skill
+  input, the Claude plugin registration path, both symlink-escape regressions,
+  and ws JS-fallback env flags for frame-sheet capture.
+- Provider-boundary audit tests:
+  `bun test src/main/lib/agent-runtime/providers/codex-app-server-adapter.test.ts
+  src/main/lib/agent-runtime/providers/claude-runtime-capabilities.test.ts`:
+  14 pass. Codex now asserts `buildCodexTurnSkillInputs([], skills)` includes
+  `ripple-visual-context` without a user skill mention, and Claude now asserts
+  `loadClaudeRuntimeCapabilities(...)` resolves the app-managed
+  `ripple-visual-context` plugin, exposes `skills: "all"`, lists the skill, and
+  appends the proactive visual-context policy.
+- Claude frame-sheet allowlist regression:
+  `bun test src/main/lib/agent-runtime/providers/claude-runtime-capabilities.test.ts`:
+  3 pass, 21 expects. The focused test asserts the SDK options include only
+  `Bash(ripple frame-sheet)` and `Bash(ripple frame-sheet *)` for automatic
+  approval, and still do not include `Bash(*)` or
+  `allowDangerouslySkipPermissions`.
+- Security hardening tests after the follow-up review:
+  `bun test src/shared/path-boundary.test.ts src/cli/frame-sheet.test.ts
+  src/main/lib/agent-runtime/runtime-attachments.test.ts`: 19 pass. This covers
+  Windows cross-drive containment, frame-sheet project-server symlinked
+  entry/asset escapes, output symlink escapes, and optional automatic visual
+  attachment dropping when user attachments fill the limit.
+- Follow-up hardening validation:
+  `bun run ts:check`: pass.
+- Follow-up hardening validation:
+  `bun run test:ripple`: 347 pass, 0 fail.
+- Follow-up hardening validation:
+  `bun test`: 354 pass, 0 fail.
+- Follow-up hardening validation:
+  `git diff --check`: pass.
+- Codex app-server smoke: `skills/list` with
+  `perCwdExtraUserRoots=[resources/agent-skills]` now returns enabled
+  `ripple-visual-context`, and `buildCodexTurnSkillInputs([], skills)` produces
+  a default `{ type: "skill", name: "ripple-visual-context" }` input without any
+  user skill mention.
+- Claude plugin smoke: `claude plugin validate
+  resources/claude-plugins/ripple-visual-context` passes. A Claude
+  `--plugin-dir resources/claude-plugins/ripple-visual-context` stream-json
+  initialization lists plugin `ripple-visual-context` and skill
+  `ripple-visual-context:ripple-visual-context`; the run then stops at auth
+  (`Not logged in`) before any model call, so this verifies plugin/skill
+  loading but not a full Claude completion in the current auth state.
+- Earlier local Claude CLI auth check before dev-app validation:
+  `resources/bin/darwin-arm64/claude auth status --json` reports
+  `"loggedIn": false`, `"authMethod": "none"`, so the direct shell plugin
+  probe could not complete a model call in that environment.
+- Live Codex app-server smoke, first pass: with a generic "quick visual sanity
+  check" prompt and no user skill/CLI mention, Codex initially used
+  `npx hyperframes lint` and tried an unavailable image-view tool. This exposed
+  the need for stronger no-`npx` and no-image-view fallback guidance.
+- Live Codex app-server smoke, corrected pass: with the strengthened app policy
+  and `ripple-visual-context` skill loaded as a default typed skill input, a
+  generic "prepare quick visual context" prompt caused Codex to run
+  `ripple frame-sheet --range 0s..8s --samples 8 --columns 4 --json`, retry via
+  the app-server on-failure approval path inside the workspace, complete the
+  turn, and report
+  `/private/tmp/ripple-framesheet-example-MUBbnP/.ripple/frame-sheets/fs_e630ab2279c1/sheet.png`.
+- Live Claude dev-app smoke, corrected pass: with the packaged
+  `ripple-visual-context` plugin loaded through the dev app, a generic "quick
+  visual sanity check" prompt caused Claude to run `ripple frame-sheet --range
+  0s..8s --samples 8 --columns 4 --json` against `new-timeline` /
+  `apple-money-count`, complete run `moqfi13wu3e1ykrb`, and report
+  `.ripple/frame-sheets/fs_00f44b95b8af/sheet.png` with manifest
+  `.ripple/frame-sheets/fs_00f44b95b8af/manifest.json`. The generated sheet
+  exists at
+  `/Users/conmeara/Ripple/new-timeline/.ripple/frame-sheets/fs_00f44b95b8af/sheet.png`
+  and is 1440x406.
+- Final packaged validation after the live provider smokes: `bun run ts:check`
+  passed, `bun run package` passed for the packaged directory build with
+  notarization skipped because notarize options are not configured, and
+  `git diff --check` passed.
+- PATH smoke: `PATH="/Users/conmeara/code/ripple/resources/cli:$PATH" ripple
+  --help` resolves the documented bare `ripple` command from the tracked
+  wrapper in a project directory.
+- PATH frame-sheet smoke: the same PATH-driven `ripple frame-sheet --range
+  0s..8s --samples 8 --columns 4 --json` generated
+  `.ripple/frame-sheets/fs_4eaf2a467229/sheet.png` at 1440x406. The first
+  sandboxed attempt failed because local 127.0.0.1 server binding was blocked;
+  rerunning with approved local-server permission succeeded.
+- Real CLI smoke: `bun scripts/ripple-cli.ts frame-sheet --dir <sample project>
+  --range 0s..1s --samples 2 --json` generated a nonzero `sheet.png`,
+  `manifest.json`, and two frame PNGs after running with approved sandbox
+  escalation for the local HyperFrames snapshot server.
+- Optimized CLI smoke: `bun scripts/ripple-cli.ts frame-sheet --dir
+  /private/tmp/ripple-framesheet-example-MUBbnP --range 0s..8s --samples 8
+  --columns 4 --json` completed in about 1.3s from a temp HyperFrames/Ripple
+  title-card project. The output sheet was 1440x406, non-solid by
+  `signalstats`, and mapped 8 samples in `manifest.json`.
+- Project-cwd smoke: `bun /Users/conmeara/code/ripple/scripts/ripple-cli.ts
+  frame-sheet --range 0s..8s --samples 8 --columns 4 --json` succeeded from
+  the temp project directory when run with normal local-server permissions,
+  proving the dev wrapper no longer depends on the repo being the current
+  working directory.
+- Direct comment visual smoke generated
+  `.ripple/comment-visuals/thread-smoke/frame.png` and
+  `.ripple/comment-visuals/thread-range-smoke/sheet.png` from the same sample
+  project.
+- Packaged CLI smoke: packaged `Contents/Resources/bin/ripple --help` returned
+  the Ripple CLI help and packaged `Contents/Resources/bin/hyperframes
+  --version` returned `0.4.40`. Local unsigned execution printed Electron's
+  macOS codesign validity warning but exited successfully.
+- Packaged resource smoke: packaged
+  `Contents/Resources/bin/ripple`,
+  `Contents/Resources/agent-skills/ripple-visual-context/SKILL.md`, and
+  `Contents/Resources/claude-plugins/ripple-visual-context/.claude-plugin/plugin.json`
+  are present in the `release/mac-arm64/1Code.app` bundle; the packaged Claude
+  plugin validates successfully.
+- Packaged frame-sheet smoke after wrapper/runtime fixes: packaged
+  `/Users/conmeara/code/ripple/release/mac-arm64/1Code.app/Contents/Resources/bin/ripple
+  frame-sheet --range 0s..8s --samples 8 --columns 4 --json` succeeded from
+  `/private/tmp/ripple-framesheet-example-MUBbnP` after approved local-server
+  permission and produced
+  `/private/tmp/ripple-framesheet-example-MUBbnP/.ripple/frame-sheets/fs_430fcbac296c/sheet.png`
+  at 1440x406, 177K.
+- Packaged frame-sheet smoke after file-based fast capture: packaged
+  `/Users/conmeara/code/ripple/release/mac-arm64/1Code.app/Contents/Resources/bin/ripple
+  frame-sheet --range 0s..8s --samples 8 --columns 4 --json` succeeded from
+  `/private/tmp/ripple-framesheet-example-MUBbnP` after approved browser-launch
+  permission and produced
+  `/private/tmp/ripple-framesheet-example-MUBbnP/.ripple/frame-sheets/fs_8ce88e8e7e35/sheet.png`
+  at 1440x406, 177K.
 
 ## Context and Orientation
 
@@ -867,8 +1226,11 @@ ripple frame-sheet --range 2.2s..3.4s --every 0.2s --json
 
 Known implementation gates:
 
-- Verify whether HyperFrames snapshot can target a selected composition. This
-  decides whether app comment screenshots can use snapshot directly for every
-  active composition or need the existing composition-aware player path.
-- Verify the packaged wrapper strategy on macOS first, then map Windows/Linux
-  wrappers before release packaging.
+- HyperFrames snapshot composition targeting was verified for 0.4.40: there is
+  no composition selector in the current CLI help. Phase 14 v1 therefore uses
+  snapshot only for entry/default-composition automatic comment screenshots and
+  does not claim arbitrary active-composition capture.
+- Packaged wrapper strategy was verified on macOS arm64 with
+  `electron-builder --dir` and direct packaged wrapper smoke. Windows and Linux
+  wrappers remain a release-packaging follow-up before those targets should
+  claim the same packaged CLI support.

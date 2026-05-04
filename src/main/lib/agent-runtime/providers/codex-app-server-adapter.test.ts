@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises"
 import { buildCodexAppServerEnv } from "./codex-app-server-env"
 import { buildCodexTurnInput } from "./codex-app-server-input"
 import {
-  buildCodexSkillInputs,
+  buildCodexTurnSkillInputs,
   normalizeCodexSkillEntries,
 } from "./codex-app-server-skills"
 import {
@@ -293,7 +293,7 @@ describe("Codex App Server input", () => {
     expect(source).toContain('"skills/list"')
     expect(source).toContain("baseInstructions: projectNoteFallback")
     expect(source).toContain("developerInstructions: runContext.appPolicy")
-    expect(source).toContain("buildCodexSkillInputs")
+    expect(source).toContain("buildCodexTurnSkillInputs")
   })
 
   test("passes supported image attachments and typed skills as native inputs", () => {
@@ -337,12 +337,18 @@ describe("Codex App Server input", () => {
     ])
   })
 
-  test("normalizes enabled skills/list entries for typed skill mentions", () => {
+  test("normalizes enabled skills/list entries for default app skills and typed skill mentions", () => {
     const skills = normalizeCodexSkillEntries({
       data: [
         {
           cwd: "/tmp/project",
           skills: [
+            {
+              name: "ripple-visual-context",
+              description: "Inspect Ripple visuals",
+              path: "/tmp/app/resources/agent-skills/ripple-visual-context",
+              enabled: true,
+            },
             {
               name: "hyperframes",
               description: "Author HyperFrames compositions",
@@ -361,11 +367,23 @@ describe("Codex App Server input", () => {
       ],
     })
 
-    expect(buildCodexSkillInputs(["hyperframes", "disabled", "missing"], skills)).toEqual([
+    expect(buildCodexTurnSkillInputs(["hyperframes", "disabled", "missing"], skills)).toEqual([
+      {
+        type: "skill",
+        name: "ripple-visual-context",
+        path: "/tmp/app/resources/agent-skills/ripple-visual-context",
+      },
       {
         type: "skill",
         name: "hyperframes",
         path: "/tmp/project/.agents/skills/hyperframes",
+      },
+    ])
+    expect(buildCodexTurnSkillInputs([], skills)).toEqual([
+      {
+        type: "skill",
+        name: "ripple-visual-context",
+        path: "/tmp/app/resources/agent-skills/ripple-visual-context",
       },
     ])
   })

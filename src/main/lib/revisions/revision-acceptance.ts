@@ -17,6 +17,20 @@ interface BackedUpUntrackedFile {
   relativePath: string
 }
 
+const GENERATED_VISUAL_DIFF_PREFIXES = [
+  ".ripple/frame-sheets/",
+  ".ripple/comment-visuals/",
+  ".ripple/tmp/",
+  ".ripple/agent-attachments/",
+  ".ripple/snapshots/",
+  "snapshots/",
+]
+
+const GENERATED_VISUAL_DIFF_PATHSPECS = [
+  ".",
+  ...GENERATED_VISUAL_DIFF_PREFIXES.map((prefix) => `:(exclude)${prefix}**`),
+]
+
 export interface RefreshRevisionProposalResult {
   currentCommit: string
   refreshed: boolean
@@ -34,7 +48,12 @@ export async function buildRevisionAcceptPatch(input: {
 }): Promise<string> {
   const git = simpleGit(input.revisionPath)
   const base = input.baseProjectCommit?.trim()
-  return git.diff(["--binary", base || "HEAD"])
+  return git.diff([
+    "--binary",
+    base || "HEAD",
+    "--",
+    ...GENERATED_VISUAL_DIFF_PATHSPECS,
+  ])
 }
 
 async function buildUntrackedFileDiff(input: {
@@ -57,6 +76,11 @@ async function buildUntrackedFileDiff(input: {
   }
 }
 
+function isGeneratedVisualDiffPath(filePath: string): boolean {
+  const normalized = normalizeRelativeProjectPath(filePath)
+  return GENERATED_VISUAL_DIFF_PREFIXES.some((prefix) => normalized.startsWith(prefix))
+}
+
 export async function buildRevisionProposalPatch(input: {
   revisionPath: string
   baseProjectCommit?: string | null
@@ -67,7 +91,7 @@ export async function buildRevisionProposalPatch(input: {
     git.status(),
   ])
   const untrackedDiffs = await Promise.all(
-    status.not_added.map((filePath) =>
+    status.not_added.filter((filePath) => !isGeneratedVisualDiffPath(filePath)).map((filePath) =>
       buildUntrackedFileDiff({ git, filePath }),
     ),
   )

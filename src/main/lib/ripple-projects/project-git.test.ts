@@ -47,6 +47,8 @@ describe("Ripple project Git setup", () => {
       expect(gitignore).toContain("exports/")
       expect(gitignore).toContain(".ripple/tmp/")
       expect(gitignore).toContain(".ripple/agent-attachments/")
+      expect(gitignore).toContain(".ripple/frame-sheets/")
+      expect(gitignore).toContain(".ripple/comment-visuals/")
       expect((await git.status()).isClean()).toBe(true)
     } finally {
       await rm(projectPath, { recursive: true, force: true })
@@ -62,6 +64,22 @@ describe("Ripple project Git setup", () => {
 
       expect(second.baseCommit).not.toBe(first.baseCommit)
       expect((await simpleGit(projectPath).status()).isClean()).toBe(true)
+    } finally {
+      await rm(projectPath, { recursive: true, force: true })
+    }
+  })
+
+  test("refreshes managed gitignore entries without replacing user rules", async () => {
+    const projectPath = await createMinimalRippleProject("ripple-project-gitignore-")
+    try {
+      await writeFile(join(projectPath, ".gitignore"), "custom-output/\n", "utf8")
+
+      await ensureRippleProjectGitRepository(projectPath)
+
+      const gitignore = await readFile(join(projectPath, ".gitignore"), "utf8")
+      expect(gitignore).toContain("custom-output/")
+      expect(gitignore).toContain(".ripple/frame-sheets/")
+      expect(gitignore).toContain(".ripple/comment-visuals/")
     } finally {
       await rm(projectPath, { recursive: true, force: true })
     }

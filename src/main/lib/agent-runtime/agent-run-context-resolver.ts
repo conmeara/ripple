@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { join } from "node:path"
 import type { AgentProviderId, WorkspaceKind } from "./types"
 import { RIPPLE_PROVIDER_POLICY } from "./ripple-provider-policy"
@@ -48,6 +49,32 @@ function skillProviderForAgent(provider: AgentProviderId): RippleSkillProvider {
   return provider === "claude" ? "claude" : "codex"
 }
 
+function getAppManagedRippleResourcePath(...segments: string[]): string {
+  const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+  if (typeof resourcesPath === "string") {
+    const packagedRoot = join(resourcesPath, ...segments)
+    if (existsSync(packagedRoot)) return packagedRoot
+  }
+  return join(process.cwd(), "resources", ...segments)
+}
+
+export function getAppManagedRippleAgentSkillRoot(
+  provider: RippleSkillProvider = "codex",
+): string {
+  if (provider === "claude") {
+    return getAppManagedRippleResourcePath(
+      "claude-plugins",
+      "ripple-visual-context",
+      "skills",
+    )
+  }
+  return getAppManagedRippleResourcePath("agent-skills")
+}
+
+export function getAppManagedRippleClaudePluginRoot(): string {
+  return getAppManagedRippleResourcePath("claude-plugins", "ripple-visual-context")
+}
+
 function discoveryStatus(input: {
   workspaceKind: WorkspaceKind
   nativeStatus: RippleAgentNoteStatus
@@ -87,6 +114,7 @@ export async function resolveAgentRunContext(input: {
   })
   const skillProvider = skillProviderForAgent(input.provider)
   const appManagedSkillRoot = getAppManagedHyperframesSkillRoot(skillProvider)
+  const visualContextSkillRoot = getAppManagedRippleAgentSkillRoot(skillProvider)
   const projectSkillRoot = getProviderProjectSkillRoot(input.projectPath, skillProvider)
   const appPolicy = [
     RIPPLE_PROVIDER_POLICY,
@@ -95,6 +123,13 @@ export async function resolveAgentRunContext(input: {
       HYPERFRAMES_SKILL_NAMES.join(", "),
       `Loaded from: ${appManagedSkillRoot}`,
       "Prefer these bundled skills for HyperFrames composition authoring, validation, preview, timeline, and export guidance.",
+      "",
+      "Ripple app-managed visual-context skill for this run:",
+      "ripple-visual-context",
+      `Loaded from: ${visualContextSkillRoot}`,
+      "Use it proactively after creating or editing visible motion work to choose between HyperFrames CLI inspection, snapshots, render tools, and the Ripple frame-sheet helper.",
+      "For visual sanity checks, default to `ripple frame-sheet --range 0s..8s --samples 8 --columns 4 --json` from the project directory, and use app-managed bare commands (`ripple`, `hyperframes`) instead of `npx`, `bunx`, or package installs.",
+      "If local image viewing is unavailable, do not call image-view/open/browser tools just to inspect the generated sheet; report the sheet path and manifest details so Ripple can show the artifact.",
     ].join("\n"),
   ].join("\n\n")
 
@@ -111,7 +146,7 @@ export async function resolveAgentRunContext(input: {
       fallbackContent: projectNote.content,
     },
     skillRoots: {
-      appManaged: [appManagedSkillRoot],
+      appManaged: [appManagedSkillRoot, visualContextSkillRoot],
       project: [projectSkillRoot],
     },
     statusLabels: [
@@ -122,6 +157,7 @@ export async function resolveAgentRunContext(input: {
           ? `${fileName} fallback`
           : `${fileName} ${noteDiscoveryStatus}`,
       "HyperFrames skills",
+      "Ripple visual context",
     ],
   }
 }

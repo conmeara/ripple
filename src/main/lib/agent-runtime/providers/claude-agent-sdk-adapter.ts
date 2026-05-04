@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process"
+import { app } from "electron"
 import { promisify } from "node:util"
 import type {
   AgentProviderAdapter,
@@ -16,10 +17,20 @@ import {
   formatClaudeCapabilityLabel,
   loadClaudeRuntimeCapabilities,
 } from "./claude-runtime-capabilities"
+import { buildRippleAgentToolEnvironment } from "../cli-tools-env"
+
+function getRepoRoot(): string | undefined {
+  return app.isPackaged ? undefined : app.getAppPath()
+}
 
 const execFileAsync = promisify(execFile)
 
 const activeControllers = new Map<string, AbortController>()
+
+export const RIPPLE_CLAUDE_AUTO_ALLOWED_TOOLS = [
+  "Bash(ripple frame-sheet)",
+  "Bash(ripple frame-sheet *)",
+] as const
 
 function safeJsonParse(value: string): Record<string, unknown> {
   try {
@@ -283,10 +294,14 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         })
       }
 
-      const env = buildClaudeEnv({
-        customEnv: {
-          CLAUDE_AGENT_SDK_CLIENT_APP: "ripple-desktop/phase-13",
-        },
+      const env = buildRippleAgentToolEnvironment({
+        baseEnv: buildClaudeEnv({
+          customEnv: {
+            CLAUDE_AGENT_SDK_CLIENT_APP: "ripple-desktop/phase-13",
+          },
+        }),
+        repoRoot: getRepoRoot(),
+        workspaceRoot: input.cwd,
       })
       const nativeAttachmentBlocks = [
         ...preparedAttachments.imageContentBlocks,
@@ -319,6 +334,7 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
           permissionMode: input.mode === "plan" ? "plan" : "acceptEdits",
           includePartialMessages: true,
           tools: { type: "preset", preset: "claude_code" },
+          allowedTools: [...RIPPLE_CLAUDE_AUTO_ALLOWED_TOOLS],
           settingSources: capabilities.settingSources,
           skills: capabilities.skills,
           ...(Object.keys(agentsOption).length > 0 ? { agents: agentsOption } : {}),

@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events"
 import { and, desc, eq, inArray } from "drizzle-orm"
 import { buildAgentRuntimeAssistantProjection } from "../../../shared/agent-runtime-ui-projection"
+import { appendOptionalAgentRuntimeAttachments } from "../../../shared/agent-runtime-attachments"
 import {
   agentConnections,
   agentRunEvents,
@@ -35,6 +36,7 @@ import {
   type StartAgentRunResult,
 } from "./types"
 import { resolveAgentWorkspaceContext } from "./workspace-context"
+import { resolveCommentVisualAttachmentsForRun } from "../revisions/comment-visuals"
 
 type Db = ReturnType<typeof getDatabase>
 type AgentRunEventListener = (event: AgentRunEvent) => void
@@ -466,27 +468,47 @@ export async function executeAgentRun(
   }
 
   try {
+    const visualContext = await resolveCommentVisualAttachmentsForRun({
+      db,
+      run: context.run,
+      projectPath: context.projectPath,
+    }).catch((error) => {
+      console.warn("[Ripple] Could not load comment visual context:", error)
+      return { attachments: [], promptContext: null }
+    })
+    const mergedAttachments = appendOptionalAgentRuntimeAttachments({
+      attachments: options.attachments,
+      optionalAttachments: visualContext.attachments,
+    })
+    if (mergedAttachments.droppedOptionalAttachments.length > 0) {
+      console.warn("[Ripple] Dropped automatic comment visual context because attachment limits were reached.")
+    }
     const providerPrompt = appendRuntimeContextToPrompt({
       prompt: context.run.prompt,
-      context: buildAgentRuntimeContextPrompt({
-        db,
-        resolved: {
-          workspace: context.workspace,
-          project: context.project,
-          cwd: context.workspace.path,
-          projectPath: context.projectPath,
-          writableRoot: context.writableRoot,
-          kind: context.workspaceKind,
-          targetType: context.targetType,
-          targetId: context.targetId,
-        },
-        runtime: {
-          runtimeContext: parseAgentRuntimeContextPayload(context.run.runtimeContextJson),
-          runKind: context.run.runKind,
-          commentThreadId: context.run.threadId,
-          revisionId: context.run.revisionId,
-        },
-      }),
+      context: [
+        buildAgentRuntimeContextPrompt({
+          db,
+          resolved: {
+            workspace: context.workspace,
+            project: context.project,
+            cwd: context.workspace.path,
+            projectPath: context.projectPath,
+            writableRoot: context.writableRoot,
+            kind: context.workspaceKind,
+            targetType: context.targetType,
+            targetId: context.targetId,
+          },
+          runtime: {
+            runtimeContext: parseAgentRuntimeContextPayload(context.run.runtimeContextJson),
+            runKind: context.run.runKind,
+            commentThreadId: context.run.threadId,
+            revisionId: context.run.revisionId,
+          },
+        }),
+        mergedAttachments.acceptedOptionalAttachments.length > 0
+          ? visualContext.promptContext
+          : null,
+      ].filter(Boolean).join("\n\n"),
     })
     const result = await adapter.run({
       ...context,
@@ -494,7 +516,7 @@ export async function executeAgentRun(
       cwd: context.workspace.path,
       mode: context.run.mode,
       model: context.run.model,
-      attachments: options.attachments,
+      attachments: mergedAttachments.attachments,
       authConfig: options.authConfig ?? null,
     }, sink)
     if (isCancellationRequested(db, runId)) {

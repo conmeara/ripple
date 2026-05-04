@@ -100,6 +100,8 @@ export const revisionsRouter = router({
       agentProvider: agentProviderInput,
       model: z.string().optional(),
       clientRequestId: z.string().optional(),
+      sourceRevisionId: z.string().nullable().optional(),
+      captureVisualContext: z.boolean().optional(),
     }))
     .mutation(async ({ input }) => {
       const thread = await createCommentThread(input)

@@ -10,15 +10,20 @@ const RIPPLE_MANAGED_CONFIG_KEY = "ripple.revisionManaged"
 const RIPPLE_GIT_AUTHOR_NAME = "Ripple"
 const RIPPLE_GIT_AUTHOR_EMAIL = "ripple@local.invalid"
 
-const DEFAULT_PROJECT_GITIGNORE = `# Ripple generated output
-exports/
-snapshots/
-.ripple/snapshots/
-.ripple/tmp/
-.ripple/agent-attachments/
-node_modules/
-.DS_Store
-`
+const DEFAULT_PROJECT_GITIGNORE_ENTRIES = [
+  "# Ripple generated output",
+  "exports/",
+  "snapshots/",
+  ".ripple/snapshots/",
+  ".ripple/frame-sheets/",
+  ".ripple/comment-visuals/",
+  ".ripple/tmp/",
+  ".ripple/agent-attachments/",
+  "node_modules/",
+  ".DS_Store",
+]
+
+const DEFAULT_PROJECT_GITIGNORE = `${DEFAULT_PROJECT_GITIGNORE_ENTRIES.join("\n")}\n`
 
 export interface RippleProjectGitBase {
   projectPath: string
@@ -97,11 +102,20 @@ async function hasHeadCommit(projectPath: string): Promise<boolean> {
 
 async function ensureDefaultProjectGitIgnore(projectPath: string): Promise<void> {
   const gitignorePath = resolve(projectPath, ".gitignore")
+  let content: string
   try {
-    await readFile(gitignorePath, "utf8")
+    content = await readFile(gitignorePath, "utf8")
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
     await writeFile(gitignorePath, DEFAULT_PROJECT_GITIGNORE, { flag: "wx" })
+    return
+  }
+
+  const missingEntries = DEFAULT_PROJECT_GITIGNORE_ENTRIES
+    .filter((entry) => !content.split(/\r?\n/).includes(entry))
+  if (missingEntries.length > 0) {
+    const separator = content.endsWith("\n") || content.length === 0 ? "" : "\n"
+    await writeFile(gitignorePath, `${content}${separator}${missingEntries.join("\n")}\n`)
   }
 }
 

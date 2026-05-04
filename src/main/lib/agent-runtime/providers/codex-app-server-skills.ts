@@ -7,6 +7,8 @@ export interface CodexSkillMetadata {
   enabled: boolean
 }
 
+export const DEFAULT_CODEX_APP_SKILL_NAMES = ["ripple-visual-context"] as const
+
 function isRecord(value: unknown): value is Record<string, any> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
@@ -61,4 +63,14 @@ export function buildCodexSkillInputs(
   }
 
   return inputs
+}
+
+export function buildCodexTurnSkillInputs(
+  mentions: string[],
+  skills: CodexSkillMetadata[],
+): Array<Extract<CodexUserInput, { type: "skill" }>> {
+  return buildCodexSkillInputs([
+    ...DEFAULT_CODEX_APP_SKILL_NAMES,
+    ...mentions,
+  ], skills)
 }

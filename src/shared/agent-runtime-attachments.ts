@@ -67,3 +67,33 @@ export function validateAgentRuntimeAttachments(
 
   return null
 }
+
+export function appendOptionalAgentRuntimeAttachments(input: {
+  attachments?: AgentRuntimeAttachment[] | null
+  optionalAttachments?: AgentRuntimeAttachment[] | null
+}): {
+  attachments: AgentRuntimeAttachment[]
+  acceptedOptionalAttachments: AgentRuntimeAttachment[]
+  droppedOptionalAttachments: AgentRuntimeAttachment[]
+} {
+  const attachments = [...(input.attachments ?? [])]
+  const acceptedOptionalAttachments: AgentRuntimeAttachment[] = []
+  const droppedOptionalAttachments: AgentRuntimeAttachment[] = []
+
+  for (const optionalAttachment of input.optionalAttachments ?? []) {
+    const nextAttachments = [...attachments, optionalAttachment]
+    const validationMessage = validateAgentRuntimeAttachments(nextAttachments)
+    if (validationMessage) {
+      droppedOptionalAttachments.push(optionalAttachment)
+      continue
+    }
+    attachments.push(optionalAttachment)
+    acceptedOptionalAttachments.push(optionalAttachment)
+  }
+
+  return {
+    attachments,
+    acceptedOptionalAttachments,
+    droppedOptionalAttachments,
+  }
+}

@@ -23,11 +23,11 @@ import {
 } from "../../trpc/routers/claude-settings"
 import {
   buildProjectNoteFallbackInstructions,
+  getAppManagedRippleClaudePluginRoot,
   resolveAgentRunContext,
 } from "../agent-run-context-resolver"
 import type { WorkspaceKind } from "../types"
 import {
-  getAppManagedHyperframesSkillRoot,
   getClaudeHyperframesPluginRoot,
 } from "../../ripple-projects/hyperframes-skills"
 
@@ -205,8 +205,8 @@ export async function loadClaudeRuntimeCapabilities(
     workspaceKind,
   })
   const projectNoteFallback = buildProjectNoteFallbackInstructions(runContext)
-  const appManagedSkillRoot = getAppManagedHyperframesSkillRoot("claude")
   const claudeHyperframesPluginRoot = getClaudeHyperframesPluginRoot()
+  const rippleVisualContextPluginRoot = getAppManagedRippleClaudePluginRoot()
   const [config, dirConfig, enabledPluginSources, installedPlugins, claudeMd] =
     await Promise.all([
       readClaudeConfig(),
@@ -221,6 +221,7 @@ export async function loadClaudeRuntimeCapabilities(
   )
   const plugins: SdkPluginConfig[] = [
     { type: "local", path: claudeHyperframesPluginRoot },
+    { type: "local", path: rippleVisualContextPluginRoot },
     ...enabledPlugins.map((plugin) => ({
       type: "local" as const,
       path: plugin.path,
@@ -238,16 +239,19 @@ export async function loadClaudeRuntimeCapabilities(
     const paths = getPluginComponentPaths(plugin)
     return scanSkillNames(paths.skills)
   })
-  const [appSkillNames, projectSkillNames, userSkillNames, ...pluginSkillNameGroups] =
+  const appSkillNamePromises = runContext.skillRoots.appManaged.map((root) =>
+    scanSkillNames(root),
+  )
+  const [appSkillNameGroups, projectSkillNames, userSkillNames, ...pluginSkillNameGroups] =
     await Promise.all([
-      scanSkillNames(appManagedSkillRoot),
+      Promise.all(appSkillNamePromises),
       scanSkillNames(path.join(resolvedCwd, ".claude", "skills")),
       scanSkillNames(path.join(os.homedir(), ".claude", "skills")),
       ...pluginSkillPromises,
     ])
   const skillNames = Array.from(
     new Set([
-      ...appSkillNames,
+      ...appSkillNameGroups.flat(),
       ...projectSkillNames,
       ...userSkillNames,
       ...pluginSkillNameGroups.flat(),
@@ -277,6 +281,7 @@ export async function loadClaudeRuntimeCapabilities(
       skippedMcpServerNames: skippedMcpServerNames.sort(),
       pluginNames: [
         "ripple-hyperframes",
+        "ripple-visual-context",
         ...enabledPlugins.map((plugin) => plugin.source),
       ].sort(),
       skillNames,

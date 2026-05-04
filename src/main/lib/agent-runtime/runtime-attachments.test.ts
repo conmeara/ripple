@@ -3,8 +3,10 @@ import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
+  appendOptionalAgentRuntimeAttachments,
   getAgentRuntimeAttachmentSize,
   MAX_AGENT_RUNTIME_ATTACHMENT_BYTES,
+  MAX_AGENT_RUNTIME_ATTACHMENTS,
   validateAgentRuntimeAttachments,
 } from "../../../shared/agent-runtime-attachments"
 import { prepareRuntimeAttachments } from "./runtime-attachments"
@@ -159,5 +161,53 @@ describe("prepareRuntimeAttachments", () => {
       { ...attachment, filename: "underreported-2.bin" },
       { ...attachment, filename: "underreported-3.bin" },
     ])).toBe("Attachments are larger than 20 MB total.")
+  })
+
+  test("drops automatic visual attachments when user attachments already fill the limit", () => {
+    const userAttachments = Array.from({ length: MAX_AGENT_RUNTIME_ATTACHMENTS }, (_value, index) => ({
+      type: "image" as const,
+      base64Data: Buffer.from(`user-${index}`).toString("base64"),
+      mediaType: "image/png",
+      filename: `user-${index}.png`,
+    }))
+    const automaticVisual = {
+      type: "image" as const,
+      base64Data: Buffer.from("automatic visual").toString("base64"),
+      mediaType: "image/png",
+      filename: "frame.png",
+    }
+
+    const merged = appendOptionalAgentRuntimeAttachments({
+      attachments: userAttachments,
+      optionalAttachments: [automaticVisual],
+    })
+
+    expect(merged.attachments).toEqual(userAttachments)
+    expect(merged.acceptedOptionalAttachments).toEqual([])
+    expect(merged.droppedOptionalAttachments).toEqual([automaticVisual])
+  })
+
+  test("appends automatic visual attachments when limits still pass", () => {
+    const userAttachment = {
+      type: "file" as const,
+      base64Data: Buffer.from("notes").toString("base64"),
+      mediaType: "text/plain",
+      filename: "notes.txt",
+    }
+    const automaticVisual = {
+      type: "image" as const,
+      base64Data: Buffer.from("automatic visual").toString("base64"),
+      mediaType: "image/png",
+      filename: "frame.png",
+    }
+
+    const merged = appendOptionalAgentRuntimeAttachments({
+      attachments: [userAttachment],
+      optionalAttachments: [automaticVisual],
+    })
+
+    expect(merged.attachments).toEqual([userAttachment, automaticVisual])
+    expect(merged.acceptedOptionalAttachments).toEqual([automaticVisual])
+    expect(merged.droppedOptionalAttachments).toEqual([])
   })
 })

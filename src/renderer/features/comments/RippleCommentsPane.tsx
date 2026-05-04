@@ -568,6 +568,7 @@ function CommentComposer({
   timecode,
   isSubmitting,
   modelSelector,
+  visualContextChip,
 }: {
   value: string
   onChange: (value: string) => void
@@ -578,6 +579,7 @@ function CommentComposer({
   timecode?: string
   isSubmitting?: boolean
   modelSelector?: ReactNode
+  visualContextChip?: ReactNode
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const hasContent = value.trim().length > 0 || attachments.length > 0
@@ -633,8 +635,9 @@ function CommentComposer({
             onPaste={handlePaste}
           />
         </div>
-        {attachments.length > 0 ? (
+        {attachments.length > 0 || visualContextChip ? (
           <div className="flex min-w-0 flex-wrap gap-1">
+            {visualContextChip}
             {attachments.map((attachment, index) => (
               <span
                 key={`${attachment.type}-${attachment.filename ?? "attachment"}-${index}`}
@@ -1279,6 +1282,7 @@ export function RippleCommentsPane({
   const [draft, setDraft] = useState("")
   const [draftAttachments, setDraftAttachments] = useState<AgentRuntimeAttachment[]>([])
   const [draftRequestId, setDraftRequestId] = useState(createClientRequestId)
+  const [includeVisualContext, setIncludeVisualContext] = useState(true)
   const [localSelectedThreadId, setLocalSelectedThreadId] = useState<string | null>(null)
   const selectedThreadId =
     controlledSelectedThreadId === undefined
@@ -1325,6 +1329,7 @@ export function RippleCommentsPane({
       setDraft("")
       setDraftAttachments([])
       setDraftRequestId(createClientRequestId())
+      setIncludeVisualContext(true)
       await utils.revisions.listThreads.invalidate()
     },
     onError: (error) => toast.error("Comment was not sent", { description: error.message }),
@@ -1384,6 +1389,22 @@ export function RippleCommentsPane({
     () => buildAnchorFromTimelineContext({ currentTime, selection }),
     [currentTime, selection],
   )
+  const anchorKey = useMemo(
+    () => JSON.stringify({
+      type: anchor.anchorType,
+      start: anchor.startTime,
+      end: anchor.endTime,
+      frame: anchor.startFrame,
+      endFrame: anchor.endFrame,
+      sourceFile: anchor.sourceFile,
+      elementSelector: anchor.elementSelector,
+      clipKey: anchor.clipKey,
+    }),
+    [anchor],
+  )
+  useEffect(() => {
+    setIncludeVisualContext(true)
+  }, [anchorKey])
   const composerTimecode = formatCommentTimecode(
     Math.round((anchor.startTime ?? 0) * 1000),
     anchor.endTime === null || anchor.endTime === undefined
@@ -1411,6 +1432,8 @@ export function RippleCommentsPane({
       agentProvider: selectedRevisionProvider,
       model: selectedRevisionModel,
       clientRequestId: draftRequestId,
+      sourceRevisionId: activePreviewRevisionId,
+      captureVisualContext: includeVisualContext,
     })
   }
 
@@ -1430,6 +1453,23 @@ export function RippleCommentsPane({
       onShowPrimaryPreview(previewTime)
     }
   }
+
+  const visualContextChip = includeVisualContext ? (
+    <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/60 bg-background/80 px-2 py-1 text-xs text-muted-foreground">
+      <ImageIcon className="h-3.5 w-3.5 shrink-0" />
+      <span className="truncate">
+        {anchor.anchorType === "range" ? "Frame sheet" : "Current frame"}
+      </span>
+      <button
+        type="button"
+        className="ml-1 rounded-sm text-muted-foreground hover:text-foreground"
+        onClick={() => setIncludeVisualContext(false)}
+      >
+        <X className="h-3 w-3" />
+        <span className="sr-only">Remove visual context</span>
+      </button>
+    </span>
+  ) : null
 
   useEffect(() => {
     if (!selectedThreadId || threadsQuery.isLoading) return
@@ -1589,6 +1629,7 @@ export function RippleCommentsPane({
           timecode={composerTimecode}
           isSubmitting={isMutating}
           modelSelector={modelSelector}
+          visualContextChip={visualContextChip}
         />
       </div>
     </div>

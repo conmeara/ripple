@@ -244,6 +244,8 @@ function getGitIgnore(): string {
 exports/
 snapshots/
 .ripple/snapshots/
+.ripple/frame-sheets/
+.ripple/comment-visuals/
 .ripple/tmp/
 .ripple/agent-attachments/
 node_modules/

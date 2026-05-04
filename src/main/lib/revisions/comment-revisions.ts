@@ -60,6 +60,7 @@ import {
   resolveRevisionProjectPath,
 } from "./revision-acceptance"
 import { acceptIsolatedWorkspace } from "./isolated-workspace-acceptance"
+import { captureCommentVisualForAnchor } from "./comment-visuals"
 
 type Db = ReturnType<typeof getDatabase>
 
@@ -83,6 +84,8 @@ export interface CreateCommentThreadInput {
   agentProvider?: AgentProviderId
   model?: string
   clientRequestId?: string | null
+  sourceRevisionId?: string | null
+  captureVisualContext?: boolean
 }
 
 export interface AddCommentReplyInput {
@@ -526,6 +529,7 @@ export async function createCommentThread(
   const db = getDatabase()
   const project = getProject(db, input.projectId)
   assertComposition(db, input.projectId, input.compositionId)
+  const composition = getCompositionForPrompt(db, input.compositionId)
 
   const body = assertBody(input.body)
   assertAttachments(input.attachments)
@@ -545,11 +549,29 @@ export async function createCommentThread(
   }
   const anchor = normalizeCommentAnchor(input.anchor)
   const now = dateNow()
+  const threadId = createId()
   const messageId = createId()
+  let automaticVisualPath: string | null = null
+  if (input.captureVisualContext !== false && !anchor.screenshotPath) {
+    try {
+      const visual = await captureCommentVisualForAnchor({
+        db,
+        project,
+        composition,
+        anchor: input.anchor,
+        threadId,
+        sourceRevisionId: input.sourceRevisionId,
+      })
+      automaticVisualPath = visual?.relativePath ?? null
+    } catch (error) {
+      console.warn("[Ripple] Could not capture comment visual context:", error)
+    }
+  }
   const thread = db.transaction(() => {
     const createdThread = db
       .insert(commentThreads)
       .values({
+        id: threadId,
         projectId: input.projectId,
         compositionId: input.compositionId ?? null,
         anchorType: anchor.anchorType,
@@ -560,7 +582,7 @@ export async function createCommentThread(
         elementSelector: anchor.elementSelector,
         clipKey: anchor.clipKey,
         sourceFile: anchor.sourceFile,
-        screenshotPath: anchor.screenshotPath,
+        screenshotPath: anchor.screenshotPath ?? automaticVisualPath,
         clientRequestId,
         status: "open",
         createdAt: now,
