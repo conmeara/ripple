@@ -1,12 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_EXECUTABLE="$SCRIPT_DIR/../../MacOS/1Code"
-CLI_SCRIPT="$SCRIPT_DIR/../app.asar/out/main/ripple-cli.js"
-APP_ASAR="$SCRIPT_DIR/../app.asar"
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  SOURCE_DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$SOURCE_DIR/$SOURCE"
+done
 
-if [[ -x "$APP_EXECUTABLE" && -f "$APP_ASAR" ]]; then
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+RESOURCES_DIR="$(cd -P "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)"
+CLI_SCRIPT="$RESOURCES_DIR/app.asar/out/main/ripple-cli.js"
+APP_ASAR="$RESOURCES_DIR/app.asar"
+APP_EXECUTABLE=""
+
+for candidate in \
+  "$SCRIPT_DIR/../../MacOS/Ripple" \
+  "$SCRIPT_DIR/../../ripple" \
+  "$SCRIPT_DIR/../../Ripple"
+do
+  if [[ -x "$candidate" ]]; then
+    APP_EXECUTABLE="$candidate"
+    break
+  fi
+done
+
+if [[ -n "$APP_EXECUTABLE" && -f "$APP_ASAR" ]]; then
   export ELECTRON_RUN_AS_NODE=1
   exec "$APP_EXECUTABLE" "$CLI_SCRIPT" "$@"
 fi

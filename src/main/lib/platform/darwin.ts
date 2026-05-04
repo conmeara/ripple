@@ -13,6 +13,7 @@ import type {
   CliConfig,
   EnvironmentConfig,
 } from "./types"
+import { RIPPLE_IDENTITY } from "../../../shared/app-identity"
 
 const execAsync = promisify(exec)
 
@@ -64,10 +65,21 @@ export class DarwinPlatformProvider extends BasePlatformProvider {
 
   getCliConfig(): CliConfig {
     return {
-      installPath: "/usr/local/bin/1code",
-      scriptName: "1code",
+      installPath: `/usr/local/bin/${RIPPLE_IDENTITY.cliCommand}`,
+      scriptName: RIPPLE_IDENTITY.cliCommand,
       requiresAdmin: true, // /usr/local/bin requires admin on macOS
     }
+  }
+
+  private getLegacyCliInstallPath(): string {
+    return `/usr/local/bin/${RIPPLE_IDENTITY.legacyCliCommand}`
+  }
+
+  private async removeCliPathIfPresent(installPath: string): Promise<void> {
+    if (!existsSync(installPath)) return
+    await execAsync(
+      `osascript -e 'do shell script "rm -f ${installPath}" with administrator privileges'`
+    )
   }
 
   getEnvironmentConfig(): EnvironmentConfig {
@@ -148,18 +160,15 @@ export class DarwinPlatformProvider extends BasePlatformProvider {
 
     try {
       // Remove existing if present
-      if (existsSync(installPath)) {
-        await execAsync(
-          `osascript -e 'do shell script "rm -f ${installPath}" with administrator privileges'`
-        )
-      }
+      await this.removeCliPathIfPresent(installPath)
+      await this.removeCliPathIfPresent(this.getLegacyCliInstallPath())
 
       // Create symlink with admin privileges
       await execAsync(
         `osascript -e 'do shell script "ln -s \\"${sourcePath}\\" ${installPath}" with administrator privileges'`
       )
 
-      console.log("[CLI] Installed 1code command to", installPath)
+      console.log(`[CLI] Installed ${RIPPLE_IDENTITY.cliCommand} command to`, installPath)
       return { success: true }
     } catch (error: unknown) {
       const errorMessage =
@@ -174,16 +183,16 @@ export class DarwinPlatformProvider extends BasePlatformProvider {
     const installPath = cliConfig.installPath
 
     try {
-      if (!existsSync(installPath)) {
+      const legacyInstallPath = this.getLegacyCliInstallPath()
+      if (!existsSync(installPath) && !existsSync(legacyInstallPath)) {
         console.log("[CLI] CLI command not installed, nothing to uninstall")
         return { success: true }
       }
 
-      await execAsync(
-        `osascript -e 'do shell script "rm -f ${installPath}" with administrator privileges'`
-      )
+      await this.removeCliPathIfPresent(installPath)
+      await this.removeCliPathIfPresent(legacyInstallPath)
 
-      console.log("[CLI] Uninstalled 1code command")
+      console.log(`[CLI] Uninstalled ${RIPPLE_IDENTITY.cliCommand} command`)
       return { success: true }
     } catch (error: unknown) {
       const errorMessage =

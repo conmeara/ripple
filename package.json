@@ -1,14 +1,14 @@
 {
-  "name": "21st-desktop",
+  "name": "ripple",
   "version": "0.0.72",
   "private": true,
-  "description": "1Code - UI for parallel work with AI agents",
+  "description": "Ripple - local-first motion graphics with AI agents",
   "author": {
     "name": "Ripple"
   },
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "node scripts/patch-electron-dev.mjs && electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "package": "electron-builder --dir",
@@ -17,12 +17,12 @@
     "package:linux": "electron-builder --linux",
     "dist": "electron-builder",
     "dist:manifest": "node scripts/generate-update-manifest.mjs",
-    "dist:upload": "node scripts/upload-release.mjs",
+    "dist:upload": "node -e \"console.log('Configure a Ripple release destination before uploading artifacts.')\"",
     "claude:download": "node scripts/download-claude-binary.mjs --version=2.1.123",
     "claude:download:all": "node scripts/download-claude-binary.mjs --version=2.1.123 --all",
     "codex:download": "node scripts/download-codex-binary.mjs --version=0.125.0",
     "codex:download:all": "node scripts/download-codex-binary.mjs --version=0.125.0 --all",
-    "release": "rm -rf release && bun i && bun run claude:download && bun run codex:download && bun run build && bun run package:mac && bun run dist:manifest && ./scripts/upload-release-wrangler.sh",
+    "release": "rm -rf release && bun i && bun run claude:download && bun run codex:download && bun run build && bun run package:mac && bun run dist:manifest",
     "release:dev": "rm -rf release && bun run claude:download && bun run codex:download && bun run build && bun run package:mac && rm -rf node_modules && bun i",
     "sync:public": "./scripts/sync-to-public.sh",
     "icon:generate": "node scripts/generate-icon.mjs",
@@ -151,14 +151,15 @@
     "vite": "^6.3.4"
   },
   "build": {
-    "appId": "dev.21st.agents",
-    "productName": "1Code",
+    "appId": "app.ripple.desktop",
+    "productName": "Ripple",
+    "artifactName": "Ripple-${version}-${arch}.${ext}",
     "npmRebuild": true,
     "protocols": [
       {
-        "name": "1Code",
+        "name": "Ripple",
         "schemes": [
-          "twentyfirst-agents"
+          "ripple"
         ]
       }
     ],
@@ -191,6 +192,19 @@
       {
         "from": "resources/bin/VERSION",
         "to": "bin/VERSION"
+      },
+      {
+        "from": "build",
+        "to": "build",
+        "filter": [
+          "icon.ico",
+          "icon.png",
+          "trayTemplate.svg",
+          "trayTemplate.png",
+          "trayTemplate@2x.png",
+          "settingsTemplate.png",
+          "settingsTemplate@2x.png"
+        ]
       },
       {
         "from": "resources/hyperframes-templates",
@@ -234,7 +248,7 @@
       "node_modules/@zed-industries/codex-acp-*/**/*"
     ],
     "mac": {
-      "category": "public.app-category.developer-tools",
+      "category": "public.app-category.video",
       "target": [
         {
           "target": "dmg",
@@ -257,7 +271,7 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "1Code needs microphone access for voice dictation"
+        "NSMicrophoneUsageDescription": "Ripple needs microphone access for voice dictation"
       }
     },
     "dmg": {
@@ -293,7 +307,7 @@
         "deb"
       ],
       "icon": "build/icon.png",
-      "category": "Development"
+      "category": "AudioVideo"
     },
     "nsis": {
       "oneClick": false,

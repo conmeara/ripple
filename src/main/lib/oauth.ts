@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'crypto';
 import { shell } from 'electron';
 import { createServer, type Server } from 'http';
 import { URL } from 'url';
+import { RIPPLE_IDENTITY } from '../../shared/app-identity';
 
 export interface OAuthMetadata {
   authorization_endpoint: string;
@@ -46,10 +47,9 @@ export interface OAuthCallbacks {
 
 const CALLBACK_PORT = 8914;
 const CALLBACK_PATH = '/callback';
-// Client names for OAuth registration
-// Some MCP servers (like Figma) have an allowlist - try '1code' first, fall back to 'Codex'
-const CLIENT_NAME = '1code';
-const FALLBACK_CLIENT_NAME = 'Codex';
+// Client names for OAuth registration.
+const CLIENT_NAME = RIPPLE_IDENTITY.oauthClientName;
+const FALLBACK_CLIENT_NAME = RIPPLE_IDENTITY.oauthFallbackClientName;
 
 /**
  * Generate a styled OAuth callback page with terminal emulator aesthetic
@@ -798,7 +798,7 @@ export class CraftOAuth {
       }
     } else {
       // No registration endpoint - use default client ID
-      clientId = '1code';
+      clientId = RIPPLE_IDENTITY.oauthClientName;
     }
 
     const pkce = generatePKCE();

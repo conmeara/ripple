@@ -3,7 +3,7 @@ import log from "electron-log"
 import { autoUpdater, type UpdateInfo, type ProgressInfo } from "electron-updater"
 import { readFileSync, writeFileSync, existsSync } from "fs"
 import { join } from "path"
-import { isLegacy21stUrl } from "./config"
+import { getConfiguredUpdateFeedUrl } from "./config"
 
 /**
  * IMPORTANT: Do NOT use lazy/dynamic imports for electron-updater!
@@ -28,13 +28,7 @@ function initAutoUpdaterConfig() {
 
 // Optional update feed URL. Local Ripple builds must not default to the old
 // upstream updater.
-const CONFIGURED_UPDATE_FEED_URL = (
-  import.meta.env.MAIN_VITE_UPDATE_URL as string | undefined
-)?.trim().replace(/\/+$/, "") || null
-const UPDATE_FEED_URL =
-  CONFIGURED_UPDATE_FEED_URL && !isLegacy21stUrl(CONFIGURED_UPDATE_FEED_URL)
-    ? CONFIGURED_UPDATE_FEED_URL
-    : null
+const UPDATE_FEED_URL = getConfiguredUpdateFeedUrl()
 
 // Minimum interval between update checks (prevent spam on rapid focus/blur)
 const MIN_CHECK_INTERVAL = 60 * 1000 // 1 minute

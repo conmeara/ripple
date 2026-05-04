@@ -16,6 +16,11 @@ describe("Ripple HyperFrames skill registration", () => {
     )).toBe(
       "/Applications/Ripple.app/Contents/Resources/app.asar.unpacked/node_modules/hyperframes",
     )
+    expect(normalizePackagedHyperframesPath(
+      "/Applications/Ripple.app/Contents/Resources/app.asar.unpacked/node_modules/hyperframes",
+    )).toBe(
+      "/Applications/Ripple.app/Contents/Resources/app.asar.unpacked/node_modules/hyperframes",
+    )
   })
 
   test("reports app-managed HyperFrames skills without project copies", async () => {

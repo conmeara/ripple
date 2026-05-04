@@ -25,6 +25,8 @@ npm-debug.log*
 # Environment
 .env
 .env.local
+.secrets/
+.playwright-mcp/
 
 # electron-vite temp files
 electron.vite.config.*.mjs

@@ -9,11 +9,9 @@
  * Usage:
  *   node scripts/generate-update-manifest.mjs
  *
- * The script expects ZIP files to exist in the release/ directory:
- *   - Agents-{version}-arm64-mac.zip
- *   - Agents-{version}-mac.zip
+ * The script expects Ripple ZIP files to exist in the release/ directory.
  *
- * Run this after `npm run dist` to generate the manifest files.
+ * Run this after `bun run dist` to generate the manifest files.
  */
 
 import { createHash } from "crypto"
@@ -61,14 +59,17 @@ function getFileSize(filePath) {
 /**
  * Find file matching pattern and extension in release directory
  */
-function findReleaseFile(pattern, ext = ".zip") {
+function findReleaseFile(patterns, ext = ".zip") {
   if (!existsSync(releaseDir)) {
     console.error(`Release directory not found: ${releaseDir}`)
     process.exit(1)
   }
 
+  const patternList = Array.isArray(patterns) ? patterns : [patterns]
   const files = readdirSync(releaseDir)
-  const match = files.find((f) => f.includes(pattern) && f.endsWith(ext))
+  const match = files.find((f) =>
+    patternList.some((pattern) => f.includes(pattern)) && f.endsWith(ext)
+  )
   return match ? join(releaseDir, match) : null
 }
 
@@ -76,14 +77,13 @@ function findReleaseFile(pattern, ext = ".zip") {
  * Generate manifest for a specific architecture
  */
 function generateManifest(arch) {
-  // electron-builder names files differently:
-  // arm64: Agents-{version}-arm64-mac.zip
-  // x64: Agents-{version}-mac.zip
-  const pattern = arch === "arm64" ? `${version}-arm64-mac` : `${version}-mac`
-  const zipPath = findReleaseFile(pattern, ".zip")
+  const patterns = arch === "arm64"
+    ? [`Ripple-${version}-arm64`, `${version}-arm64-mac`, `${version}-arm64`]
+    : [`Ripple-${version}-x64`, `${version}-mac`, `${version}-x64`]
+  const zipPath = findReleaseFile(patterns, ".zip")
 
   if (!zipPath) {
-    console.warn(`Warning: ZIP file not found for pattern: ${pattern}`)
+    console.warn(`Warning: ZIP file not found for patterns: ${patterns.join(", ")}`)
     console.warn(`Skipping ${arch} manifest generation`)
     return null
   }
@@ -245,16 +245,19 @@ console.log("Manifest generation complete!")
 console.log()
 const prefix = channel === "beta" ? "beta" : "latest"
 console.log("Next steps:")
-console.log("1. Upload the following files to cdn.21st.dev/releases/desktop/:")
+const uploadDestination = process.env.RIPPLE_RELEASE_UPLOAD_URL || "<configured Ripple release destination>"
+console.log(`1. Upload the following files to ${uploadDestination}:`)
 if (arm64Manifest) {
   console.log(`   - ${prefix}-mac.yml`)
-  console.log(`   - Agents-${version}-arm64-mac.zip`)
-  console.log(`   - Agents-${version}-arm64.dmg (for manual download)`)
+  console.log(`   - Ripple ${version} arm64 zip and dmg artifacts`)
 }
 if (x64Manifest) {
   console.log(`   - ${prefix}-mac-x64.yml`)
-  console.log(`   - Agents-${version}-mac.zip`)
-  console.log(`   - Agents-${version}.dmg (for manual download)`)
+  console.log(`   - Ripple ${version} x64 zip and dmg artifacts`)
 }
-console.log("2. Create a release entry in the admin dashboard")
+if (linuxManifest) {
+  console.log(`   - ${prefix}-linux.yml`)
+  console.log(`   - Ripple ${version} Linux AppImage artifact`)
+}
+console.log("2. Publish release notes in the configured Ripple release channel")
 console.log("=".repeat(50))

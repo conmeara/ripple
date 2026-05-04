@@ -24,7 +24,7 @@ This is the open-source version of 1Code. Some features require the hosted backe
 | Sign in / Sync | No | Yes |
 | Background agents | No | Yes |
 | Auto-updates | No | Yes |
-| Private Discord & support | No | Yes |
+| Direct feedback support | No | Yes |
 | Early access to new features | No | Yes |
 
 ## Analytics & Telemetry
@@ -38,7 +38,8 @@ Analytics (PostHog) and error tracking (Sentry) are **disabled by default** in o
 3. Make your changes
 4. Submit a PR
 
-Join our [Discord](https://discord.gg/8ektTZGnj4) for discussions.
+Send feedback to [conor.omeara@icloud.com](mailto:conor.omeara@icloud.com)
+or open a [GitHub issue](https://github.com/conmeara/ripple/issues/new).
 
 ## License
 

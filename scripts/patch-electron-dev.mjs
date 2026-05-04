@@ -1,5 +1,5 @@
-// Patches the Electron.app bundle in node_modules to show "1Code" name and icon in macOS dock during dev mode.
-import { execSync } from "child_process"
+// Patches the Electron.app bundle in node_modules to show Ripple identity in macOS dev mode.
+import { execFileSync } from "child_process"
 import { copyFileSync, existsSync } from "fs"
 import { join, dirname } from "path"
 import { fileURLToPath } from "url"
@@ -12,15 +12,25 @@ const plistPath = join(electronApp, "Contents/Info.plist")
 const icnsSource = join(root, "build/icon.icns")
 const icnsDest = join(electronApp, "Contents/Resources/electron.icns")
 
+const devName = "Ripple Dev"
+const devBundleId = "app.ripple.desktop.dev"
+
 if (process.platform !== "darwin") {
   process.exit(0)
 }
 
+function setPlistValue(key, value) {
+  execFileSync("/usr/libexec/PlistBuddy", ["-c", `Set :${key} ${value}`, plistPath])
+}
+
 if (existsSync(plistPath)) {
   try {
-    execSync(`/usr/libexec/PlistBuddy -c "Set :CFBundleName 1Code" "${plistPath}"`)
-    execSync(`/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 1Code" "${plistPath}"`)
-    console.log("[patch-electron-dev] Updated Info.plist: name -> 1Code")
+    setPlistValue("CFBundleName", devName)
+    setPlistValue("CFBundleDisplayName", devName)
+    setPlistValue("CFBundleIdentifier", devBundleId)
+    console.log(
+      `[patch-electron-dev] Updated Info.plist: name -> ${devName}, bundle id -> ${devBundleId}`,
+    )
   } catch (e) {
     console.warn("[patch-electron-dev] Failed to update Info.plist:", e.message)
   }
@@ -33,5 +43,5 @@ if (existsSync(icnsSource) && existsSync(icnsDest)) {
 
 // Touch the .app bundle so macOS re-reads it
 if (existsSync(electronApp)) {
-  execSync(`touch "${electronApp}"`)
+  execFileSync("touch", [electronApp])
 }

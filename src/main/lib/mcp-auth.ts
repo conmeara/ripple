@@ -13,6 +13,7 @@ import { getClaudeShellEnvironment } from './claude/env';
 import { CraftOAuth, fetchOAuthMetadata, getMcpBaseUrl, type OAuthMetadata, type OAuthTokens } from './oauth';
 import { discoverPluginMcpServers } from './plugins';
 import { bringToFront } from './window';
+import { RIPPLE_IDENTITY } from '../../shared/app-identity';
 
 
 /**
@@ -34,7 +35,7 @@ export async function fetchMcpTools(
 
   try {
     client = new Client({
-      name: '21st-desktop',
+      name: RIPPLE_IDENTITY.mcpClientName,
       version: '1.0.0',
     });
 
@@ -96,7 +97,7 @@ export async function fetchMcpToolsStdio(config: {
 
   try {
     const client = new Client({
-      name: '21st-desktop',
+      name: RIPPLE_IDENTITY.mcpClientName,
       version: '1.0.0',
     });
 

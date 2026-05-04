@@ -9,12 +9,12 @@ import type { VSCodeFullTheme } from "../atoms"
 import { CURSOR_DARK, CURSOR_LIGHT, CURSOR_MIDNIGHT } from "./cursor-themes"
 
 /**
- * 21st Dark - Default dark theme matching the app's original design
+ * Ripple Dark - Default dark theme matching the app's original design
  * Uses the brand blue (#0034FF) as primary/accent color
  */
-const TWENTYFIRST_DARK: VSCodeFullTheme = {
-  id: "21st-dark",
-  name: "21st Dark",
+const RIPPLE_DARK: VSCodeFullTheme = {
+  id: "ripple-dark",
+  name: "Ripple Dark",
   type: "dark",
   source: "builtin",
   colors: {
@@ -73,12 +73,12 @@ const TWENTYFIRST_DARK: VSCodeFullTheme = {
 }
 
 /**
- * 21st Light - Default light theme matching the app's original design
+ * Ripple Light - Default light theme matching the app's original design
  * Uses the brand blue (#0034FF) as primary/accent color
  */
-const TWENTYFIRST_LIGHT: VSCodeFullTheme = {
-  id: "21st-light",
-  name: "21st Light",
+const RIPPLE_LIGHT: VSCodeFullTheme = {
+  id: "ripple-light",
+  name: "Ripple Light",
   type: "light",
   source: "builtin",
   colors: {
@@ -912,9 +912,9 @@ const CLAUDE_DARK: VSCodeFullTheme = {
  * All built-in themes
  */
 export const BUILTIN_THEMES: VSCodeFullTheme[] = [
-  // 21st Default themes (first)
-  TWENTYFIRST_DARK,
-  TWENTYFIRST_LIGHT,
+  // Ripple default themes (first)
+  RIPPLE_DARK,
+  RIPPLE_LIGHT,
   // Cursor themes
   CURSOR_DARK,
   CURSOR_LIGHT,
@@ -934,7 +934,7 @@ export const BUILTIN_THEMES: VSCodeFullTheme[] = [
  * Get theme by ID
  */
 export function getBuiltinThemeById(id: string): VSCodeFullTheme | undefined {
-  return BUILTIN_THEMES.find((theme) => theme.id === id)
+  return BUILTIN_THEMES.find((theme) => theme.id === normalizeBuiltinThemeId(id))
 }
 
 /**
@@ -947,8 +947,14 @@ export function getBuiltinThemesByType(type: "light" | "dark"): VSCodeFullTheme[
 /**
  * Default theme IDs for light/dark modes
  */
-export const DEFAULT_LIGHT_THEME_ID = "21st-light"
-export const DEFAULT_DARK_THEME_ID = "21st-dark"
+export const DEFAULT_LIGHT_THEME_ID = "ripple-light"
+export const DEFAULT_DARK_THEME_ID = "ripple-dark"
+
+export function normalizeBuiltinThemeId(id: string): string {
+  if (id === "21st-light") return DEFAULT_LIGHT_THEME_ID
+  if (id === "21st-dark") return DEFAULT_DARK_THEME_ID
+  return id
+}
 
 /**
  * Set of builtin theme names (lowercase) for filtering discovered themes

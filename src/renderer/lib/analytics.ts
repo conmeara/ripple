@@ -1,25 +1,12 @@
 /**
- * PostHog analytics for 1Code Desktop - Renderer Process
- * Uses PostHog JS SDK for client-side tracking
+ * Ripple analytics boundary - renderer process.
+ *
+ * Phase 15 intentionally keeps inherited analytics no-op. Phase 16 will add
+ * Ripple-owned consent, event taxonomy, and provider configuration.
  */
-
-import posthog from "posthog-js"
-
-// PostHog configuration from environment
-const POSTHOG_DESKTOP_KEY = import.meta.env.VITE_POSTHOG_KEY
-const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com"
 
 let initialized = false
 let currentUserId: string | null = null
-let appVersion: string | null = null
-let appPlatform: string | null = null
-let appArch: string | null = null
-
-// Check if we're in development mode
-// Renderer can't access env vars directly, so we check a global flag
-const isDev = typeof window !== "undefined" &&
-  window.location.hostname === "localhost" &&
-  !(window as any).__FORCE_ANALYTICS__
 
 /**
  * Check if user has opted out of analytics
@@ -35,60 +22,13 @@ function isOptedOut(): boolean {
 }
 
 /**
- * Get common properties for all events
- */
-function getCommonProperties() {
-  return {
-    app_version: appVersion,
-    platform: appPlatform,
-    arch: appArch,
-    source: "desktop_renderer",
-  }
-}
-
-/**
- * Initialize PostHog for renderer process
+ * Initialize analytics for renderer process.
  */
 export async function initAnalytics() {
-  // Skip in development mode
-  if (isDev) return
-
   if (initialized) return
 
-  // Skip if no PostHog key configured
-  if (!POSTHOG_DESKTOP_KEY) {
-    console.log("[Analytics] Skipping PostHog initialization (no key configured)")
-    return
-  }
-
-  // Get app info from main process
-  try {
-    if (window.desktopApi?.getVersion) {
-      appVersion = await window.desktopApi.getVersion()
-    }
-    if (window.desktopApi?.platform) {
-      appPlatform = window.desktopApi.platform
-    }
-    if (window.desktopApi?.arch) {
-      appArch = window.desktopApi.arch
-    }
-  } catch (error) {
-    console.warn("[Analytics] Failed to get app info:", error)
-  }
-
-  posthog.init(POSTHOG_DESKTOP_KEY, {
-    api_host: POSTHOG_HOST,
-    // Disable automatic tracking - we track manually
-    autocapture: false,
-    capture_pageview: false,
-    capture_pageleave: false,
-    disable_session_recording: true,
-    // Privacy settings
-    person_profiles: "identified_only",
-    persistence: "localStorage",
-  })
-
   initialized = true
+  console.log("[Analytics] Disabled for Phase 15; awaiting Ripple analytics setup")
 }
 
 /**
@@ -98,18 +38,9 @@ export function capture(
   eventName: string,
   properties?: Record<string, any>,
 ) {
-  // Skip in development mode
-  if (isDev) return
-
-  // Skip if user opted out
-  if (isOptedOut()) return
-
-  if (!initialized) return
-
-  posthog.capture(eventName, {
-    ...getCommonProperties(),
-    ...properties,
-  })
+  void eventName
+  void properties
+  if (!initialized || isOptedOut()) return
 }
 
 /**
@@ -121,18 +52,8 @@ export function identify(
 ) {
   currentUserId = userId
 
-  // Skip in development mode
-  if (isDev) return
-
-  // Skip if user opted out
-  if (isOptedOut()) return
-
-  if (!initialized) return
-
-  posthog.identify(userId, {
-    ...getCommonProperties(),
-    ...traits,
-  })
+  void traits
+  if (!initialized || isOptedOut()) return
 }
 
 /**
@@ -147,9 +68,6 @@ export function getCurrentUserId(): string | null {
  */
 export function reset() {
   currentUserId = null
-  if (initialized) {
-    posthog.reset()
-  }
 }
 
 /**
@@ -157,7 +75,6 @@ export function reset() {
  */
 export function shutdown() {
   if (initialized) {
-    posthog.reset()
     initialized = false
   }
 }
@@ -180,4 +97,3 @@ export function trackMessageSent(data: {
     mode: data.mode,
   })
 }
-

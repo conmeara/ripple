@@ -19,6 +19,7 @@ import { isLegacy21stUrl } from "../lib/config"
 import { registerGitWatcherIPC } from "../lib/git/watcher"
 import { hasActiveClaudeSessions, abortAllClaudeSessions } from "../lib/trpc/routers/claude"
 import { hasActiveCodexStreams, abortAllCodexStreams } from "../lib/trpc/routers/codex"
+import { getBuildAssetPath } from "../lib/packaged-assets"
 import { registerThemeScannerIPC } from "../lib/vscode-theme-scanner"
 import { windowManager } from "./window-manager"
 
@@ -133,7 +134,10 @@ function registerIpcHandlers(): void {
         let icon: Electron.NativeImage | undefined
         if (process.platform !== "darwin") {
           const ext = process.platform === "win32" ? "icon.ico" : "icon.png"
-          const iconPath = join(__dirname, "../../build", ext)
+          const iconPath = getBuildAssetPath(ext, {
+            isPackaged: app.isPackaged,
+            moduleDir: __dirname,
+          })
           icon = existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : undefined
         }
 
@@ -185,7 +189,7 @@ function registerIpcHandlers(): void {
 
       const url = `${baseUrl}${path}`
       if (isLegacy21stUrl(url)) {
-        return { ok: false, status: 410, headers: {}, error: "Legacy 21st.dev requests are disabled" }
+        return { ok: false, status: 410, headers: {}, error: "Legacy hosted-service requests are disabled" }
       }
 
       const abortController = new AbortController()
@@ -542,7 +546,7 @@ function registerIpcHandlers(): void {
           ok: false,
           status: 410,
           data: null,
-          error: "Legacy 21st.dev requests are disabled",
+          error: "Legacy hosted-service requests are disabled",
         }
       }
 
@@ -602,7 +606,7 @@ function registerIpcHandlers(): void {
 
       if (isLegacy21stUrl(url)) {
         console.log("[StreamFetch] Blocked legacy upstream URL:", url)
-        return { ok: false, status: 410, error: "Legacy 21st.dev requests are disabled" }
+        return { ok: false, status: 410, error: "Legacy hosted-service requests are disabled" }
       }
 
       const token = await getAuthManager().getValidToken()

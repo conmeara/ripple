@@ -1,36 +1,25 @@
 #!/usr/bin/env node
 
-/**
- * Generate macOS icon with proper rounded corners for all macOS versions
- *
- * This script creates a properly rounded macOS app icon that looks good on:
- * - macOS Sequoia (26+) - where system applies automatic rounding
- * - Older macOS versions (Big Sur, Monterey, Ventura) - where manual rounding is needed
- *
- * Based on Apple's macOS Big Sur icon guidelines:
- * - 1024x1024 canvas
- * - 824x824 content area (centered)
- * - ~18% corner radius (185.4px for 1024x1024)
- * - 100px transparent padding on all sides
- */
+import { execFileSync } from "node:child_process"
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+import puppeteer from "puppeteer"
 
-import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { execSync } from 'child_process';
-import sharp from 'sharp';
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const BUILD_DIR = join(__dirname, "../build")
+const SOURCE_SVG = join(BUILD_DIR, "ripple-logo-source.svg")
+const TRAY_SOURCE_SVG = join(BUILD_DIR, "trayTemplate.svg")
+const ICON_PNG = join(BUILD_DIR, "icon.png")
+const ICON_ICO = join(BUILD_DIR, "icon.ico")
+const ICONSET_DIR = join(BUILD_DIR, "icon.iconset")
+const ICON_ICNS = join(BUILD_DIR, "icon.icns")
+const TRAY_PNG = join(BUILD_DIR, "trayTemplate.png")
+const TRAY_PNG_2X = join(BUILD_DIR, "trayTemplate@2x.png")
 
-// Paths
-const BUILD_DIR = join(__dirname, '../build');
-const INPUT_ICON = join(BUILD_DIR, 'icon.png');
-const ICONSET_DIR = join(BUILD_DIR, 'icon.iconset');
-const OUTPUT_ICON = join(BUILD_DIR, 'icon.icns');
-
-// Icon specifications
-const ICON_SIZES = [
+const ICONSET_SIZES = [
   { size: 16, scale: 1 },
   { size: 16, scale: 2 },
   { size: 32, scale: 1 },
@@ -41,166 +30,116 @@ const ICON_SIZES = [
   { size: 256, scale: 2 },
   { size: 512, scale: 1 },
   { size: 512, scale: 2 },
-];
+]
 
-/**
- * Create an SVG rounded rectangle path (Apple's squircle approximation)
- */
-function createRoundedRectSVG(width, height, radius) {
-  return `
-    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="${width}" height="${height}" rx="${radius}" ry="${radius}" fill="white"/>
-    </svg>
-  `;
+const ICO_SIZES = [16, 32, 48, 64, 128, 256]
+
+function assertFile(path) {
+  if (!existsSync(path)) {
+    throw new Error(`Missing required icon source: ${path}`)
+  }
 }
 
-/**
- * Create a rounded squircle icon following Apple's design guidelines
- * 
- * For older macOS (pre-Sequoia), icons need padding to look correct in Dock.
- * Apple recommends: 1024x1024 canvas with ~824x824 content area (100px padding).
- */
-async function createRoundedSquircle(inputPath, outputPath, size = 1024, padding = 100) {
-  const contentSize = size - (padding * 2); // 824 for 1024 canvas
-  const contentCornerRadius = Math.round(contentSize * 0.22); // ~22% for content area
+function svgDataUrl(path) {
+  const svg = readFileSync(path, "utf8")
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`
+}
 
-  console.log(`   • Processing: ${size}x${size} canvas`);
-  console.log(`   • Content area: ${contentSize}x${contentSize}`);
-  console.log(`   • Content corner radius: ${contentCornerRadius}px`);
-  console.log(`   • Padding: ${padding}px on all sides`);
+async function renderSvg(browser, sourcePath, size, outputPath) {
+  const page = await browser.newPage()
+  await page.setViewport({ width: size, height: size, deviceScaleFactor: 1 })
+  await page.setContent(
+    `<!doctype html><html><head><style>
+      html, body { margin: 0; width: ${size}px; height: ${size}px; overflow: hidden; background: transparent; }
+      img { display: block; width: ${size}px; height: ${size}px; }
+    </style></head><body><img src="${svgDataUrl(sourcePath)}" alt=""></body></html>`,
+  )
 
-  // Create rounded rectangle mask for the CONTENT area (not full canvas)
-  const maskSVG = createRoundedRectSVG(contentSize, contentSize, contentCornerRadius);
-  const maskBuffer = Buffer.from(maskSVG);
-
-  // Step 1: Resize input to content size and apply rounded mask
-  const maskedContent = await sharp(inputPath)
-    .resize(contentSize, contentSize, { fit: 'cover' })
-    .composite([
-      {
-        input: maskBuffer,
-        blend: 'dest-in'
-      }
-    ])
-    .png()
-    .toBuffer();
-
-  // Step 2: Place masked content centered on transparent canvas with padding
-  const result = await sharp({
-    create: {
-      width: size,
-      height: size,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 }
-    }
+  const screenshot = await page.screenshot({
+    path: outputPath,
+    omitBackground: true,
+    clip: { x: 0, y: 0, width: size, height: size },
   })
-    .composite([
-      {
-        input: maskedContent,
-        left: padding,
-        top: padding
-      }
-    ])
-    .png()
-    .toBuffer();
-
-  await sharp(result).toFile(outputPath);
-
-  return outputPath;
+  await page.close()
+  return Buffer.from(screenshot)
 }
 
-/**
- * Generate a specific icon size
- */
-async function generateIconSize(sourcePath, size, scale, outputDir) {
-  const actualSize = size * scale;
-  const filename = scale === 1
-    ? `icon_${size}x${size}.png`
-    : `icon_${size}x${size}@${scale}x.png`;
+function writePngIco(entries, outputPath) {
+  const headerSize = 6
+  const directorySize = 16 * entries.length
+  let imageOffset = headerSize + directorySize
 
-  const outputPath = join(outputDir, filename);
+  const header = Buffer.alloc(headerSize)
+  header.writeUInt16LE(0, 0)
+  header.writeUInt16LE(1, 2)
+  header.writeUInt16LE(entries.length, 4)
 
-  await sharp(sourcePath)
-    .resize(actualSize, actualSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .png()
-    .toFile(outputPath);
+  const directories = []
+  for (const entry of entries) {
+    const directory = Buffer.alloc(16)
+    directory.writeUInt8(entry.size === 256 ? 0 : entry.size, 0)
+    directory.writeUInt8(entry.size === 256 ? 0 : entry.size, 1)
+    directory.writeUInt8(0, 2)
+    directory.writeUInt8(0, 3)
+    directory.writeUInt16LE(1, 4)
+    directory.writeUInt16LE(32, 6)
+    directory.writeUInt32LE(entry.buffer.length, 8)
+    directory.writeUInt32LE(imageOffset, 12)
+    directories.push(directory)
+    imageOffset += entry.buffer.length
+  }
 
-  return { filename, actualSize };
+  writeFileSync(outputPath, Buffer.concat([header, ...directories, ...entries.map((entry) => entry.buffer)]))
 }
 
 async function main() {
-  console.log('🎨 Generating macOS icon with proper rounded corners...\n');
+  assertFile(SOURCE_SVG)
+  assertFile(TRAY_SOURCE_SVG)
 
-  // Check input file
-  if (!existsSync(INPUT_ICON)) {
-    console.error(`❌ Error: Input icon not found at ${INPUT_ICON}`);
-    process.exit(1);
-  }
-
-  console.log(`📂 Input:  ${INPUT_ICON}`);
-  console.log(`📂 Output: ${OUTPUT_ICON}\n`);
-
-  // Create iconset directory
   if (existsSync(ICONSET_DIR)) {
-    rmSync(ICONSET_DIR, { recursive: true });
+    rmSync(ICONSET_DIR, { recursive: true, force: true })
   }
-  mkdirSync(ICONSET_DIR, { recursive: true });
+  mkdirSync(ICONSET_DIR, { recursive: true })
 
-  // Step 1: Create rounded version
-  console.log('1️⃣  Creating rounded squircle shape...');
-
-  const roundedSource = join(ICONSET_DIR, 'source-rounded.png');
-  await createRoundedSquircle(INPUT_ICON, roundedSource);
-
-  console.log('   ✓ Created rounded icon with proper squircle shape\n');
-
-  // Step 2: Generate all sizes
-  console.log('2️⃣  Generating all required icon sizes...');
-
-  for (const { size, scale } of ICON_SIZES) {
-    const { filename, actualSize } = await generateIconSize(
-      roundedSource,
-      size,
-      scale,
-      ICONSET_DIR
-    );
-    console.log(`   ✓ ${filename} (${actualSize}x${actualSize})`);
-  }
-
-  // Clean up temp file
-  if (existsSync(roundedSource)) {
-    rmSync(roundedSource);
-  }
-
-  // Step 3: Create .icns file
-  console.log('\n3️⃣  Creating .icns file...');
+  const browser = await puppeteer.launch({
+    headless: true,
+    executablePath: puppeteer.executablePath(),
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  })
 
   try {
-    execSync(`iconutil -c icns "${ICONSET_DIR}" -o "${OUTPUT_ICON}"`, { stdio: 'pipe' });
+    console.log("Generating Ripple app icons from SVG source...")
 
-    console.log(`   ✓ Created ${OUTPUT_ICON.split('/').pop()}`);
+    await renderSvg(browser, SOURCE_SVG, 1024, ICON_PNG)
+    console.log("  wrote build/icon.png")
 
-    // Clean up iconset directory
-    rmSync(ICONSET_DIR, { recursive: true });
+    for (const { size, scale } of ICONSET_SIZES) {
+      const actualSize = size * scale
+      const filename = scale === 1 ? `icon_${size}x${size}.png` : `icon_${size}x${size}@${scale}x.png`
+      await renderSvg(browser, SOURCE_SVG, actualSize, join(ICONSET_DIR, filename))
+      console.log(`  wrote build/icon.iconset/${filename}`)
+    }
 
-    console.log('\n✅ Success! Icon generated with proper macOS rounded corners');
-    console.log(`   File: ${OUTPUT_ICON}`);
-    console.log('\n📝 This icon will now look correct on:');
-    console.log('   • macOS Sequoia (26+) - system auto-rounding');
-    console.log('   • macOS Ventura, Monterey, Big Sur - manual rounding');
-    console.log('   • Older macOS versions');
-    console.log('\n🔄 Next steps:');
-    console.log('   1. Update package.json to use: "icon": "build/icon.icns"');
-    console.log('   2. Rebuild your app: npm run package:mac');
+    execFileSync("iconutil", ["-c", "icns", ICONSET_DIR, "-o", ICON_ICNS], { stdio: "pipe" })
+    rmSync(ICONSET_DIR, { recursive: true, force: true })
+    console.log("  wrote build/icon.icns")
 
-  } catch (error) {
-    console.error('\n❌ Error creating .icns file:', error.message);
-    console.error('   Make sure you\'re running on macOS with iconutil available');
-    process.exit(1);
+    const icoEntries = []
+    for (const size of ICO_SIZES) {
+      icoEntries.push({ size, buffer: await renderSvg(browser, SOURCE_SVG, size) })
+    }
+    writePngIco(icoEntries, ICON_ICO)
+    console.log("  wrote build/icon.ico")
+
+    await renderSvg(browser, TRAY_SOURCE_SVG, 22, TRAY_PNG)
+    await renderSvg(browser, TRAY_SOURCE_SVG, 44, TRAY_PNG_2X)
+    console.log("  wrote tray template PNGs")
+  } finally {
+    await browser.close()
   }
 }
 
-main().catch(error => {
-  console.error('❌ Fatal error:', error);
-  process.exit(1);
-});
+main().catch((error) => {
+  console.error(error)
+  process.exit(1)
+})

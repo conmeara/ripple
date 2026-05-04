@@ -50,9 +50,6 @@ import { remoteTrpc } from "../../lib/remote-trpc"
 const useCombinedAuth = () => ({ userId: null, isLoaded: true })
 // import { AuthDialog } from "@/components/auth/auth-dialog"
 const AuthDialog = (_props: { open?: boolean; onOpenChange?: (open: boolean) => void }) => null
-// Desktop: archive is handled inline, not via hook
-// import { DiscordIcon } from "@/components/icons"
-import { DiscordIcon } from "../../icons"
 import { AgentsRenameSubChatDialog } from "../agents/components/agents-rename-subchat-dialog"
 import { OpenLocallyDialog } from "../agents/components/open-locally-dialog"
 import { useAutoImport } from "../agents/hooks/use-auto-import"
@@ -100,6 +97,7 @@ import {
   KeyboardIcon,
   TicketIcon,
   CloudIcon,
+  MailIcon,
 } from "../../components/ui/icons"
 import { Logo } from "../../components/ui/logo"
 import { Input } from "../../components/ui/input"
@@ -142,9 +140,11 @@ import { findReusableProjectChat } from "./project-chat-selection"
 import { TypewriterText } from "../../components/ui/typewriter-text"
 import { exportChat, copyChat, type ExportFormat } from "../agents/lib/export-chat"
 
-// Feedback URL: uses env variable for hosted version, falls back to public Discord for open source
-const FEEDBACK_URL =
-  import.meta.env.VITE_FEEDBACK_URL || "https://discord.gg/8ektTZGnj4"
+const SUPPORT_EMAIL = "conor.omeara@icloud.com"
+const FEEDBACK_EMAIL_URL = `mailto:${SUPPORT_EMAIL}`
+const FEEDBACK_ISSUE_URL =
+  import.meta.env.VITE_FEEDBACK_ISSUE_URL ||
+  "https://github.com/conmeara/ripple/issues/new"
 
 // GitHub avatar with loading placeholder
 const GitHubAvatar = React.memo(function GitHubAvatar({
@@ -1382,12 +1382,12 @@ const SidebarHeader = memo(function SidebarHeader({
               <DropdownMenuTrigger asChild>
                 <ButtonCustom
                   variant="ghost"
-                  className="h-6 px-1.5 justify-start hover:bg-foreground/10 rounded-md group/team-button max-w-full"
+                  className="h-8 px-1.5 justify-start hover:bg-foreground/10 rounded-md group/team-button max-w-full"
                   suppressHydrationWarning
                 >
-                  <div className="flex items-center gap-1.5 min-w-0 max-w-full">
+                  <div className="flex items-center gap-2 min-w-0 max-w-full">
                     <div className="flex items-center justify-center flex-shrink-0">
-                      <Logo className="w-3.5 h-3.5" />
+                      <Logo className="h-6 w-6" />
                     </div>
                     <div className="min-w-0 flex-1 overflow-hidden">
                       <div className="text-sm font-medium text-foreground truncate">
@@ -1463,30 +1463,15 @@ const SidebarHeader = memo(function SidebarHeader({
                       >
                         <DropdownMenuItem
                           onSelect={() => {
-                            window.open(
-                              "https://discord.gg/8ektTZGnj4",
-                              "_blank",
-                            )
                             setIsDropdownOpen(false)
+                            setSettingsActiveTab("keyboard")
+                            setSettingsDialogOpen(true)
                           }}
                           className="gap-2"
                         >
-                          <DiscordIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="flex-1">Discord</span>
+                          <KeyboardIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="flex-1">Shortcuts</span>
                         </DropdownMenuItem>
-                        {!isMobileFullscreen && (
-                          <DropdownMenuItem
-                            onSelect={() => {
-                              setIsDropdownOpen(false)
-                              setSettingsActiveTab("keyboard")
-                              setSettingsDialogOpen(true)
-                            }}
-                            className="gap-2"
-                          >
-                            <KeyboardIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="flex-1">Shortcuts</span>
-                          </DropdownMenuItem>
-                        )}
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
 
@@ -1564,30 +1549,15 @@ const SidebarHeader = memo(function SidebarHeader({
                       >
                         <DropdownMenuItem
                           onSelect={() => {
-                            window.open(
-                              "https://discord.gg/8ektTZGnj4",
-                              "_blank",
-                            )
                             setIsDropdownOpen(false)
+                            setSettingsActiveTab("keyboard")
+                            setSettingsDialogOpen(true)
                           }}
                           className="gap-2"
                         >
-                          <DiscordIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="flex-1">Discord</span>
+                          <KeyboardIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="flex-1">Shortcuts</span>
                         </DropdownMenuItem>
-                        {!isMobileFullscreen && (
-                          <DropdownMenuItem
-                            onSelect={() => {
-                              setIsDropdownOpen(false)
-                              setSettingsActiveTab("keyboard")
-                              setSettingsDialogOpen(true)
-                            }}
-                            className="gap-2"
-                          >
-                            <KeyboardIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="flex-1">Shortcuts</span>
-                          </DropdownMenuItem>
-                        )}
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
                   </>
@@ -1603,11 +1573,7 @@ const SidebarHeader = memo(function SidebarHeader({
 
 // Isolated Help Section - subscribes to agentsHelpPopoverOpenAtom internally
 // to prevent sidebar re-renders when popover opens/closes
-interface HelpSectionProps {
-  isMobile: boolean
-}
-
-const HelpSection = memo(function HelpSection({ isMobile }: HelpSectionProps) {
+const HelpSection = memo(function HelpSection() {
   const [helpPopoverOpen, setHelpPopoverOpen] = useAtom(agentsHelpPopoverOpenAtom)
   const [blockHelpTooltip, setBlockHelpTooltip] = useState(false)
   const prevHelpPopoverOpen = useRef(false)
@@ -1635,7 +1601,6 @@ const HelpSection = memo(function HelpSection({ isMobile }: HelpSectionProps) {
           <AgentsHelpPopover
             open={helpPopoverOpen}
             onOpenChange={setHelpPopoverOpen}
-            isMobile={isMobile}
           >
             <button
               ref={helpButtonRef}
@@ -3617,7 +3582,7 @@ export function AgentsSidebar({
                 </Tooltip>
 
                 {/* Help Button - isolated component to prevent sidebar re-renders */}
-                <HelpSection isMobile={isMobileFullscreen} />
+                <HelpSection />
 
                 {/* Kanban View Button - isolated component */}
                 <KanbanButton />
@@ -3630,17 +3595,36 @@ export function AgentsSidebar({
             </div>
 
             {/* Feedback Button */}
-            <ButtonCustom
-              onClick={() => window.open(FEEDBACK_URL, "_blank")}
-              variant="outline"
-              size="sm"
-              className={cn(
-                "px-2 w-full hover:bg-foreground/10 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] text-foreground rounded-lg gap-1.5",
-                isMobileFullscreen ? "h-10" : "h-7",
-              )}
-            >
-              <span className="text-sm font-medium">Feedback</span>
-            </ButtonCustom>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <ButtonCustom
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "px-2 w-full hover:bg-foreground/10 transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] text-foreground rounded-lg gap-1.5",
+                    isMobileFullscreen ? "h-10" : "h-7",
+                  )}
+                >
+                  <span className="text-sm font-medium">Feedback</span>
+                </ButtonCustom>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="center" className="w-44">
+                <DropdownMenuItem
+                  onSelect={() => window.desktopApi.openExternal(FEEDBACK_EMAIL_URL)}
+                  className="gap-2"
+                >
+                  <MailIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="flex-1">Email</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => window.desktopApi.openExternal(FEEDBACK_ISSUE_URL)}
+                  className="gap-2"
+                >
+                  <GitHubLogo className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="flex-1">GitHub Issue</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </motion.div>
         )}
       </AnimatePresence>

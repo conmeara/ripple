@@ -1,5 +1,5 @@
 import { readFile, writeFile, mkdir, access } from "node:fs/promises"
-import { join, dirname, isAbsolute } from "node:path"
+import { join, dirname, isAbsolute, relative } from "node:path"
 import { exec } from "node:child_process"
 import { promisify } from "node:util"
 
@@ -22,6 +22,12 @@ export interface DetectedWorktreeConfig {
 const CURSOR_CONFIG_PATH = ".cursor/worktrees.json"
 const RIPPLE_CONFIG_PATH = ".ripple/worktree.json"
 const ONECODE_CONFIG_PATH = ".1code/worktree.json"
+
+function targetsLegacyOneCodeConfig(projectPath: string, targetPath: string): boolean {
+  const relativeTarget = relative(projectPath, targetPath)
+  const [firstSegment] = relativeTarget.split(/[\\/]+/)
+  return firstSegment === ".1code"
+}
 
 async function fileExists(filePath: string): Promise<boolean> {
   try {
@@ -128,7 +134,7 @@ export async function getAvailableConfigPaths(
 export async function saveWorktreeConfig(
   projectPath: string,
   config: WorktreeConfig,
-  target: "ripple" | "cursor" | "1code" | string = "ripple",
+  target: "ripple" | "cursor" | string = "ripple",
 ): Promise<{ success: boolean; path: string; error?: string }> {
   let targetPath: string
 
@@ -137,10 +143,21 @@ export async function saveWorktreeConfig(
   } else if (target === "cursor") {
     targetPath = join(projectPath, CURSOR_CONFIG_PATH)
   } else if (target === "1code") {
-    targetPath = join(projectPath, ONECODE_CONFIG_PATH)
+    return {
+      success: false,
+      path: join(projectPath, ONECODE_CONFIG_PATH),
+      error: "Legacy .1code config is read-only in Ripple",
+    }
   } else {
     // Custom path
     targetPath = isAbsolute(target) ? target : join(projectPath, target)
+    if (targetsLegacyOneCodeConfig(projectPath, targetPath)) {
+      return {
+        success: false,
+        path: targetPath,
+        error: "Legacy .1code config is read-only in Ripple",
+      }
+    }
   }
 
   try {

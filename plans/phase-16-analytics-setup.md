@@ -26,6 +26,12 @@ development, and tests remain analytics-disabled unless explicitly forced, and
 forced captures must include an `environment` property so they can be filtered
 out of product analysis.
 
+For the first release, PostHog also acts as the temporary update-contact sink
+for users who explicitly enter an email and enable weekly app updates. This is
+not anonymous product analytics: it must use a dedicated contact opt-in event
+and person property update, must not be gated by analytics opt-in, and must be
+described separately in onboarding and privacy copy.
+
 ## Progress
 
 - [x] 2026-05-03 / Codex: Read `PLANS.md`, `ROADMAP.md`, and audited the
@@ -34,6 +40,16 @@ out of product analysis.
 - [x] 2026-05-03 / Codex: Discussed the open source distribution model, first
   PostHog account setup, explicit opt-in consent, and the one-PostHog-project
   default with `environment` tagging for any non-production captures.
+- [x] 2026-05-04 / Codex: Created the Ripple PostHog project, renamed it to
+  `Ripple`, and recorded its local-only configuration in an ignored `.env`.
+- [x] 2026-05-04 / Codex: Decided the Phase 17 first-run dialog should collect
+  optional Ripple account/email update-subscription intent separately from
+  analytics consent, and that analytics consent remains off by default with a
+  public transparency link.
+- [x] 2026-05-04 / Codex: Decided not to add Supabase or a full account backend
+  for v1; opted-in update emails will be captured in the existing PostHog
+  project as a separate contact list path while full accounts remain future
+  work.
 - [ ] Implement Milestone 0: create and wire the first Ripple PostHog project
   configuration for official builds without committing inherited or hardcoded
   keys.
@@ -88,6 +104,17 @@ out of product analysis.
   Evidence: `src/main/index.ts`, `src/preload/index.ts`,
   `src/renderer/main.tsx`, `src/renderer/features/agents/lib/ipc-chat-transport.ts`,
   and `src/main/lib/trpc/routers/claude.ts`.
+- Observation: The first Ripple PostHog project is available and renamed from
+  `Default project` to `Ripple`.
+  Evidence: PostHog project ID `281249`, region `US Cloud`, capture host
+  `https://us.i.posthog.com`, project token recorded in ignored `.env` via
+  `MAIN_VITE_RIPPLE_ANALYTICS_KEY`, `MAIN_VITE_RIPPLE_ANALYTICS_HOST`,
+  `VITE_RIPPLE_ANALYTICS_KEY`, and `VITE_RIPPLE_ANALYTICS_HOST`.
+- Observation: The checked-in env example already documents Ripple-owned
+  analytics variable names.
+  Evidence: `.env.example` includes `MAIN_VITE_RIPPLE_ANALYTICS_KEY`,
+  `MAIN_VITE_RIPPLE_ANALYTICS_HOST`, `VITE_RIPPLE_ANALYTICS_KEY`, and
+  `VITE_RIPPLE_ANALYTICS_HOST`.
 
 ## Decision Log
 
@@ -103,12 +130,13 @@ out of product analysis.
   professional if local/dev/test captures are disabled by default and any forced
   diagnostic captures carry a filterable `environment` property.
   Date/Author: 2026-05-03 / Codex.
-- Decision: Onboarding may collect an optional user email separately from
-  analytics consent, but analytics events should use a random install or
-  analytics user ID by default and must not include the email in event
-  properties.
-  Rationale: Email can support updates, support, or account flows without
-  turning product analytics into personally identifying activity logs.
+- Decision: Onboarding may create or connect an optional Ripple account with
+  email separately from analytics consent, but analytics events should use a
+  random install or analytics user ID by default and must not include the email
+  in event properties.
+  Rationale: Accounts can support updates, support, and future hosted
+  convenience features without turning product analytics into personally
+  identifying activity logs.
   Date/Author: 2026-05-03 / Codex.
 - Decision: Main process should own analytics provider initialization,
   persisted consent, event sanitization, and shutdown. Renderer code may request
@@ -130,6 +158,45 @@ out of product analysis.
   Rationale: Existing Sentry extras can include local paths and chat identifiers,
   so it has the same trust implications as analytics.
   Date/Author: 2026-05-03 / Codex.
+- Decision: Analytics opt-in defaults to off. The onboarding/settings copy
+  should frame the choice as helping improve a personal open source project and
+  state that analytics are anonymous product analytics.
+  Rationale: The user explicitly wants a trust-first, optional analytics prompt
+  rather than inherited opt-out behavior.
+  Date/Author: 2026-05-04 / Codex.
+- Decision: The Phase 17 first-run dialog includes an optional Ripple
+  account/email section before analytics. Account/email entry and a "weekly app
+  updates" preference are separate from analytics consent, and the app remains
+  usable without entering an email or signing in.
+  Rationale: Ripple can support accounts, updates, and future hosted
+  convenience features without making local project creation depend on a hosted
+  account.
+  Date/Author: 2026-05-04 / Codex.
+- Decision: For v1, do not create a Supabase or full hosted account backend just
+  to collect launch-interest email addresses. When a user enters an email and
+  explicitly enables weekly app updates, send that email to PostHog as a
+  dedicated contact opt-in/person-property update. Store the same preference
+  locally with sync status, and keep full hosted account sync for a later
+  account phase.
+  Rationale: The user wants to contact early users about V2 and future account
+  features without committing to backend infrastructure before product interest
+  is proven.
+  Date/Author: 2026-05-04 / Codex.
+- Decision: Contact capture and anonymous product analytics are separate
+  consent paths even if both use the same PostHog project for v1. Normal product
+  analytics events must never include email. The only allowed email-bearing
+  payload is the dedicated contact opt-in/update path, and only after the weekly
+  updates toggle is enabled.
+  Rationale: This preserves the anonymous analytics promise while still making
+  the release useful for contacting opted-in early users.
+  Date/Author: 2026-05-04 / Codex.
+- Decision: Phase 16 must create a public transparency artifact for analytics,
+  preferably a checked-in GitHub document and optionally a Gist, and Phase 17
+  onboarding should link to it with "Let me show you" or equivalent copy.
+  Rationale: The user wants people to inspect the actual event/privacy code and
+  trust that project files, prompts, agent conversations, media, comments, and
+  file paths are excluded.
+  Date/Author: 2026-05-04 / Codex.
 
 ## Outcomes & Retrospective
 
@@ -201,6 +268,13 @@ events to Ripple. If a developer needs to test analytics locally, they can opt
 into a force mode with explicit configuration and an `environment: "development"`
 or `environment: "test"` property.
 
+The first project is now created in PostHog as `Ripple`, project ID `281249`,
+region `US Cloud`, with capture host `https://us.i.posthog.com`. The project
+token is present only in the ignored local `.env` and should be moved into
+release/CI secrets for official builds rather than hardcoded into source. A
+personal PostHog API key is not required for Phase 16 unless a later task
+automates dashboard, insight, or project administration.
+
 Second, define the event contract before changing call sites. Add a documented
 event map that names every Phase 16 event, when it fires, required properties,
 allowed optional properties, and explicit forbidden data. The initial map should
@@ -211,6 +285,10 @@ lifecycles, comment created/replied/resolved, revision requested/previewed/
 accepted/rejected, export opened/started/succeeded/failed/cancelled, and
 first-run setup failure. The map should use product terms such as project,
 composition, preview, timeline, asset, chat, comment, revision, and export.
+Publish a human-readable privacy and event-map document in the repository, and
+if desired mirror it to a Gist for the onboarding "Let me show you" link. The
+document must explain the allowed event map and the forbidden payload classes in
+plain language.
 
 Third, collapse analytics provider ownership into the main process. Replace the
 hardcoded PostHog key fallback with explicit configuration, keep dev/test off by
@@ -225,10 +303,16 @@ or turn `src/renderer/lib/analytics.ts` into a typed IPC client that asks the
 main process to record allowed UI events. Update settings copy from Agents to
 Ripple and make the control truthful about whether sharing is off, on, or
 unconfigured. Phase 17 onboarding can reuse the same consent APIs for the
-optional email plus analytics opt-in screen, so this phase should keep the API
-surface onboarding-ready even if the first-run screen ships later. Email capture
-and analytics capture should remain separate flows unless the user explicitly
-opts into a later account-linked analytics policy.
+optional Ripple account/email plus analytics opt-in screen, so this phase
+should keep the API surface onboarding-ready even if the first-run screen ships
+later. The analytics prompt copy should say, in spirit: "Help me improve the
+project" and
+"Share anonymous product analytics. This never includes project files, prompts,
+agent conversations, comments, media, exports, or file paths." Email capture and
+analytics capture remain separate flows. For v1, weekly-update email capture
+uses a dedicated PostHog contact opt-in helper that sets person/contact
+properties only after explicit update-email consent; it is not the general
+analytics capture path.
 
 Fifth, replace inherited event helpers and call sites with Ripple events.
 Project APIs should record project-created and project-opened using sanitized
@@ -257,9 +341,11 @@ the documented map.
 Run commands from `/Users/conmeara/code/ripple` unless noted otherwise.
 
 1. Confirm the current dirty worktree and avoid touching unrelated files.
-2. Create the first Ripple PostHog project. Record the project host/region and
+2. Use the existing `Ripple` PostHog project. Record the project host/region and
    project key in local/release configuration, not as a source-controlled
-   hardcoded fallback.
+   hardcoded fallback. Current local `.env` values are:
+   `MAIN_VITE_RIPPLE_ANALYTICS_KEY`, `MAIN_VITE_RIPPLE_ANALYTICS_HOST`,
+   `VITE_RIPPLE_ANALYTICS_KEY`, and `VITE_RIPPLE_ANALYTICS_HOST`.
 3. Decide the official build variable names. Prefer a main-process-only
    configuration path such as `MAIN_VITE_RIPPLE_POSTHOG_KEY` and
    `MAIN_VITE_RIPPLE_POSTHOG_HOST`, or rename the existing `MAIN_VITE_POSTHOG_*`
@@ -267,9 +353,9 @@ Run commands from `/Users/conmeara/code/ripple` unless noted otherwise.
 4. Add an `environment` property to the common event properties with values such
    as `production`, `development`, and `test`. Production official builds should
    be the only normal sender; development/test should be disabled unless forced.
-5. Add the event map, either inside this plan's Artifacts section during design
-   or as a separate checked-in document such as `docs/analytics-event-map.md`
-   when implementation begins.
+5. Add the event map and trust document as checked-in public docs, such as
+   `docs/analytics-event-map.md` and `docs/privacy/analytics.md`, then record
+   the public GitHub or Gist URL that Phase 17 should open from onboarding.
 6. Update `src/main/lib/analytics.ts` to remove the hardcoded PostHog key,
    centralize provider initialization, read persisted consent before startup
    events, catch provider errors, and expose typed event helpers.
@@ -286,14 +372,22 @@ Run commands from `/Users/conmeara/code/ripple` unless noted otherwise.
    `src/renderer/components/dialogs/settings-tabs/agents-preferences-tab.tsx`
    or its Ripple successor with accurate Ripple language and persisted consent
    state.
-12. Replace current event call sites in `projects.ts`, `chats.ts`, renderer chat
+12. Add or prepare the account/profile preference surface for Phase 17:
+   optional Ripple account/email, weekly update opt-in, and analytics consent
+   must be separate stored preferences and separate event flows.
+13. Add a dedicated contact-capture helper for Phase 17 that can send
+   `ripple_contact_opt_in`, `ripple_contact_updated`, and
+   `ripple_contact_opt_out` to PostHog person/contact data only when the user
+   explicitly enables weekly app update emails. Do not route these calls through
+   normal anonymous analytics capture.
+14. Replace current event call sites in `projects.ts`, `chats.ts`, renderer chat
    components, HyperFrames preview/router code, comments/revisions services,
    and export services with typed Ripple events.
-13. Audit Sentry initialization and capture extras, then align it with the
+15. Audit Sentry initialization and capture extras, then align it with the
    chosen consent/sanitization model.
-14. Add focused tests for consent/config/sanitization. Prefer dependency
+16. Add focused tests for consent/config/sanitization. Prefer dependency
    injection for a fake analytics provider over networked PostHog tests.
-15. Run validation commands and update this ExecPlan with results and any
+17. Run validation commands and update this ExecPlan with results and any
    follow-up risks.
 
 ## Validation and Acceptance
@@ -322,6 +416,13 @@ Additional smoke checks:
   configured, complete the opt-in path and send one test event. Expected:
   PostHog receives a sanitized Ripple event with `environment: "production"` and
   no email, file path, prompt, message, comment body, media, or output path.
+- In an official-build-like environment with the Ripple PostHog key/host
+  configured, enter an email and enable weekly app updates while leaving
+  analytics off. Expected: PostHog receives only the dedicated contact opt-in
+  event/person update with email and consent metadata; normal analytics events
+  remain off.
+- Disable weekly updates after opting in. Expected: PostHog receives a dedicated
+  contact opt-out/update and local `contactSyncStatus` reflects the result.
 - In a local source-build environment without analytics configuration, complete
   the opt-in path. Expected: analytics status is `unconfigured`; no event is
   sent and no workflow is blocked.
@@ -341,8 +442,12 @@ Acceptance criteria:
   export.
 - Users can understand and change analytics consent from settings, and Phase 17
   onboarding can reuse the same persisted consent API.
-- The onboarding-ready API supports optional email entry and analytics opt-in as
-  separate choices; analytics payloads do not include email by default.
+- The onboarding-ready API supports optional Ripple account/email entry and
+  analytics opt-in as separate choices; analytics payloads do not include email
+  by default.
+- Opted-in update emails are captured through a dedicated PostHog contact path
+  for v1, without adding a Supabase/full-account backend and without treating
+  email capture as anonymous analytics.
 - Development, test, and packaged-app behavior is documented and covered by
   tests or smoke evidence.
 
@@ -422,8 +527,12 @@ Candidate Ripple event map:
 | --- | --- | --- |
 | `app_opened` | Ripple starts after consent/config checks | `first_launch`, `app_version`, `platform`, `environment`, `app_channel` |
 | `analytics_consent_updated` | user changes analytics choice | `enabled`, `source` |
+| `account_preference_updated` | user changes optional account/email/update preferences | `account_status`, `email_provided`, `weekly_updates_enabled`, `source` |
+| `ripple_contact_opt_in` | user explicitly enables weekly app update emails | `contact_id`, `email`, `weekly_updates_enabled`, `consent_version`, `source`, `app_version`, `platform` |
+| `ripple_contact_updated` | user changes contact email or update preference | `contact_id`, `email_provided`, `weekly_updates_enabled`, `consent_version`, `source` |
+| `ripple_contact_opt_out` | user disables weekly app update emails | `contact_id`, `weekly_updates_enabled`, `source` |
 | `onboarding_started` | first-run onboarding opens | `entry_reason` |
-| `onboarding_completed` | first-run onboarding finishes | `analytics_choice`, `email_provided`, `provider_choice`, `created_project` |
+| `onboarding_completed` | first-run onboarding finishes | `analytics_choice`, `account_choice`, `account_status`, `email_provided`, `weekly_updates_enabled`, `provider_choice`, `created_project` |
 | `onboarding_skipped` | optional onboarding is skipped | `step` |
 | `project_create_started` | user starts creating a project | `source`, `template_category`, `aspect_ratio` |
 | `project_created` | a Ripple project is scaffolded | `template_id`, `template_category`, `aspect_ratio`, `setup_status` |
@@ -482,3 +591,18 @@ Forbidden analytics payload data:
 - user email, API keys, tokens, provider credentials, provider-native thread or
   session IDs
 - raw stderr/stdout, unsanitized exception details, or environment dumps
+
+Exception: user email is allowed only in the dedicated PostHog contact capture
+path for users who explicitly opt into weekly app update emails. It is still
+forbidden in anonymous product analytics events, crash reports, session replay,
+autocapture, logs, and exported transparency examples.
+
+Local PostHog setup recorded on 2026-05-04:
+
+- Project name: `Ripple`
+- Project ID: `281249`
+- Region: `US Cloud`
+- Capture host: `https://us.i.posthog.com`
+- App/settings host: `https://us.posthog.com`
+- Token storage: ignored local `.env`, with release/CI secret wiring still
+  required before official builds.

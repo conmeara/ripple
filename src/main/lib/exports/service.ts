@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray } from "drizzle-orm"
-import { shell } from "electron"
+import * as electron from "electron"
 import { copyFile, stat } from "node:fs/promises"
 import { resolve } from "node:path"
 import {
@@ -520,13 +520,13 @@ export class ExportService {
 
   async revealOutput(jobId: string): Promise<{ success: true; path: string }> {
     const path = this.getCompletedOutputPath(jobId)
-    shell.showItemInFolder(path)
+    electron.shell.showItemInFolder(path)
     return { success: true, path }
   }
 
   async openOutput(jobId: string): Promise<{ success: true; path: string }> {
     const path = this.getCompletedOutputPath(jobId)
-    const message = await shell.openPath(path)
+    const message = await electron.shell.openPath(path)
     if (message) {
       throw new HyperframesError(message, "EXPORT_OPEN_FAILED")
     }

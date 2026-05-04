@@ -171,7 +171,8 @@ bun run dev
 
 ## Feedback & Community
 
-Join our [Discord](https://discord.gg/8ektTZGnj4) for support and discussions.
+Send feedback to [conor.omeara@icloud.com](mailto:conor.omeara@icloud.com)
+or open a [GitHub issue](https://github.com/conmeara/ripple/issues/new).
 
 ## License
 

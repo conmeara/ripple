@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/electron/main"
 import { app, BrowserWindow, dialog, Menu, nativeImage, session } from "electron"
 import { existsSync, readFileSync, readlinkSync, unlinkSync } from "fs"
 import { createServer } from "http"
-import { join } from "path"
+import { dirname, join } from "path"
 import { AuthManager, initAuthManager, getAuthManager as getAuthManagerFromModule } from "./auth-manager"
 import {
   identify,
@@ -20,6 +20,14 @@ import {
 } from "./lib/auto-updater"
 import { closeDatabase, initDatabase } from "./lib/db"
 import { getApiUrl } from "./lib/config"
+import {
+  getAppId,
+  getAppProtocol,
+  getAppUserDataDir,
+  getLegacyUserDataDirs,
+  isAcceptedInboundProtocol,
+  RIPPLE_IDENTITY,
+} from "../shared/app-identity"
 import {
   getLaunchDirectory,
   isCliInstalled,
@@ -55,18 +63,41 @@ import {
 import { windowManager } from "./windows/window-manager"
 
 import { IS_DEV, AUTH_SERVER_PORT } from "./constants"
+import { getBuildAssetPath } from "./lib/packaged-assets"
+import { migrateLegacyUserData } from "./lib/user-data-migration"
 
 // Deep link protocol (must match package.json build.protocols.schemes)
 // Use different protocol in dev to avoid conflicts with production app
-const PROTOCOL = IS_DEV ? "twentyfirst-agents-dev" : "twentyfirst-agents"
+const PROTOCOL = getAppProtocol(IS_DEV)
 
 // Set dev mode userData path BEFORE requestSingleInstanceLock()
 // This ensures dev and prod have separate instance locks
-if (IS_DEV) {
-  const { join } = require("path")
-  const devUserData = join(app.getPath("userData"), "..", "Agents Dev")
-  app.setPath("userData", devUserData)
-  console.log("[Dev] Using separate userData path:", devUserData)
+{
+  const defaultUserDataPath = app.getPath("userData")
+  const appDataParent = dirname(defaultUserDataPath)
+  const userDataPath = join(appDataParent, getAppUserDataDir(IS_DEV))
+  app.setPath("userData", userDataPath)
+
+  const legacyUserDataPaths = getLegacyUserDataDirs(IS_DEV)
+    .map((dirName) => join(appDataParent, dirName))
+    .filter((legacyPath) => legacyPath !== userDataPath)
+
+  const migration = migrateLegacyUserData({
+    destinationPath: userDataPath,
+    legacyPaths: legacyUserDataPaths,
+    appVersion: app.getVersion(),
+  })
+
+  if (migration.migrated) {
+    console.log(
+      `[App] Migrated legacy userData from ${migration.sourcePath} to ${migration.destinationPath}`,
+    )
+    if (migration.authReadable === false) {
+      console.warn("[App] Migrated auth data could not be decrypted")
+    }
+  } else if (IS_DEV) {
+    console.log("[Dev] Using separate userData path:", userDataPath)
+  }
 }
 
 // Increase V8 old-space limit for renderer/main processes to reduce OOM frequency
@@ -94,9 +125,8 @@ if (app.isPackaged && !IS_DEV) {
   console.log("[App] Skipping Sentry initialization (dev mode)")
 }
 
-// Hosted-service URL configuration. Local Ripple builds do not default to the
-// old 21st.dev backend; an optional future service must be configured
-// explicitly.
+// Hosted-service URL configuration. Local Ripple builds do not default to any
+// hosted backend; an optional future service must be configured explicitly.
 export function getBaseUrl(): string | null {
   return getApiUrl()
 }
@@ -211,7 +241,7 @@ function handleDeepLink(url: string): void {
   try {
     const parsed = new URL(url)
 
-    // Handle auth callback: twentyfirst-agents://auth?code=xxx
+    // Handle auth callback: ripple://auth?code=xxx
     if (parsed.pathname === "/auth" || parsed.host === "auth") {
       const code = parsed.searchParams.get("code")
       if (code) {
@@ -220,7 +250,7 @@ function handleDeepLink(url: string): void {
       }
     }
 
-    // Handle MCP OAuth callback: twentyfirst-agents://mcp-oauth?code=xxx&state=yyy
+    // Handle MCP OAuth callback: ripple://mcp-oauth?code=xxx&state=yyy
     if (parsed.pathname === "/mcp-oauth" || parsed.host === "mcp-oauth") {
       const code = parsed.searchParams.get("code")
       const state = parsed.searchParams.get("state")
@@ -302,8 +332,20 @@ console.log("[Protocol] =============================================")
 
 // Note: app.on("open-url") will be registered in app.whenReady()
 
-// SVG favicon as data URI for auth callback pages (matches web app favicon)
-const FAVICON_SVG = `<svg width="32" height="32" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="1024" height="1024" fill="#0033FF"/><path fill-rule="evenodd" clip-rule="evenodd" d="M800.165 148C842.048 148 876 181.952 876 223.835V686.415C876 690.606 872.606 694 868.415 694H640.915C636.729 694 633.335 697.394 633.335 701.585V868.415C633.335 872.606 629.936 876 625.75 876H223.835C181.952 876 148 842.048 148 800.165V702.59C148 697.262 150.807 692.326 155.376 689.586L427.843 526.1C434.031 522.388 431.956 513.238 425.327 512.118L423.962 512H155.585C151.394 512 148 508.606 148 504.415V337.585C148 333.394 151.394 330 155.585 330H443.75C447.936 330 451.335 326.606 451.335 322.415V155.585C451.335 151.394 454.729 148 458.915 148H800.165ZM458.915 330C454.729 330 451.335 333.394 451.335 337.585V686.415C451.335 690.606 454.729 694 458.915 694H625.75C629.936 694 633.335 690.606 633.335 686.415V337.585C633.335 333.394 629.936 330 625.75 330H458.915Z" fill="#F4F4F4"/></svg>`
+function findDeepLinkArg(args: string[]): string | undefined {
+  return args.find((arg) => {
+    try {
+      const parsed = new URL(arg)
+      return isAcceptedInboundProtocol(parsed.protocol, IS_DEV)
+    } catch {
+      return false
+    }
+  })
+}
+
+// SVG favicon as data URI for auth callback pages. This mirrors
+// build/ripple-logo-source.svg.
+const FAVICON_SVG = `<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><filter id="mark-glow" x="198" y="323" width="628" height="378" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="0" stdDeviation="11" flood-color="#FFFFFF" flood-opacity="0.42"/><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.34"/></filter><filter id="playhead-glow" x="433" y="108" width="158" height="808" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="0" stdDeviation="14" flood-color="#FFFFFF" flood-opacity="0.48"/><feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#000000" flood-opacity="0.34"/></filter><clipPath id="tileClip"><rect width="1024" height="1024" rx="220"/></clipPath></defs><g clip-path="url(#tileClip)"><rect width="1024" height="1024" rx="220" fill="#050505"/><g filter="url(#mark-glow)" stroke="#FFFFFF" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"><path d="M360 390L254 512L360 634"/><path d="M664 390L770 512L664 634"/></g><g filter="url(#playhead-glow)"><rect x="480" y="154" width="64" height="716" rx="32" fill="#FFFFFF"/></g></g></svg>`
 const FAVICON_DATA_URI = `data:image/svg+xml,${encodeURIComponent(FAVICON_SVG)}`
 
 // Start local HTTP server for auth callbacks
@@ -336,7 +378,7 @@ const server = createServer((req, res) => {
 <head>
   <meta charset="UTF-8">
   <link rel="icon" type="image/svg+xml" href="${FAVICON_DATA_URI}">
-  <title>1Code - Authentication</title>
+  <title>Ripple - Authentication</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
@@ -385,9 +427,7 @@ const server = createServer((req, res) => {
 </head>
 <body>
   <div class="container">
-    <svg class="logo" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path fill-rule="evenodd" clip-rule="evenodd" d="M14.3333 0C15.2538 0 16 0.746192 16 1.66667V11.8333C16 11.9254 15.9254 12 15.8333 12H10.8333C10.7413 12 10.6667 12.0746 10.6667 12.1667V15.8333C10.6667 15.9254 10.592 16 10.5 16H1.66667C0.746192 16 0 15.2538 0 14.3333V12.1888C0 12.0717 0.0617409 11.9632 0.162081 11.903L6.15043 8.30986C6.28644 8.22833 6.24077 8.02716 6.09507 8.00256L6.06511 8H0.166667C0.0746186 8 0 7.92538 0 7.83333V4.16667C0 4.07462 0.0746193 4 0.166667 4H6.5C6.59205 4 6.66667 3.92538 6.66667 3.83333V0.166667C6.66667 0.0746193 6.74129 0 6.83333 0H14.3333ZM6.83333 4C6.74129 4 6.66667 4.07462 6.66667 4.16667V11.8333C6.66667 11.9254 6.74129 12 6.83333 12H10.5C10.592 12 10.6667 11.9254 10.6667 11.8333V4.16667C10.6667 4.07462 10.592 4 10.5 4H6.83333Z" fill="#0033FF"/>
-    </svg>
+    <img class="logo" src="${FAVICON_DATA_URI}" alt="Ripple">
     <h1>Authentication successful</h1>
     <p>You can close this tab</p>
   </div>
@@ -420,7 +460,7 @@ const server = createServer((req, res) => {
 <head>
   <meta charset="UTF-8">
   <link rel="icon" type="image/svg+xml" href="${FAVICON_DATA_URI}">
-  <title>1Code - MCP Authentication</title>
+  <title>Ripple - MCP Authentication</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
@@ -469,9 +509,7 @@ const server = createServer((req, res) => {
 </head>
 <body>
   <div class="container">
-    <svg class="logo" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path fill-rule="evenodd" clip-rule="evenodd" d="M14.3333 0C15.2538 0 16 0.746192 16 1.66667V11.8333C16 11.9254 15.9254 12 15.8333 12H10.8333C10.7413 12 10.6667 12.0746 10.6667 12.1667V15.8333C10.6667 15.9254 10.592 16 10.5 16H1.66667C0.746192 16 0 15.2538 0 14.3333V12.1888C0 12.0717 0.0617409 11.9632 0.162081 11.903L6.15043 8.30986C6.28644 8.22833 6.24077 8.02716 6.09507 8.00256L6.06511 8H0.166667C0.0746186 8 0 7.92538 0 7.83333V4.16667C0 4.07462 0.0746193 4 0.166667 4H6.5C6.59205 4 6.66667 3.92538 6.66667 3.83333V0.166667C6.66667 0.0746193 6.74129 0 6.83333 0H14.3333ZM6.83333 4C6.74129 4 6.66667 4.07462 6.66667 4.16667V11.8333C6.66667 11.9254 6.74129 12 6.83333 12H10.5C10.592 12 10.6667 11.9254 10.6667 11.8333V4.16667C10.6667 4.07462 10.592 4 10.5 4H6.83333Z" fill="#0033FF"/>
-    </svg>
+    <img class="logo" src="${FAVICON_DATA_URI}" alt="Ripple">
     <h1>MCP Server authenticated</h1>
     <p>You can close this tab</p>
   </div>
@@ -553,7 +591,7 @@ if (gotTheLock) {
   // Handle second instance launch (also handles deep links on Windows/Linux)
   app.on("second-instance", (_event, commandLine) => {
     // Check for deep link in command line args
-    const url = commandLine.find((arg) => arg.startsWith(`${PROTOCOL}://`))
+    const url = findDeepLinkArg(commandLine)
     if (url) {
       handleDeepLink(url)
     }
@@ -572,11 +610,7 @@ if (gotTheLock) {
 
   // App ready
   app.whenReady().then(async () => {
-    // Set dev mode app name (userData path was already set before requestSingleInstanceLock)
-    // if (IS_DEV) {
-    //   app.name = "Agents Dev"
-    // }
-
+    app.name = IS_DEV ? RIPPLE_IDENTITY.devProductName : RIPPLE_IDENTITY.productName
 
     // Register protocol handler (must be after app is ready)
     initialRegistration = registerProtocol()
@@ -591,10 +625,10 @@ if (gotTheLock) {
 
     // Set app user model ID for Windows (different in dev to avoid taskbar conflicts)
     if (process.platform === "win32") {
-      app.setAppUserModelId(IS_DEV ? "dev.21st.1code.dev" : "dev.21st.1code")
+      app.setAppUserModelId(getAppId(IS_DEV))
     }
 
-    console.log(`[App] Starting 1Code${IS_DEV ? " (DEV)" : ""}...`)
+    console.log(`[App] Starting ${IS_DEV ? RIPPLE_IDENTITY.devProductName : RIPPLE_IDENTITY.productName}...`)
 
     // Verify protocol registration after app is ready
     // This helps diagnose first-install issues where the protocol isn't recognized yet
@@ -618,10 +652,10 @@ if (gotTheLock) {
 
     // Set About panel options with Claude Code version
     app.setAboutPanelOptions({
-      applicationName: "1Code",
+      applicationName: RIPPLE_IDENTITY.productName,
       applicationVersion: app.getVersion(),
       version: `Claude Code ${claudeCodeVersion}`,
-      copyright: "Copyright © 2026 21st.dev",
+      copyright: "Copyright © 2026 Ripple",
     })
 
     // Track update availability for menu
@@ -633,7 +667,10 @@ if (gotTheLock) {
     // Menu icons: PNG template for settings (auto light/dark via "Template" suffix),
     // macOS native SF Symbol for terminal
     const settingsMenuIcon = nativeImage.createFromPath(
-      join(__dirname, "../../build/settingsTemplate.png")
+      getBuildAssetPath("settingsTemplate.png", {
+        isPackaged: app.isPackaged,
+        moduleDir: __dirname,
+      })
     )
     const terminalMenuIcon = process.platform === "darwin"
       ? nativeImage.createFromNamedImage("terminal")?.resize({ width: 12, height: 12 })
@@ -648,7 +685,7 @@ if (gotTheLock) {
           label: app.name,
           submenu: [
             {
-              label: "About 1Code",
+              label: `About ${RIPPLE_IDENTITY.productName}`,
               click: () => app.showAboutPanel(),
             },
             {
@@ -684,8 +721,8 @@ if (gotTheLock) {
             { type: "separator" },
             {
               label: isCliInstalled()
-                ? "Uninstall '1code' Command..."
-                : "Install '1code' Command in PATH...",
+                ? `Uninstall '${RIPPLE_IDENTITY.cliCommand}' Command...`
+                : `Install '${RIPPLE_IDENTITY.cliCommand}' Command in PATH...`,
               ...(terminalMenuIcon && { icon: terminalMenuIcon }),
               click: async () => {
                 const { dialog } = await import("electron")
@@ -695,7 +732,7 @@ if (gotTheLock) {
                     dialog.showMessageBox({
                       type: "info",
                       message: "CLI command uninstalled",
-                      detail: "The '1code' command has been removed from your PATH.",
+                      detail: `The '${RIPPLE_IDENTITY.cliCommand}' command has been removed from your PATH.`,
                     })
                     buildMenu()
                   } else {
@@ -708,7 +745,7 @@ if (gotTheLock) {
                       type: "info",
                       message: "CLI command installed",
                       detail:
-                        "You can now use '1code .' in any terminal to open 1Code in that directory.",
+                        `You can now use '${RIPPLE_IDENTITY.cliCommand} frame-sheet --help' in any terminal.`,
                     })
                     buildMenu()
                   } else {
@@ -914,8 +951,8 @@ if (gotTheLock) {
     // Initialize analytics after auth manager so we can identify user
     initAnalytics()
 
-    // If user already authenticated from previous session, identify them
-    if (authManager.isAuthenticated()) {
+    // If hosted auth is configured and a previous session exists, identify the user.
+    if (getBaseUrl() && authManager.isAuthenticated()) {
       const user = authManager.getUser()
       if (user) {
         identify(user.id, { email: user.email })
@@ -1045,13 +1082,11 @@ if (gotTheLock) {
       }
     }, 3000)
 
-    // Handle directory argument from CLI (e.g., `1code /path/to/project`)
+    // Handle directory argument from CLI (e.g., `ripple /path/to/project`)
     parseLaunchDirectory()
 
     // Handle deep link from app launch (Windows/Linux)
-    const deepLinkUrl = process.argv.find((arg) =>
-      arg.startsWith(`${PROTOCOL}://`),
-    )
+    const deepLinkUrl = findDeepLinkArg(process.argv)
     if (deepLinkUrl) {
       handleDeepLink(deepLinkUrl)
     }

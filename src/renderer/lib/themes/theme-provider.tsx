@@ -41,6 +41,7 @@ import {
   getBuiltinThemeById,
   DEFAULT_DARK_THEME_ID,
   DEFAULT_LIGHT_THEME_ID,
+  normalizeBuiltinThemeId,
 } from "./builtin-themes"
 
 /**
@@ -146,7 +147,35 @@ export function VSCodeThemeProvider({ children }: VSCodeThemeProviderProps) {
   const [fullThemeData, setFullThemeData] = useAtom(fullThemeDataAtom)
   const systemLightThemeId = useAtomValue(systemLightThemeIdAtom)
   const systemDarkThemeId = useAtomValue(systemDarkThemeIdAtom)
+  const setSystemLightThemeId = useSetAtom(systemLightThemeIdAtom)
+  const setSystemDarkThemeId = useSetAtom(systemDarkThemeIdAtom)
   const importedThemes = useAtomValue(importedThemesAtom)
+
+  useEffect(() => {
+    const normalizedSelected = selectedThemeId
+      ? normalizeBuiltinThemeId(selectedThemeId)
+      : selectedThemeId
+    if (normalizedSelected !== selectedThemeId) {
+      setSelectedThemeId(normalizedSelected)
+    }
+
+    const normalizedLight = normalizeBuiltinThemeId(systemLightThemeId)
+    if (normalizedLight !== systemLightThemeId) {
+      setSystemLightThemeId(normalizedLight)
+    }
+
+    const normalizedDark = normalizeBuiltinThemeId(systemDarkThemeId)
+    if (normalizedDark !== systemDarkThemeId) {
+      setSystemDarkThemeId(normalizedDark)
+    }
+  }, [
+    selectedThemeId,
+    setSelectedThemeId,
+    systemLightThemeId,
+    systemDarkThemeId,
+    setSystemLightThemeId,
+    setSystemDarkThemeId,
+  ])
 
   // Combine builtin and imported themes
   const allThemes = useMemo(
@@ -170,7 +199,8 @@ export function VSCodeThemeProvider({ children }: VSCodeThemeProviderProps) {
       // First check in all themes (includes imported), then fallback to builtin
       return allThemes.find((t) => t.id === systemThemeId) || getBuiltinThemeById(systemThemeId) || null
     }
-    return allThemes.find((t) => t.id === selectedThemeId) || null
+    const normalizedThemeId = normalizeBuiltinThemeId(selectedThemeId)
+    return allThemes.find((t) => t.id === normalizedThemeId) || null
   }, [selectedThemeId, allThemes, resolvedTheme, systemLightThemeId, systemDarkThemeId])
   
   // Update fullThemeData when theme changes

@@ -71,6 +71,43 @@ describe("hidden Ripple project setup config", () => {
     expect(paths.onecode.exists).toBe(false)
   })
 
+  test("does not write legacy .1code config", async () => {
+    const projectDir = await makeProjectDir()
+
+    const result = await saveWorktreeConfig(
+      projectDir,
+      { "setup-worktree": "echo legacy" },
+      "1code",
+    )
+
+    expect(result.success).toBe(false)
+    expect(result.path).toBe(join(projectDir, ".1code", "worktree.json"))
+  })
+
+  test("does not write custom legacy .1code config paths", async () => {
+    const projectDir = await makeProjectDir()
+
+    const unixStyle = await saveWorktreeConfig(
+      projectDir,
+      { "setup-worktree": "echo legacy" },
+      ".1code/worktree.json",
+    )
+    const windowsStyle = await saveWorktreeConfig(
+      projectDir,
+      { "setup-worktree": "echo legacy" },
+      ".1code\\worktree.json",
+    )
+    const absoluteStyle = await saveWorktreeConfig(
+      projectDir,
+      { "setup-worktree": "echo legacy" },
+      join(projectDir, ".1code", "worktree.json"),
+    )
+
+    expect(unixStyle.success).toBe(false)
+    expect(windowsStyle.success).toBe(false)
+    expect(absoluteStyle.success).toBe(false)
+  })
+
   test("uses generic hidden setup commands before platform overrides", () => {
     expect(
       getSetupCommands({

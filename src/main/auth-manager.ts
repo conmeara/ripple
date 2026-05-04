@@ -2,6 +2,7 @@ import { AuthStore, AuthData, AuthUser } from "./auth-store"
 import { app, BrowserWindow } from "electron"
 import { AUTH_SERVER_PORT } from "./constants"
 import { getApiUrl, requireApiUrl } from "./lib/config"
+import { getAppProtocol } from "../shared/app-identity"
 
 export class AuthManager {
   private store: AuthStore
@@ -13,8 +14,9 @@ export class AuthManager {
     this.store = new AuthStore(app.getPath("userData"))
     this.isDev = isDev
 
-    // Schedule refresh if already authenticated
-    if (this.store.isAuthenticated()) {
+    // Local-first Ripple builds should not touch safeStorage on startup unless
+    // a hosted auth service is explicitly configured.
+    if (getApiUrl() && this.store.isAuthenticated()) {
       this.scheduleRefresh()
     }
   }
@@ -76,6 +78,10 @@ export class AuthManager {
    * Get a valid token, refreshing if necessary
    */
   async getValidToken(): Promise<string | null> {
+    if (!getApiUrl()) {
+      return null
+    }
+
     if (!this.store.isAuthenticated()) {
       return null
     }
@@ -91,6 +97,12 @@ export class AuthManager {
    * Refresh the current session
    */
   async refresh(): Promise<boolean> {
+    const apiUrl = getApiUrl()
+    if (!apiUrl) {
+      console.log("[AuthManager] Hosted auth is not configured; skipping refresh")
+      return false
+    }
+
     const refreshToken = this.store.getRefreshToken()
     if (!refreshToken) {
       console.warn("No refresh token available")
@@ -98,12 +110,6 @@ export class AuthManager {
     }
 
     try {
-      const apiUrl = getApiUrl()
-      if (!apiUrl) {
-        console.log("[AuthManager] Hosted auth is not configured; skipping refresh")
-        return false
-      }
-
       const response = await fetch(`${apiUrl}/api/auth/desktop/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -171,6 +177,10 @@ export class AuthManager {
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {
+    if (!getApiUrl()) {
+      return false
+    }
+
     return this.store.isAuthenticated()
   }
 
@@ -178,6 +188,10 @@ export class AuthManager {
    * Get current user
    */
   getUser(): AuthUser | null {
+    if (!getApiUrl()) {
+      return null
+    }
+
     return this.store.getUser()
   }
 
@@ -185,6 +199,10 @@ export class AuthManager {
    * Get current auth data
    */
   getAuth(): AuthData | null {
+    if (!getApiUrl()) {
+      return null
+    }
+
     return this.store.load()
   }
 
@@ -219,8 +237,8 @@ export class AuthManager {
     // Also pass the protocol so web knows which deep link to use as fallback
     if (this.isDev) {
       authUrl += `&callback=${encodeURIComponent(`http://localhost:${AUTH_SERVER_PORT}/auth/callback`)}`
-      // Pass dev protocol so production web can use correct deep link if callback fails
-      authUrl += `&protocol=twentyfirst-agents-dev`
+      // Pass dev protocol so hosted auth can use the correct deep link if callback fails
+      authUrl += `&protocol=${getAppProtocol(true)}`
     }
 
     shell.openExternal(authUrl)

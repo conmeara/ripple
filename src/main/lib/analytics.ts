@@ -1,19 +1,15 @@
 /**
- * PostHog analytics for 1Code Desktop - Main Process
- * Uses PostHog Node.js SDK for server-side tracking
+ * Ripple analytics boundary - main process.
+ *
+ * Phase 15 intentionally keeps inherited analytics no-op. Phase 16 will add
+ * Ripple-owned consent, event taxonomy, and provider configuration.
  */
 
-import { PostHog } from "posthog-node"
 import { app } from "electron"
 import * as fs from "fs"
 import * as path from "path"
+import { isAnalyticsRuntimeEnabled } from "./config"
 
-// PostHog configuration - hardcoded key for opensource users, env var override for internal builds
-// This enables analytics for all users including those building from source
-const POSTHOG_DESKTOP_KEY = import.meta.env.MAIN_VITE_POSTHOG_KEY || "phc_wM7gbrJhOLTvynyhnhPkrVGDc5mKRSXsLGQHqM3T3vq"
-const POSTHOG_HOST = import.meta.env.MAIN_VITE_POSTHOG_HOST || "https://us.i.posthog.com"
-
-let posthog: PostHog | null = null
 let currentUserId: string | null = null
 let userOptedOut = false // Synced from renderer
 
@@ -55,35 +51,6 @@ function markFirstLaunchTracked(): void {
 let cachedSubscriptionPlan: string | null = null
 let cachedConnectionMethod: string | null = null
 
-// Check if we're in development mode
-// Set FORCE_ANALYTICS=true to test analytics in development
-// Use a function to check lazily after app is ready
-function isDev(): boolean {
-  try {
-    return !app.isPackaged && process.env.FORCE_ANALYTICS !== "true"
-  } catch {
-    // App not ready yet, assume dev mode
-    return process.env.FORCE_ANALYTICS !== "true"
-  }
-}
-
-/**
- * Get common properties for all events
- */
-function getCommonProperties() {
-  return {
-    source: "desktop", // Unified source for desktop vs web analytics
-    app_version: app.getVersion(),
-    platform: process.platform,
-    arch: process.arch,
-    electron_version: process.versions.electron,
-    node_version: process.versions.node,
-    // Analytics enrichment properties
-    subscription_plan: cachedSubscriptionPlan,
-    connection_method: cachedConnectionMethod,
-  }
-}
-
 /**
  * Set opt-out status (called from renderer when user preference changes)
  */
@@ -107,26 +74,12 @@ export function setConnectionMethod(method: string) {
 }
 
 /**
- * Initialize PostHog for main process
+ * Initialize analytics for main process.
  */
 export function initAnalytics() {
-  // Skip in development mode
-  if (isDev()) return
-
-  if (posthog) return
-
-  // Skip if no PostHog key configured
-  if (!POSTHOG_DESKTOP_KEY) {
-    console.log("[Analytics] Skipping PostHog initialization (no key configured)")
-    return
+  if (!isAnalyticsRuntimeEnabled()) {
+    console.log("[Analytics] Disabled for Phase 15; awaiting Ripple analytics setup")
   }
-
-  posthog = new PostHog(POSTHOG_DESKTOP_KEY, {
-    host: POSTHOG_HOST,
-    // Flush events every 30 seconds or when 20 events are queued
-    flushAt: 20,
-    flushInterval: 30000,
-  })
 }
 
 /**
@@ -136,24 +89,9 @@ export function capture(
   eventName: string,
   properties?: Record<string, any>,
 ) {
-  // Skip in development mode
-  if (isDev()) return
-
-  // Skip if user opted out
-  if (userOptedOut) return
-
-  if (!posthog) return
-
-  const distinctId = currentUserId || "anonymous"
-
-  posthog.capture({
-    distinctId,
-    event: eventName,
-    properties: {
-      ...getCommonProperties(),
-      ...properties,
-    },
-  })
+  void eventName
+  void properties
+  if (!isAnalyticsRuntimeEnabled() || userOptedOut) return
 }
 
 /**
@@ -165,21 +103,8 @@ export function identify(
 ) {
   currentUserId = userId
 
-  // Skip in development mode
-  if (isDev()) return
-
-  // Skip if user opted out
-  if (userOptedOut) return
-
-  if (!posthog) return
-
-  posthog.identify({
-    distinctId: userId,
-    properties: {
-      ...getCommonProperties(),
-      ...traits,
-    },
-  })
+  void traits
+  if (!isAnalyticsRuntimeEnabled() || userOptedOut) return
 }
 
 /**
@@ -202,13 +127,10 @@ export function reset() {
 }
 
 /**
- * Shutdown PostHog and flush pending events
+ * Shutdown analytics.
  */
 export async function shutdown() {
-  if (posthog) {
-    await posthog.shutdown()
-    posthog = null
-  }
+  return
 }
 
 // ============================================================================

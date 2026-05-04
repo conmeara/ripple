@@ -106,7 +106,7 @@ export class AuthStore {
 
       return null
     } catch {
-      console.error("Failed to load auth data")
+      console.warn("[AuthStore] Stored auth data could not be decrypted; continuing signed out")
       return null
     }
   }

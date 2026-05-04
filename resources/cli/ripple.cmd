@@ -2,7 +2,7 @@
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-set "APP_EXECUTABLE=%SCRIPT_DIR%..\..\1Code.exe"
+set "APP_EXECUTABLE=%SCRIPT_DIR%..\..\Ripple.exe"
 set "CLI_SCRIPT=%SCRIPT_DIR%..\app.asar\out\main\ripple-cli.js"
 set "APP_ASAR=%SCRIPT_DIR%..\app.asar"
 

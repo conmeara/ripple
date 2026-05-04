@@ -32,7 +32,7 @@ export interface HyperframesSkillInstallResult {
 }
 
 export function normalizePackagedHyperframesPath(path: string): string {
-  return path.replace("app.asar", "app.asar.unpacked")
+  return path.replace(/(^|[/\\])app\.asar(?=([/\\]|$))/, "$1app.asar.unpacked")
 }
 
 function getHyperframesPackageRoot(): string {

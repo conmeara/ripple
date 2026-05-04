@@ -1,9 +1,5 @@
 /**
- * CLI command support for 1code
- * Allows users to open 1code from terminal with: 1code . or 1code /path/to/project
- *
- * Based on PR #16 by @caffeinum (Aleksey Bykhun)
- * https://github.com/21st-dev/1code/pull/16
+ * CLI command support for Ripple.
  */
 
 import { app } from "electron"
@@ -11,7 +7,7 @@ import { join } from "path"
 import { existsSync, lstatSync } from "fs"
 import { platform } from "./platform"
 
-// Launch directory from CLI (e.g., `1code /path/to/project`)
+// Launch directory from CLI (e.g., `ripple /path/to/project`)
 let launchDirectory: string | null = null
 
 /**
@@ -25,7 +21,7 @@ export function getLaunchDirectory(): string | null {
 
 /**
  * Parse CLI arguments to find a directory argument
- * Called on app startup to handle `1code .` or `1code /path/to/project`
+ * Called on app startup to handle `ripple .` or `ripple /path/to/project`
  */
 export function parseLaunchDirectory(): void {
   // Look for a directory argument in argv
@@ -58,7 +54,7 @@ export function parseLaunchDirectory(): void {
 function getCliSourcePath(): string {
   const cliName = platform.getCliConfig().scriptName
   if (app.isPackaged) {
-    return join(process.resourcesPath, "cli", cliName)
+    return join(process.resourcesPath, "bin", cliName)
   }
   return join(__dirname, "..", "..", "resources", "cli", cliName)
 }

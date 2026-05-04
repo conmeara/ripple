@@ -44,7 +44,7 @@ export function getPlatformBinName(command: string): string {
 }
 
 export function normalizeExecutablePath(path: string): string {
-  return path.replace("app.asar", "app.asar.unpacked")
+  return path.replace(/(^|[/\\])app\.asar(?=([/\\]|$))/, "$1app.asar.unpacked")
 }
 
 function resolveRequiredPackage(packageName: string): unknown | null {
@@ -133,6 +133,16 @@ export function getAppManagedBinaryDirectories(): string[] {
       ].map((commandPath) => dirname(commandPath)),
     ),
   )
+}
+
+function getPackagedNodeModuleDirectories(): string[] {
+  const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+  if (typeof resourcesPath !== "string") return []
+
+  return [
+    join(resourcesPath, "app.asar.unpacked", "node_modules"),
+    join(resourcesPath, "app.asar", "node_modules"),
+  ]
 }
 
 function getBrowserExecutableNames(): string[] {
@@ -239,6 +249,10 @@ export function buildHyperframesEnvironment(
   const appManagedPaths = getAppManagedBinaryDirectories()
   const existingPath = baseEnv.PATH ?? baseEnv.Path ?? ""
   const pathValue = [...appManagedPaths, existingPath].filter(Boolean).join(delimiter)
+  const nodePathValue = [
+    ...getPackagedNodeModuleDirectories(),
+    baseEnv.NODE_PATH,
+  ].filter(Boolean).join(delimiter)
   const producerBrowserPath =
     baseEnv.PRODUCER_HEADLESS_SHELL_PATH ??
     resolveProducerBrowserPath(options.repoRoot ?? process.cwd()) ??
@@ -250,6 +264,7 @@ export function buildHyperframesEnvironment(
     ...(producerBrowserPath ? { PRODUCER_HEADLESS_SHELL_PATH: producerBrowserPath } : {}),
     PATH: pathValue,
     Path: process.platform === "win32" ? pathValue : baseEnv.Path,
+    ...(nodePathValue ? { NODE_PATH: nodePathValue } : {}),
   }
 }
 
@@ -257,7 +272,7 @@ export function getHyperframesCommandCandidates(
   repoRoot?: string,
   baseEnv: NodeJS.ProcessEnv = process.env,
 ): HyperframesCommandCandidate[] {
-  const env = buildHyperframesEnvironment(baseEnv)
+  const env = buildHyperframesEnvironment(baseEnv, { repoRoot })
   const candidates: HyperframesCommandCandidate[] = [
     ...getBundledCommandCandidates("hyperframes", repoRoot).map((command, index) => ({
       command,

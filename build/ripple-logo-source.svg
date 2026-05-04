@@ -1,0 +1,28 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="mark-glow" x="198" y="323" width="628" height="378" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0" stdDeviation="11" flood-color="#FFFFFF" flood-opacity="0.42"/>
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.34"/>
+    </filter>
+    <filter id="playhead-glow" x="433" y="108" width="158" height="808" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0" stdDeviation="14" flood-color="#FFFFFF" flood-opacity="0.48"/>
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#000000" flood-opacity="0.34"/>
+    </filter>
+    <clipPath id="tileClip">
+      <rect width="1024" height="1024" rx="220"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#tileClip)">
+    <rect width="1024" height="1024" rx="220" fill="#050505"/>
+
+    <g filter="url(#mark-glow)" stroke="#FFFFFF" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M360 390L254 512L360 634"/>
+      <path d="M664 390L770 512L664 634"/>
+    </g>
+
+    <g filter="url(#playhead-glow)">
+      <rect x="480" y="154" width="64" height="716" rx="32" fill="#FFFFFF"/>
+    </g>
+  </g>
+</svg>

@@ -1,18 +1,41 @@
 import { describe, expect, test } from "bun:test"
-import { repairConversationCompatibilitySchema } from "./schema-repair"
+import {
+  repairConversationCompatibilitySchema,
+  repairProjectCompatibilitySchema,
+} from "./schema-repair"
 
 const { Database } = require("bun:sqlite") as {
   Database: new (path: string) => any
 }
 
-function columnNames(database: any): string[] {
+function columnNames(database: any, table: string): string[] {
   return database
-    .prepare("PRAGMA table_info(conversations)")
+    .prepare(`PRAGMA table_info(${table})`)
     .all()
     .map((column: any) => String(column.name))
 }
 
 describe("database startup schema repair", () => {
+  test("adds missing nullable project columns to drifted dev databases", () => {
+    const database = new Database(":memory:")
+    database.exec(`
+      CREATE TABLE projects (
+        id text PRIMARY KEY NOT NULL,
+        name text NOT NULL,
+        path text NOT NULL UNIQUE,
+        created_at integer,
+        updated_at integer
+      )
+    `)
+
+    repairProjectCompatibilitySchema(database as any)
+    repairProjectCompatibilitySchema(database as any)
+
+    expect(columnNames(database, "projects")).toContain("icon_path")
+
+    database.close()
+  })
+
   test("adds missing conversation compatibility columns to drifted dev databases", () => {
     const database = new Database(":memory:")
     database.exec(`
@@ -29,7 +52,7 @@ describe("database startup schema repair", () => {
     repairConversationCompatibilitySchema(database as any)
     repairConversationCompatibilitySchema(database as any)
 
-    expect(columnNames(database)).toEqual(
+    expect(columnNames(database, "conversations")).toEqual(
       expect.arrayContaining([
         "mode",
         "session_id",
@@ -167,6 +190,14 @@ describe("database startup schema repair", () => {
     const database = new Database(":memory:")
 
     expect(() => repairConversationCompatibilitySchema(database as any)).not.toThrow()
+
+    database.close()
+  })
+
+  test("is a no-op before the projects table exists", () => {
+    const database = new Database(":memory:")
+
+    expect(() => repairProjectCompatibilitySchema(database as any)).not.toThrow()
 
     database.close()
   })

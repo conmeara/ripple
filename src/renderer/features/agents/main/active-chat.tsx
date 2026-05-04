@@ -6070,23 +6070,18 @@ export function ChatView({
   const isFetchingDiffRef = useRef(false)
 
   const fetchDiffStats = useCallback(async () => {
-    console.log("[fetchDiffStats] Called with:", { worktreePath, sandboxId, chatId, isDesktop: isDesktopApp() })
-
     // Desktop uses worktreePath, web uses sandboxId
     // Don't reset stats if worktreePath is temporarily undefined - just skip the fetch
     // This prevents the button from becoming disabled when component re-renders
     if (!worktreePath && !sandboxId) {
-      console.log("[fetchDiffStats] Skipping - no worktreePath or sandboxId")
       return
     }
 
     // Prevent duplicate parallel fetches
     if (isFetchingDiffRef.current) {
-      console.log("[fetchDiffStats] Skipping - already fetching")
       return
     }
     isFetchingDiffRef.current = true
-    console.log("[fetchDiffStats] Starting fetch...")
 
     try {
       // Desktop: use new getParsedDiff endpoint (all-in-one: parsing + file contents)
@@ -6135,13 +6130,10 @@ export function ChatView({
 
       // Remote sandbox: use stats from chat data (desktop) or fetch diff (web)
       if (sandboxId) {
-        console.log("[fetchDiffStats] Sandbox mode - sandboxId:", sandboxId)
-
         // Desktop app: use stats already provided in chat data
         // The diff sidebar won't work for remote chats (no worktree), but stats will show
         if (isDesktopApp()) {
           const remoteStats = (agentChat as any)?.remoteStats
-          console.log("[fetchDiffStats] Desktop remote chat - using remoteStats:", remoteStats)
 
           if (remoteStats) {
             setDiffStats({
@@ -6178,14 +6170,11 @@ export function ChatView({
         rawDiff = data.diff || null
 
         // Store raw diff for AgentDiffView
-        console.log("[fetchDiffStats] Setting diff content, length:", rawDiff?.length ?? 0)
         setDiffContent(rawDiff)
 
         if (rawDiff && rawDiff.trim()) {
           // Parse diff to get file list and stats (client-side for web)
-          console.log("[fetchDiffStats] Parsing diff...")
           const parsedFiles = splitUnifiedDiffByFile(rawDiff)
-          console.log("[fetchDiffStats] Parsed files:", parsedFiles.length, "files")
           setParsedFileDiffs(parsedFiles)
 
           let additions = 0
@@ -6195,7 +6184,6 @@ export function ChatView({
             deletions += file.deletions
           }
 
-          console.log("[fetchDiffStats] Setting stats:", { fileCount: parsedFiles.length, additions, deletions })
           setDiffStats({
             fileCount: parsedFiles.length,
             additions,
@@ -6204,7 +6192,6 @@ export function ChatView({
             hasChanges: parsedFiles.length > 0,
           })
         } else {
-          console.log("[fetchDiffStats] No diff content, setting empty stats")
           setDiffStats({
             fileCount: 0,
             additions: 0,
@@ -6221,7 +6208,6 @@ export function ChatView({
       console.error("[fetchDiffStats] Error:", error)
       setDiffStats((prev) => ({ ...prev, isLoading: false }))
     } finally {
-      console.log("[fetchDiffStats] Done")
       isFetchingDiffRef.current = false
     }
   }, [worktreePath, sandboxId, chatId, agentChat]) // Note: activeSubChatId removed - diff is same for whole chat

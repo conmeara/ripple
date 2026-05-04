@@ -21,7 +21,7 @@ Ripple should combine:
 - a Ripple-specific motion-graphics shell
 - native HyperFrames project creation, editing, preview, comments, revisions,
   and export
-- optional provider/account setup that never blocks local app entry
+- optional Ripple account/provider setup that never blocks local app entry
 
 Ripple is not "1Code with a custom preview tab."
 
@@ -1070,6 +1070,9 @@ Goals:
   identity assumptions with Ripple-owned configuration.
 - Add explicit consent, disablement, and local-development behavior so analytics
   never gates project creation, preview, comments, review, or export.
+- Publish a plain-language analytics transparency artifact, preferably in the
+  GitHub repo and optionally mirrored to a Gist, that the onboarding screen can
+  open from a "Let me show you" link.
 
 Key files:
 
@@ -1086,6 +1089,13 @@ Done when:
 - Analytics initializes only when configured and permitted, and failures are
   logged without interrupting local workflows.
 - Users can understand and change analytics consent from settings or onboarding.
+- Analytics is off by default, account/email/update preferences are separate
+  from analytics consent, and analytics payloads never include project files,
+  prompts, agent conversations, comments, media, exports, local file paths, or
+  user email.
+- For v1, opted-in weekly update emails can be captured in PostHog through a
+  dedicated contact path, separate from anonymous analytics and without adding a
+  full account backend.
 - Development, test, and packaged-app builds have predictable analytics behavior.
 
 ### Phase 17: Onboarding Screen
@@ -1093,11 +1103,18 @@ Done when:
 Goals:
 
 - Replace inherited repo/provider-first onboarding with a Ripple first-run screen
-  centered on creating or opening a motion project.
+  that first offers optional Ripple account/email/update preferences and
+  analytics consent, then leads into creating or opening a motion project.
 - Let users create their first project under `~/Ripple/<project-name>` without
-  account creation, GitHub, provider setup, dependency knowledge, or repo terms.
+  mandatory account creation, GitHub, provider setup, dependency knowledge, or
+  repo terms.
 - Offer optional setup paths for Codex/Claude connections, analytics consent,
   and advanced project import without blocking local preview and export basics.
+- Let users optionally create or connect a Ripple account with email,
+  optionally request weekly app update emails, and skip both without losing
+  local app access.
+- Capture opted-in weekly update emails for v1 through the Phase 16 PostHog
+  contact path, while leaving full hosted accounts for a later backend phase.
 - Use motion-design language and visual affordances that lead into templates,
   compositions, preview, comments, revisions, and export.
 
@@ -1115,8 +1132,13 @@ Done when:
   Open Existing Project actions.
 - Completing onboarding creates or opens a project and reaches the primary Ripple
   shell without mandatory account/provider setup.
-- Optional provider and analytics steps can be skipped, revisited from settings,
-  and do not strand returning users.
+- Optional Ripple account/email, weekly update emails, provider setup, and
+  analytics steps can be skipped, revisited from settings, and do not strand
+  returning users.
+- Weekly update email capture works when explicitly enabled and is visibly
+  separate from anonymous product analytics.
+- The analytics toggle is off by default and links to the Phase 16 public
+  transparency artifact.
 - Onboarding copy avoids repo, branch, clone, worktree, dependency install, and
   developer-tool language in the primary path.
 
@@ -1132,6 +1154,12 @@ Goals:
 - Validate stable and beta update channels against Ripple-owned feed URLs,
   product IDs, protocols, signing identity, and artifact names established in
   Phase 15.
+- Use public GitHub Releases on `conmeara/ripple` as the default Phase 18
+  release/update source, with GitHub Actions as the official build and publish
+  path.
+- Start with a manually triggered GitHub Actions release workflow that produces
+  draft releases until signed/notarized macOS update installation is validated;
+  tag-push automation can be added after the release gate is proven.
 - Keep update checks optional and non-blocking. Update failures must not block
   local project creation/opening, preview, comments, revisions, or export.
 - Add clear packaged-build QA for macOS first, then Windows and Linux as their
@@ -1153,13 +1181,19 @@ Key files:
 Done when:
 
 - A packaged Ripple build can discover a newer packaged Ripple build from a
-  Ripple-owned update feed.
+  Ripple-owned GitHub Releases update feed or documented equivalent.
 - Users can manually check, download, and restart to install an update from the
   app UI.
 - The update UI shows useful release/version state and handles unavailable,
   failed, cancelled, already-downloaded, and restart-required states.
-- Stable and beta channel selection uses Ripple-owned channels and persists
-  safely without enabling legacy upstream feeds.
+- Stable is the default channel. Beta is an opt-in Early Access channel in
+  settings, persists safely, and never enables legacy upstream feeds.
+- GitHub Actions can build, sign/notarize, and attach stable/beta release
+  artifacts plus update metadata to draft GitHub Releases.
+- GitHub release publishing uses the built-in Actions `GITHUB_TOKEN` with
+  explicit release permissions where possible. Any maintainer tokens and Apple
+  signing/notarization credentials live only in ignored local env files or
+  GitHub Actions secrets, never in app runtime code or packaged resources.
 - Update installation is validated on signed/notarized macOS artifacts, with
   Windows and Linux expectations documented if those platforms are not yet
   release-ready.

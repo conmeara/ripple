@@ -3,8 +3,9 @@
  */
 
 import { existsSync } from "node:fs"
-import { copyFile, mkdir, unlink, rmdir } from "node:fs/promises"
+import { mkdir, unlink, rmdir, writeFile } from "node:fs/promises"
 import * as path from "node:path"
+import { win32 as winPath } from "node:path"
 import { BasePlatformProvider } from "./base"
 import type {
   ShellConfig,
@@ -12,6 +13,35 @@ import type {
   CliConfig,
   EnvironmentConfig,
 } from "./types"
+import { RIPPLE_IDENTITY } from "../../../shared/app-identity"
+
+export function buildInstalledWindowsCliScript(sourcePath: string): string {
+  const resourcesBinDir = winPath.dirname(sourcePath)
+  const resourcesDir = winPath.dirname(resourcesBinDir)
+  const appRoot = winPath.dirname(resourcesDir)
+  const appExecutable = winPath.join(appRoot, `${RIPPLE_IDENTITY.productName}.exe`)
+  const appAsar = winPath.join(resourcesDir, "app.asar")
+  const cliScript = winPath.join(appAsar, "out", "main", "ripple-cli.js")
+
+  return [
+    "@echo off",
+    "setlocal",
+    "",
+    `set "APP_EXECUTABLE=${appExecutable}"`,
+    `set "CLI_SCRIPT=${cliScript}"`,
+    `set "APP_ASAR=${appAsar}"`,
+    "",
+    `if exist "%APP_EXECUTABLE%" if exist "%APP_ASAR%" (`,
+    `  set "ELECTRON_RUN_AS_NODE=1"`,
+    `  "%APP_EXECUTABLE%" "%CLI_SCRIPT%" %*`,
+    `  exit /b %ERRORLEVEL%`,
+    ")",
+    "",
+    "echo Ripple CLI requires the packaged app runtime. 1>&2",
+    "exit /b 1",
+    "",
+  ].join("\r\n")
+}
 
 export class WindowsPlatformProvider extends BasePlatformProvider {
   readonly platform = "win32" as const
@@ -63,9 +93,24 @@ export class WindowsPlatformProvider extends BasePlatformProvider {
     const home = this.getHome()
 
     return {
-      installPath: path.join(home, ".local", "bin", "1code.cmd"),
-      scriptName: "1code.cmd",
+      installPath: path.join(home, ".local", "bin", `${RIPPLE_IDENTITY.cliCommand}.cmd`),
+      scriptName: `${RIPPLE_IDENTITY.cliCommand}.cmd`,
       requiresAdmin: false, // Install to user directory, no admin needed
+    }
+  }
+
+  private getLegacyCliInstallPath(): string {
+    return path.join(
+      this.getHome(),
+      ".local",
+      "bin",
+      `${RIPPLE_IDENTITY.legacyCliCommand}.cmd`,
+    )
+  }
+
+  private async removeCliPathIfPresent(installPath: string): Promise<void> {
+    if (existsSync(installPath)) {
+      await unlink(installPath)
     }
   }
 
@@ -123,9 +168,14 @@ export class WindowsPlatformProvider extends BasePlatformProvider {
     }
 
     try {
-      // Create directory and copy file
+      // Create directory and write an installed wrapper with absolute app paths.
       await mkdir(installDir, { recursive: true })
-      await copyFile(sourcePath, installPath)
+      await this.removeCliPathIfPresent(this.getLegacyCliInstallPath())
+      await writeFile(
+        installPath,
+        buildInstalledWindowsCliScript(sourcePath),
+        "utf8",
+      )
 
       // Note: We intentionally do NOT use `setx PATH` here because:
       // 1. setx has a 1024 character limit that silently truncates PATH
@@ -136,7 +186,7 @@ export class WindowsPlatformProvider extends BasePlatformProvider {
       // For terminal usage, users can manually add to PATH:
       // $env:Path += ";${installDir}"
 
-      console.log("[CLI] Installed 1code command to", installPath)
+      console.log(`[CLI] Installed ${RIPPLE_IDENTITY.cliCommand} command to`, installPath)
       console.log(
         "[CLI] To use from terminal, add to PATH:",
         `$env:Path += ";${installDir}"`
@@ -144,7 +194,7 @@ export class WindowsPlatformProvider extends BasePlatformProvider {
 
       return {
         success: true,
-        pathHint: `To use 1code from terminal, add to your PATH: ${installDir}`,
+        pathHint: `To use ${RIPPLE_IDENTITY.cliCommand} from terminal, add to your PATH: ${installDir}`,
       }
     } catch (error: unknown) {
       const errorMessage =
@@ -159,12 +209,14 @@ export class WindowsPlatformProvider extends BasePlatformProvider {
     const installPath = cliConfig.installPath
 
     try {
-      if (!existsSync(installPath)) {
+      const legacyInstallPath = this.getLegacyCliInstallPath()
+      if (!existsSync(installPath) && !existsSync(legacyInstallPath)) {
         console.log("[CLI] CLI command not installed, nothing to uninstall")
         return { success: true }
       }
 
-      await unlink(installPath)
+      await this.removeCliPathIfPresent(installPath)
+      await this.removeCliPathIfPresent(legacyInstallPath)
 
       // Try to remove directory if empty
       try {
@@ -173,7 +225,7 @@ export class WindowsPlatformProvider extends BasePlatformProvider {
         // Directory not empty or other error, that's okay
       }
 
-      console.log("[CLI] Uninstalled 1code command")
+      console.log(`[CLI] Uninstalled ${RIPPLE_IDENTITY.cliCommand} command`)
       return { success: true }
     } catch (error: unknown) {
       const errorMessage =

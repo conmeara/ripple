@@ -5,10 +5,24 @@ import {
   getAppManagedCommandCandidates,
   getHyperframesCommandCandidates,
   getProducerBrowserCandidates,
+  normalizeExecutablePath,
   resolveHyperframesCommand,
 } from "./runtime"
 
 describe("HyperFrames runtime resolution", () => {
+  test("normalizes app.asar executable paths once", () => {
+    expect(normalizeExecutablePath(
+      "/Applications/Ripple.app/Contents/Resources/app.asar/node_modules/hyperframes/dist/cli.js",
+    )).toBe(
+      "/Applications/Ripple.app/Contents/Resources/app.asar.unpacked/node_modules/hyperframes/dist/cli.js",
+    )
+    expect(normalizeExecutablePath(
+      "/Applications/Ripple.app/Contents/Resources/app.asar.unpacked/node_modules/hyperframes/dist/cli.js",
+    )).toBe(
+      "/Applications/Ripple.app/Contents/Resources/app.asar.unpacked/node_modules/hyperframes/dist/cli.js",
+    )
+  })
+
   test("prepends app-managed FFmpeg and FFprobe directories to PATH", () => {
     const ffmpegPath = getAppManagedCommandCandidates("ffmpeg")[0]
     const ffprobePath = getAppManagedCommandCandidates("ffprobe")[0]
@@ -36,6 +50,40 @@ describe("HyperFrames runtime resolution", () => {
     expect(env.HYPERFRAMES_NO_TELEMETRY).toBe("1")
     expect(env.HYPERFRAMES_NO_UPDATE_CHECK).toBe("1")
     expect(env.HYPERFRAMES_NO_AUTO_INSTALL).toBe("1")
+  })
+
+  test("adds packaged dependency roots to NODE_PATH when resourcesPath is available", () => {
+    const original = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+
+    Object.defineProperty(process, "resourcesPath", {
+      configurable: true,
+      value: "/Applications/Ripple.app/Contents/Resources",
+    })
+
+    try {
+      const env = buildHyperframesEnvironment({
+        NODE_PATH: "/existing/modules",
+        PATH: "/system/bin",
+      })
+      const nodePathParts = env.NODE_PATH?.split(delimiter) ?? []
+
+      expect(nodePathParts).toContain(
+        "/Applications/Ripple.app/Contents/Resources/app.asar.unpacked/node_modules",
+      )
+      expect(nodePathParts).toContain(
+        "/Applications/Ripple.app/Contents/Resources/app.asar/node_modules",
+      )
+      expect(nodePathParts).toContain("/existing/modules")
+    } finally {
+      if (original === undefined) {
+        Reflect.deleteProperty(process, "resourcesPath")
+      } else {
+        Object.defineProperty(process, "resourcesPath", {
+          configurable: true,
+          value: original,
+        })
+      }
+    }
   })
 
   test("passes an app-managed export browser path through to Producer", () => {

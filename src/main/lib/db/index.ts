@@ -5,7 +5,10 @@ import { app } from "electron"
 import { join } from "path"
 import { existsSync, mkdirSync } from "fs"
 import * as schema from "./schema"
-import { repairConversationCompatibilitySchema } from "./schema-repair"
+import {
+  repairConversationCompatibilitySchema,
+  repairProjectCompatibilitySchema,
+} from "./schema-repair"
 
 let db: ReturnType<typeof drizzle<typeof schema>> | null = null
 let sqlite: Database.Database | null = null
@@ -64,6 +67,7 @@ export function initDatabase() {
   try {
     repairConversationCompatibilitySchema(sqlite)
     migrate(db, { migrationsFolder: migrationsPath })
+    repairProjectCompatibilitySchema(sqlite)
     repairConversationCompatibilitySchema(sqlite)
     sqlite.pragma("foreign_keys = ON")
     console.log("[DB] Migrations completed")

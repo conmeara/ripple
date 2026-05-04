@@ -629,7 +629,6 @@ export interface AgentsDebugMode {
     | "profile"
     | "claude-code"
     | "github"
-    | "discord"
     | null // Force a specific onboarding step
   simulateCompleted: boolean // Simulate onboarding as completed
 }

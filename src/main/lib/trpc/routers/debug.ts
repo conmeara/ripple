@@ -4,10 +4,11 @@ import { app, shell } from "electron"
 import { getAuthManager } from "../../../index"
 import { z } from "zod"
 import { clearNetworkCache } from "../../ollama/network-detector"
+import { getAppProtocol } from "../../../../shared/app-identity"
 
 // Protocol constant (must match main/index.ts)
 const IS_DEV = !!process.env.ELECTRON_RENDERER_URL
-const PROTOCOL = IS_DEV ? "twentyfirst-agents-dev" : "twentyfirst-agents"
+const PROTOCOL = getAppProtocol(IS_DEV)
 
 // Global flag for simulating offline mode (for testing)
 let simulateOfflineMode = false

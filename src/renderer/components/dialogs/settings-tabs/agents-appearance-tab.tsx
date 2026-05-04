@@ -18,6 +18,7 @@ import {
   BUILTIN_THEMES,
   getBuiltinThemeById,
   BUILTIN_THEME_NAMES,
+  normalizeBuiltinThemeId,
 } from "../../../lib/themes/builtin-themes"
 import {
   generateCSSVariables,
@@ -220,8 +221,9 @@ export function AgentsAppearanceTab() {
     if (selectedThemeId === null) {
       return null // System mode
     }
+    const normalizedThemeId = normalizeBuiltinThemeId(selectedThemeId)
     // Check in both builtin and imported themes
-    return BUILTIN_THEMES.find((t) => t.id === selectedThemeId) ||
+    return BUILTIN_THEMES.find((t) => t.id === normalizedThemeId) ||
            importedThemes.find((t) => t.id === selectedThemeId) ||
            null
   }, [selectedThemeId, importedThemes])
@@ -259,7 +261,8 @@ export function AgentsAppearanceTab() {
       }
 
       // Check in both builtin and imported themes
-      const theme = BUILTIN_THEMES.find((t) => t.id === themeId) ||
+      const normalizedThemeId = normalizeBuiltinThemeId(themeId)
+      const theme = BUILTIN_THEMES.find((t) => t.id === normalizedThemeId) ||
                     importedThemes.find((t) => t.id === themeId)
       if (theme) {
         setFullThemeData(theme)

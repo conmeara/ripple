@@ -13,6 +13,7 @@ import type {
   CliConfig,
   EnvironmentConfig,
 } from "./types"
+import { RIPPLE_IDENTITY } from "../../../shared/app-identity"
 
 const execAsync = promisify(exec)
 
@@ -67,9 +68,23 @@ export class LinuxPlatformProvider extends BasePlatformProvider {
 
   getCliConfig(): CliConfig {
     return {
-      installPath: "/usr/local/bin/1code",
-      scriptName: "1code",
+      installPath: `/usr/local/bin/${RIPPLE_IDENTITY.cliCommand}`,
+      scriptName: RIPPLE_IDENTITY.cliCommand,
       requiresAdmin: true, // Usually needs sudo, but we try without first
+    }
+  }
+
+  private getLegacyCliInstallPath(): string {
+    return `/usr/local/bin/${RIPPLE_IDENTITY.legacyCliCommand}`
+  }
+
+  private async removeCliPathIfPresent(installPath: string): Promise<void> {
+    if (!existsSync(installPath)) return
+
+    try {
+      await execAsync(`rm -f ${installPath}`)
+    } catch {
+      await execAsync(`sudo rm -f ${installPath}`)
     }
   }
 
@@ -157,13 +172,8 @@ export class LinuxPlatformProvider extends BasePlatformProvider {
 
     try {
       // Remove existing if present
-      if (existsSync(installPath)) {
-        try {
-          await execAsync(`rm -f ${installPath}`)
-        } catch {
-          await execAsync(`sudo rm -f ${installPath}`)
-        }
-      }
+      await this.removeCliPathIfPresent(installPath)
+      await this.removeCliPathIfPresent(this.getLegacyCliInstallPath())
 
       // Create symlink - try without sudo first
       try {
@@ -172,7 +182,7 @@ export class LinuxPlatformProvider extends BasePlatformProvider {
         await execAsync(`sudo ln -s "${sourcePath}" ${installPath}`)
       }
 
-      console.log("[CLI] Installed 1code command to", installPath)
+      console.log(`[CLI] Installed ${RIPPLE_IDENTITY.cliCommand} command to`, installPath)
       return { success: true }
     } catch (error: unknown) {
       const errorMessage =
@@ -187,19 +197,16 @@ export class LinuxPlatformProvider extends BasePlatformProvider {
     const installPath = cliConfig.installPath
 
     try {
-      if (!existsSync(installPath)) {
+      const legacyInstallPath = this.getLegacyCliInstallPath()
+      if (!existsSync(installPath) && !existsSync(legacyInstallPath)) {
         console.log("[CLI] CLI command not installed, nothing to uninstall")
         return { success: true }
       }
 
-      // Try without sudo first
-      try {
-        await execAsync(`rm -f ${installPath}`)
-      } catch {
-        await execAsync(`sudo rm -f ${installPath}`)
-      }
+      await this.removeCliPathIfPresent(installPath)
+      await this.removeCliPathIfPresent(legacyInstallPath)
 
-      console.log("[CLI] Uninstalled 1code command")
+      console.log(`[CLI] Uninstalled ${RIPPLE_IDENTITY.cliCommand} command`)
       return { success: true }
     } catch (error: unknown) {
       const errorMessage =

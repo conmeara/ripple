@@ -572,7 +572,7 @@ export const selectedFullThemeIdAtom = atomWithStorage<string | null>(
  */
 export const systemLightThemeIdAtom = atomWithStorage<string>(
   "preferences:system-light-theme-id",
-  "21st-light", // Default light theme
+  "ripple-light", // Default light theme
   undefined,
   { getOnInit: true },
 )
@@ -582,7 +582,7 @@ export const systemLightThemeIdAtom = atomWithStorage<string>(
  */
 export const systemDarkThemeIdAtom = atomWithStorage<string>(
   "preferences:system-dark-theme-id",
-  "21st-dark", // Default dark theme
+  "ripple-dark", // Default dark theme
   undefined,
   { getOnInit: true },
 )

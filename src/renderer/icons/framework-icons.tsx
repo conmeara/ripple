@@ -1380,7 +1380,7 @@ export function getDetectedFrameworkIcon(
     }
   }
 
-  // Return 21st.dev logo as final fallback
+  // Return Ripple mark as final fallback
   return <CodeIcon className={className} />
 }
 
@@ -1475,21 +1475,83 @@ export function PDFIcon({ className }: FrameworkIconProps) {
   )
 }
 
-// Default/Unknown - 21st.dev logo (same as canvas sidebar placeholder)
+// Default/Unknown - Ripple mark (same as canvas sidebar placeholder)
 export function CodeIcon({ className }: FrameworkIconProps) {
+  const id = useId().replace(/:/g, "")
+  const leftFade = `ripple-code-leftFade-${id}`
+  const rightFade = `ripple-code-rightFade-${id}`
+  const playhead = `ripple-code-playhead-${id}`
+  const softStreak = `ripple-code-softStreak-${id}`
+  const barShadow = `ripple-code-barShadow-${id}`
+  const tileClip = `ripple-code-tileClip-${id}`
+
   return (
     <svg
-      viewBox="0 0 400 400"
-      className={cn("w-4 h-4 text-muted-foreground", className)}
-      fill="currentColor"
+      viewBox="0 0 1024 1024"
+      className={cn("w-4 h-4", className)}
+      fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      aria-label="21st.dev Logo"
+      aria-label="Ripple logo"
     >
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M358.333 0C381.345 0 400 18.6548 400 41.6667V295.833C400 298.135 398.134 300 395.833 300H270.833C268.532 300 266.667 301.865 266.667 304.167V395.833C266.667 398.134 264.801 400 262.5 400H41.6667C18.6548 400 0 381.345 0 358.333V304.72C0 301.793 1.54269 299.081 4.05273 297.575L153.76 207.747C157.159 205.708 156.02 200.679 152.376 200.065L151.628 200H4.16667C1.86548 200 6.71103e-08 198.135 0 195.833V104.167C1.07376e-06 101.865 1.86548 100 4.16667 100H162.5C164.801 100 166.667 98.1345 166.667 95.8333V4.16667C166.667 1.86548 168.532 1.00666e-07 170.833 0H358.333ZM170.833 100C168.532 100 166.667 101.865 166.667 104.167V295.833C166.667 298.135 168.532 300 170.833 300H262.5C264.801 300 266.667 298.135 266.667 295.833V104.167C266.667 101.865 264.801 100 262.5 100H170.833Z"
-      />
+      <defs>
+        <linearGradient id={leftFade} x1="140" y1="0" x2="426" y2="0" gradientUnits="userSpaceOnUse">
+          <stop stopColor="white" stopOpacity="0" />
+          <stop offset="0.43" stopColor="white" stopOpacity="0.48" />
+          <stop offset="0.84" stopColor="white" stopOpacity="0.98" />
+          <stop offset="1" stopColor="white" />
+        </linearGradient>
+        <linearGradient id={rightFade} x1="598" y1="0" x2="884" y2="0" gradientUnits="userSpaceOnUse">
+          <stop stopColor="white" />
+          <stop offset="0.16" stopColor="white" stopOpacity="0.98" />
+          <stop offset="0.57" stopColor="white" stopOpacity="0.48" />
+          <stop offset="1" stopColor="white" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={playhead} x1="512" y1="198" x2="512" y2="826" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FFFFFF" />
+          <stop offset="0.56" stopColor="#F7F7F7" />
+          <stop offset="1" stopColor="#E4E4E4" />
+        </linearGradient>
+        <filter id={softStreak} x="-70" y="-20" width="420" height="62" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+          <feGaussianBlur stdDeviation="17 4" />
+        </filter>
+        <filter id={barShadow} x="448" y="164" width="128" height="700" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#FFFFFF" floodOpacity="0.1" />
+          <feDropShadow dx="0" dy="18" stdDeviation="18" floodColor="#000000" floodOpacity="0.3" />
+        </filter>
+        <clipPath id={tileClip}>
+          <rect x="48" y="48" width="928" height="928" rx="150" />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${tileClip})`}>
+        <rect x="48" y="48" width="928" height="928" rx="150" fill="#050505" />
+        <g opacity="0.3" filter={`url(#${softStreak})`}>
+          <path d="M140 330H430" stroke={`url(#${leftFade})`} strokeWidth="25" strokeLinecap="round" />
+          <path d="M116 402H404" stroke={`url(#${leftFade})`} strokeWidth="25" strokeLinecap="round" />
+          <path d="M108 474H430" stroke={`url(#${leftFade})`} strokeWidth="25" strokeLinecap="round" />
+          <path d="M120 546H404" stroke={`url(#${leftFade})`} strokeWidth="25" strokeLinecap="round" />
+          <path d="M148 618H430" stroke={`url(#${leftFade})`} strokeWidth="25" strokeLinecap="round" />
+          <path d="M594 330H884" stroke={`url(#${rightFade})`} strokeWidth="25" strokeLinecap="round" />
+          <path d="M620 402H908" stroke={`url(#${rightFade})`} strokeWidth="25" strokeLinecap="round" />
+          <path d="M594 474H916" stroke={`url(#${rightFade})`} strokeWidth="25" strokeLinecap="round" />
+          <path d="M620 546H904" stroke={`url(#${rightFade})`} strokeWidth="25" strokeLinecap="round" />
+          <path d="M594 618H876" stroke={`url(#${rightFade})`} strokeWidth="25" strokeLinecap="round" />
+        </g>
+        <g>
+          <path d="M234 330H424" stroke={`url(#${leftFade})`} strokeWidth="23" strokeLinecap="round" />
+          <path d="M162 402H386" stroke={`url(#${leftFade})`} strokeWidth="23" strokeLinecap="round" />
+          <path d="M142 474H424" stroke={`url(#${leftFade})`} strokeWidth="23" strokeLinecap="round" />
+          <path d="M162 546H386" stroke={`url(#${leftFade})`} strokeWidth="23" strokeLinecap="round" />
+          <path d="M234 618H424" stroke={`url(#${leftFade})`} strokeWidth="23" strokeLinecap="round" />
+          <path d="M600 330H790" stroke={`url(#${rightFade})`} strokeWidth="23" strokeLinecap="round" />
+          <path d="M638 402H862" stroke={`url(#${rightFade})`} strokeWidth="23" strokeLinecap="round" />
+          <path d="M600 474H882" stroke={`url(#${rightFade})`} strokeWidth="23" strokeLinecap="round" />
+          <path d="M638 546H862" stroke={`url(#${rightFade})`} strokeWidth="23" strokeLinecap="round" />
+          <path d="M600 618H790" stroke={`url(#${rightFade})`} strokeWidth="23" strokeLinecap="round" />
+        </g>
+        <g filter={`url(#${barShadow})`}>
+          <rect x="474" y="198" width="76" height="628" rx="26" fill={`url(#${playhead})`} />
+        </g>
+      </g>
     </svg>
   )
 }
