@@ -12,7 +12,6 @@ import {
   checkForUpdates,
   downloadUpdate,
   initAutoUpdater,
-  setupFocusUpdateCheck,
 } from "./lib/auto-updater"
 import { closeDatabase, initDatabase } from "./lib/db"
 import { getApiUrl } from "./lib/config"
@@ -1016,16 +1015,9 @@ if (gotTheLock) {
     // Create main window
     createMainWindow()
 
-    // Register auto-updater IPC in all builds; automatic checks run in packaged builds.
+    // Register auto-updater IPC in all builds. Packaged automatic checks are
+    // scheduled inside the updater only when the user enables them.
     await initAutoUpdater(getAllWindows)
-    if (app.isPackaged) {
-      // Setup update check on window focus (instead of periodic interval)
-      setupFocusUpdateCheck(getAllWindows)
-      // Check for updates 5 seconds after startup (force to bypass interval check)
-      setTimeout(() => {
-        checkForUpdates(true, "automatic")
-      }, 5000)
-    }
 
     // Warm up MCP cache 3 seconds after startup (background, non-blocking)
     // This populates the cache so all future sessions can use filtered MCP servers

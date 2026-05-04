@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { flushSync } from "react-dom"
 import { useUpdateChecker } from "../lib/hooks/use-update-checker"
 import { useJustUpdated } from "../lib/hooks/use-just-updated"
@@ -23,7 +23,6 @@ export function UpdateBanner() {
     dismissJustUpdated,
     openChangelog,
   } = useJustUpdated()
-  const hasTriggeredInstall = useRef(false)
 
   // Optimistic loading state - show spinner immediately on click
   const [isPending, setIsPending] = useState(false)
@@ -95,24 +94,6 @@ export function UpdateBanner() {
   // Get progress percentage
   const progress = "progress" in state ? state.progress : undefined
 
-  // Auto-install when download completes
-  useEffect(() => {
-    if (realState.status === "ready" && !hasTriggeredInstall.current) {
-      hasTriggeredInstall.current = true
-      // Small delay to ensure UI updates before restart
-      setTimeout(() => {
-        installUpdate()
-      }, 500)
-    }
-  }, [realState.status, installUpdate])
-
-  // Reset install trigger when going back to available state
-  useEffect(() => {
-    if (realState.status === "available") {
-      hasTriggeredInstall.current = false
-    }
-  }, [realState.status])
-
   // Mock handlers for testing
   const handleUpdate = () => {
     if (isMocking) {
@@ -135,14 +116,24 @@ export function UpdateBanner() {
   }
 
   const handleOpenChangelog = () => {
-    // Open changelog URL
-    window.desktopApi?.openExternal("https://github.com/conmeara/ripple/releases")
-    // Dismiss the banner
     if (isMocking) {
+      window.desktopApi?.openExternal("https://github.com/conmeara/ripple/releases")
       setMockStatus("dismissed")
     } else {
-      dismissJustUpdated()
+      openChangelog()
     }
+  }
+
+  const handleOpenReleaseNotes = () => {
+    const version = "version" in state ? state.version : undefined
+    const releaseUrl = version
+      ? `https://github.com/conmeara/ripple/releases/tag/v${version}`
+      : "https://github.com/conmeara/ripple/releases"
+    window.desktopApi?.openExternal(releaseUrl)
+  }
+
+  const handleRestartToUpdate = () => {
+    installUpdate()
   }
 
   const handleDismissWhatsNew = () => {
@@ -199,22 +190,30 @@ export function UpdateBanner() {
   if (
     state.status === "idle" ||
     state.status === "checking" ||
+    state.status === "not-available" ||
     state.status === "error"
   ) {
     return null
   }
 
   // Updating state (downloading or ready to install, or pending click)
-  const isUpdating =
-    state.status === "downloading" || state.status === "ready" || isPending
+  const isUpdating = state.status === "downloading" || isPending
 
   return (
     <div className="fixed bottom-4 left-4 z-50 flex items-center gap-3 rounded-lg border border-border bg-popover p-2.5 text-sm text-popover-foreground shadow-lg animate-in fade-in-0 slide-in-from-bottom-2">
       {/* Update Available State */}
       {state.status === "available" && !isPending && (
         <>
-          <span className="text-foreground">Update available</span>
+          <span className="text-foreground">
+            {state.version ? `Ripple ${state.version} is available` : "Update available"}
+          </span>
           <div className="flex items-center gap-2 ml-2">
+            <button
+              onClick={handleOpenReleaseNotes}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Details
+            </button>
             <button
               onClick={handleDismiss}
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -240,6 +239,31 @@ export function UpdateBanner() {
               {Math.round(progress)}%
             </span>
           )}
+        </>
+      )}
+
+      {state.status === "ready" && (
+        <>
+          <span className="text-foreground">
+            {state.version ? `Ripple ${state.version} is ready to install` : "Ready to restart"}
+          </span>
+          <div className="flex items-center gap-2 ml-2">
+            <button
+              onClick={handleOpenReleaseNotes}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Details
+            </button>
+            <button
+              onClick={handleDismiss}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Later
+            </button>
+            <Button size="sm" onClick={handleRestartToUpdate}>
+              Restart to update
+            </Button>
+          </div>
         </>
       )}
     </div>

@@ -1,0 +1,237 @@
+name: Release Ripple
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version to build, such as 0.1.0 or 0.1.0-beta.1"
+        required: true
+        type: string
+      release_type:
+        description: "GitHub Release visibility"
+        required: true
+        type: choice
+        default: draft
+        options:
+          - draft
+          - prerelease
+          - release
+      release_notes:
+        description: "Optional release notes for electron-updater metadata"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ripple-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  macos:
+    name: macOS signed update
+    runs-on: macos-14
+    environment: release
+    env:
+      RIPPLE_RELEASE_VERSION: ${{ inputs.version }}
+      RIPPLE_RELEASE_TYPE: ${{ inputs.release_type }}
+      RIPPLE_RELEASE_NOTES: ${{ inputs.release_notes }}
+      GH_TOKEN: ${{ github.token }}
+      CSC_LINK: ${{ secrets.CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      APPLE_IDENTITY: ${{ secrets.APPLE_IDENTITY }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Set up Python for native rebuilds
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate release inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RIPPLE_RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Version must be semver without a leading v."
+            exit 1
+          fi
+          if [[ "$RIPPLE_RELEASE_VERSION" == *-* && "$RIPPLE_RELEASE_TYPE" == "release" ]]; then
+            echo "Prerelease versions must use draft or prerelease release_type."
+            exit 1
+          fi
+          if [[ "$RIPPLE_RELEASE_VERSION" != *-* && "$RIPPLE_RELEASE_TYPE" == "prerelease" ]]; then
+            echo "Stable versions must use draft or release release_type."
+            exit 1
+          fi
+
+      - name: Verify signing and notarization secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            CSC_LINK
+            CSC_KEY_PASSWORD
+            APPLE_IDENTITY
+            APPLE_TEAM_ID
+            APPLE_API_KEY_ID
+            APPLE_API_ISSUER
+            APPLE_API_KEY_P8
+          )
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required secret: $name"
+              exit 1
+            fi
+          done
+
+      - name: Configure App Store Connect key
+        shell: bash
+        run: |
+          set -euo pipefail
+          key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf "%s" "$APPLE_API_KEY_P8" > "$key_path"
+          chmod 600 "$key_path"
+          {
+            echo "APPLE_API_KEY=$key_path"
+            echo "APPLE_API_KEY_ID=$APPLE_API_KEY_ID"
+            echo "APPLE_API_ISSUER=$APPLE_API_ISSUER"
+          } >> "$GITHUB_ENV"
+
+      - name: Configure release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("fs")
+            const path = "package.json"
+            const pkg = JSON.parse(fs.readFileSync(path, "utf8"))
+            pkg.version = process.env.RIPPLE_RELEASE_VERSION
+            pkg.build ??= {}
+            pkg.build.publish ??= []
+            if (!Array.isArray(pkg.build.publish) || pkg.build.publish.length === 0) {
+              throw new Error("package.json build.publish must contain the GitHub provider")
+            }
+            pkg.build.publish[0].releaseType = process.env.RIPPLE_RELEASE_TYPE
+            fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n")
+          '
+
+      - name: Write release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${RIPPLE_RELEASE_NOTES:-}" ]]; then
+            printf "%s\n" "$RIPPLE_RELEASE_NOTES" > build/release-notes.md
+          else
+            printf "Ripple %s\n" "$RIPPLE_RELEASE_VERSION" > build/release-notes.md
+          fi
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Download packaged agent binaries
+        run: |
+          bun run claude:download:all
+          bun run codex:download:all
+
+      - name: Build renderer and main process
+        run: bun run build
+
+      - name: Package signed and notarized macOS artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bunx electron-builder --mac --publish never \
+            -c.mac.notarize=true
+
+      - name: Verify notarized apps
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' apps < <(find release -maxdepth 3 -type d -name "Ripple.app" -print0)
+          if [[ ${#apps[@]} -eq 0 ]]; then
+            echo "No packaged Ripple.app bundles were produced."
+            exit 1
+          fi
+          for app_path in "${apps[@]}"; do
+            codesign --verify --deep --strict --verbose=2 "$app_path"
+            spctl --assess --type execute --verbose "$app_path"
+            xcrun stapler validate "$app_path"
+          done
+
+      - name: Verify update metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t metadata < <(find release -maxdepth 2 -type f \( -name "latest-mac*.yml" -o -name "beta-mac*.yml" \) | sort)
+          if [[ ${#metadata[@]} -eq 0 ]]; then
+            echo "No electron-updater macOS metadata files were produced."
+            exit 1
+          fi
+          if [[ "$RIPPLE_RELEASE_VERSION" == *-* ]]; then
+            printf "%s\n" "${metadata[@]}" | grep -q "beta-mac" || {
+              echo "Beta version did not produce beta macOS metadata."
+              exit 1
+            }
+          else
+            printf "%s\n" "${metadata[@]}" | grep -q "latest-mac" || {
+              echo "Stable version did not produce latest macOS metadata."
+              exit 1
+            }
+          fi
+          grep -R "version: $RIPPLE_RELEASE_VERSION" "${metadata[@]}"
+          mapfile -t app_update_configs < <(find release -maxdepth 6 -type f -path "*/Ripple.app/Contents/Resources/app-update.yml" | sort)
+          if [[ ${#app_update_configs[@]} -eq 0 ]]; then
+            echo "No packaged app-update.yml files were produced."
+            exit 1
+          fi
+          grep -R "provider: github" "${app_update_configs[@]}"
+          grep -R "owner: conmeara" "${app_update_configs[@]}"
+          grep -R "repo: ripple" "${app_update_configs[@]}"
+
+      - name: Publish verified artifacts to GitHub Releases
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' files < <(
+            find release -maxdepth 2 -type f \( \
+              -name "*.dmg" -o \
+              -name "*.zip" -o \
+              -name "*.blockmap" -o \
+              -name "latest-mac*.yml" -o \
+              -name "beta-mac*.yml" \
+            \) -print0
+          )
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No release files were found to publish."
+            exit 1
+          fi
+          publish_args=()
+          for file in "${files[@]}"; do
+            publish_args+=(--files "$file")
+          done
+          bunx electron-builder publish \
+            --version "$RIPPLE_RELEASE_VERSION" \
+            "${publish_args[@]}"
+
+      - name: Upload workflow artifact copy
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripple-macos-${{ inputs.version }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.blockmap
+            release/*-mac*.yml
+          if-no-files-found: error

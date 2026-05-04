@@ -183,6 +183,7 @@ export const clearSubChatSelectionAtom = atom(null, (_get, set) => {
 // Settings dialog
 export type SettingsTab =
   | "profile"
+  | "updates"
   | "appearance"
   | "preferences"
   | "models"
@@ -685,6 +686,7 @@ export type UpdateStatus =
   | "idle"
   | "checking"
   | "available"
+  | "not-available"
   | "downloading"
   | "ready"
   | "error"
@@ -697,6 +699,8 @@ export type UpdateState = {
   transferred?: number
   total?: number
   error?: string
+  releaseDate?: string
+  releaseNotes?: string | Array<{ version?: string; note?: string }>
 }
 
 export const updateStateAtom = atom<UpdateState>({ status: "idle" })

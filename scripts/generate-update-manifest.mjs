@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * Generate update manifest files for electron-updater
+ * Legacy fallback: generate generic update manifest files for electron-updater.
+ *
+ * Official Ripple app updates use electron-builder's GitHub provider and the
+ * metadata published to GitHub Releases. Keep this script only for explicit
+ * maintainer fallback-provider tests where MAIN_VITE_RIPPLE_UPDATE_URL points
+ * at a generic static host.
  *
  * This script generates `latest-mac.yml` (for arm64) and `latest-mac-x64.yml` files
  * that electron-updater uses to check for and download updates.
@@ -11,7 +16,7 @@
  *
  * The script expects Ripple ZIP files to exist in the release/ directory.
  *
- * Run this after `bun run dist` to generate the manifest files.
+ * Run `bun run dist:manifest:fallback` only when testing the fallback path.
  */
 
 import { createHash } from "crypto"

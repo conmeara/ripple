@@ -50,9 +50,8 @@ export function useJustUpdated() {
   const openChangelog = useCallback(() => {
     const api = window.desktopApi
     if (api) {
-      // Link to changelog with anchor to current version
-      const version = justUpdatedVersion ? `#v${justUpdatedVersion}` : ""
-      api.openExternal(`https://github.com/conmeara/ripple/releases${version}`)
+      const path = justUpdatedVersion ? `/tag/v${justUpdatedVersion}` : ""
+      api.openExternal(`https://github.com/conmeara/ripple/releases${path}`)
     }
     dismissJustUpdated()
   }, [justUpdatedVersion, dismissJustUpdated])

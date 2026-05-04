@@ -2,8 +2,8 @@ import { useEffect, useCallback, useRef } from "react"
 import { useAtom } from "jotai"
 import { updateStateAtom, type UpdateState } from "../atoms"
 
-// Note: Update checks are now triggered by window focus in main process (auto-updater.ts)
-// This hook only handles events and provides actions
+// Automatic checks are optional and owned by the main process. This hook only
+// handles update events and exposes user-initiated actions.
 const DISMISSED_KEY = "update-dismissed"
 const DISMISS_DURATION = 12 * 60 * 60 * 1000 // 12 hours
 
@@ -65,15 +65,22 @@ export function useUpdateChecker() {
         setState({
           status: "available",
           version: info.version,
+          releaseDate: info.releaseDate,
+          releaseNotes: info.releaseNotes,
         })
       }),
     )
 
     // No update available
     unsubs.push(
-      api.onUpdateNotAvailable?.(() => {
+      api.onUpdateNotAvailable?.((info) => {
         console.log("[Update] App is up to date")
-        setState({ status: "idle" })
+        setState({
+          status: "not-available",
+          version: info.version,
+          releaseDate: info.releaseDate,
+          releaseNotes: info.releaseNotes,
+        })
       }),
     )
 
@@ -99,6 +106,8 @@ export function useUpdateChecker() {
         setState({
           status: "ready",
           version: info.version,
+          releaseDate: info.releaseDate,
+          releaseNotes: info.releaseNotes,
         })
       }),
     )
@@ -128,17 +137,21 @@ export function useUpdateChecker() {
     }
   }, [setState, isDismissed])
 
-  // Note: Periodic checks removed - main process now checks on window focus
-  // This is more natural UX and avoids unnecessary network requests
-
   // Actions
   const checkForUpdates = useCallback(() => {
-    window.desktopApi?.checkForUpdates?.()
+    return window.desktopApi?.checkForUpdates?.()
   }, [])
 
-  const downloadUpdate = useCallback(() => {
-    window.desktopApi?.downloadUpdate?.()
-  }, [])
+  const downloadUpdate = useCallback(async () => {
+    const ok = await window.desktopApi?.downloadUpdate?.()
+    if (!ok) {
+      setState({
+        status: "error",
+        error: "Update download failed. Try again when your connection is stable.",
+      })
+    }
+    return ok ?? false
+  }, [setState])
 
   const installUpdate = useCallback(() => {
     window.desktopApi?.installUpdate?.()

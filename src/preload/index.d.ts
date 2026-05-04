@@ -7,9 +7,12 @@ import type {
   UpdateContactPreferenceState,
 } from "../shared/ripple-analytics"
 
+export type UpdateReleaseNotes = string | Array<{ version?: string; note?: string }>
+
 export interface UpdateInfo {
   version: string
   releaseDate?: string
+  releaseNotes?: UpdateReleaseNotes
 }
 
 export interface UpdateProgress {
@@ -38,16 +41,19 @@ export interface DesktopApi {
   platform: NodeJS.Platform
   arch: string
   getVersion: () => Promise<string>
+  isPackaged: () => Promise<boolean>
 
   // Auto-update
   checkForUpdates: (force?: boolean) => Promise<UpdateInfo | null>
   downloadUpdate: () => Promise<boolean>
   installUpdate: () => void
+  setUpdateChannel: (channel: "latest" | "beta") => Promise<boolean>
+  getUpdateChannel: () => Promise<"latest" | "beta">
   getAutoUpdateChecksEnabled: () => Promise<boolean>
   setAutoUpdateChecksEnabled: (enabled: boolean) => Promise<boolean>
   onUpdateChecking: (callback: () => void) => () => void
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
-  onUpdateNotAvailable: (callback: () => void) => () => void
+  onUpdateNotAvailable: (callback: (info: UpdateInfo) => void) => () => void
   onUpdateProgress: (callback: (progress: UpdateProgress) => void) => () => void
   onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => () => void
   onUpdateError: (callback: (error: string) => void) => () => void

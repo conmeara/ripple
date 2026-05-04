@@ -1,5 +1,5 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
-import { ChevronLeft } from "lucide-react"
+import { ChevronLeft, RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import {
   EyeOpenFilledIcon,
@@ -43,6 +43,11 @@ const MAIN_TABS = [
     id: "profile" as SettingsTab,
     label: "Account",
     icon: ProfileIconFilled,
+  },
+  {
+    id: "updates" as SettingsTab,
+    label: "App Updates",
+    icon: RefreshCw,
   },
   {
     id: "appearance" as SettingsTab,

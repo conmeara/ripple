@@ -5,6 +5,6 @@ mac:
   # Code signing identity - set via APPLE_IDENTITY env var
   # Example: "Developer ID Application: Your Name (TEAM_ID)"
   identity: ${env.APPLE_IDENTITY}
-  # Notarization is handled explicitly in the CI workflow's "Notarize" step
-  # Disable built-in notarization to avoid double-notarization hangs
+  # Local package commands do not notarize by default. The GitHub Actions
+  # release workflow enables notarization with APPLE_TEAM_ID before publishing.
   notarize: false

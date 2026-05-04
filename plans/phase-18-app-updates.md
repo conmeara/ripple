@@ -70,12 +70,36 @@ preview, comments, revisions, or export.
   optional automatic update checks.
 - [x] Implement Milestone 4: wire publishing secrets in local `.env` and
   GitHub Actions secrets without embedding tokens in the app.
-- [ ] Implement Milestone 1: finalize release channel
-  naming, tag naming, and workflow trigger details.
-- [ ] Implement Milestone 2: replace generic CDN/R2 release assumptions with
-  electron-builder GitHub Releases publishing and generated update metadata.
-- [ ] Implement Milestone 3: harden update state, settings copy, and release
-  notes UI for Ripple.
+- [x] 2026-05-04 / Codex: Implemented Milestone 1 release/channel conventions
+  in source: stable tags/versions remain `v0.1.0` / `0.1.0`, beta tags/versions
+  use `v0.1.0-beta.1` / `0.1.0-beta.1`, the release workflow is manual
+  `workflow_dispatch`, and GitHub release type is selected per run.
+- [x] 2026-05-04 / Codex: Implemented Milestone 2 GitHub Releases publishing
+  path. `package.json` now configures electron-builder `publish` for public
+  `conmeara/ripple` with `channel: "${channel}"`, release scripts no longer call
+  `dist:manifest`, and `scripts/generate-update-manifest.mjs` is labelled as
+  fallback-only.
+- [x] 2026-05-04 / Codex: Implemented Milestone 3 runtime and UI hardening.
+  Automatic checks default off, startup/focus/channel automatic checks are
+  preference-gated, beta sets `allowPrerelease` without downgrades, downloaded
+  updates require explicit `Restart to update`, and update controls moved into
+  a first-class `App Updates` Settings tab.
+- [x] 2026-05-04 / Codex: Added `.github/workflows/release.yml` for manual
+  macOS release builds with `contents: write`, release environment, built-in
+  `GITHUB_TOKEN`, Python 3.11 native rebuild support, Apple signing/notarization
+  secrets, notarized packaging, `codesign`/`spctl`/`stapler` checks, update
+  metadata checks, and verified-artifact publish.
+- [x] 2026-05-04 / Codex: Added Phase 18 regression guards:
+  `src/main/lib/auto-updater-source.test.ts`,
+  `src/main/lib/update-release-config.test.ts`, and
+  `src/renderer/components/update-banner.test.ts`.
+- [x] 2026-05-04 / Codex: Hardened failed download handling so the IPC
+  download path uses the same packaged/provider guard as the menu path, emits
+  an update error on fast failures, and clears the renderer's pending banner
+  state when a download request returns `false`.
+- [x] 2026-05-04 / Codex: Validation passed for
+  `bun test src/main/lib/config.test.ts src/main/lib/auto-updater-source.test.ts src/main/lib/update-release-config.test.ts src/renderer/components/update-banner.test.ts`,
+  `bun run ts:check`, and `bun run build`.
 - [ ] Implement Milestone 4: prototype release channel metadata with two
   prerelease versions before stable publication.
 - [ ] Implement Milestone 5: validate signed/notarized macOS update install,
@@ -187,6 +211,29 @@ preview, comments, revisions, or export.
   serial `4932469EED7539DA69C6B2290F7C2348`, and expiration
   `2031/05/05`. The local certificate and private key modulus hashes match, and
   the `.p12` exported successfully.
+- Observation: The active electron-builder configuration is the `build` field
+  in `package.json`, not `electron-builder.yml`.
+  Evidence: `CSC_IDENTITY_AUTO_DISCOVERY=false bunx electron-builder --dir --publish never`
+  printed `loaded configuration  file=package.json ("build" field)`.
+  Therefore Phase 18 GitHub `publish` config lives in `package.json`, and the
+  workflow uses `-c.mac.notarize=true` to enable notarization for CI while local
+  package commands remain non-notarizing by default.
+- Observation: Local macOS packaging cannot currently prove the full signed
+  update gate on this machine.
+  Evidence: A local `electron-builder --mac` smoke with signing disabled reached
+  arm64 packaging and produced `release/latest-mac.yml` in one pass, but full
+  dmg/zip packaging was blocked by local environment issues: Python 3.14 lacks
+  `distutils` for `node-gyp` during `node-pty` rebuilds, and `hdiutil create`
+  retried/fail-looped for the dmg target. The GitHub Actions workflow now
+  installs Python 3.11 before native rebuilds; the remaining proof must happen
+  in CI with signing/notarization secrets.
+- Observation: `--dir` package smokes do not produce packaged `app-update.yml`
+  for macOS.
+  Evidence: The local `--dir --publish never` smoke generated
+  `release/latest-mac.yml` but no
+  `Ripple.app/Contents/Resources/app-update.yml`; electron-builder writes
+  packaged `app-update.yml` from its after-pack hook only when macOS dmg or zip
+  targets are present.
 
 ## Decision Log
 
@@ -263,18 +310,35 @@ preview, comments, revisions, or export.
 
 ## Outcomes & Retrospective
 
-Not started.
+Implementation is complete through the app/runtime/release-workflow slice. The
+remaining Phase 18 release gates are external validation gates: run the new
+manual GitHub Actions workflow for at least two beta/prerelease builds, inspect
+the generated update metadata/artifacts, install an older signed/notarized
+build, and update entirely inside Ripple to a newer signed/notarized build.
+
+Local validation evidence so far:
+
+- `bun test src/main/lib/config.test.ts src/main/lib/auto-updater-source.test.ts src/main/lib/update-release-config.test.ts src/renderer/components/update-banner.test.ts`
+  passed with 14 tests / 73 assertions.
+- `bun run ts:check` passed.
+- `bun run build` passed.
+- `CSC_IDENTITY_AUTO_DISCOVERY=false bunx electron-builder --dir --publish never`
+  loaded `package.json` build config and produced local unpacked app output;
+  this smoke does not produce packaged `app-update.yml`.
+- Full local macOS package smoke is blocked on this machine by Python
+  `distutils`/`node-gyp` and `hdiutil` issues, so CI is the required next proof
+  for signed/notarized artifacts.
 
 ## Context and Orientation
 
-`src/main/lib/auto-updater.ts` owns update setup, channel persistence, event
-bridging, and IPC handlers. It imports `electron-updater` synchronously, sets
-`autoDownload = false`, currently configures a generic feed URL from
-`getConfiguredUpdateFeedUrl()`, forwards update events to every renderer window,
-and exposes IPC handlers for check, download, install, get state, set channel,
-and get channel. Phase 18 should move official builds to electron-builder's
-GitHub provider and generated metadata rather than relying on a bespoke generic
-feed URL.
+`src/main/lib/auto-updater.ts` owns update setup, channel persistence, automatic
+check preference persistence, event bridging, and IPC handlers. It imports
+`electron-updater` synchronously, sets `autoDownload = false`, uses
+electron-builder's packaged `app-update.yml` for official GitHub Releases
+updates, keeps `MAIN_VITE_RIPPLE_UPDATE_URL` only as an explicit fallback
+provider test path, forwards update events to every renderer window, and exposes
+IPC handlers for check, download, install, get state, set channel, get channel,
+get/set automatic checks, and update events.
 
 `src/preload/index.ts` exposes update APIs to the renderer:
 `checkForUpdates`, `downloadUpdate`, `installUpdate`, `setUpdateChannel`,
@@ -286,22 +350,22 @@ tracks banner state. `src/renderer/components/update-banner.tsx` shows the
 bottom-left update banner, handles "Update" and "Later", and opens
 `https://github.com/conmeara/ripple/releases` for "See what's new".
 
-`src/renderer/components/dialogs/settings-tabs/agents-beta-tab.tsx` currently
-contains the inherited Beta settings page. It exposes Early Access updates and
-manual update check controls, but its surrounding tab and copy still need a
-Ripple product pass.
+`src/renderer/components/dialogs/settings-tabs/app-updates-tab.tsx` is the
+first-class App Updates settings surface. It exposes manual check, automatic
+checks, Early Access, current version, update state, release date/notes links,
+download, and restart-to-update actions. The inherited
+`src/renderer/components/dialogs/settings-tabs/agents-beta-tab.tsx` no longer
+owns update controls.
 
-`scripts/generate-update-manifest.mjs`, `package.json` release scripts, and
-`electron-builder.yml` define the current release build path. `package.json`
-has `release`, `dist`, `dist:manifest`, and platform packaging scripts. The
-manifest script expects artifacts in `release/` and writes channel metadata.
-`electron-builder.yml` reads `APPLE_IDENTITY` and disables built-in
-notarization because CI is expected to handle it.
+`package.json` now defines the active electron-builder build and GitHub publish
+configuration. `scripts/generate-update-manifest.mjs` is legacy fallback only,
+and no normal release script calls it. `electron-builder.yml` is not the active
+loaded config in local smokes; keep any future release config changes in
+`package.json` unless a later pass intentionally moves configuration.
 
-The current source also triggers automatic checks in packaged builds on startup
-and window focus. Phase 18 must add a persisted update-check preference and
-guard startup/focus/channel-change checks behind it. Manual checks from the menu
-or Settings should continue to work even when automatic checks are off.
+Automatic checks are now opt-in. Packaged startup, focus, and channel-change
+checks all re-read `updates.autoCheckEnabled` before network work. Manual checks
+from the menu or Settings continue to work when automatic checks are off.
 
 ## Plan of Work
 
@@ -559,6 +623,7 @@ Updater runtime:
 - `src/renderer/lib/hooks/use-update-checker.ts`
 - `src/renderer/lib/hooks/use-just-updated.ts`
 - `src/renderer/components/update-banner.tsx`
+- `src/renderer/components/dialogs/settings-tabs/app-updates-tab.tsx`
 - `src/renderer/components/dialogs/settings-tabs/agents-beta-tab.tsx`
 
 Packaging and release:
@@ -568,7 +633,7 @@ Packaging and release:
 - `scripts/generate-update-manifest.mjs` as legacy/fallback only if the
   electron-builder GitHub provider cannot cover the release path
 - `scripts/sync-to-public.sh`
-- GitHub Actions release workflow
+- `.github/workflows/release.yml`
 - Public GitHub Releases for `conmeara/ripple` or a later chosen release repo
 - electron-builder GitHub publish provider with explicit `--publish always`
 - GitHub Actions `GITHUB_TOKEN` with `permissions: contents: write`
@@ -621,6 +686,21 @@ Recommended policy:
 - Release dry-run checklist: expected macOS arm64/x64 ZIP/DMG artifacts,
   generated update metadata, signed/notarized/stapled verification evidence,
   and observed update event sequence from N to N+1.
+- Implemented files for this slice:
+  `src/main/lib/auto-updater.ts`, `src/main/index.ts`, `src/preload/index.ts`,
+  `src/preload/index.d.ts`, `src/renderer/lib/hooks/use-update-checker.ts`,
+  `src/renderer/lib/hooks/use-just-updated.ts`,
+  `src/renderer/components/update-banner.tsx`,
+  `src/renderer/components/dialogs/settings-tabs/app-updates-tab.tsx`,
+  `src/renderer/components/dialogs/settings-tabs/agents-beta-tab.tsx`,
+  `src/renderer/features/settings/settings-sidebar.tsx`,
+  `src/renderer/features/settings/settings-content.tsx`,
+  `src/renderer/lib/atoms/index.ts`, `package.json`,
+  `.github/workflows/release.yml`, `.env.example`,
+  `scripts/generate-update-manifest.mjs`, and focused Phase 18 tests.
+- Current validation result:
+  `bun test src/main/lib/config.test.ts src/main/lib/auto-updater-source.test.ts src/main/lib/update-release-config.test.ts src/renderer/components/update-banner.test.ts`,
+  `bun run ts:check`, and `bun run build` pass.
 
 Recommended macOS notarization credentials:
 

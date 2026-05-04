@@ -50,13 +50,13 @@ contextBridge.exposeInMainWorld("desktopApi", {
     ipcRenderer.on("update:checking", handler)
     return () => ipcRenderer.removeListener("update:checking", handler)
   },
-  onUpdateAvailable: (callback: (info: { version: string; releaseDate?: string }) => void) => {
-    const handler = (_event: unknown, info: { version: string; releaseDate?: string }) => callback(info)
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => {
+    const handler = (_event: unknown, info: UpdateInfo) => callback(info)
     ipcRenderer.on("update:available", handler)
     return () => ipcRenderer.removeListener("update:available", handler)
   },
-  onUpdateNotAvailable: (callback: () => void) => {
-    const handler = () => callback()
+  onUpdateNotAvailable: (callback: (info: UpdateInfo) => void) => {
+    const handler = (_event: unknown, info: UpdateInfo) => callback(info)
     ipcRenderer.on("update:not-available", handler)
     return () => ipcRenderer.removeListener("update:not-available", handler)
   },
@@ -65,8 +65,8 @@ contextBridge.exposeInMainWorld("desktopApi", {
     ipcRenderer.on("update:progress", handler)
     return () => ipcRenderer.removeListener("update:progress", handler)
   },
-  onUpdateDownloaded: (callback: (info: { version: string }) => void) => {
-    const handler = (_event: unknown, info: { version: string }) => callback(info)
+  onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => {
+    const handler = (_event: unknown, info: UpdateInfo) => callback(info)
     ipcRenderer.on("update:downloaded", handler)
     return () => ipcRenderer.removeListener("update:downloaded", handler)
   },
@@ -281,9 +281,12 @@ contextBridge.exposeInMainWorld("desktopApi", {
 })
 
 // Type definitions
+export type UpdateReleaseNotes = string | Array<{ version?: string; note?: string }>
+
 export interface UpdateInfo {
   version: string
   releaseDate?: string
+  releaseNotes?: UpdateReleaseNotes
 }
 
 export interface UpdateProgress {
@@ -332,7 +335,7 @@ export interface DesktopApi {
   setAutoUpdateChecksEnabled: (enabled: boolean) => Promise<boolean>
   onUpdateChecking: (callback: () => void) => () => void
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
-  onUpdateNotAvailable: (callback: () => void) => () => void
+  onUpdateNotAvailable: (callback: (info: UpdateInfo) => void) => () => void
   onUpdateProgress: (callback: (progress: UpdateProgress) => void) => () => void
   onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => () => void
   onUpdateError: (callback: (error: string) => void) => () => void

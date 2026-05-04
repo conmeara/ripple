@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain, app } from "electron"
 import log from "electron-log"
 import { autoUpdater, type UpdateInfo, type ProgressInfo } from "electron-updater"
-import { readFileSync, writeFileSync, existsSync } from "fs"
+import { existsSync, readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { getConfiguredUpdateFeedUrl } from "./config"
 
@@ -26,13 +26,16 @@ function initAutoUpdaterConfig() {
   autoUpdater.autoRunAppAfterInstall = true // Restart app after install
 }
 
-// Optional update feed URL. Local Ripple builds must not default to the old
-// upstream updater.
-const UPDATE_FEED_URL = getConfiguredUpdateFeedUrl()
+// Official packaged builds use electron-builder's generated app-update.yml,
+// which points electron-updater at GitHub Releases. This env URL remains only
+// as a maintainer fallback for explicit local/provider tests.
+const FALLBACK_UPDATE_FEED_URL = getConfiguredUpdateFeedUrl()
 
 // Minimum interval between update checks (prevent spam on rapid focus/blur)
 const MIN_CHECK_INTERVAL = 60 * 1000 // 1 minute
+const STARTUP_CHECK_DELAY_MS = 5000
 let lastCheckTime = 0
+let automaticFocusChecksRegistered = false
 
 // Update channel preference file
 const CHANNEL_PREF_FILE = "update-channel.json"
@@ -40,6 +43,50 @@ const AUTO_CHECKS_PREF_FILE = "update-auto-checks.json"
 
 type UpdateChannel = "latest" | "beta"
 type UpdateCheckSource = "automatic" | "manual"
+
+function getBundledUpdateConfigPath(): string {
+  return join(process.resourcesPath, "app-update.yml")
+}
+
+function hasBundledUpdateConfig(): boolean {
+  return app.isPackaged && existsSync(getBundledUpdateConfigPath())
+}
+
+function hasUpdateProviderConfig(): boolean {
+  return Boolean(FALLBACK_UPDATE_FEED_URL) || hasBundledUpdateConfig()
+}
+
+function configureUpdateChannel(channel: UpdateChannel): void {
+  autoUpdater.channel = channel
+  // GitHub provider only offers prereleases when this is true.
+  autoUpdater.allowPrerelease = channel === "beta"
+  // electron-updater flips this to true when channel/prerelease changes. Ripple
+  // never offers downgrades between stable and early access builds.
+  autoUpdater.allowDowngrade = false
+}
+
+function configureUpdateProvider(): boolean {
+  if (FALLBACK_UPDATE_FEED_URL) {
+    autoUpdater.setFeedURL({
+      provider: "generic",
+      url: FALLBACK_UPDATE_FEED_URL,
+    })
+    autoUpdater.requestHeaders = {
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+    }
+    log.info("[AutoUpdater] Using explicit fallback update feed:", FALLBACK_UPDATE_FEED_URL)
+    return true
+  }
+
+  if (hasBundledUpdateConfig()) {
+    log.info("[AutoUpdater] Using bundled GitHub Releases update config:", getBundledUpdateConfigPath())
+    return true
+  }
+
+  log.info("[AutoUpdater] Disabled; no bundled GitHub update config or fallback feed configured")
+  return false
+}
 
 function getChannelPrefPath(): string {
   return join(app.getPath("userData"), CHANNEL_PREF_FILE)
@@ -77,6 +124,9 @@ export function getAutoUpdateChecksEnabled(): boolean {
     const prefPath = getAutoChecksPrefPath()
     if (existsSync(prefPath)) {
       const data = JSON.parse(readFileSync(prefPath, "utf-8"))
+      if (typeof data.autoCheckEnabled === "boolean") {
+        return data.autoCheckEnabled
+      }
       if (typeof data.enabled === "boolean") {
         return data.enabled
       }
@@ -84,12 +134,16 @@ export function getAutoUpdateChecksEnabled(): boolean {
   } catch {
     // Ignore read errors, fall back to the default.
   }
-  return true
+  return false
 }
 
 export function setAutoUpdateChecksEnabled(enabled: boolean): boolean {
   try {
-    writeFileSync(getAutoChecksPrefPath(), JSON.stringify({ enabled }), "utf-8")
+    writeFileSync(
+      getAutoChecksPrefPath(),
+      JSON.stringify({ autoCheckEnabled: enabled }),
+      "utf-8",
+    )
   } catch (error) {
     log.error("[AutoUpdater] Failed to save automatic update check preference:", error)
   }
@@ -125,34 +179,16 @@ export async function initAutoUpdater(getWindows: () => BrowserWindow[]) {
   // remain harmless no-ops.
   registerIpcHandlers()
 
-  if (!UPDATE_FEED_URL) {
-    log.info("[AutoUpdater] Disabled; no Ripple update feed configured")
+  // Initialize config
+  initAutoUpdaterConfig()
+  if (!configureUpdateProvider()) {
     return
   }
 
-  // Initialize config
-  initAutoUpdaterConfig()
-
   // Set update channel from saved preference
   const savedChannel = getSavedChannel()
-  autoUpdater.channel = savedChannel
-  // electron-updater auto-sets allowDowngrade=true when channel is changed.
-  // We never want to offer a downgrade (e.g. beta 0.0.60-beta.5 when stable is 0.0.62).
-  autoUpdater.allowDowngrade = false
+  configureUpdateChannel(savedChannel)
   log.info(`[AutoUpdater] Using update channel: ${savedChannel}`)
-
-  // Configure feed URL to point to R2 CDN
-  // Note: We use a custom request headers to bypass CDN cache
-  autoUpdater.setFeedURL({
-    provider: "generic",
-    url: UPDATE_FEED_URL,
-  })
-
-  // Add cache-busting to update requests
-  autoUpdater.requestHeaders = {
-    "Cache-Control": "no-cache, no-store, must-revalidate",
-    "Pragma": "no-cache",
-  }
 
   // Event: Checking for updates
   autoUpdater.on("checking-for-update", () => {
@@ -180,6 +216,8 @@ export async function initAutoUpdater(getWindows: () => BrowserWindow[]) {
     log.info(`[AutoUpdater] App is up to date (v${info.version})`)
     sendToAllRenderers("update:not-available", {
       version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes,
     })
   })
 
@@ -218,7 +256,8 @@ export async function initAutoUpdater(getWindows: () => BrowserWindow[]) {
     sendToAllRenderers("update:error", error.message)
   })
 
-  log.info("[AutoUpdater] Initialized with feed URL:", UPDATE_FEED_URL)
+  registerAutomaticUpdateChecks()
+  log.info("[AutoUpdater] Initialized")
 }
 
 /**
@@ -227,32 +266,8 @@ export async function initAutoUpdater(getWindows: () => BrowserWindow[]) {
 function registerIpcHandlers() {
   // Check for updates
   ipcMain.handle("update:check", async (_event, force?: boolean) => {
-    if (!app.isPackaged) {
-      log.info("[AutoUpdater] Skipping update check in dev mode")
-      return null
-    }
-    if (!UPDATE_FEED_URL) {
-      log.info("[AutoUpdater] Skipping update check; no Ripple update feed configured")
-      return null
-    }
     try {
-      // If force is true, add cache-busting timestamp to URL
-      if (force) {
-        const cacheBuster = `?t=${Date.now()}`
-        autoUpdater.setFeedURL({
-          provider: "generic",
-          url: `${UPDATE_FEED_URL}${cacheBuster}`,
-        })
-        log.info("[AutoUpdater] Force check with cache-busting:", `${UPDATE_FEED_URL}${cacheBuster}`)
-      }
-      const result = await autoUpdater.checkForUpdates()
-      // Reset feed URL back to normal after force check
-      if (force) {
-        autoUpdater.setFeedURL({
-          provider: "generic",
-          url: UPDATE_FEED_URL,
-        })
-      }
+      const result = await checkForUpdates(force === true, "manual")
       return result?.updateInfo || null
     } catch (error) {
       log.error("[AutoUpdater] Check failed:", error)
@@ -262,13 +277,7 @@ function registerIpcHandlers() {
 
   // Download update
   ipcMain.handle("update:download", async () => {
-    try {
-      await autoUpdater.downloadUpdate()
-      return true
-    } catch (error) {
-      log.error("[AutoUpdater] Download failed:", error)
-      return false
-    }
+    return downloadUpdate()
   })
 
   // Install update and restart
@@ -294,19 +303,12 @@ function registerIpcHandlers() {
       return false
     }
     log.info(`[AutoUpdater] Switching update channel to: ${channel}`)
-    autoUpdater.channel = channel
-    // electron-updater auto-sets allowDowngrade=true when channel is changed.
-    // We never want to offer a downgrade — only show updates newer than current version.
-    autoUpdater.allowDowngrade = false
+    configureUpdateChannel(channel)
     saveChannel(channel)
-    // Check for updates immediately with new channel
-    if (app.isPackaged) {
-      if (!UPDATE_FEED_URL) {
-        log.info("[AutoUpdater] Channel saved; no Ripple update feed configured")
-        return true
-      }
+
+    if (app.isPackaged && getAutoUpdateChecksEnabled()) {
       try {
-        await autoUpdater.checkForUpdates()
+        await checkForUpdates(true, "automatic")
       } catch (error) {
         log.error("[AutoUpdater] Post-channel-switch check failed:", error)
       }
@@ -340,8 +342,8 @@ export async function checkForUpdates(
     log.info("[AutoUpdater] Skipping update check in dev mode")
     return Promise.resolve(null)
   }
-  if (!UPDATE_FEED_URL) {
-    log.info("[AutoUpdater] Skipping update check; no Ripple update feed configured")
+  if (!hasUpdateProviderConfig()) {
+    log.info("[AutoUpdater] Skipping update check; no Ripple update provider configured")
     return Promise.resolve(null)
   }
   if (source === "automatic" && !getAutoUpdateChecksEnabled()) {
@@ -368,10 +370,12 @@ export async function checkForUpdates(
 export async function downloadUpdate() {
   if (!app.isPackaged) {
     log.info("[AutoUpdater] Skipping download in dev mode")
+    sendToAllRenderers("update:error", "Update downloads are available in packaged builds.")
     return false
   }
-  if (!UPDATE_FEED_URL) {
-    log.info("[AutoUpdater] Skipping download; no Ripple update feed configured")
+  if (!hasUpdateProviderConfig()) {
+    log.info("[AutoUpdater] Skipping download; no Ripple update provider configured")
+    sendToAllRenderers("update:error", "Ripple update downloads are unavailable in this build.")
     return false
   }
 
@@ -381,20 +385,37 @@ export async function downloadUpdate() {
     return true
   } catch (error) {
     log.error("[AutoUpdater] Download failed:", error)
+    sendToAllRenderers(
+      "update:error",
+      error instanceof Error ? error.message : "Update download failed.",
+    )
     return false
   }
 }
 
 /**
- * Check for updates when window gains focus
- * This is more natural than checking on an interval
+ * Register optional automatic checks. The listener is safe to keep installed:
+ * every automatic entry point re-reads the persisted preference before network
+ * work, so changing Settings takes effect without restarting Ripple.
  */
-export function setupFocusUpdateCheck(_getWindows: () => BrowserWindow[]) {
-  // Listen for window focus events
+function registerAutomaticUpdateChecks() {
+  if (automaticFocusChecksRegistered) return
+  automaticFocusChecksRegistered = true
+
   app.on("browser-window-focus", () => {
+    if (!getAutoUpdateChecksEnabled()) {
+      log.info("[AutoUpdater] Window focused; automatic update checks disabled")
+      return
+    }
     log.info("[AutoUpdater] Window focused - checking for updates")
-    checkForUpdates(false, "automatic")
+    void checkForUpdates(false, "automatic")
   })
+
+  if (app.isPackaged && getAutoUpdateChecksEnabled()) {
+    setTimeout(() => {
+      void checkForUpdates(true, "automatic")
+    }, STARTUP_CHECK_DELAY_MS)
+  }
 }
 
 /**
