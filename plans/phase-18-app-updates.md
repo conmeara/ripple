@@ -132,6 +132,12 @@ preview, comments, revisions, or export.
   because macOS runner Bash does not provide `mapfile`. Patched the release
   workflow verification and publish file collection logic to use portable
   `while read` loops.
+- [x] 2026-05-04 / Codex: Sixth beta release run `25346846255` for
+  `0.0.73-beta.1` on commit `740f544` passed signing, notarization,
+  `codesign`, `spctl`, `stapler`, and packaged `app-update.yml` verification,
+  then failed in `electron-builder publish` because the long `--version`
+  argument was parsed as an unknown positional value. Switched publish to
+  electron-builder's short `-v` and `-f` flags.
 - [ ] Implement Milestone 4: prototype release channel metadata with two
   prerelease versions before stable publication.
 - [ ] Implement Milestone 5: validate signed/notarized macOS update install,
@@ -256,6 +262,13 @@ preview, comments, revisions, or export.
   Evidence: Run `25345641309` completed signing and notarization, then failed
   immediately in `Verify notarized apps` with
   `/Users/runner/...sh: line 2: mapfile: command not found`.
+- Observation: The signed/notarized artifacts and metadata are now reaching the
+  final publish gate.
+  Evidence: Run `25346846255` verified both `release/mac/Ripple.app` and
+  `release/mac-arm64/Ripple.app` as `source=Notarized Developer ID`, `stapler`
+  reported `The validate action worked!`, and metadata verification found
+  `release/beta-mac.yml:version: 0.0.73-beta.1` plus GitHub provider
+  `app-update.yml` files for both packaged apps.
 - Observation: The active electron-builder configuration is the `build` field
   in `package.json`, not `electron-builder.yml`.
   Evidence: `CSC_IDENTITY_AUTO_DISCOVERY=false bunx electron-builder --dir --publish never`

@@ -45,6 +45,8 @@ describe("Phase 18 release configuration", () => {
     expect(workflow).toContain("spctl --assess --type execute")
     expect(workflow).toContain("xcrun stapler validate")
     expect(workflow).toContain("electron-builder publish")
+    expect(workflow).toContain('-v "$RIPPLE_RELEASE_VERSION"')
+    expect(workflow).toContain("publish_args+=(-f")
     expect(workflow).toContain("latest-mac*.yml")
     expect(workflow).toContain("beta-mac*.yml")
     expect(workflow).not.toContain("mapfile")

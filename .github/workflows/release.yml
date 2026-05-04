@@ -233,10 +233,10 @@ jobs:
           fi
           publish_args=()
           for file in "${files[@]}"; do
-            publish_args+=(--files "$file")
+            publish_args+=(-f "$file")
           done
           bunx electron-builder publish \
-            --version "$RIPPLE_RELEASE_VERSION" \
+            -v "$RIPPLE_RELEASE_VERSION" \
             "${publish_args[@]}"
 
       - name: Upload workflow artifact copy
