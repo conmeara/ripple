@@ -146,6 +146,12 @@ preview, comments, revisions, or export.
   revalidates config in a brittle path, so the workflow now uses `gh release
   create` / `gh release upload --clobber` after electron-builder has generated
   and verified the GitHub update metadata.
+- [x] 2026-05-04 / Codex: Eighth beta release run `25348837131` for
+  `0.0.73-beta.1` on commit `22fd9ea` completed successfully. GitHub Release
+  `v0.0.73-beta.1` is published as a prerelease with `beta-mac.yml`, arm64/x64
+  DMGs, arm64/x64 ZIPs, and blockmaps. Downloaded `beta-mac.yml` from the
+  release and verified it records version `0.0.73-beta.1`, the release notes,
+  and the arm64 ZIP primary update path.
 - [ ] Implement Milestone 4: prototype release channel metadata with two
   prerelease versions before stable publication.
 - [ ] Implement Milestone 5: validate signed/notarized macOS update install,
