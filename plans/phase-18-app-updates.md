@@ -138,6 +138,14 @@ preview, comments, revisions, or export.
   then failed in `electron-builder publish` because the long `--version`
   argument was parsed as an unknown positional value. Switched publish to
   electron-builder's short `-v` and `-f` flags.
+- [x] 2026-05-04 / Codex: Seventh beta release run `25347801368` for
+  `0.0.73-beta.1` on commit `de0bc69` passed signing/notarization and all
+  verification gates again, but electron-builder's `publish` subcommand still
+  parsed the short `-v` value as an unknown positional. Local CLI checks showed
+  the version option emits a reserved-word warning and the publish subcommand
+  revalidates config in a brittle path, so the workflow now uses `gh release
+  create` / `gh release upload --clobber` after electron-builder has generated
+  and verified the GitHub update metadata.
 - [ ] Implement Milestone 4: prototype release channel metadata with two
   prerelease versions before stable publication.
 - [ ] Implement Milestone 5: validate signed/notarized macOS update install,
@@ -269,6 +277,13 @@ preview, comments, revisions, or export.
   reported `The validate action worked!`, and metadata verification found
   `release/beta-mac.yml:version: 0.0.73-beta.1` plus GitHub provider
   `app-update.yml` files for both packaged apps.
+- Observation: The electron-builder GitHub provider remains useful for
+  generating packaged `app-update.yml` and `beta-mac.yml`, but the standalone
+  `electron-builder publish` command is not reliable in this version.
+  Evidence: Both `electron-builder publish --version 0.0.73-beta.1 ...` and
+  `electron-builder publish -v 0.0.73-beta.1 ...` failed with
+  `Unknown argument: 0.0.73-beta.1`, while local publish CLI checks emitted a
+  yargs warning that `version` is a reserved word.
 - Observation: The active electron-builder configuration is the `build` field
   in `package.json`, not `electron-builder.yml`.
   Evidence: `CSC_IDENTITY_AUTO_DISCOVERY=false bunx electron-builder --dir --publish never`

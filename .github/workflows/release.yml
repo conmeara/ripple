@@ -215,6 +215,36 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          tag="v$RIPPLE_RELEASE_VERSION"
+          release_args=(
+            -R conmeara/ripple
+            --target "$GITHUB_SHA"
+            --title "Ripple $RIPPLE_RELEASE_VERSION"
+            --notes-file build/release-notes.md
+          )
+          edit_args=(
+            -R conmeara/ripple
+            --title "Ripple $RIPPLE_RELEASE_VERSION"
+            --notes-file build/release-notes.md
+          )
+          case "$RIPPLE_RELEASE_TYPE" in
+            draft)
+              release_args+=(--draft --latest=false)
+              edit_args+=(--draft=true --prerelease=false --latest=false)
+              ;;
+            prerelease)
+              release_args+=(--prerelease --latest=false)
+              edit_args+=(--draft=false --prerelease=true --latest=false)
+              ;;
+            release)
+              release_args+=(--latest)
+              edit_args+=(--draft=false --prerelease=false --latest)
+              ;;
+            *)
+              echo "Unsupported release type: $RIPPLE_RELEASE_TYPE"
+              exit 1
+              ;;
+          esac
           files=()
           while IFS= read -r -d '' file_path; do
             files+=("$file_path")
@@ -231,13 +261,12 @@ jobs:
             echo "No release files were found to publish."
             exit 1
           fi
-          publish_args=()
-          for file in "${files[@]}"; do
-            publish_args+=(-f "$file")
-          done
-          bunx electron-builder publish \
-            -v "$RIPPLE_RELEASE_VERSION" \
-            "${publish_args[@]}"
+          if gh release view "$tag" -R conmeara/ripple >/dev/null 2>&1; then
+            gh release edit "$tag" "${edit_args[@]}"
+            gh release upload "$tag" "${files[@]}" -R conmeara/ripple --clobber
+          else
+            gh release create "$tag" "${files[@]}" "${release_args[@]}"
+          fi
 
       - name: Upload workflow artifact copy
         uses: actions/upload-artifact@v4
