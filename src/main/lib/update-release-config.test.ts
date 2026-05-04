@@ -35,6 +35,7 @@ describe("Phase 18 release configuration", () => {
     expect(workflow).not.toContain("pull_request")
     expect(workflow).toContain("contents: write")
     expect(workflow).toContain("environment: release")
+    expect(workflow).toContain("NODE_OPTIONS: --max-old-space-size=8192")
     expect(workflow).toContain("GITHUB_TOKEN: ${{ github.token }}")
     expect(workflow).toContain("actions/setup-python@v5")
     expect(workflow).toContain("CSC_LINK")

@@ -109,6 +109,10 @@ preview, comments, revisions, or export.
   `scripts/download-codex-binary.mjs` only read `GITHUB_TOKEN` while the
   workflow exported `GH_TOKEN`. Patched the workflow to export both names and
   patched the downloader to accept either token name.
+- [x] 2026-05-04 / Codex: Second beta release run `25344928927` passed the
+  repaired Codex download, then failed in `bun run build` with V8 heap
+  exhaustion near the default 2 GB limit. Patched the release workflow to export
+  `NODE_OPTIONS=--max-old-space-size=8192` for CI builds.
 - [ ] Implement Milestone 4: prototype release channel metadata with two
   prerelease versions before stable publication.
 - [ ] Implement Milestone 5: validate signed/notarized macOS update install,
@@ -341,6 +345,10 @@ Local validation evidence so far:
   validation, secret presence, App Store Connect key writing, release metadata
   rewriting, dependency install, and Claude binary downloads. It failed before
   build because the Codex downloader did not see a GitHub API token.
+- GitHub Actions run `25344928927` proved the Codex token fix by completing all
+  packaged agent binary downloads. It failed during renderer production build
+  with `Ineffective mark-compacts near heap limit`, so the release workflow now
+  gives Node an 8 GB heap limit.
 
 ## Context and Orientation
 

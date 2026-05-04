@@ -37,6 +37,7 @@ jobs:
       RIPPLE_RELEASE_VERSION: ${{ inputs.version }}
       RIPPLE_RELEASE_TYPE: ${{ inputs.release_type }}
       RIPPLE_RELEASE_NOTES: ${{ inputs.release_notes }}
+      NODE_OPTIONS: --max-old-space-size=8192
       GH_TOKEN: ${{ github.token }}
       GITHUB_TOKEN: ${{ github.token }}
       CSC_LINK: ${{ secrets.CSC_LINK }}
