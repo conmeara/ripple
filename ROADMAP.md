@@ -1073,6 +1073,9 @@ Goals:
 - Publish a plain-language analytics transparency artifact, preferably in the
   GitHub repo and optionally mirrored to a Gist, that the onboarding screen can
   open from a "Let me show you" link.
+- Keep PostHog official-build wiring disabled until the event map, transparency
+  docs, main-owned consent store, sanitizer, forbidden-payload tests, and legacy
+  helper quarantine are in place.
 
 Key files:
 
@@ -1088,31 +1091,45 @@ Done when:
   reports as `1Code`, `21st.dev`, or upstream product identity.
 - Analytics initializes only when configured and permitted, and failures are
   logged without interrupting local workflows.
+- First-launch analytics is not marked as remotely captured while analytics is
+  disabled or unconfigured; the first permitted capture remains measurable or
+  local first-run state is tracked separately.
 - Users can understand and change analytics consent from settings or onboarding.
-- Analytics is off by default, account/email/update preferences are separate
+- Renderer code does not initialize its own analytics provider; analytics
+  capture goes through the main-process consent, allowlist, and sanitizer path.
+- Analytics is off by default, profile/email/update preferences are separate
   from analytics consent, and analytics payloads never include project files,
   prompts, agent conversations, comments, media, exports, local file paths, or
   user email.
 - For v1, opted-in weekly update emails can be captured in PostHog through a
   dedicated contact path, separate from anonymous analytics and without adding a
   full account backend.
+- Anonymous analytics and email contact capture use separate identities
+  (`anon:<installId>` and `contact:<id>` or equivalent) and are never identified,
+  aliased, or merged.
+- Remote crash/error reporting is off by default. Official builds do not set a
+  Sentry DSN unless a separate explicit crash-reporting opt-in and sanitized
+  exception extras exist.
 - Development, test, and packaged-app builds have predictable analytics behavior.
 
 ### Phase 17: Onboarding Screen
 
 Goals:
 
-- Replace inherited repo/provider-first onboarding with a Ripple first-run screen
-  that first offers optional Ripple account/email/update preferences and
-  analytics consent, then leads into creating or opening a motion project.
+- Replace inherited repo/provider-first onboarding with a compact Ripple
+  first-run dialog over project entry that first offers optional Ripple
+  profile/email/update preferences and analytics consent, then leads into
+  creating or opening a motion project.
 - Let users create their first project under `~/Ripple/<project-name>` without
   mandatory account creation, GitHub, provider setup, dependency knowledge, or
   repo terms.
 - Offer optional setup paths for Codex/Claude connections, analytics consent,
   and advanced project import without blocking local preview and export basics.
-- Let users optionally create or connect a Ripple account with email,
-  optionally request weekly app update emails, and skip both without losing
-  local app access.
+- Let users optionally save a local Ripple profile/email preference, optionally
+  request weekly app update emails, optionally allow automatic in-app update
+  checks, and skip all of them without losing local app access. Do not describe
+  v1 email capture as account creation unless a real Ripple account endpoint is
+  implemented.
 - Capture opted-in weekly update emails for v1 through the Phase 16 PostHog
   contact path, while leaving full hosted accounts for a later backend phase.
 - Use motion-design language and visual affordances that lead into templates,
@@ -1128,17 +1145,22 @@ Key files:
 
 Done when:
 
-- Fresh install lands on a Ripple onboarding screen with clear Create Project and
-  Open Existing Project actions.
+- Fresh install shows a compact first-run dialog over `ProjectEntryPage`, with
+  clear Create Project and Open Existing Project actions visible as the
+  destination once the dialog is continued or skipped.
 - Completing onboarding creates or opens a project and reaches the primary Ripple
   shell without mandatory account/provider setup.
-- Optional Ripple account/email, weekly update emails, provider setup, and
-  analytics steps can be skipped, revisited from settings, and do not strand
-  returning users.
+- Optional Ripple profile/email, weekly update emails, automatic in-app update
+  checks, provider setup, and analytics steps can be skipped, revisited from
+  settings, and do not strand returning users.
 - Weekly update email capture works when explicitly enabled and is visibly
   separate from anonymous product analytics.
 - The analytics toggle is off by default and links to the Phase 16 public
   transparency artifact.
+- Claude/Codex readiness cards are optional, fail open, and do not auto-start
+  provider setup until the user explicitly chooses to connect.
+- Provider card language is motion-user-friendly; Terminal, OAuth, API-key, and
+  command-copy setup details appear only after the user chooses to connect.
 - Onboarding copy avoids repo, branch, clone, worktree, dependency install, and
   developer-tool language in the primary path.
 
@@ -1148,18 +1170,20 @@ Goals:
 
 - Turn Ripple's Electron update plumbing into a complete user-facing app update
   flow for packaged builds.
-- Let users check for updates, see release context, download an update, install
-  on restart, and recover from failed or interrupted updates without learning
-  release artifacts or update feeds.
-- Validate stable and beta update channels against Ripple-owned feed URLs,
-  product IDs, protocols, signing identity, and artifact names established in
-  Phase 15.
+- Let users check for updates, see release context, download an update, choose
+  when to restart/install, and recover from failed or interrupted updates
+  without learning release artifacts or update feeds.
+- Validate stable and beta update channels against electron-builder GitHub
+  Releases metadata, product IDs, protocols, signing identity, and artifact names
+  established in Phase 15.
 - Use public GitHub Releases on `conmeara/ripple` as the default Phase 18
-  release/update source, with GitHub Actions as the official build and publish
-  path.
+  release/update source, electron-builder's GitHub provider for generated update
+  metadata, and GitHub Actions as the official build and publish path.
 - Start with a manually triggered GitHub Actions release workflow that produces
-  draft releases until signed/notarized macOS update installation is validated;
-  tag-push automation can be added after the release gate is proven.
+  signed/notarized draft artifacts for inspection, then publish a
+  beta/prerelease update candidate for real in-app N-to-N+1 validation before
+  stable publication; tag-push automation can be added after the release gate is
+  proven.
 - Keep update checks optional and non-blocking. Update failures must not block
   local project creation/opening, preview, comments, revisions, or export.
 - Add clear packaged-build QA for macOS first, then Windows and Linux as their
@@ -1174,7 +1198,8 @@ Key files:
 - `src/renderer/lib/hooks/use-update-checker.ts`
 - `src/renderer/lib/hooks/use-just-updated.ts`
 - `src/renderer/components/dialogs/settings-tabs/agents-beta-tab.tsx`
-- `scripts/generate-update-manifest.mjs`
+- `scripts/generate-update-manifest.mjs` as legacy/fallback only if the
+  electron-builder GitHub provider cannot cover the release path
 - `electron-builder.yml`
 - `package.json`
 
@@ -1184,17 +1209,30 @@ Done when:
   Ripple-owned GitHub Releases update feed or documented equivalent.
 - Users can manually check, download, and restart to install an update from the
   app UI.
+- Downloaded updates show a ready-to-restart state and require an explicit
+  `Restart to update` action; the renderer does not auto-install or restart
+  from a ready-state effect.
 - The update UI shows useful release/version state and handles unavailable,
   failed, cancelled, already-downloaded, and restart-required states.
+- App update controls live in a first-class App Updates settings surface or
+  equivalent Ripple-labeled section with manual checks, automatic checks, Early
+  Access, version state, release notes/date, and recoverable errors.
 - Stable is the default channel. Beta is an opt-in Early Access channel in
   settings, persists safely, and never enables legacy upstream feeds.
+- Automatic update checks are a separate persisted preference from weekly email
+  updates and default off for the first release unless the user opts in; manual
+  checks remain available.
 - GitHub Actions can build, sign/notarize, and attach stable/beta release
-  artifacts plus update metadata to draft GitHub Releases.
+  artifacts plus electron-builder update metadata to GitHub Releases.
+- The official release path uses electron-builder GitHub publishing metadata;
+  the generic manifest script is explicitly fallback-only and is not required
+  by normal packaged update checks.
 - GitHub release publishing uses the built-in Actions `GITHUB_TOKEN` with
   explicit release permissions where possible. Any maintainer tokens and Apple
   signing/notarization credentials live only in ignored local env files or
   GitHub Actions secrets, never in app runtime code or packaged resources.
-- Update installation is validated on signed/notarized macOS artifacts, with
+- Update installation is validated from an older signed/notarized macOS build to
+  a newer reachable published beta/prerelease build entirely inside Ripple, with
   Windows and Linux expectations documented if those platforms are not yet
   release-ready.
 - Failed update checks or downloads are logged and recoverable without blocking
