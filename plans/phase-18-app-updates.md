@@ -119,6 +119,19 @@ preview, comments, revisions, or export.
   generated bundle. Verified the generated local `.p12` plus
   `.secrets/signing/p12-password.txt` pair, then refreshed GitHub Actions
   `CSC_LINK` and `CSC_KEY_PASSWORD` from the generated signing files.
+- [x] 2026-05-04 / Codex: Fourth beta release run `25345306571` still failed
+  importing the signing `.p12`. Local `openssl pkcs12` could read the bundle,
+  but macOS `security import` failed with the same `MAC verification failed`
+  error. Re-exported the ignored signing bundle in legacy PKCS#12 form,
+  verified that macOS `security import` finds the Developer ID identity from
+  the converted bundle, and refreshed GitHub Actions `CSC_LINK` and
+  `CSC_KEY_PASSWORD` from newline-stripped local signing values.
+- [x] 2026-05-04 / Codex: Fifth beta release run `25345641309` for
+  `0.0.73-beta.1` on commit `164a0f0` signed and notarized both arm64 and x64
+  macOS apps successfully, then failed in the follow-on verification step
+  because macOS runner Bash does not provide `mapfile`. Patched the release
+  workflow verification and publish file collection logic to use portable
+  `while read` loops.
 - [ ] Implement Milestone 4: prototype release channel metadata with two
   prerelease versions before stable publication.
 - [ ] Implement Milestone 5: validate signed/notarized macOS update install,
@@ -230,6 +243,19 @@ preview, comments, revisions, or export.
   serial `4932469EED7539DA69C6B2290F7C2348`, and expiration
   `2031/05/05`. The local certificate and private key modulus hashes match, and
   the `.p12` exported successfully.
+- Observation: OpenSSL-readable PKCS#12 files are not sufficient for the macOS
+  signing path used by electron-builder.
+  Evidence: The original local `.p12` used PBES2/PBKDF2/AES-256-CBC and passed
+  `openssl pkcs12 -noout` with the generated password, but both GitHub Actions
+  and local macOS `security import` failed with
+  `SecKeychainItemImport: MAC verification failed during PKCS12 import`. A
+  legacy-form PKCS#12 re-export imported cleanly into a temporary keychain and
+  exposed one valid Developer ID signing identity.
+- Observation: GitHub's macOS runner invokes the default system Bash for
+  `shell: bash`, so workflow scripts must avoid Bash 4-only helpers.
+  Evidence: Run `25345641309` completed signing and notarization, then failed
+  immediately in `Verify notarized apps` with
+  `/Users/runner/...sh: line 2: mapfile: command not found`.
 - Observation: The active electron-builder configuration is the `build` field
   in `package.json`, not `electron-builder.yml`.
   Evidence: `CSC_IDENTITY_AUTO_DISCOVERY=false bunx electron-builder --dir --publish never`

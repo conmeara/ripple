@@ -47,6 +47,8 @@ describe("Phase 18 release configuration", () => {
     expect(workflow).toContain("electron-builder publish")
     expect(workflow).toContain("latest-mac*.yml")
     expect(workflow).toContain("beta-mac*.yml")
+    expect(workflow).not.toContain("mapfile")
+    expect(workflow).not.toContain("readarray")
   })
 
   test("primary update settings avoid inherited developer-tool language", () => {

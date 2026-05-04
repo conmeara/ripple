@@ -161,7 +161,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -d '' apps < <(find release -maxdepth 3 -type d -name "Ripple.app" -print0)
+          apps=()
+          while IFS= read -r -d '' app_path; do
+            apps+=("$app_path")
+          done < <(find release -maxdepth 3 -type d -name "Ripple.app" -print0)
           if [[ ${#apps[@]} -eq 0 ]]; then
             echo "No packaged Ripple.app bundles were produced."
             exit 1
@@ -176,7 +179,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t metadata < <(find release -maxdepth 2 -type f \( -name "latest-mac*.yml" -o -name "beta-mac*.yml" \) | sort)
+          metadata=()
+          while IFS= read -r metadata_path; do
+            metadata+=("$metadata_path")
+          done < <(find release -maxdepth 2 -type f \( -name "latest-mac*.yml" -o -name "beta-mac*.yml" \) | sort)
           if [[ ${#metadata[@]} -eq 0 ]]; then
             echo "No electron-updater macOS metadata files were produced."
             exit 1
@@ -193,7 +199,10 @@ jobs:
             }
           fi
           grep -R "version: $RIPPLE_RELEASE_VERSION" "${metadata[@]}"
-          mapfile -t app_update_configs < <(find release -maxdepth 6 -type f -path "*/Ripple.app/Contents/Resources/app-update.yml" | sort)
+          app_update_configs=()
+          while IFS= read -r app_update_config; do
+            app_update_configs+=("$app_update_config")
+          done < <(find release -maxdepth 6 -type f -path "*/Ripple.app/Contents/Resources/app-update.yml" | sort)
           if [[ ${#app_update_configs[@]} -eq 0 ]]; then
             echo "No packaged app-update.yml files were produced."
             exit 1
@@ -206,7 +215,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -d '' files < <(
+          files=()
+          while IFS= read -r -d '' file_path; do
+            files+=("$file_path")
+          done < <(
             find release -maxdepth 2 -type f \( \
               -name "*.dmg" -o \
               -name "*.zip" -o \
