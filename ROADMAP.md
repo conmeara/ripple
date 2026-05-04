@@ -413,9 +413,10 @@ Reference links to preserve from the old docs:
 - Source candidates include official online HyperFrames templates plus
   templates/examples from the HyperFrames GitHub repo, curated into an
   app-owned local bundle rather than fetched at authoring or render time.
-- Preserve the useful starter/example names from the old docs as candidate
-  seed templates: `warm-grain`, `play-mode`, `swiss-grid`, `kinetic-type`,
-  `decision-tree`, `product-promo`, `nyt-graph`, `vignelli`, and `blank`.
+- Preserve `blank` as the default starter. The older seeded example labels
+  such as `warm-grain`, `play-mode`, `swiss-grid`, `kinetic-type`,
+  `decision-tree`, `product-promo`, `nyt-graph`, and `vignelli` should not ship
+  as generic lookalike starters unless real source templates are bundled.
 - Users should be able to preview, create, or scaffold templates inside Ripple
   without touching the CLI. The preview UI should make aspect ratio, duration,
   category, and basic motion feel visible before creation.

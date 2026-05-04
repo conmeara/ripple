@@ -11,6 +11,8 @@ import {
   AlertDialog,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
 } from "../ui/alert-dialog"
 import { Button } from "../ui/button"
 import { Badge } from "../ui/badge"
@@ -73,6 +75,11 @@ export function ClaudeLoginModal(_: ClaudeLoginModalProps) {
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent className="w-[420px] p-6">
+        <AlertDialogTitle className="sr-only">Connect Claude Code</AlertDialogTitle>
+        <AlertDialogDescription className="sr-only">
+          Connect Claude Code through your local Claude Agent SDK.
+        </AlertDialogDescription>
+
         <AlertDialogCancel className="absolute right-4 top-4 h-6 w-6 p-0 border-0 bg-transparent hover:bg-muted rounded-sm opacity-70 hover:opacity-100">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>

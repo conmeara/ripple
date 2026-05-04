@@ -39,6 +39,10 @@ contextBridge.exposeInMainWorld("desktopApi", {
   installUpdate: () => ipcRenderer.invoke("update:install"),
   setUpdateChannel: (channel: "latest" | "beta") => ipcRenderer.invoke("update:set-channel", channel),
   getUpdateChannel: () => ipcRenderer.invoke("update:get-channel") as Promise<"latest" | "beta">,
+  getAutoUpdateChecksEnabled: () =>
+    ipcRenderer.invoke("update:get-auto-checks-enabled") as Promise<boolean>,
+  setAutoUpdateChecksEnabled: (enabled: boolean) =>
+    ipcRenderer.invoke("update:set-auto-checks-enabled", enabled) as Promise<boolean>,
 
   // Auto-update event listeners
   onUpdateChecking: (callback: () => void) => {
@@ -137,6 +141,8 @@ contextBridge.exposeInMainWorld("desktopApi", {
     ipcRenderer.invoke("analytics:capture-event", payload) as Promise<AnalyticsCaptureResult>,
   syncUpdateContactPreference: (input: UpdateContactPreferenceInput) =>
     ipcRenderer.invoke("analytics:sync-update-contact", input) as Promise<UpdateContactPreferenceState>,
+  getUpdateContactPreference: () =>
+    ipcRenderer.invoke("analytics:get-update-contact") as Promise<UpdateContactPreferenceState>,
   setAnalyticsOptOut: (optedOut: boolean) => ipcRenderer.invoke("analytics:set-opt-out", optedOut),
 
   // Native features
@@ -322,6 +328,8 @@ export interface DesktopApi {
   installUpdate: () => void
   setUpdateChannel: (channel: "latest" | "beta") => Promise<boolean>
   getUpdateChannel: () => Promise<"latest" | "beta">
+  getAutoUpdateChecksEnabled: () => Promise<boolean>
+  setAutoUpdateChecksEnabled: (enabled: boolean) => Promise<boolean>
   onUpdateChecking: (callback: () => void) => () => void
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
   onUpdateNotAvailable: (callback: () => void) => () => void
@@ -360,6 +368,7 @@ export interface DesktopApi {
   migrateLegacyAnalyticsOptOut: (optedOut: boolean) => Promise<AnalyticsStatus>
   captureAnalyticsEvent: (payload: RippleAnalyticsEventPayload) => Promise<AnalyticsCaptureResult>
   syncUpdateContactPreference: (input: UpdateContactPreferenceInput) => Promise<UpdateContactPreferenceState>
+  getUpdateContactPreference: () => Promise<UpdateContactPreferenceState>
   setAnalyticsOptOut: (optedOut: boolean) => Promise<void>
   setBadge: (count: number | null) => Promise<void>
   setBadgeIcon: (imageData: string | null) => Promise<void>

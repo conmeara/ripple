@@ -19,6 +19,7 @@ import { isLegacy21stUrl } from "../lib/config"
 import {
   captureAnalyticsEvent,
   getAnalyticsStatus,
+  getUpdateContactPreference,
   migrateLegacyAnalyticsOptOut,
   setAnalyticsConsent,
   syncUpdateContactPreference,
@@ -423,6 +424,10 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle("analytics:sync-update-contact", async (_event, input: { email?: string | null; weeklyUpdatesEnabled: boolean; source?: string }) => {
     return syncUpdateContactPreference(input)
+  })
+
+  ipcMain.handle("analytics:get-update-contact", async () => {
+    return getUpdateContactPreference()
   })
 
   // Legacy renderer API: never grant analytics from the old opt-out shape.

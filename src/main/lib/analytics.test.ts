@@ -5,6 +5,7 @@ import { tmpdir } from "node:os"
 import {
   captureAnalyticsEvent,
   getAnalyticsStatus,
+  getUpdateContactPreference,
   initAnalytics,
   resetAnalyticsForTests,
   setAnalyticsConsent,
@@ -216,6 +217,56 @@ describe("main-process Ripple analytics boundary", () => {
       weekly_updates_enabled: true,
       contact_source: "onboarding",
     })
+  })
+
+  test("exposes stored update contact preference without anonymous identity", async () => {
+    const { provider } = createProvider()
+    initAnalytics({
+      provider,
+      runtimeConfig: enabledRuntime,
+      userDataPath: await createUserDataPath(),
+      appVersion: "0.0.72",
+      platform: "darwin",
+    })
+
+    syncUpdateContactPreference({
+      email: "person@example.com",
+      weeklyUpdatesEnabled: true,
+      source: "settings",
+    })
+
+    expect(getUpdateContactPreference()).toMatchObject({
+      email: "person@example.com",
+      weeklyUpdatesEnabled: true,
+      syncStatus: "synced",
+    })
+    expect(JSON.stringify(getUpdateContactPreference())).not.toContain("anon:")
+  })
+
+  test("can clear a stored update contact email separately from analytics consent", async () => {
+    const { provider } = createProvider()
+    initAnalytics({
+      provider,
+      runtimeConfig: enabledRuntime,
+      userDataPath: await createUserDataPath(),
+      appVersion: "0.0.72",
+      platform: "darwin",
+    })
+
+    syncUpdateContactPreference({
+      email: "person@example.com",
+      weeklyUpdatesEnabled: true,
+      source: "settings",
+    })
+    const cleared = syncUpdateContactPreference({
+      email: null,
+      weeklyUpdatesEnabled: false,
+      source: "settings",
+    })
+
+    expect(cleared.email).toBeNull()
+    expect(cleared.weeklyUpdatesEnabled).toBe(false)
+    expect(getAnalyticsStatus().consent).toBe("unset")
   })
 
   test("clamps update contact source before capture", async () => {

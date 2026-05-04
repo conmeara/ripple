@@ -12,6 +12,8 @@ import type { RippleTemplateDefinition, RippleTemplateManifest } from "../src/sh
 const bundleRoot = join(process.cwd(), "resources", "hyperframes-templates")
 const manifestPath = join(bundleRoot, "manifest.json")
 const previewVideoDirectory = "previews/videos"
+const previewProjectPosterDirectory = "previews/projects"
+const previewPosterSeekSeconds = 1
 const maxPreviewDimension = 960
 const previewFps = 24
 
@@ -309,6 +311,37 @@ async function renderPreview(projectPath: string, outputPath: string): Promise<v
   })
 }
 
+async function extractPreviewPoster(input: {
+  videoPath: string
+  destination: string
+}): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn("ffmpeg", [
+      "-y",
+      "-loglevel",
+      "error",
+      "-ss",
+      String(previewPosterSeekSeconds),
+      "-i",
+      input.videoPath,
+      "-frames:v",
+      "1",
+      input.destination,
+    ], {
+      stdio: "inherit",
+    })
+
+    child.on("error", reject)
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve()
+        return
+      }
+      reject(new Error(`FFmpeg poster extraction exited with code ${code ?? "unknown"}.`))
+    })
+  })
+}
+
 async function renderTemplatePreview(input: {
   template: RippleTemplateDefinition
   destination: string
@@ -319,7 +352,7 @@ async function renderTemplatePreview(input: {
   const size = previewSizeFor(input.template)
 
   try {
-    if (input.template.supportedTargets.includes("new-project")) {
+    if (input.template.sourceKind === "ripple-blank") {
       await prepareProjectTemplatePreview({ projectPath, template: input.template, size })
     } else {
       await prepareCompositionTemplatePreview({ projectPath, template: input.template, size })
@@ -341,31 +374,64 @@ function previewVideoPathFor(template: RippleTemplateDefinition): string {
   return `${previewVideoDirectory}/${template.id}.mp4`
 }
 
-async function updateManifestVideoPaths(catalog: RippleTemplateCatalog): Promise<void> {
+function previewProjectPosterPathFor(template: RippleTemplateDefinition): string {
+  return `${previewProjectPosterDirectory}/${template.id}.png`
+}
+
+async function ensureProjectPreviewPoster(input: {
+  template: RippleTemplateDefinition
+  videoPath: string
+  force: boolean
+}): Promise<void> {
+  if (input.template.sourceKind !== "ripple-blank") return
+
+  const destination = join(bundleRoot, previewProjectPosterPathFor(input.template))
+  if (!input.force && await pathExists(destination)) return
+
+  await mkdir(dirname(destination), { recursive: true })
+  await extractPreviewPoster({
+    videoPath: input.videoPath,
+    destination,
+  })
+}
+
+async function updateManifestPreviewPaths(catalog: RippleTemplateCatalog): Promise<void> {
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as RippleTemplateManifest
-  const expectedPaths = new Map(
+  const expectedVideoPaths = new Map(
     catalog.templates.map((template) => [template.id, previewVideoPathFor(template)]),
+  )
+  const expectedProjectPosterPaths = new Map(
+    catalog.templates
+      .filter((template) => template.sourceKind === "ripple-blank")
+      .map((template) => [template.id, previewProjectPosterPathFor(template)]),
   )
 
   manifest.templates = manifest.templates.map((template) => ({
     ...template,
-    previewVideoPath: expectedPaths.get(template.id) ?? template.previewVideoPath ?? null,
+    previewPosterPath: expectedProjectPosterPaths.get(template.id) ?? template.previewPosterPath,
+    previewVideoPath: expectedVideoPaths.get(template.id) ?? template.previewVideoPath ?? null,
   }))
   manifest.generatedAt = new Date().toISOString()
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8")
 }
 
-async function assertEveryRequestedPreviewExists(templates: RippleTemplateDefinition[]): Promise<void> {
+async function assertEveryRequestedPreviewMediaExists(templates: RippleTemplateDefinition[]): Promise<void> {
   const missing: string[] = []
   for (const template of templates) {
-    const relativePath = previewVideoPathFor(template)
-    if (!(await pathExists(join(bundleRoot, relativePath)))) {
-      missing.push(`${template.id} -> ${relativePath}`)
+    const expectedPaths = [previewVideoPathFor(template)]
+    if (template.sourceKind === "ripple-blank") {
+      expectedPaths.push(previewProjectPosterPathFor(template))
+    }
+
+    for (const relativePath of expectedPaths) {
+      if (!(await pathExists(join(bundleRoot, relativePath)))) {
+        missing.push(`${template.id} -> ${relativePath}`)
+      }
     }
   }
 
   if (missing.length > 0) {
-    throw new Error(`Missing rendered preview videos:\n${missing.join("\n")}`)
+    throw new Error(`Missing rendered preview media:\n${missing.join("\n")}`)
   }
 }
 
@@ -389,21 +455,26 @@ async function main(): Promise<void> {
 
     if (alreadyRendered && !options.force) {
       console.log(`[${index + 1}/${templates.length}] ${template.id}: keeping ${relativePath}`)
-      continue
+    } else {
+      console.log(`[${index + 1}/${templates.length}] ${template.id}: rendering ${relativePath}`)
+      await renderTemplatePreview({
+        template,
+        destination,
+        keepTemp: options.keepTemp,
+      })
     }
 
-    console.log(`[${index + 1}/${templates.length}] ${template.id}: rendering ${relativePath}`)
-    await renderTemplatePreview({
+    await ensureProjectPreviewPoster({
       template,
-      destination,
-      keepTemp: options.keepTemp,
+      videoPath: destination,
+      force: options.force,
     })
   }
 
-  await assertEveryRequestedPreviewExists(templates)
+  await assertEveryRequestedPreviewMediaExists(templates)
   if (!options.templateIds || options.templateIds.size === catalog.templates.length) {
-    await assertEveryRequestedPreviewExists(catalog.templates)
-    await updateManifestVideoPaths(catalog)
+    await assertEveryRequestedPreviewMediaExists(catalog.templates)
+    await updateManifestPreviewPaths(catalog)
   } else {
     console.log("Rendered selected template previews only; manifest was not updated.")
   }

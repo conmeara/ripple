@@ -112,6 +112,13 @@ entry composition is a later editing workflow.
   local render script, generated 55 MP4 clips from the bundled HyperFrames
   template sources, linked them from the manifest, and changed the chooser to
   play the local MP4 on hover/focus with the poster treatment as fallback.
+- [x] 2026-05-04 / User + Codex: Removed the generic project-only starters
+  (`warm-grain`, `play-mode`, `swiss-grid`, `kinetic-type`, `decision-tree`,
+  `product-promo`, `nyt-graph`, and `vignelli`) because their previews all came
+  from the same placeholder source. New Project now uses the same real bundled
+  catalog templates as New Composition, with `blank` first, 47 selectable items
+  in each context, and catalog MP4/poster previews generated from actual
+  vendored template output.
 
 ## Surprises & Discoveries
 
@@ -314,9 +321,9 @@ Phase 12 full-catalog pass is implemented.
 
 What shipped:
 
-- A packaged, app-owned HyperFrames template bundle with 55 selectable items:
-  9 New Project-compatible starts and 47 New Composition-compatible starts,
-  including Blank first in both contexts.
+- A packaged, app-owned HyperFrames template bundle with 47 selectable items.
+  Blank remains first, and every official catalog item is available from both
+  New Project and New Composition.
 - The full public HyperFrames catalog from `https://hyperframes.heygen.com/catalog/`:
   official blocks, transitions, showcases, social overlays, data blocks, and
   components.
@@ -327,8 +334,9 @@ What shipped:
   renderer-safe template view models with offline poster previews.
 - A distinct preview poster and a rendered MP4 motion preview for every
   selectable template. Catalog items use official preview PNGs from the
-  HyperFrames docs site; project starters use generated local SVG posters; all
-  motion previews are generated locally from the vendored HyperFrames sources.
+  HyperFrames docs site, and all motion previews are generated locally from the
+  vendored HyperFrames sources. The old generated project-starter SVG posters
+  have been removed from the selectable bundle.
 - Hover previews for every selectable template tile, using the rendered local
   MP4 on hover and keyboard focus, with the poster animation retained as a
   fallback.
@@ -357,10 +365,11 @@ Validation completed:
   passed.
 - `bun test src/renderer/features/templates src/main/lib/hyperframes/templates
   src/main/lib/ripple-projects/scaffold.test.ts` passed.
-- `bun run templates:motion-previews` rendered 55 MP4 clips and updated all 55
-  `previewVideoPath` manifest entries.
-- A manifest/file audit confirmed 55 MP4 files, zero missing video paths, a 13M
-  `previews/videos/` directory, and a 27M total template bundle.
+- `bun run templates:motion-previews` renders MP4 clips for every selectable
+  template and updates manifest preview paths; the blank starter also gets a
+  rendered PNG poster.
+- A manifest/file audit should confirm one referenced poster and video per
+  selectable template.
 - An `ffprobe` audit confirmed every MP4 has valid width, height, duration, and
   frame count.
 - `bun run test:ripple` passed.
@@ -368,9 +377,8 @@ Validation completed:
 - `bun run ts:check` passed.
 - `bun run build` passed.
 - `git diff --check` passed.
-- `bun run package` passed, and the packaged app bundle contained a 33M
-  `hyperframes-templates/` resource bundle with 55 manifest entries, 55
-  preview poster files, and 55 preview MP4 files.
+- `bun run package` passed for the earlier full-catalog bundle. Re-run package
+  validation after the 2026-05-04 cleanup before release.
 - `hyperframes lint --json` reported zero errors for every generated New
   Project template and for a host project containing every New Composition
   template from the full catalog.

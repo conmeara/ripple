@@ -1016,14 +1016,14 @@ if (gotTheLock) {
     // Create main window
     createMainWindow()
 
-    // Initialize auto-updater (production only)
+    // Register auto-updater IPC in all builds; automatic checks run in packaged builds.
+    await initAutoUpdater(getAllWindows)
     if (app.isPackaged) {
-      await initAutoUpdater(getAllWindows)
       // Setup update check on window focus (instead of periodic interval)
       setupFocusUpdateCheck(getAllWindows)
       // Check for updates 5 seconds after startup (force to bypass interval check)
       setTimeout(() => {
-        checkForUpdates(true)
+        checkForUpdates(true, "automatic")
       }, 5000)
     }
 

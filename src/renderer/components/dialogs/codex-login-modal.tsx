@@ -21,6 +21,8 @@ import {
   AlertDialog,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
 } from "../ui/alert-dialog"
 
 type CodexLoginModalProps = {
@@ -167,6 +169,13 @@ export function CodexLoginModal({ autoStart = true }: CodexLoginModalProps) {
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent className="w-[380px] p-6">
+        <AlertDialogTitle className="sr-only">
+          Connect OpenAI Codex
+        </AlertDialogTitle>
+        <AlertDialogDescription className="sr-only">
+          Connect your Codex subscription.
+        </AlertDialogDescription>
+
         <AlertDialogCancel className="absolute right-4 top-4 h-6 w-6 p-0 border-0 bg-transparent hover:bg-muted rounded-sm opacity-70 hover:opacity-100">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>

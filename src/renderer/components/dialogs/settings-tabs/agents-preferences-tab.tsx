@@ -15,6 +15,7 @@ import {
 } from "../../../lib/atoms"
 import { APP_META, type ExternalApp } from "../../../../shared/external-apps"
 import type { AnalyticsStatus } from "../../../../shared/ripple-analytics"
+import { RIPPLE_ANALYTICS_TRANSPARENCY_URL } from "../../../features/onboarding/ripple-onboarding-state"
 
 // Editor icon imports
 import cursorIcon from "../../../assets/app-icons/cursor.svg"
@@ -197,6 +198,10 @@ export function AgentsPreferencesTab() {
     } catch (error) {
       setAnalyticsError(error instanceof Error ? error.message : String(error))
     }
+  }
+
+  const openAnalyticsTransparency = () => {
+    void window.desktopApi?.openExternal(RIPPLE_ANALYTICS_TRANSPARENCY_URL)
   }
 
   return (
@@ -482,6 +487,13 @@ export function AgentsPreferencesTab() {
             <span className="text-xs text-muted-foreground">
               Help improve Ripple with product-health events. This never includes project files, prompts, conversations, comments, media, exports, file paths, or email.
             </span>
+            <button
+              type="button"
+              className="w-max text-xs text-primary underline-offset-4 hover:underline"
+              onClick={openAnalyticsTransparency}
+            >
+              Let me show you
+            </button>
             {analyticsStatus && !analyticsStatus.runtimeEnabled && (
               <span className="text-[11px] text-muted-foreground/80">
                 Sharing is saved locally and will only send from an official analytics-enabled build.

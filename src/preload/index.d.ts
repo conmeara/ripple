@@ -43,6 +43,8 @@ export interface DesktopApi {
   checkForUpdates: (force?: boolean) => Promise<UpdateInfo | null>
   downloadUpdate: () => Promise<boolean>
   installUpdate: () => void
+  getAutoUpdateChecksEnabled: () => Promise<boolean>
+  setAutoUpdateChecksEnabled: (enabled: boolean) => Promise<boolean>
   onUpdateChecking: (callback: () => void) => () => void
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
   onUpdateNotAvailable: (callback: () => void) => () => void
@@ -77,6 +79,7 @@ export interface DesktopApi {
   migrateLegacyAnalyticsOptOut: (optedOut: boolean) => Promise<AnalyticsStatus>
   captureAnalyticsEvent: (payload: RippleAnalyticsEventPayload) => Promise<AnalyticsCaptureResult>
   syncUpdateContactPreference: (input: UpdateContactPreferenceInput) => Promise<UpdateContactPreferenceState>
+  getUpdateContactPreference: () => Promise<UpdateContactPreferenceState>
   setAnalyticsOptOut: (optedOut: boolean) => Promise<void>
 
   // Native features

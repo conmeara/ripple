@@ -15,7 +15,7 @@ describe("Ripple template catalog", () => {
     const catalog = await loadRippleTemplateCatalog({ bundleRoot })
 
     expect(catalog.manifest.version).toBeTruthy()
-    expect(catalog.templates.length).toBe(55)
+    expect(catalog.templates.length).toBe(47)
     expect(catalog.templates[0]?.id).toBe("blank")
 
     const ids = new Set(catalog.templates.map((template) => template.id))
@@ -56,31 +56,25 @@ describe("Ripple template catalog", () => {
 
     expect(projectTemplates[0]?.id).toBe("blank")
     expect(compositionTemplates[0]?.id).toBe("blank")
-    expect(projectTemplates).toHaveLength(9)
+    expect(projectTemplates).toHaveLength(47)
     expect(compositionTemplates).toHaveLength(47)
-    expect(projectTemplates.some((template) => template.id === "warm-grain")).toBe(true)
-    expect(projectTemplates.some((template) => template.id === "yt-lower-third")).toBe(false)
+    expect(projectTemplates.some((template) => template.id === "warm-grain")).toBe(false)
+    expect(projectTemplates.some((template) => template.id === "yt-lower-third")).toBe(true)
     expect(compositionTemplates.some((template) => template.id === "yt-lower-third")).toBe(true)
     expect(compositionTemplates.some((template) => template.id === "grain-overlay")).toBe(true)
     expect(compositionTemplates.some((template) => template.id === "apple-money-count")).toBe(true)
     expect(compositionTemplates.some((template) => template.id === "warm-grain")).toBe(false)
+    expect(projectTemplates.every((template) => template.previewPosterDataUrl)).toBe(true)
+    expect(projectTemplates.every((template) => template.previewVideoDataUrl)).toBe(true)
     expect(compositionTemplates.every((template) => template.previewPosterDataUrl)).toBe(true)
     expect(compositionTemplates.every((template) => template.previewVideoDataUrl)).toBe(true)
   })
 
-  test("rejects incompatible template targets", async () => {
-    await expect(
-      getRippleTemplateForTarget({
-        templateId: "yt-lower-third",
-        target: "new-project",
-        bundleRoot,
-      }),
-    ).rejects.toThrow("not available")
-
+  test("rejects removed generic project-starter ids", async () => {
     await expect(
       getRippleTemplateForTarget({
         templateId: "warm-grain",
-        target: "new-composition",
+        target: "new-project",
         bundleRoot,
       }),
     ).rejects.toThrow("not available")

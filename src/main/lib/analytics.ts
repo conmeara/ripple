@@ -747,7 +747,7 @@ export function syncUpdateContactPreference(
   if (!initialized) initAnalytics()
 
   const prefs = loadPreferences()
-  const email = normalizeEmail(input.email ?? prefs.contact.email)
+  const email = normalizeEmail(input.email === undefined ? prefs.contact.email : input.email)
   const source = normalizeContactSource(input.source ?? "settings")
   const event: RippleContactEventName = input.weeklyUpdatesEnabled
     ? prefs.contact.weeklyUpdatesEnabled ? "ripple_contact_updated" : "ripple_contact_opt_in"
@@ -786,6 +786,10 @@ export function syncUpdateContactPreference(
   })
 
   return finalContact
+}
+
+export function getUpdateContactPreference(): UpdateContactPreferenceState {
+  return loadPreferences().contact
 }
 
 export async function shutdown(): Promise<void> {

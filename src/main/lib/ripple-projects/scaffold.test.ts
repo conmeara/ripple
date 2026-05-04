@@ -146,43 +146,43 @@ describe("Ripple project scaffold", () => {
     try {
       const result = await writeRippleProjectScaffold(root, {
         ...metadata,
-        templateId: "vignelli",
-        width: 1080,
-        height: 1920,
+        templateId: "yt-lower-third",
       })
 
       expect(result.compositions[0]).toMatchObject({
         filePath: "index.html",
-        width: 1080,
-        height: 1920,
+        width: 1920,
+        height: 1080,
       })
 
       const indexHtml = await readFile(join(root, "index.html"), "utf8")
-      expect(indexHtml).toContain("vignelli")
-      expect(indexHtml).toContain('data-width="1080"')
-      expect(indexHtml).toContain('data-height="1920"')
+      expect(indexHtml).toContain('data-composition-id="main"')
+      expect(indexHtml).toContain('data-width="1920"')
+      expect(indexHtml).toContain('data-height="1080"')
+      expect(indexHtml).toContain("assets/hyperframes-catalog/yt-lower-third/avatar.jpg")
       expect(indexHtml).not.toContain("https://")
+      await stat(join(root, "assets", "hyperframes-catalog", "yt-lower-third", "avatar.jpg"))
 
       const hyperframesJson = JSON.parse(
         await readFile(join(root, "hyperframes.json"), "utf8"),
       )
       expect(hyperframesJson).toMatchObject({
-        templateId: "vignelli",
-        width: 1080,
-        height: 1920,
+        templateId: "yt-lower-third",
+        width: 1920,
+        height: 1080,
       })
     } finally {
       await rm(root, { recursive: true, force: true })
     }
   })
 
-  test("honors caller dimensions for selected project templates", async () => {
+  test("honors caller dimensions for the blank project starter", async () => {
     const root = await mkdtemp(join(tmpdir(), "ripple-scaffold-"))
     try {
       const result = await writeRippleProjectScaffold(root, {
         ...metadata,
         aspectRatioPreset: "square-1-1",
-        templateId: "warm-grain",
+        templateId: "blank",
         width: 1080,
         height: 1080,
       })
@@ -201,14 +201,14 @@ describe("Ripple project scaffold", () => {
         await readFile(join(root, "hyperframes.json"), "utf8"),
       )
       expect(hyperframesJson).toMatchObject({
-        templateId: "warm-grain",
+        templateId: "blank",
         width: 1080,
         height: 1080,
       })
 
       const metaJson = JSON.parse(await readFile(join(root, "meta.json"), "utf8"))
       expect(metaJson).toMatchObject({
-        templateId: "warm-grain",
+        templateId: "blank",
         width: 1080,
         height: 1080,
       })

@@ -1,6 +1,6 @@
 {
   "version": "2026.05.01-full-catalog",
-  "generatedAt": "2026-05-02T02:00:46.993Z",
+  "generatedAt": "2026-05-04T20:32:38.310Z",
   "templates": [
     {
       "id": "blank",
@@ -16,7 +16,7 @@
       "height": 1080,
       "fps": 30,
       "durationSeconds": 6,
-      "previewPosterPath": "previews/examples/blank.svg",
+      "previewPosterPath": "previews/projects/blank.png",
       "previewVideoPath": "previews/videos/blank.mp4",
       "sourceUrl": "https://hyperframes.heygen.com/examples",
       "license": "Apache-2.0",
@@ -48,324 +48,13 @@
       }
     },
     {
-      "id": "warm-grain",
-      "name": "Warm Grain",
-      "description": "Organic branding starter with warm texture and soft reveal motion.",
-      "category": "Brand",
-      "sourceKind": "official-example",
-      "supportedTargets": [
-        "new-project"
-      ],
-      "width": 1920,
-      "height": 1080,
-      "fps": 30,
-      "durationSeconds": 8,
-      "previewPosterPath": "previews/examples/warm-grain.svg",
-      "previewVideoPath": "previews/videos/warm-grain.mp4",
-      "sourceUrl": "https://hyperframes.heygen.com/examples#warm-grain",
-      "license": "Apache-2.0",
-      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
-      "version": "0.4.40-ripple.2",
-      "sourceFiles": [
-        {
-          "source": "project/starter.html",
-          "target": "index.html",
-          "type": "composition"
-        }
-      ],
-      "requiredAssets": [],
-      "visual": {
-        "eyebrow": "Brand film",
-        "title": "Warm Grain",
-        "subtitle": "Texture, tone, and a human launch beat",
-        "background": "#2f261f",
-        "surface": "#f3d7b6",
-        "accent": "#e86f3a",
-        "ink": "#fff8ec",
-        "secondary": "#ac8b68",
-        "motif": "grain"
-      }
-    },
-    {
-      "id": "play-mode",
-      "name": "Play Mode",
-      "description": "High-energy social starter with elastic type and punchy color.",
-      "category": "Social",
-      "sourceKind": "official-example",
-      "supportedTargets": [
-        "new-project"
-      ],
-      "width": 1920,
-      "height": 1080,
-      "fps": 30,
-      "durationSeconds": 7,
-      "previewPosterPath": "previews/examples/play-mode.svg",
-      "previewVideoPath": "previews/videos/play-mode.mp4",
-      "sourceUrl": "https://hyperframes.heygen.com/examples#play-mode",
-      "license": "Apache-2.0",
-      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
-      "version": "0.4.40-ripple.2",
-      "sourceFiles": [
-        {
-          "source": "project/starter.html",
-          "target": "index.html",
-          "type": "composition"
-        }
-      ],
-      "requiredAssets": [],
-      "visual": {
-        "eyebrow": "Social drop",
-        "title": "Play Mode",
-        "subtitle": "Bouncy motion for launches and promos",
-        "background": "#111827",
-        "surface": "#19d3da",
-        "accent": "#ff4d8d",
-        "ink": "#ffffff",
-        "secondary": "#facc15",
-        "motif": "burst"
-      }
-    },
-    {
-      "id": "swiss-grid",
-      "name": "Swiss Grid",
-      "description": "Structured corporate starter with modular typography and grid motion.",
-      "category": "Product",
-      "sourceKind": "official-example",
-      "supportedTargets": [
-        "new-project"
-      ],
-      "width": 1920,
-      "height": 1080,
-      "fps": 30,
-      "durationSeconds": 8,
-      "previewPosterPath": "previews/examples/swiss-grid.svg",
-      "previewVideoPath": "previews/videos/swiss-grid.mp4",
-      "sourceUrl": "https://hyperframes.heygen.com/examples#swiss-grid",
-      "license": "Apache-2.0",
-      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
-      "version": "0.4.40-ripple.2",
-      "sourceFiles": [
-        {
-          "source": "project/starter.html",
-          "target": "index.html",
-          "type": "composition"
-        }
-      ],
-      "requiredAssets": [],
-      "visual": {
-        "eyebrow": "System update",
-        "title": "Swiss Grid",
-        "subtitle": "Precise panels for product and technical stories",
-        "background": "#f5f5f2",
-        "surface": "#111111",
-        "accent": "#e60023",
-        "ink": "#111111",
-        "secondary": "#7a7a74",
-        "motif": "grid"
-      }
-    },
-    {
-      "id": "kinetic-type",
-      "name": "Kinetic Type",
-      "description": "Dramatic title-card starter with bold typography and staged reveals.",
-      "category": "Title Cards",
-      "sourceKind": "official-example",
-      "supportedTargets": [
-        "new-project"
-      ],
-      "width": 1920,
-      "height": 1080,
-      "fps": 30,
-      "durationSeconds": 7,
-      "previewPosterPath": "previews/examples/kinetic-type.svg",
-      "previewVideoPath": "previews/videos/kinetic-type.mp4",
-      "sourceUrl": "https://hyperframes.heygen.com/examples#kinetic-type",
-      "license": "Apache-2.0",
-      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
-      "version": "0.4.40-ripple.2",
-      "sourceFiles": [
-        {
-          "source": "project/starter.html",
-          "target": "index.html",
-          "type": "composition"
-        }
-      ],
-      "requiredAssets": [],
-      "visual": {
-        "eyebrow": "Title card",
-        "title": "Kinetic Type",
-        "subtitle": "Large words, timed beats, clean exits",
-        "background": "#0f0f12",
-        "surface": "#f8fafc",
-        "accent": "#ffcc00",
-        "ink": "#ffffff",
-        "secondary": "#7dd3fc",
-        "motif": "type"
-      }
-    },
-    {
-      "id": "decision-tree",
-      "name": "Decision Tree",
-      "description": "Explainer starter with branching lines and progressive reveal motion.",
-      "category": "Data",
-      "sourceKind": "official-example",
-      "supportedTargets": [
-        "new-project"
-      ],
-      "width": 1920,
-      "height": 1080,
-      "fps": 30,
-      "durationSeconds": 9,
-      "previewPosterPath": "previews/examples/decision-tree.svg",
-      "previewVideoPath": "previews/videos/decision-tree.mp4",
-      "sourceUrl": "https://hyperframes.heygen.com/examples#decision-tree",
-      "license": "Apache-2.0",
-      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
-      "version": "0.4.40-ripple.2",
-      "sourceFiles": [
-        {
-          "source": "project/starter.html",
-          "target": "index.html",
-          "type": "composition"
-        }
-      ],
-      "requiredAssets": [],
-      "visual": {
-        "eyebrow": "Explainer",
-        "title": "Decision Tree",
-        "subtitle": "Reveal choices, branches, and outcomes",
-        "background": "#101820",
-        "surface": "#e6fffb",
-        "accent": "#36cfc9",
-        "ink": "#f8fafc",
-        "secondary": "#94a3b8",
-        "motif": "diagram"
-      }
-    },
-    {
-      "id": "product-promo",
-      "name": "Product Promo",
-      "description": "Multi-scene product starter with hero panels and feature beats.",
-      "category": "Product",
-      "sourceKind": "official-example",
-      "supportedTargets": [
-        "new-project"
-      ],
-      "width": 1920,
-      "height": 1080,
-      "fps": 30,
-      "durationSeconds": 10,
-      "previewPosterPath": "previews/examples/product-promo.svg",
-      "previewVideoPath": "previews/videos/product-promo.mp4",
-      "sourceUrl": "https://hyperframes.heygen.com/examples#product-promo",
-      "license": "Apache-2.0",
-      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
-      "version": "0.4.40-ripple.2",
-      "sourceFiles": [
-        {
-          "source": "project/starter.html",
-          "target": "index.html",
-          "type": "composition"
-        }
-      ],
-      "requiredAssets": [],
-      "visual": {
-        "eyebrow": "Launch",
-        "title": "Product Promo",
-        "subtitle": "Scene cards for feature, proof, and payoff",
-        "background": "#071013",
-        "surface": "#dcfce7",
-        "accent": "#22c55e",
-        "ink": "#f8fafc",
-        "secondary": "#86efac",
-        "motif": "product"
-      }
-    },
-    {
-      "id": "nyt-graph",
-      "name": "NYT Graph",
-      "description": "Editorial data starter with chart bars, annotations, and measured timing.",
-      "category": "Data",
-      "sourceKind": "official-example",
-      "supportedTargets": [
-        "new-project"
-      ],
-      "width": 1920,
-      "height": 1080,
-      "fps": 30,
-      "durationSeconds": 8,
-      "previewPosterPath": "previews/examples/nyt-graph.svg",
-      "previewVideoPath": "previews/videos/nyt-graph.mp4",
-      "sourceUrl": "https://hyperframes.heygen.com/examples#nyt-graph",
-      "license": "Apache-2.0",
-      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
-      "version": "0.4.40-ripple.2",
-      "sourceFiles": [
-        {
-          "source": "project/starter.html",
-          "target": "index.html",
-          "type": "composition"
-        }
-      ],
-      "requiredAssets": [],
-      "visual": {
-        "eyebrow": "Data story",
-        "title": "NYT Graph",
-        "subtitle": "A print-inspired chart reveal",
-        "background": "#fbfaf6",
-        "surface": "#111111",
-        "accent": "#2563eb",
-        "ink": "#111111",
-        "secondary": "#8b8178",
-        "motif": "chart"
-      }
-    },
-    {
-      "id": "vignelli",
-      "name": "Vignelli",
-      "description": "Portrait headline starter with bold type and restrained red accents.",
-      "category": "Title Cards",
-      "sourceKind": "official-example",
-      "supportedTargets": [
-        "new-project"
-      ],
-      "width": 1080,
-      "height": 1920,
-      "fps": 30,
-      "durationSeconds": 8,
-      "previewPosterPath": "previews/examples/vignelli.svg",
-      "previewVideoPath": "previews/videos/vignelli.mp4",
-      "sourceUrl": "https://hyperframes.heygen.com/examples#vignelli",
-      "license": "Apache-2.0",
-      "compatibility": "HyperFrames 0.4.x, offline GSAP runtime",
-      "version": "0.4.40-ripple.2",
-      "sourceFiles": [
-        {
-          "source": "project/starter.html",
-          "target": "index.html",
-          "type": "composition"
-        }
-      ],
-      "requiredAssets": [],
-      "visual": {
-        "eyebrow": "Portrait",
-        "title": "Vignelli",
-        "subtitle": "A tall typographic opener",
-        "background": "#f7f2eb",
-        "surface": "#111111",
-        "accent": "#d00000",
-        "ink": "#111111",
-        "secondary": "#7a7066",
-        "motif": "type"
-      }
-    },
-    {
       "id": "app-showcase",
       "name": "App Showcase",
       "description": "Fitness app product showcase with three floating smartphone screens",
       "category": "Showcases",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -405,6 +94,7 @@
       "category": "Showcases",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -451,6 +141,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -490,6 +181,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -529,6 +221,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -568,6 +261,7 @@
       "category": "Data",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -607,6 +301,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -646,6 +341,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -685,6 +381,7 @@
       "category": "Blocks",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -724,6 +421,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -763,6 +461,7 @@
       "category": "Showcases",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -809,6 +508,7 @@
       "category": "Effects",
       "sourceKind": "official-component",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -853,6 +553,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -892,6 +593,7 @@
       "category": "Effects",
       "sourceKind": "official-component",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -936,6 +638,7 @@
       "category": "Social Overlays",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1080,
@@ -982,6 +685,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1021,6 +725,7 @@
       "category": "Blocks",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1060,6 +765,7 @@
       "category": "Social Overlays",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1099,6 +805,7 @@
       "category": "Showcases",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1145,6 +852,7 @@
       "category": "Showcases",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1197,6 +905,7 @@
       "category": "Social Overlays",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1236,6 +945,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1275,6 +985,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1314,6 +1025,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1353,6 +1065,7 @@
       "category": "Effects",
       "sourceKind": "official-component",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1397,6 +1110,7 @@
       "category": "Social Overlays",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1080,
@@ -1436,6 +1150,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1475,6 +1190,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1514,6 +1230,7 @@
       "category": "Social Overlays",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1080,
@@ -1560,6 +1277,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1599,6 +1317,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1638,6 +1357,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1677,6 +1397,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1716,6 +1437,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1755,6 +1477,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1794,6 +1517,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1833,6 +1557,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1872,6 +1597,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1911,6 +1637,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1950,6 +1677,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -1989,6 +1717,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -2028,6 +1757,7 @@
       "category": "CSS Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -2067,6 +1797,7 @@
       "category": "Showcases",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -2106,6 +1837,7 @@
       "category": "Shader Transitions",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -2145,6 +1877,7 @@
       "category": "Social Overlays",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,
@@ -2184,6 +1917,7 @@
       "category": "Social Overlays",
       "sourceKind": "official-block",
       "supportedTargets": [
+        "new-project",
         "new-composition"
       ],
       "width": 1920,

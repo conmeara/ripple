@@ -22,7 +22,10 @@ import {
   loadRippleTemplateCatalog,
   resolveTemplateBundlePath,
 } from "./catalog"
-import type { RippleTemplateDefinition } from "../../../../shared/hyperframes-templates"
+import type {
+  RippleTemplateBundleFile,
+  RippleTemplateDefinition,
+} from "../../../../shared/hyperframes-templates"
 
 const require = createRequire(import.meta.url)
 
@@ -298,28 +301,37 @@ function getMetaJson(input: {
 `
 }
 
-function getProjectTemplateSource(template: RippleTemplateDefinition): string {
+function getProjectTemplateSource(template: RippleTemplateDefinition): RippleTemplateBundleFile {
   const source = template.sourceFiles.find(
     (file) => file.type === "composition" && file.target === "index.html",
   )
-  if (!source) {
+  if (source) return source
+
+  const compositionSource = template.sourceFiles.find(
+    (file) => file.type === "composition" && !isProjectEntryTemplateFile(file.target),
+  )
+  if (!compositionSource) {
     throw new RippleTemplateInstallError("This template cannot create a project.")
   }
-  return source.source
+  return compositionSource
 }
 
 function isProjectEntryTemplateFile(target: string): boolean {
   return normalizeProjectRelativePath(target) === "index.html"
 }
 
-function getCompositionTemplateSource(template: RippleTemplateDefinition): string {
+function getCompositionTemplateSourceFile(template: RippleTemplateDefinition): RippleTemplateBundleFile {
   const source = template.sourceFiles.find(
     (file) => file.type === "composition" && !isProjectEntryTemplateFile(file.target),
   )
   if (!source) {
     throw new RippleTemplateInstallError("This template cannot create a composition.")
   }
-  return source.source
+  return source
+}
+
+function getCompositionTemplateSource(template: RippleTemplateDefinition): string {
+  return getCompositionTemplateSourceFile(template).source
 }
 
 async function copyTemplateCompanionFiles(input: {
@@ -352,6 +364,37 @@ async function copyTemplateCompanionFiles(input: {
   }
 }
 
+async function copyProjectTemplateCompanionFiles(input: {
+  projectPath: string
+  template: RippleTemplateDefinition
+  projectSource: string
+}): Promise<void> {
+  for (const file of input.template.sourceFiles) {
+    if (file.source === input.projectSource) continue
+    if (file.type === "composition" && isProjectEntryTemplateFile(file.target)) continue
+
+    const relativeTarget = normalizeProjectRelativePath(file.target)
+    const destination = join(input.projectPath, relativeTarget)
+    await mkdir(dirname(destination), { recursive: true })
+
+    const sourcePath = resolveTemplateBundlePath(
+      (await loadRippleTemplateCatalog()).root,
+      file.source,
+    )
+
+    if (file.type === "asset") {
+      await writeGeneratedFile(destination, await readFile(sourcePath))
+      continue
+    }
+
+    const source = await readFile(sourcePath, "utf8")
+    const rendered = renderTemplateSource(source, tokenValues({ template: input.template }), {
+      runtimePath: getRelativeRuntimePath(relativeTarget),
+    })
+    await writeGeneratedFile(destination, rendered)
+  }
+}
+
 function getAssetPathReplacements(template: RippleTemplateDefinition): Array<[string, string]> {
   const prefix = `catalog/${template.id}/`
 
@@ -368,7 +411,9 @@ export async function installRippleProjectTemplate(input: {
     templateId: input.metadata.templateId,
     target: "new-project",
   })
-  const source = await readTemplateSource(template, getProjectTemplateSource(template))
+  const projectSource = getProjectTemplateSource(template)
+  const usesCompositionSource = !isProjectEntryTemplateFile(projectSource.target)
+  const source = await readTemplateSource(template, projectSource.source)
   const html = renderTemplateSource(source, tokenValues({
     template,
     projectName: input.metadata.projectName,
@@ -377,6 +422,9 @@ export async function installRippleProjectTemplate(input: {
     fps: input.metadata.fps,
   }), {
     runtimePath: "./assets/vendor/gsap.min.js",
+    template: usesCompositionSource ? template : undefined,
+    dataCompositionId: usesCompositionSource ? "main" : undefined,
+    assetPathReplacements: usesCompositionSource ? getAssetPathReplacements(template) : undefined,
   })
 
   await mkdir(join(input.projectPath, "compositions"), { recursive: true })
@@ -397,6 +445,11 @@ export async function installRippleProjectTemplate(input: {
     join(input.projectPath, "assets", "vendor", "gsap.min.js"),
     await readBundledGsapRuntime(),
   )
+  await copyProjectTemplateCompanionFiles({
+    projectPath: input.projectPath,
+    template,
+    projectSource: projectSource.source,
+  })
   const agentNotes = await ensureRippleProjectAgentNotes(input.projectPath)
 
   return {

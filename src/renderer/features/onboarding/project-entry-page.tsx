@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useAtom } from "jotai"
+import { useAtom, useAtomValue } from "jotai"
 import { ArrowLeft, FolderOpen, Plus, RotateCcw } from "lucide-react"
 import { toast } from "sonner"
 
@@ -12,6 +12,11 @@ import { Logo } from "../../components/ui/logo"
 import { trpc } from "../../lib/trpc"
 import { showProjectSetupNotice } from "../../lib/project-setup-toast"
 import { TemplateGallery } from "../templates/TemplateChooserDialog"
+import { RippleFirstRunDialog } from "./RippleFirstRunDialog"
+import {
+  rippleOnboardingStateAtom,
+  shouldShowRippleOnboarding,
+} from "./ripple-onboarding-state"
 import {
   projectEntryReturnProjectAtom,
   selectedProjectAtom,
@@ -21,6 +26,7 @@ import {
 export function ProjectEntryPage() {
   const [, setSelectedProject] = useAtom(selectedProjectAtom)
   const [returnProject, setReturnProject] = useAtom(projectEntryReturnProjectAtom)
+  const onboardingState = useAtomValue(rippleOnboardingStateAtom)
   const [projectName, setProjectName] = useState("")
   const [selectedTemplateId, setSelectedTemplateId] = useState("blank")
   const utils = trpc.useUtils()
@@ -113,6 +119,7 @@ export function ProjectEntryPage() {
     : null
   const fallbackProject = returnProjectRecord ?? projects?.[0] ?? null
   const canGoBack = Boolean(returnProject || fallbackProject)
+  const showFirstRunDialog = shouldShowRippleOnboarding(onboardingState)
   const archivedOnlyProjects =
     projects && projects.length === 0
       ? archivedProjects ?? []
@@ -142,6 +149,7 @@ export function ProjectEntryPage() {
 
   return (
     <div className="h-screen w-screen overflow-y-auto bg-background select-none">
+      <RippleFirstRunDialog />
       <div
         className="fixed top-0 left-0 right-0 h-10"
         style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
@@ -190,7 +198,7 @@ export function ProjectEntryPage() {
               value={projectName}
               onChange={(event) => setProjectName(event.target.value)}
               placeholder="My Project"
-              autoFocus
+              autoFocus={!showFirstRunDialog}
               disabled={isBusy}
               className="h-10"
             />

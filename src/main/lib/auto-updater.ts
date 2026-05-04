@@ -36,8 +36,10 @@ let lastCheckTime = 0
 
 // Update channel preference file
 const CHANNEL_PREF_FILE = "update-channel.json"
+const AUTO_CHECKS_PREF_FILE = "update-auto-checks.json"
 
 type UpdateChannel = "latest" | "beta"
+type UpdateCheckSource = "automatic" | "manual"
 
 function getChannelPrefPath(): string {
   return join(app.getPath("userData"), CHANNEL_PREF_FILE)
@@ -64,6 +66,34 @@ function saveChannel(channel: UpdateChannel): void {
   } catch (error) {
     log.error("[AutoUpdater] Failed to save channel preference:", error)
   }
+}
+
+function getAutoChecksPrefPath(): string {
+  return join(app.getPath("userData"), AUTO_CHECKS_PREF_FILE)
+}
+
+export function getAutoUpdateChecksEnabled(): boolean {
+  try {
+    const prefPath = getAutoChecksPrefPath()
+    if (existsSync(prefPath)) {
+      const data = JSON.parse(readFileSync(prefPath, "utf-8"))
+      if (typeof data.enabled === "boolean") {
+        return data.enabled
+      }
+    }
+  } catch {
+    // Ignore read errors, fall back to the default.
+  }
+  return true
+}
+
+export function setAutoUpdateChecksEnabled(enabled: boolean): boolean {
+  try {
+    writeFileSync(getAutoChecksPrefPath(), JSON.stringify({ enabled }), "utf-8")
+  } catch (error) {
+    log.error("[AutoUpdater] Failed to save automatic update check preference:", error)
+  }
+  return getAutoUpdateChecksEnabled()
 }
 
 let getAllWindows: (() => BrowserWindow[]) | null = null
@@ -288,19 +318,34 @@ function registerIpcHandlers() {
   ipcMain.handle("update:get-channel", () => {
     return getSavedChannel()
   })
+
+  ipcMain.handle("update:get-auto-checks-enabled", () => {
+    return getAutoUpdateChecksEnabled()
+  })
+
+  ipcMain.handle("update:set-auto-checks-enabled", (_event, enabled: boolean) => {
+    return setAutoUpdateChecksEnabled(enabled === true)
+  })
 }
 
 /**
  * Manually trigger an update check
  * @param force - Skip the minimum interval check
  */
-export async function checkForUpdates(force = false) {
+export async function checkForUpdates(
+  force = false,
+  source: UpdateCheckSource = "manual",
+) {
   if (!app.isPackaged) {
     log.info("[AutoUpdater] Skipping update check in dev mode")
     return Promise.resolve(null)
   }
   if (!UPDATE_FEED_URL) {
     log.info("[AutoUpdater] Skipping update check; no Ripple update feed configured")
+    return Promise.resolve(null)
+  }
+  if (source === "automatic" && !getAutoUpdateChecksEnabled()) {
+    log.info("[AutoUpdater] Skipping automatic update check; disabled in Settings")
     return Promise.resolve(null)
   }
 
@@ -348,7 +393,7 @@ export function setupFocusUpdateCheck(_getWindows: () => BrowserWindow[]) {
   // Listen for window focus events
   app.on("browser-window-focus", () => {
     log.info("[AutoUpdater] Window focused - checking for updates")
-    checkForUpdates()
+    checkForUpdates(false, "automatic")
   })
 }
 

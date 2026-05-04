@@ -11,7 +11,7 @@ describe("template hover previews", () => {
   test("every selectable template has a hover preview source", async () => {
     const templates = await listRippleTemplateViews({ bundleRoot })
 
-    expect(templates).toHaveLength(55)
+    expect(templates).toHaveLength(47)
     expect(templates.every(templateHasHoverPreview)).toBe(true)
     expect(templates.every(templateHasMotionPreview)).toBe(true)
     expect(templates.every((template) => template.previewVideoPath)).toBe(true)
@@ -40,5 +40,18 @@ describe("template hover previews", () => {
     expect(cssSource).toContain(".group:hover .template-hover-preview-active")
     expect(cssSource).toContain(".group:focus-visible .template-hover-preview-active")
     expect(cssSource).toContain("@media (prefers-reduced-motion: reduce)")
+  })
+
+  test("New Project templates use actual catalog posters and preview videos", async () => {
+    const templates = await listRippleTemplateViews({
+      target: "new-project",
+      bundleRoot,
+    })
+
+    expect(templates).toHaveLength(47)
+    expect(templates.every(templateHasMotionPreview)).toBe(true)
+    expect(templates.some((template) => template.id === "yt-lower-third")).toBe(true)
+    expect(templates.some((template) => template.id === "warm-grain")).toBe(false)
+    expect(templates.every((template) => template.previewPosterPath.endsWith(".png"))).toBe(true)
   })
 })

@@ -49,6 +49,8 @@ export function AgentsBetaTab() {
   const [historyEnabled, setHistoryEnabled] = useAtom(historyEnabledAtom)
   const [showOfflineFeatures, setShowOfflineFeatures] = useAtom(showOfflineModeFeaturesAtom)
   const [autoOffline, setAutoOffline] = useAtom(autoOfflineModeAtom)
+  const [autoUpdateChecksEnabled, setAutoUpdateChecksEnabled] = useState(true)
+  const [autoUpdateChecksSaving, setAutoUpdateChecksSaving] = useState(false)
   const [selectedOllamaModel, setSelectedOllamaModel] = useAtom(selectedOllamaModelAtom)
   const [automationsEnabled, setAutomationsEnabled] = useAtom(betaAutomationsEnabledAtom)
   const [betaUpdatesEnabled, setBetaUpdatesEnabled] = useAtom(betaUpdatesEnabledAtom)
@@ -72,7 +74,29 @@ export function AgentsBetaTab() {
     window.desktopApi?.getUpdateChannel().then((ch) => {
       setBetaUpdatesEnabled(ch === "beta")
     })
+    window.desktopApi?.getAutoUpdateChecksEnabled?.()
+      .then((enabled) => setAutoUpdateChecksEnabled(enabled))
+      .catch((error) => {
+        console.error("Failed to load automatic update check preference:", error)
+      })
   }, [])
+
+  const handleAutoUpdateChecksChange = async (checked: boolean) => {
+    const previous = autoUpdateChecksEnabled
+    setAutoUpdateChecksEnabled(checked)
+    setAutoUpdateChecksSaving(true)
+    try {
+      const persisted = await window.desktopApi?.setAutoUpdateChecksEnabled?.(checked)
+      if (typeof persisted === "boolean") {
+        setAutoUpdateChecksEnabled(persisted)
+      }
+    } catch (error) {
+      setAutoUpdateChecksEnabled(previous)
+      console.error("Failed to save automatic update check preference:", error)
+    } finally {
+      setAutoUpdateChecksSaving(false)
+    }
+  }
 
   // Check for updates with force flag to bypass cache
   const handleCheckForUpdates = async () => {
@@ -328,12 +352,28 @@ export function AgentsBetaTab() {
         <div className="pb-2">
           <h4 className="text-sm font-medium text-foreground">Updates</h4>
           <p className="text-xs text-muted-foreground mt-1">
-            Check for new versions manually (bypasses CDN cache)
+            Check for new versions manually.
           </p>
         </div>
 
         <div className="bg-background rounded-lg border border-border overflow-hidden">
           <div className="flex items-center justify-between p-4">
+            <div className="flex flex-col space-y-1">
+              <span className="text-sm font-medium text-foreground">
+                Automatic Checks
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Let Ripple check for app updates in the background.
+              </span>
+            </div>
+            <Switch
+              checked={autoUpdateChecksEnabled}
+              onCheckedChange={(checked) => void handleAutoUpdateChecksChange(checked)}
+              disabled={autoUpdateChecksSaving}
+            />
+          </div>
+
+          <div className="flex items-center justify-between p-4 border-t border-border">
             <div className="flex flex-col space-y-1">
               <span className="text-sm font-medium text-foreground">
                 Early Access
@@ -361,7 +401,7 @@ export function AgentsBetaTab() {
                   {updateStatus === "checking" && "Checking for updates..."}
                   {updateStatus === "available" && `Update available: v${updateVersion}`}
                   {updateStatus === "not-available" && "You're on the latest version"}
-                  {updateStatus === "error" && "Failed to check (dev mode?)"}
+                  {updateStatus === "error" && "Update check unavailable"}
                   {updateStatus === "idle" && "Click to check for updates"}
                 </span>
               </div>

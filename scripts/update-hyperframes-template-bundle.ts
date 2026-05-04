@@ -83,17 +83,6 @@ interface Manifest {
   templates: ManifestTemplate[]
 }
 
-const projectStarterIds = [
-  "warm-grain",
-  "play-mode",
-  "swiss-grid",
-  "kinetic-type",
-  "decision-tree",
-  "product-promo",
-  "nyt-graph",
-  "vignelli",
-] as const
-
 const socialIds = new Set([
   "instagram-follow",
   "macos-notification",
@@ -204,35 +193,6 @@ async function writeBundleFile(relativePath: string, content: string | Buffer): 
   await writeFile(destination, content)
 }
 
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-}
-
-function firstLine(value: string, fallback: string): string {
-  const trimmed = value.trim()
-  if (!trimmed) return fallback
-  return trimmed.length > 78 ? `${trimmed.slice(0, 75)}...` : trimmed
-}
-
-function getExamplePoster(template: ManifestTemplate): string {
-  const visual = template.visual
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
-  <rect width="960" height="540" fill="${escapeXml(visual.background)}"/>
-  <circle cx="764" cy="92" r="152" fill="${escapeXml(visual.accent)}" opacity=".28"/>
-  <rect x="58" y="58" width="844" height="424" fill="${escapeXml(visual.surface)}" opacity=".36" stroke="${escapeXml(visual.accent)}" stroke-width="3"/>
-  <path d="M96 396h180v24H96zM96 350h268v24H96zM96 304h132v24H96z" fill="${escapeXml(visual.accent)}" opacity=".9"/>
-  <text x="96" y="154" fill="${escapeXml(visual.accent)}" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="800">${escapeXml(visual.eyebrow)}</text>
-  <text x="96" y="236" fill="${escapeXml(visual.ink)}" font-family="Inter, Arial, sans-serif" font-size="70" font-weight="850">${escapeXml(template.name)}</text>
-  <text x="96" y="282" fill="${escapeXml(visual.secondary)}" font-family="Inter, Arial, sans-serif" font-size="28">${escapeXml(firstLine(template.description, template.name))}</text>
-  <text x="742" y="436" fill="${escapeXml(visual.ink)}" opacity=".72" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">${template.width}x${template.height}</text>
-</svg>
-`
-}
-
 function fileTypeFor(registryType: string): BundleFileType {
   if (registryType === "hyperframes:composition") return "composition"
   if (registryType === "hyperframes:asset") return "asset"
@@ -287,20 +247,19 @@ async function getPreviousManifest(): Promise<Manifest> {
 
 async function buildProjectStarters(previous: Manifest): Promise<ManifestTemplate[]> {
   const previousById = new Map(previous.templates.map((template) => [template.id, template]))
-  const ids = ["blank", ...projectStarterIds]
+  const ids = ["blank"]
 
   const templates: ManifestTemplate[] = []
   for (const id of ids) {
     const previousTemplate = previousById.get(id)
     if (!previousTemplate) throw new Error(`Missing existing project starter metadata: ${id}`)
-    const previewPosterPath = `previews/examples/${id}.svg`
+    const previewPosterPath = `previews/projects/${id}.png`
     const template: ManifestTemplate = {
       ...previousTemplate,
       previewPosterPath,
       previewVideoPath: previousTemplate.previewVideoPath ?? null,
       version: "0.4.40-ripple.2",
     }
-    await writeBundleFile(previewPosterPath, getExamplePoster(template))
     templates.push(template)
   }
 
@@ -373,7 +332,7 @@ async function buildCatalogTemplate(
     description: item.description,
     category,
     sourceKind: item.type === "component" ? "official-component" : "official-block",
-    supportedTargets: ["new-composition"],
+    supportedTargets: ["new-project", "new-composition"],
     width,
     height,
     fps: 30,
