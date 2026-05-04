@@ -100,6 +100,15 @@ preview, comments, revisions, or export.
 - [x] 2026-05-04 / Codex: Validation passed for
   `bun test src/main/lib/config.test.ts src/main/lib/auto-updater-source.test.ts src/main/lib/update-release-config.test.ts src/renderer/components/update-banner.test.ts`,
   `bun run ts:check`, and `bun run build`.
+- [x] 2026-05-04 / Codex: Pushed Phase 16-18 readiness commits plus
+  `dbac9ce Implement Phase 18 app updates` to `origin/main`, confirmed the
+  `Release Ripple` workflow is active, and triggered the first beta release run
+  for `0.0.73-beta.1`.
+- [x] 2026-05-04 / Codex: First beta release run
+  `25344792272` failed in `Download packaged agent binaries` because
+  `scripts/download-codex-binary.mjs` only read `GITHUB_TOKEN` while the
+  workflow exported `GH_TOKEN`. Patched the workflow to export both names and
+  patched the downloader to accept either token name.
 - [ ] Implement Milestone 4: prototype release channel metadata with two
   prerelease versions before stable publication.
 - [ ] Implement Milestone 5: validate signed/notarized macOS update install,
@@ -328,6 +337,10 @@ Local validation evidence so far:
 - Full local macOS package smoke is blocked on this machine by Python
   `distutils`/`node-gyp` and `hdiutil` issues, so CI is the required next proof
   for signed/notarized artifacts.
+- GitHub Actions run `25344792272` proved workflow dispatch, release input
+  validation, secret presence, App Store Connect key writing, release metadata
+  rewriting, dependency install, and Claude binary downloads. It failed before
+  build because the Codex downloader did not see a GitHub API token.
 
 ## Context and Orientation
 

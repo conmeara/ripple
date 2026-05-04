@@ -38,6 +38,7 @@ jobs:
       RIPPLE_RELEASE_TYPE: ${{ inputs.release_type }}
       RIPPLE_RELEASE_NOTES: ${{ inputs.release_notes }}
       GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
       CSC_LINK: ${{ secrets.CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
       APPLE_IDENTITY: ${{ secrets.APPLE_IDENTITY }}

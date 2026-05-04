@@ -59,8 +59,10 @@ function getRequestHeaders() {
     "User-Agent": USER_AGENT,
     Accept: "application/vnd.github+json",
   }
-  // Use GITHUB_TOKEN if available (avoids API rate limits in CI)
-  const token = process.env.GITHUB_TOKEN
+  // Use the Actions token if available (avoids API rate limits in CI). GitHub
+  // CLIs often expose it as GH_TOKEN, while API clients commonly use
+  // GITHUB_TOKEN.
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN
   if (token) {
     headers.Authorization = `Bearer ${token}`
   }
