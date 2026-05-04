@@ -1,3 +1,12 @@
+import type {
+  AnalyticsCaptureResult,
+  AnalyticsConsent,
+  AnalyticsStatus,
+  RippleAnalyticsEventPayload,
+  UpdateContactPreferenceInput,
+  UpdateContactPreferenceState,
+} from "../shared/ripple-analytics"
+
 export interface UpdateInfo {
   version: string
   releaseDate?: string
@@ -63,6 +72,11 @@ export interface DesktopApi {
   toggleDevTools: () => Promise<void>
 
   // Analytics
+  getAnalyticsStatus: () => Promise<AnalyticsStatus>
+  setAnalyticsConsent: (consent: AnalyticsConsent, source?: string) => Promise<AnalyticsStatus>
+  migrateLegacyAnalyticsOptOut: (optedOut: boolean) => Promise<AnalyticsStatus>
+  captureAnalyticsEvent: (payload: RippleAnalyticsEventPayload) => Promise<AnalyticsCaptureResult>
+  syncUpdateContactPreference: (input: UpdateContactPreferenceInput) => Promise<UpdateContactPreferenceState>
   setAnalyticsOptOut: (optedOut: boolean) => Promise<void>
 
   // Native features

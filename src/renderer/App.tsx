@@ -9,7 +9,6 @@ import { selectedProjectAtom, selectedAgentChatIdAtom } from "./features/agents/
 import { useAgentSubChatStore } from "./features/agents/stores/sub-chat-store"
 import { AgentsLayout } from "./features/layout/agents-layout"
 import { ProjectEntryPage } from "./features/onboarding"
-import { identify, initAnalytics, shutdown } from "./lib/analytics"
 import { appStore } from "./lib/jotai-store"
 import { VSCodeThemeProvider } from "./lib/themes/theme-provider"
 import { trpc } from "./lib/trpc"
@@ -93,39 +92,18 @@ function AppContent() {
 }
 
 export function App() {
-  // Initialize analytics on mount
+  // One-time migration from the inherited renderer opt-out flag. A legacy
+  // opt-out maps to denied; legacy opt-in never grants consent automatically.
   useEffect(() => {
-    initAnalytics()
-
-    // Sync analytics opt-out status to main process
-    const syncOptOutStatus = async () => {
-      try {
-        const optOut =
-          localStorage.getItem("preferences:analytics-opt-out") === "true"
-        await window.desktopApi?.setAnalyticsOptOut(optOut)
-      } catch (error) {
-        console.warn("[Analytics] Failed to sync opt-out status:", error)
-      }
-    }
-    syncOptOutStatus()
-
-    // Identify user if already authenticated
-    const identifyUser = async () => {
-      try {
-        const user = await window.desktopApi?.getUser()
-        if (user?.id) {
-          identify(user.id, { email: user.email, name: user.name })
-        }
-      } catch (error) {
-        console.warn("[Analytics] Failed to identify user:", error)
-      }
-    }
-    identifyUser()
-
-    // Cleanup on unmount
-    return () => {
-      shutdown()
-    }
+    const migratedKey = "preferences:analytics-opt-out-migrated-to-main"
+    if (localStorage.getItem(migratedKey) === "true") return
+    const legacyValue = localStorage.getItem("preferences:analytics-opt-out")
+    if (legacyValue == null) return
+    window.desktopApi?.migrateLegacyAnalyticsOptOut(legacyValue === "true")
+      .then(() => localStorage.setItem(migratedKey, "true"))
+      .catch((error) => {
+        console.warn("[Analytics] Failed to migrate legacy analytics preference:", error)
+      })
   }, [])
 
   return (

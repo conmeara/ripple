@@ -1246,6 +1246,8 @@ Goals:
 - Harden path validation.
 - Validate first-run setup.
 - Validate package resources.
+- Finish analytics release validation with a packaged-app smoke against the
+  Ripple PostHog project.
 - Produce release checklist for Ripple.
 
 Done when:
@@ -1257,6 +1259,11 @@ Done when:
 - Unit, integration, E2E, render/export, migration, packaging, and manual QA
   gates pass.
 - Packaged app update install flow passes the Phase 18 release gate.
+- Packaged official-build analytics smoke passes with explicit opt-in: PostHog
+  receives only documented, sanitized Ripple events; analytics-off captures
+  nothing; weekly update email capture stays on the dedicated contact identity;
+  no files, paths, prompts, messages, comments, media, export paths, or raw IDs
+  appear in captured payloads.
 - Packaging no longer references missing old release scripts or 1Code assets.
 
 ## Testing Strategy

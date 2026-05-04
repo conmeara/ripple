@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  getAnalyticsRuntimeConfig,
   getConfiguredApiUrl,
   getConfiguredUpdateFeedUrl,
   getReservedAnalyticsEnv,
@@ -53,20 +54,62 @@ describe("Ripple hosted service config", () => {
     ).toBe("https://api.ripple.local")
   })
 
-  test("reserves Ripple analytics env names while Phase 15 keeps analytics no-op", () => {
+  test("reserves Ripple analytics env names for the main-process boundary", () => {
     expect(
       getReservedAnalyticsEnv({
         MAIN_VITE_RIPPLE_ANALYTICS_KEY: "phc_test",
         MAIN_VITE_RIPPLE_ANALYTICS_HOST: "https://analytics.ripple.local",
         VITE_RIPPLE_ANALYTICS_KEY: "phc_renderer",
         VITE_RIPPLE_ANALYTICS_HOST: "https://renderer.ripple.local",
+        MAIN_VITE_RIPPLE_ANALYTICS_FORCE: "true",
       }),
     ).toEqual({
       mainKey: "phc_test",
       mainHost: "https://analytics.ripple.local",
       rendererKey: "phc_renderer",
       rendererHost: "https://renderer.ripple.local",
+      force: true,
     })
-    expect(isAnalyticsRuntimeEnabled()).toBe(false)
+    expect(isAnalyticsRuntimeEnabled({}, { isTest: true })).toBe(false)
+  })
+
+  test("enables analytics only for configured official builds unless forced", () => {
+    const configuredEnv = {
+      MAIN_VITE_RIPPLE_ANALYTICS_KEY: "phc_test",
+      MAIN_VITE_RIPPLE_ANALYTICS_HOST: "https://us.i.posthog.com",
+    }
+
+    expect(getAnalyticsRuntimeConfig({}, { isPackaged: true })).toMatchObject({
+      configured: false,
+      enabled: false,
+      reason: "unconfigured",
+    })
+    expect(
+      getAnalyticsRuntimeConfig(configuredEnv, { isPackaged: true, isDev: false }),
+    ).toMatchObject({
+      configured: true,
+      enabled: true,
+      environment: "production",
+      reason: "enabled",
+    })
+    expect(
+      getAnalyticsRuntimeConfig(configuredEnv, { isDev: true }),
+    ).toMatchObject({
+      configured: true,
+      enabled: false,
+      environment: "development",
+      reason: "disabled_in_development",
+    })
+    expect(
+      getAnalyticsRuntimeConfig({
+        ...configuredEnv,
+        MAIN_VITE_RIPPLE_ANALYTICS_FORCE: "true",
+      }, { isDev: true }),
+    ).toMatchObject({
+      configured: true,
+      enabled: true,
+      environment: "development",
+      reason: "forced",
+    })
   })
 })

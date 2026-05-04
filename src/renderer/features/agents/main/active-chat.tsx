@@ -4076,8 +4076,6 @@ const ChatViewInner = memo(function ChatViewInner({
 
     // Track message sent
     trackMessageSent({
-      workspaceId: subChatId,
-      messageLength: finalText.length,
       mode: subChatModeRef.current,
     })
 
@@ -4307,8 +4305,6 @@ const ChatViewInner = memo(function ChatViewInner({
 
       // Track message sent
       trackMessageSent({
-        workspaceId: subChatId,
-        messageLength: item.message.length,
         mode: subChatModeRef.current,
       })
 
@@ -4401,8 +4397,6 @@ const ChatViewInner = memo(function ChatViewInner({
 
     // Track message sent
     trackMessageSent({
-      workspaceId: subChatId,
-      messageLength: finalText.length,
       mode: subChatModeRef.current,
     })
 

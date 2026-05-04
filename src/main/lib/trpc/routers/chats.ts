@@ -7,10 +7,9 @@ import { z } from "zod"
 import { getAuthManager } from "../../../index"
 import { getApiUrl } from "../../config"
 import {
-  trackPRCreated,
-  trackWorkspaceArchived,
-  trackWorkspaceCreated,
-  trackWorkspaceDeleted,
+  trackChatArchived,
+  trackChatCreated,
+  trackChatDeleted,
 } from "../../analytics"
 import { conversations, getDatabase, projects } from "../../db"
 import {
@@ -625,11 +624,10 @@ export const chatsRouter = router({
         ],
       }
 
-      // Track workspace created
-      trackWorkspaceCreated({
-        id: conversation.id,
-        projectId: input.projectId,
-        useWorktree: input.useWorktree,
+      trackChatCreated({
+        chatKind: "project_chat",
+        isIsolated: input.useWorktree,
+        entryPoint: "new_chat",
       })
 
       console.log("[chats.create] returning:", response)
@@ -677,8 +675,7 @@ export const chatsRouter = router({
         .returning()
         .get()
 
-      // Track workspace archived
-      trackWorkspaceArchived(input.id)
+      trackChatArchived("project_chat")
 
       // Kill terminal processes only for worktree-mode workspaces.
       // Local-mode terminals are shared across workspaces on the same project path,
@@ -925,8 +922,7 @@ export const chatsRouter = router({
         })
       }
 
-      // Track workspace deleted
-      trackWorkspaceDeleted(input.id)
+      trackChatDeleted("project_chat")
 
       // Invalidate git cache for this worktree
       if (chat?.worktreePath) {
@@ -1792,12 +1788,6 @@ export const chatsRouter = router({
         .where(eq(conversations.id, input.chatId))
         .returning()
         .get()
-
-      // Track PR created
-      trackPRCreated({
-        workspaceId: input.chatId,
-        prNumber: input.prNumber,
-      })
 
       return result
     }),

@@ -22,6 +22,12 @@ import { compositions, exportJobs, type Composition, type ExportJob } from "../d
 import { createId } from "../db/utils"
 import { getDatabase } from "../db"
 import {
+  trackExportCancelled,
+  trackExportFailed,
+  trackExportStarted,
+  trackExportSucceeded,
+} from "../analytics"
+import {
   assertHyperframesProjectFiles,
   resolveHyperframesPreviewContext,
   resolveHyperframesProjectContext,
@@ -432,6 +438,11 @@ export class ExportService {
       .returning()
       .get()
 
+    trackExportStarted({
+      format: inserted.format,
+      qualityPreset: inserted.qualityPreset,
+    })
+
     void this.runJob(inserted.id, entryFile)
     return toView(inserted)
   }
@@ -455,6 +466,12 @@ export class ExportService {
       cancelledAt: nowDate(this.options.now),
       completedAt: nowDate(this.options.now),
     })
+    if (updated) {
+      trackExportCancelled({
+        format: updated.format,
+        qualityPreset: updated.qualityPreset,
+      })
+    }
     return updated ? toView(updated) : null
   }
 
@@ -644,6 +661,12 @@ export class ExportService {
         completedAt,
         updatedAt: completedAt,
       })
+      trackExportSucceeded({
+        format: job.format,
+        qualityPreset: job.qualityPreset,
+        durationSeconds: probe.durationSeconds,
+        renderSeconds: (completedAt.getTime() - startedAt.getTime()) / 1000,
+      })
     } catch (error) {
       if (abortController.signal.aborted || isProducerCancellationError(error)) {
         this.markCancelled(jobId)
@@ -658,6 +681,12 @@ export class ExportService {
         errorMessage: compactError(error),
         completedAt,
         updatedAt: completedAt,
+      })
+      trackExportFailed({
+        format: job.format,
+        qualityPreset: job.qualityPreset,
+        durationSeconds: job.durationSeconds,
+        error,
       })
     } finally {
       this.active.delete(jobId)
@@ -708,8 +737,10 @@ export class ExportService {
   }
 
   private markCancelled(jobId: string): void {
+    const current = this.getJob(jobId)
+    if (!current || current.status === "cancelled") return
     const now = nowDate(this.options.now)
-    this.updateJob(jobId, {
+    const updated = this.updateJob(jobId, {
       status: "cancelled",
       progressLabel: "Cancelled",
       pid: null,
@@ -718,6 +749,12 @@ export class ExportService {
       completedAt: now,
       updatedAt: now,
     })
+    if (updated) {
+      trackExportCancelled({
+        format: updated.format,
+        qualityPreset: updated.qualityPreset,
+      })
+    }
   }
 
   private getCompletedOutputPath(jobId: string): string {

@@ -16,6 +16,13 @@ import { createIPCHandler } from "trpc-electron/main"
 import { createAppRouter } from "../lib/trpc/routers"
 import { getAuthManager, handleAuthCode, getBaseUrl } from "../index"
 import { isLegacy21stUrl } from "../lib/config"
+import {
+  captureAnalyticsEvent,
+  getAnalyticsStatus,
+  migrateLegacyAnalyticsOptOut,
+  setAnalyticsConsent,
+  syncUpdateContactPreference,
+} from "../lib/analytics"
 import { registerGitWatcherIPC } from "../lib/git/watcher"
 import { hasActiveClaudeSessions, abortAllClaudeSessions } from "../lib/trpc/routers/claude"
 import { hasActiveCodexStreams, abortAllCodexStreams } from "../lib/trpc/routers/codex"
@@ -398,9 +405,29 @@ function registerIpcHandlers(): void {
   })
 
   // Analytics
+  ipcMain.handle("analytics:get-status", async () => {
+    return getAnalyticsStatus()
+  })
+
+  ipcMain.handle("analytics:set-consent", async (_event, consent: "unset" | "granted" | "denied", source?: string) => {
+    return setAnalyticsConsent(consent, source)
+  })
+
+  ipcMain.handle("analytics:migrate-legacy-opt-out", async (_event, optedOut: boolean) => {
+    return migrateLegacyAnalyticsOptOut(optedOut)
+  })
+
+  ipcMain.handle("analytics:capture-event", async (_event, payload: { name: string; properties?: Record<string, unknown> }) => {
+    return captureAnalyticsEvent(payload as Parameters<typeof captureAnalyticsEvent>[0])
+  })
+
+  ipcMain.handle("analytics:sync-update-contact", async (_event, input: { email?: string | null; weeklyUpdatesEnabled: boolean; source?: string }) => {
+    return syncUpdateContactPreference(input)
+  })
+
+  // Legacy renderer API: never grant analytics from the old opt-out shape.
   ipcMain.handle("analytics:set-opt-out", async (_event, optedOut: boolean) => {
-    const { setOptOut } = await import("../lib/analytics")
-    setOptOut(optedOut)
+    return migrateLegacyAnalyticsOptOut(optedOut)
   })
 
   // Shell

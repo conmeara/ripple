@@ -2,7 +2,13 @@ import { app } from "electron"
 import { existsSync } from "node:fs"
 import { resolve, sep } from "node:path"
 import { z } from "zod"
+import { bucketCount } from "../../../../shared/ripple-analytics"
 import { router, publicProcedure } from "../index"
+import {
+  captureAnalyticsEvent,
+  trackPreviewFailed,
+  trackPreviewReady,
+} from "../../analytics"
 import { checkRippleEnvironment } from "../../ripple-projects/environment"
 import {
   captureHyperframesSnapshot,
@@ -172,6 +178,14 @@ export const hyperframesRouter = router({
         context,
         sourcePaths: input.sourcePaths,
       })
+      captureAnalyticsEvent({
+        name: "ripple_asset_imported",
+        properties: {
+          asset_kind: "mixed",
+          result: "success",
+          asset_count_bucket: bucketCount(input.sourcePaths.length),
+        },
+      })
       const compositions = await listSavedHyperframesCompositions(input.projectId)
 
       return {
@@ -206,7 +220,7 @@ export const hyperframesRouter = router({
         throw new Error("No HyperFrames composition is available for this project.")
       }
 
-      return insertHyperframesTimelineAsset({
+      const result = await insertHyperframesTimelineAsset({
         context,
         composition,
         assetPath: input.assetPath,
@@ -214,6 +228,14 @@ export const hyperframesRouter = router({
         track: input.track,
         duration: input.duration,
       })
+      captureAnalyticsEvent({
+        name: "ripple_timeline_interaction",
+        properties: {
+          action: "asset_inserted",
+          target_kind: "asset_clip",
+        },
+      })
+      return result
     }),
 
   updateTimelineClip: publicProcedure
@@ -251,7 +273,7 @@ export const hyperframesRouter = router({
         throw new Error("No HyperFrames composition is available for this project.")
       }
 
-      return updateHyperframesTimelineClip({
+      const result = await updateHyperframesTimelineClip({
         context,
         composition,
         clip: input.clip,
@@ -260,6 +282,14 @@ export const hyperframesRouter = router({
         track: input.track,
         playbackStart: input.playbackStart,
       })
+      captureAnalyticsEvent({
+        name: "ripple_timeline_interaction",
+        properties: {
+          action: "clip_updated",
+          target_kind: "timeline_clip",
+        },
+      })
+      return result
     }),
 
   getPlayerSource: publicProcedure
@@ -322,13 +352,28 @@ export const hyperframesRouter = router({
       forceRestart: z.boolean().optional(),
     }))
     .mutation(async ({ input }) => {
+      const startedAt = Date.now()
       const context = await resolveHyperframesProjectContext({ projectId: input.projectId })
-      const preview = await previewManager.start({
-        context,
-        forceRestart: input.forceRestart,
-        repoRoot: getRepoRoot(),
-      })
-      return previewManager.waitUntilRunning(preview.key)
+      try {
+        const preview = await previewManager.start({
+          context,
+          forceRestart: input.forceRestart,
+          repoRoot: getRepoRoot(),
+        })
+        const running = await previewManager.waitUntilRunning(preview.key)
+        trackPreviewReady({
+          previewSource: input.forceRestart ? "restart_preview" : "start_preview",
+          durationSeconds: (Date.now() - startedAt) / 1000,
+          runtimeStatus: running.status,
+        })
+        return running
+      } catch (error) {
+        trackPreviewFailed({
+          previewSource: input.forceRestart ? "restart_preview" : "start_preview",
+          error,
+        })
+        throw error
+      }
     }),
 
   stopPreview: publicProcedure

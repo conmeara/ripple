@@ -37,6 +37,11 @@ import {
 } from "./hyperframes-skills"
 import { defaultRippleProjectSettings } from "./types"
 import { getRippleTemplateForTarget } from "../hyperframes/templates/catalog"
+import {
+  trackFirstRunSetupFailure,
+  trackProjectCreated,
+  trackProjectOpened,
+} from "../analytics"
 import type {
   AspectRatioPreset,
   CreateRippleProjectInput,
@@ -317,6 +322,22 @@ export async function createRippleProject(
             .get()
         : project
 
+    trackProjectCreated({
+      creationSource: "new_project",
+      projectKind: "local_hyperframes",
+      result: "success",
+      templateId: scaffoldMetadata.templateId,
+      setupStatus: setup.status,
+      compositionCount: insertedCompositions.length,
+    })
+    if (setup.status !== "ready") {
+      trackFirstRunSetupFailure({
+        setupStep: "project_environment",
+        error: setup.summary ?? setup.status,
+        runtimeStatus: setup.status,
+      })
+    }
+
     return {
       project: updatedProject ?? project,
       activeComposition,
@@ -446,6 +467,20 @@ export async function openExistingRippleProject(
           .returning()
           .get()
       : project
+
+  trackProjectOpened({
+    openSource: existing ? "open_existing_project" : "import_existing_project",
+    projectKind: "local_hyperframes",
+    setupStatus: setup.status,
+    compositionCount: registeredCompositions.length,
+  })
+  if (setup.status !== "ready") {
+    trackFirstRunSetupFailure({
+      setupStep: "project_environment",
+      error: setup.summary ?? setup.status,
+      runtimeStatus: setup.status,
+    })
+  }
 
   const projectCompositions = db
     .select()

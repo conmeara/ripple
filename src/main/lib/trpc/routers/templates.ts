@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { app } from "electron"
 import { router, publicProcedure } from "../index"
+import { captureAnalyticsEvent } from "../../analytics"
 import { rippleTemplateTargets } from "../../../../shared/hyperframes-templates"
 import {
   buildHyperframesProjectBrowserModel,
@@ -37,6 +38,23 @@ export const templatesRouter = router({
         templateId: input.templateId,
         setActive: input.setActive,
         repoRoot: getRepoRoot(),
+      })
+      captureAnalyticsEvent({
+        name: "ripple_template_selected",
+        properties: {
+          template_id: input.templateId,
+          template_category: "composition",
+          target: "composition",
+        },
+      })
+      captureAnalyticsEvent({
+        name: "ripple_composition_created",
+        properties: {
+          creation_source: "template",
+          result: "success",
+          template_id: input.templateId,
+          composition_kind: "html",
+        },
       })
       const context = await resolveHyperframesProjectContext({
         projectId: input.projectId,

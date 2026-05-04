@@ -1,12 +1,16 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron"
 import { exposeElectronTRPC } from "trpc-electron/main"
+import type {
+  AnalyticsCaptureResult,
+  AnalyticsConsent,
+  AnalyticsStatus,
+  RippleAnalyticsEventPayload,
+  UpdateContactPreferenceInput,
+  UpdateContactPreferenceState,
+} from "../shared/ripple-analytics"
 
-// Only initialize Sentry in production to avoid IPC errors in dev mode
-if (process.env.NODE_ENV === "production") {
-  import("@sentry/electron/renderer").then((Sentry) => {
-    Sentry.init()
-  })
-}
+// Remote crash reporting is disabled until Ripple has a separate opt-in and
+// sanitized exception extras.
 
 // Expose tRPC IPC bridge for type-safe communication
 exposeElectronTRPC()
@@ -123,6 +127,16 @@ contextBridge.exposeInMainWorld("desktopApi", {
   unlockDevTools: () => ipcRenderer.invoke("window:unlock-devtools"),
 
   // Analytics
+  getAnalyticsStatus: () =>
+    ipcRenderer.invoke("analytics:get-status") as Promise<AnalyticsStatus>,
+  setAnalyticsConsent: (consent: AnalyticsConsent, source?: string) =>
+    ipcRenderer.invoke("analytics:set-consent", consent, source) as Promise<AnalyticsStatus>,
+  migrateLegacyAnalyticsOptOut: (optedOut: boolean) =>
+    ipcRenderer.invoke("analytics:migrate-legacy-opt-out", optedOut) as Promise<AnalyticsStatus>,
+  captureAnalyticsEvent: (payload: RippleAnalyticsEventPayload) =>
+    ipcRenderer.invoke("analytics:capture-event", payload) as Promise<AnalyticsCaptureResult>,
+  syncUpdateContactPreference: (input: UpdateContactPreferenceInput) =>
+    ipcRenderer.invoke("analytics:sync-update-contact", input) as Promise<UpdateContactPreferenceState>,
   setAnalyticsOptOut: (optedOut: boolean) => ipcRenderer.invoke("analytics:set-opt-out", optedOut),
 
   // Native features
@@ -341,6 +355,11 @@ export interface DesktopApi {
   focusChatOwner: (chatId: string) => Promise<boolean>
   toggleDevTools: () => Promise<void>
   unlockDevTools: () => Promise<void>
+  getAnalyticsStatus: () => Promise<AnalyticsStatus>
+  setAnalyticsConsent: (consent: AnalyticsConsent, source?: string) => Promise<AnalyticsStatus>
+  migrateLegacyAnalyticsOptOut: (optedOut: boolean) => Promise<AnalyticsStatus>
+  captureAnalyticsEvent: (payload: RippleAnalyticsEventPayload) => Promise<AnalyticsCaptureResult>
+  syncUpdateContactPreference: (input: UpdateContactPreferenceInput) => Promise<UpdateContactPreferenceState>
   setAnalyticsOptOut: (optedOut: boolean) => Promise<void>
   setBadge: (count: number | null) => Promise<void>
   setBadgeIcon: (imageData: string | null) => Promise<void>

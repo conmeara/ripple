@@ -10,7 +10,7 @@ import { existsSync } from "node:fs"
 import { mkdir, copyFile, unlink } from "node:fs/promises"
 import { extname } from "node:path"
 import { getGitRemoteInfo } from "../../git"
-import { trackProjectOpened } from "../../analytics"
+import { trackProjectCreated, trackProjectOpened } from "../../analytics"
 import { getLaunchDirectory } from "../../cli"
 import {
   createRippleProject,
@@ -31,6 +31,10 @@ import {
 } from "../../ripple-projects/lifecycle"
 
 const execAsync = promisify(exec)
+
+function projectKindFromGit(hasGitRemote: boolean): string {
+  return hasGitRemote ? "imported_git" : "local"
+}
 
 export const projectsRouter = router({
   /**
@@ -236,8 +240,8 @@ export const projectsRouter = router({
 
       // Track project opened
       trackProjectOpened({
-        id: updatedProject!.id,
-        hasGitRemote: !!gitInfo.remoteUrl,
+        openSource: "folder_picker",
+        projectKind: projectKindFromGit(!!gitInfo.remoteUrl),
       })
 
       return updatedProject
@@ -257,10 +261,10 @@ export const projectsRouter = router({
       .returning()
       .get()
 
-    // Track project opened
-    trackProjectOpened({
-      id: newProject!.id,
-      hasGitRemote: !!gitInfo.remoteUrl,
+    trackProjectCreated({
+      creationSource: "folder_picker",
+      projectKind: projectKindFromGit(!!gitInfo.remoteUrl),
+      result: "success",
     })
 
     return newProject
@@ -283,13 +287,17 @@ export const projectsRouter = router({
         .get()
 
       if (existing) {
+        trackProjectOpened({
+          openSource: "known_path",
+          projectKind: projectKindFromGit(!!existing.gitRemoteUrl),
+        })
         return existing
       }
 
       // Get git remote info
       const gitInfo = await getGitRemoteInfo(input.path)
 
-      return db
+      const project = db
         .insert(projects)
         .values({
           name,
@@ -301,6 +309,12 @@ export const projectsRouter = router({
         })
         .returning()
         .get()
+      trackProjectCreated({
+        creationSource: "known_path",
+        projectKind: projectKindFromGit(!!gitInfo.remoteUrl),
+        result: "success",
+      })
+      return project
     }),
 
   /**
@@ -486,8 +500,8 @@ export const projectsRouter = router({
 
         if (existing) {
           trackProjectOpened({
-            id: existing.id,
-            hasGitRemote: !!existing.gitRemoteUrl,
+            openSource: "github_import",
+            projectKind: projectKindFromGit(!!existing.gitRemoteUrl),
           })
           return existing
         }
@@ -507,9 +521,10 @@ export const projectsRouter = router({
           .returning()
           .get()
 
-        trackProjectOpened({
-          id: newProject!.id,
-          hasGitRemote: !!gitInfo.remoteUrl,
+        trackProjectCreated({
+          creationSource: "github_import",
+          projectKind: projectKindFromGit(!!gitInfo.remoteUrl),
+          result: "success",
         })
         return newProject
       }
@@ -538,9 +553,10 @@ export const projectsRouter = router({
         .returning()
         .get()
 
-      trackProjectOpened({
-        id: newProject!.id,
-        hasGitRemote: !!gitInfo.remoteUrl,
+      trackProjectCreated({
+        creationSource: "github_clone",
+        projectKind: projectKindFromGit(!!gitInfo.remoteUrl),
+        result: "success",
       })
 
       return newProject
@@ -620,7 +636,10 @@ export const projectsRouter = router({
           .where(eq(projects.id, existing.id))
           .returning()
           .get()
-
+        trackProjectOpened({
+          openSource: "located_import",
+          projectKind: projectKindFromGit(!!gitInfo.remoteUrl),
+        })
         return { success: true as const, project: updated }
       }
 
@@ -636,6 +655,12 @@ export const projectsRouter = router({
         })
         .returning()
         .get()
+
+      trackProjectCreated({
+        creationSource: "located_import",
+        projectKind: projectKindFromGit(!!gitInfo.remoteUrl),
+        result: "success",
+      })
 
       return { success: true as const, project }
     }),

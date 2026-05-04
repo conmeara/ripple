@@ -9,8 +9,9 @@ declare global {
     readonly MAIN_VITE_RIPPLE_UPDATE_URL?: string
     readonly MAIN_VITE_RIPPLE_ANALYTICS_KEY?: string
     readonly MAIN_VITE_RIPPLE_ANALYTICS_HOST?: string
+    readonly MAIN_VITE_RIPPLE_ANALYTICS_FORCE?: string
 
-    // Renderer process (VITE_ prefix)
+    // Renderer process (VITE_ prefix, legacy/reserved; renderer must not initialize analytics)
     readonly VITE_RIPPLE_ANALYTICS_KEY?: string
     readonly VITE_RIPPLE_ANALYTICS_HOST?: string
     readonly VITE_FEEDBACK_ISSUE_URL?: string

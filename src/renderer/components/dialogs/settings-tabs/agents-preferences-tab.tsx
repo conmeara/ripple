@@ -1,7 +1,6 @@
 import { useAtom } from "jotai"
 import { useEffect, useState } from "react"
 import {
-  analyticsOptOutAtom,
   autoAdvanceTargetAtom,
   ctrlTabTargetAtom,
   defaultAgentModeAtom,
@@ -15,6 +14,7 @@ import {
   type CtrlTabTarget,
 } from "../../../lib/atoms"
 import { APP_META, type ExternalApp } from "../../../../shared/external-apps"
+import type { AnalyticsStatus } from "../../../../shared/ripple-analytics"
 
 // Editor icon imports
 import cursorIcon from "../../../assets/app-icons/cursor.svg"
@@ -148,7 +148,8 @@ export function AgentsPreferencesTab() {
   const [soundEnabled, setSoundEnabled] = useAtom(soundNotificationsEnabledAtom)
   const [desktopNotificationsEnabled, setDesktopNotificationsEnabled] = useAtom(desktopNotificationsEnabledAtom)
   const [notifyWhenFocused, setNotifyWhenFocused] = useAtom(notifyWhenFocusedAtom)
-  const [analyticsOptOut, setAnalyticsOptOut] = useAtom(analyticsOptOutAtom)
+  const [analyticsStatus, setAnalyticsStatus] = useState<AnalyticsStatus | null>(null)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
   const [ctrlTabTarget, setCtrlTabTarget] = useAtom(ctrlTabTargetAtom)
   const [autoAdvanceTarget, setAutoAdvanceTarget] = useAtom(autoAdvanceTargetAtom)
   const [defaultAgentMode, setDefaultAgentMode] = useAtom(defaultAgentModeAtom)
@@ -169,14 +170,32 @@ export function AgentsPreferencesTab() {
     setCoAuthoredByMutation.mutate({ enabled })
   }
 
-  // Sync opt-out status to main process
-  const handleAnalyticsToggle = async (optedOut: boolean) => {
-    setAnalyticsOptOut(optedOut)
-    // Notify main process
+  useEffect(() => {
+    let cancelled = false
+    window.desktopApi?.getAnalyticsStatus()
+      .then((status) => {
+        if (!cancelled) setAnalyticsStatus(status)
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setAnalyticsError(error instanceof Error ? error.message : String(error))
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleAnalyticsToggle = async (enabled: boolean) => {
+    setAnalyticsError(null)
     try {
-      await window.desktopApi?.setAnalyticsOptOut(optedOut)
+      const status = await window.desktopApi?.setAnalyticsConsent(
+        enabled ? "granted" : "denied",
+        "settings",
+      )
+      if (status) setAnalyticsStatus(status)
     } catch (error) {
-      console.error("Failed to sync analytics opt-out to main process:", error)
+      setAnalyticsError(error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -458,15 +477,25 @@ export function AgentsPreferencesTab() {
         <div className="flex items-center justify-between gap-6 p-4">
           <div className="flex flex-col space-y-1">
             <span className="text-sm font-medium text-foreground">
-              Share Usage Analytics
+              Share Anonymous Analytics
             </span>
             <span className="text-xs text-muted-foreground">
-              Help us improve Agents by sharing anonymous usage data. We only track feature usage and app performance–never your code, prompts, or messages. No AI training on your data.
+              Help improve Ripple with product-health events. This never includes project files, prompts, conversations, comments, media, exports, file paths, or email.
             </span>
+            {analyticsStatus && !analyticsStatus.runtimeEnabled && (
+              <span className="text-[11px] text-muted-foreground/80">
+                Sharing is saved locally and will only send from an official analytics-enabled build.
+              </span>
+            )}
+            {analyticsError && (
+              <span className="text-[11px] text-destructive">
+                {analyticsError}
+              </span>
+            )}
           </div>
           <Switch
-            checked={!analyticsOptOut}
-            onCheckedChange={(enabled) => handleAnalyticsToggle(!enabled)}
+            checked={analyticsStatus?.consent === "granted"}
+            onCheckedChange={handleAnalyticsToggle}
           />
         </div>
       </div>

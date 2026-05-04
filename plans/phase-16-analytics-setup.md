@@ -55,23 +55,47 @@ and must be described separately in onboarding and privacy copy.
   updated this plan to match the current post-Phase-15 no-op analytics source.
 - [x] 2026-05-04 / Codex: Updated `.env.example` to omit renderer analytics
   keys and document the main-process consent boundary.
-- [ ] Implement Milestone 0: document the Ripple analytics event map, privacy
+- [x] 2026-05-04 / Codex: Implemented Milestone 0: documented the event map in
+  `docs/analytics-event-map.md`, added the transparency artifact in
+  `docs/privacy/analytics.md`, and added shared sanitizer tests for forbidden
+  payloads.
+- [x] 2026-05-04 / Codex: Implemented Milestone 1: replaced the inherited
+  analytics facade with a main-owned persisted consent store, anonymous
+  `anon:<installId>` capture boundary, first-permitted-launch marker, and
+  config-gated PostHog provider setup.
+- [x] 2026-05-04 / Codex: Implemented Milestone 2: removed inherited analytics
+  helpers and migrated current project, chat, preview, timeline, asset,
+  comment, revision, agent-run, and export call sites to sanitized Ripple event
+  names.
+- [x] 2026-05-04 / Codex: Implemented Milestone 3: added the dedicated weekly
+  update contact helper and sync state with separate `contact:<contactId>`
+  identity and no identify/alias merge with anonymous analytics.
+- [x] 2026-05-04 / Codex: Implemented Milestone 4: added IPC APIs for analytics
+  status, consent, legacy opt-out migration, renderer-requested events, and
+  update-contact sync; updated settings to use Ripple opt-in consent copy.
+- [x] 2026-05-04 / Codex: Implemented Milestone 5: wired the existing
+  main-process PostHog configuration names for official builds only, with
+  development/test disabled unless `MAIN_VITE_RIPPLE_ANALYTICS_FORCE=true`.
+- [x] 2026-05-04 / Codex: Implemented Milestone 6: disabled remote Sentry
+  initialization/capture paths pending separate crash-reporting consent and
+  added focused config/consent/sanitizer tests.
+- [x] Implement Milestone 0: document the Ripple analytics event map, privacy
   rules, public transparency artifact, sanitizer, and forbidden-payload tests
   while the provider remains disabled.
-- [ ] Implement Milestone 1: replace inherited analytics initialization with a
+- [x] Implement Milestone 1: replace inherited analytics initialization with a
   main-owned persisted consent store, startup consent ordering, and typed
   anonymous capture boundary.
-- [ ] Implement Milestone 2: delete or quarantine inherited analytics helpers
+- [x] Implement Milestone 2: delete or quarantine inherited analytics helpers
   and migrate current call sites from repo/chat events to sanitized Ripple
   product events.
-- [ ] Implement Milestone 3: add the dedicated email contact-capture helper and
+- [x] Implement Milestone 3: add the dedicated email contact-capture helper and
   sync-state model without merging contact identity into anonymous analytics.
-- [ ] Implement Milestone 4: expose settings/onboarding consent controls backed
+- [x] Implement Milestone 4: expose settings/onboarding consent controls backed
   by main-process persisted preference state.
-- [ ] Implement Milestone 5: wire the existing Ripple PostHog project
+- [x] Implement Milestone 5: wire the existing Ripple PostHog project
   configuration into official builds only after Milestones 0-4 pass and without
   committing inherited or hardcoded keys.
-- [ ] Implement Milestone 6: validate behavior in development, test, and
+- [x] Implement Milestone 6: validate behavior in development, test, and
   packaged-style paths.
 
 ## Surprises & Discoveries
@@ -129,6 +153,20 @@ and must be described separately in onboarding and privacy copy.
   `MAIN_VITE_RIPPLE_ANALYTICS_HOST`, and notes that renderer analytics keys are
   intentionally omitted because Phase 16 routes analytics through a
   main-process consent boundary.
+- Observation: The renderer no longer has an analytics provider or renderer
+  identity API. It can only request typed events through `desktopApi`, while
+  settings reads and writes main-owned consent.
+  Evidence: `src/renderer/lib/analytics.ts` is an IPC client,
+  `src/renderer/App.tsx` only performs one-time legacy opt-out migration, and
+  `src/renderer/components/dialogs/settings-tabs/agents-preferences-tab.tsx`
+  calls `getAnalyticsStatus()` and `setAnalyticsConsent(...)`.
+- Observation: Remote crash/error reporting is no longer initialized for Phase
+  16. Existing Sentry capture calls that included cwd, chat IDs, sub-chat IDs,
+  stderr, and debug payloads were removed or disabled.
+  Evidence: `src/main/index.ts`, `src/preload/index.ts`,
+  `src/renderer/main.tsx`,
+  `src/renderer/features/agents/lib/ipc-chat-transport.ts`, and
+  `src/main/lib/trpc/routers/claude.ts`.
 
 ## Decision Log
 
@@ -250,7 +288,32 @@ and must be described separately in onboarding and privacy copy.
 
 ## Outcomes & Retrospective
 
-Not started.
+Phase 16 now has a working privacy-first PostHog implementation rather than an
+inherited no-op facade. Anonymous analytics are disabled unless the runtime is
+configured, allowed, and the user grants consent. Event capture is centralized
+in `src/main/lib/analytics.ts`, sanitized by `src/shared/ripple-analytics.ts`,
+and documented in `docs/analytics-event-map.md` and
+`docs/privacy/analytics.md`.
+
+The remaining onboarding UI in Phase 17 can reuse the same IPC APIs for
+analytics consent and update-contact capture. The checked-in settings surface
+already exposes the opt-in toggle with Ripple copy. Weekly update email capture
+is implemented as a separate contact path and remains independent of anonymous
+analytics consent.
+
+Validation: `bun test src/shared/ripple-analytics.test.ts
+src/main/lib/config.test.ts src/main/lib/analytics.test.ts` passed with 18
+tests; `bun run ts:check` passed; `bun run test:ripple` passed with 354 tests;
+and `bun run build` completed successfully. A source audit found no remaining
+inherited analytics helpers, legacy event names, or Sentry initialization/
+capture calls outside sanitizer tests that intentionally assert old event
+rejection.
+
+The remaining live PostHog release smoke is intentionally a Phase 19 hardening
+gate, not a Phase 16 implementation blocker: run it from a packaged
+official-build-like app with explicit opt-in, then verify PostHog receives only
+the documented sanitized Ripple events and the separate weekly-update contact
+event path.
 
 ## Context and Orientation
 

@@ -4,6 +4,7 @@ import {
   RIPPLE_COMMENT_THREAD_STATUSES,
   type RippleCommentAnchorInput,
 } from "../../../../shared/ripple-comments"
+import { bucketCount } from "../../../../shared/ripple-analytics"
 import {
   MAX_AGENT_RUNTIME_ATTACHMENT_BASE64_CHARS,
   MAX_AGENT_RUNTIME_ATTACHMENTS,
@@ -34,6 +35,14 @@ import {
   recoverRevisionQueueOnStartup,
 } from "../../revisions/revision-queue"
 import { scheduleGeneratedChangeQueue } from "../../agent-runtime/generated-change-scheduler"
+import {
+  trackCommentCreated,
+  trackCommentReplied,
+  trackCommentResolved,
+  trackRevisionAccepted,
+  trackRevisionRejected,
+  trackRevisionRequested,
+} from "../../analytics"
 import { publicProcedure, router } from "../index"
 
 const anchorInput = z.object({
@@ -76,6 +85,21 @@ const runtimeAttachmentsSchema = z
   })
 const agentProviderInput = z.enum(["codex", "claude", "fake"]).optional()
 
+function commentScope(input: {
+  compositionId?: string | null
+  anchor?: RippleCommentAnchorInput | null
+}): string {
+  if (input.anchor?.anchorType === "element") return "element"
+  if (input.anchor?.anchorType === "range") return "frame_range"
+  if (input.anchor?.anchorType === "frame") return "frame"
+  return input.compositionId ? "composition" : "project"
+}
+
+function frameBucket(anchor: RippleCommentAnchorInput | null | undefined): string | null {
+  const frame = anchor?.startFrame ?? anchor?.endFrame
+  return typeof frame === "number" ? bucketCount(frame) : null
+}
+
 export const revisionsRouter = router({
   listThreads: publicProcedure
     .input(z.object({
@@ -105,6 +129,17 @@ export const revisionsRouter = router({
     }))
     .mutation(async ({ input }) => {
       const thread = await createCommentThread(input)
+      trackCommentCreated({
+        commentScope: commentScope(input),
+        frameBucket: frameBucket(input.anchor),
+        elementTarget: input.anchor.anchorType === "element" ? "selected_element" : null,
+      })
+      if (input.createRevision ?? true) {
+        trackRevisionRequested({
+          revisionSource: "comment_thread",
+          commentScope: commentScope(input),
+        })
+      }
       scheduleGeneratedChangeQueue({ projectId: thread.projectId })
       return thread
     }),
@@ -121,6 +156,13 @@ export const revisionsRouter = router({
     }))
     .mutation(async ({ input }) => {
       const thread = await addCommentReply(input)
+      trackCommentReplied("thread")
+      if (input.createRevision ?? true) {
+        trackRevisionRequested({
+          revisionSource: "comment_reply",
+          commentScope: "thread",
+        })
+      }
       scheduleGeneratedChangeQueue({ projectId: thread.projectId })
       return thread
     }),
@@ -136,6 +178,10 @@ export const revisionsRouter = router({
     }))
     .mutation(async ({ input }) => {
       const revision = await createRevisionForThread(input)
+      trackRevisionRequested({
+        revisionSource: "thread_action",
+        commentScope: "thread",
+      })
       scheduleGeneratedChangeQueue({ projectId: revision.projectId })
       return revision
     }),
@@ -147,7 +193,9 @@ export const revisionsRouter = router({
     }))
     .mutation(({ input }) => {
       if (input.status === "resolved") {
-        return resolveCommentThread(input.threadId)
+        const thread = resolveCommentThread(input.threadId)
+        trackCommentResolved("thread")
+        return thread
       }
       throw new Error("Only resolving comment threads is supported here.")
     }),
@@ -219,11 +267,20 @@ export const revisionsRouter = router({
     .input(z.object({ revisionId: z.string() }))
     .mutation(async ({ input }) => {
       const thread = await acceptRevision(input.revisionId)
+      trackRevisionAccepted({
+        acceptanceSource: "review_action",
+      })
       scheduleGeneratedChangeQueue({ projectId: thread.projectId })
       return thread
     }),
 
   reject: publicProcedure
     .input(z.object({ revisionId: z.string() }))
-    .mutation(({ input }) => rejectRevision(input.revisionId)),
+    .mutation(({ input }) => {
+      const thread = rejectRevision(input.revisionId)
+      trackRevisionRejected({
+        rejectionSource: "review_action",
+      })
+      return thread
+    }),
 })

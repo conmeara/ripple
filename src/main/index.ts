@@ -1,16 +1,12 @@
-import * as Sentry from "@sentry/electron/main"
 import { app, BrowserWindow, dialog, Menu, nativeImage, session } from "electron"
 import { existsSync, readFileSync, readlinkSync, unlinkSync } from "fs"
 import { createServer } from "http"
 import { dirname, join } from "path"
 import { AuthManager, initAuthManager, getAuthManager as getAuthManagerFromModule } from "./auth-manager"
 import {
-  identify,
   initAnalytics,
-  setSubscriptionPlan,
   shutdown as shutdownAnalytics,
   trackAppOpened,
-  trackAuthCompleted,
 } from "./lib/analytics"
 import {
   checkForUpdates,
@@ -106,24 +102,7 @@ app.commandLine.appendSwitch("js-flags", "--max-old-space-size=8192")
 
 registerHyperframesPlayerProtocolPrivileges()
 
-// Initialize Sentry before app is ready (production only)
-if (app.isPackaged && !IS_DEV) {
-  const sentryDsn = import.meta.env.MAIN_VITE_SENTRY_DSN
-  if (sentryDsn) {
-    try {
-      Sentry.init({
-        dsn: sentryDsn,
-      })
-      console.log("[App] Sentry initialized")
-    } catch (error) {
-      console.warn("[App] Failed to initialize Sentry:", error)
-    }
-  } else {
-    console.log("[App] Skipping Sentry initialization (no DSN configured)")
-  }
-} else {
-  console.log("[App] Skipping Sentry initialization (dev mode)")
-}
+console.log("[App] Skipping Sentry initialization; remote crash reporting is disabled")
 
 // Hosted-service URL configuration. Local Ripple builds do not default to any
 // hosted backend; an optional future service must be configured explicitly.
@@ -150,19 +129,6 @@ export async function handleAuthCode(code: string): Promise<void> {
   try {
     const authData = await authManager.exchangeCode(code)
     console.log("[Auth] Success for user:", authData.user.email)
-
-    // Track successful authentication
-    trackAuthCompleted(authData.user.id)
-
-    // Fetch and set subscription plan for analytics
-    try {
-      const planData = await authManager.fetchUserPlan()
-      if (planData) {
-        setSubscriptionPlan(planData.plan)
-      }
-    } catch (e) {
-      console.warn("[Auth] Failed to fetch user plan for analytics:", e)
-    }
 
     // Set desktop token cookie using persist:main partition
     const baseUrl = getBaseUrl()
@@ -948,19 +914,18 @@ if (gotTheLock) {
     authManager = initAuthManager(!!process.env.ELECTRON_RENDERER_URL)
     console.log("[App] Auth manager initialized")
 
-    // Initialize analytics after auth manager so we can identify user
-    initAnalytics()
+    // Initialize analytics after userData has been prepared. Capture remains
+    // anonymous and consent-gated; hosted auth identity is never used.
+    initAnalytics({
+      userDataPath: app.getPath("userData"),
+      appVersion: app.getVersion(),
+      runtimeOptions: {
+        isPackaged: app.isPackaged,
+        isDev: IS_DEV,
+      },
+    })
 
-    // If hosted auth is configured and a previous session exists, identify the user.
-    if (getBaseUrl() && authManager.isAuthenticated()) {
-      const user = authManager.getUser()
-      if (user) {
-        identify(user.id, { email: user.email })
-        console.log("[Analytics] User identified from saved session:", user.id)
-      }
-    }
-
-    // Track app opened (now with correct user ID if authenticated)
+    // Track app opened only if consent and runtime configuration allow capture.
     trackAppOpened()
 
     // Set up callback to update cookie when token is refreshed

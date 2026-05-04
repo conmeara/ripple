@@ -134,8 +134,6 @@ export function QueueProcessor() {
 
         // Track message sent
         trackMessageSent({
-          workspaceId: subChatId,
-          messageLength: item.message.length,
           mode,
         })
 

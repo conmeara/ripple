@@ -5,7 +5,7 @@ import * as fs from "fs/promises"
 import * as os from "os"
 import path from "path"
 import { z } from "zod"
-import { setConnectionMethod } from "../../analytics"
+import { captureAnalyticsEvent } from "../../analytics"
 import {
   buildClaudeEnv,
   checkOfflineFallback,
@@ -1011,7 +1011,7 @@ export const claudeRouter = router({
             const finalCustomConfig = offlineResult.config || input.customConfig
             const isUsingOllama = offlineResult.isUsingOllama
 
-            // Track connection method for analytics
+            // Record the coarse connection method without provider identity or prompt content.
             let connectionMethod = "claude-subscription" // default (Claude Code OAuth)
             if (isUsingOllama) {
               connectionMethod = "offline-ollama"
@@ -1024,7 +1024,14 @@ export const claudeRouter = router({
                 ? "api-key"
                 : "custom-model"
             }
-            setConnectionMethod(connectionMethod)
+            captureAnalyticsEvent({
+              name: "ripple_agent_run_started",
+              properties: {
+                trigger: "chat",
+                mode: input.mode,
+                connection_method: connectionMethod,
+              },
+            })
 
             // Offline status is shown in sidebar, no need to emit message here
             // (emitting text-delta without text-start breaks UI text rendering)
@@ -2550,28 +2557,6 @@ ${prompt}
                 ) {
                   errorContext = "Network error - check your connection"
                   errorCategory = "NETWORK_ERROR"
-                }
-
-                // Track error in Sentry (only if app is ready and Sentry is available)
-                if (app.isReady() && app.isPackaged) {
-                  try {
-                    const Sentry = await import("@sentry/electron/main")
-                    Sentry.captureException(err, {
-                      tags: {
-                        errorCategory,
-                        mode: input.mode,
-                      },
-                      extra: {
-                        context: errorContext,
-                        cwd: input.cwd,
-                        stderr: stderrOutput || "(no stderr captured)",
-                        chatId: input.chatId,
-                        subChatId: input.subChatId,
-                      },
-                    })
-                  } catch {
-                    // Sentry not available or failed to import - ignore
-                  }
                 }
 
                 // Send error with stderr output to frontend (only if not aborted by user)
