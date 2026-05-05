@@ -94,6 +94,11 @@ short label `v0.19`.
   `darwin-arm64` and `darwin-x64` on macOS, added a release workflow guard that
   verifies each packaged app's export browser architecture, and reran local
   package/package-smoke validation.
+- [x] 2026-05-05 / Codex: Reran the official `v0.19.0` draft release workflow
+  as GitHub Actions run `25388403839`; it passed staging, build,
+  signing/notarization, packaged export-browser architecture verification,
+  `codesign` / `spctl` / `stapler`, update metadata verification, GitHub
+  Release upload, and workflow artifact upload.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -174,7 +179,8 @@ short label `v0.19`.
   upload. Its packaging log still included a missing
   `resources/browser/darwin-x64` warning, so the x64 artifact likely lacked
   `Resources/browser` until staging became multi-arch and CI began verifying
-  every packaged app bundle.
+  every packaged app bundle. The rerun passed that guard and replaced the draft
+  release assets.
 
 - Observation: `ROADMAP.md` linked only some phase ExecPlans even though plans
   exist for Phases 1-19 plus 10B.
@@ -250,7 +256,8 @@ Current outcome: local automated validation, Electron UX automation,
 render/export smoke, local package/resource smoke, credentialed provider smoke,
 packaged analytics smoke, and packaged UI export smoke are green after the Phase
 19 hardening and quality-platform patches. The package version is now `0.19.0`
-for the `v0.19` release target.
+for the `v0.19` release target. The official GitHub Actions draft release run
+`25388403839` also passed with signed/notarized arm64 and x64 macOS assets.
 
 Passed local gates on 2026-05-05:
 
@@ -292,10 +299,16 @@ Passed local gates on 2026-05-05:
   and x86_64 respectively.
 - After the multi-arch staging fix, the focused HyperFrames package/runtime
   tests, `bun run package`, and `bun run test:package:smoke` passed locally.
+- Official GitHub Actions release run `25388403839`: passed in 30m21s. CI
+  staged both browser architectures, verified x86_64 and arm64
+  `chrome-headless-shell` executables inside the packaged app bundles, verified
+  notarized apps with `codesign`, `spctl`, and `stapler`, verified
+  `release/latest-mac.yml` contains `version: 0.19.0`, and uploaded refreshed
+  draft release assets for `v0.19.0`.
 
-This phase is not complete until official signed/notarized CI release evidence,
-packaged update smoke near stable, and remaining human/manual QA gaps are all
-either passed or documented with explicit release blockers.
+This phase is not complete until packaged update smoke near stable and remaining
+human/manual QA gaps are all either passed or documented with explicit release
+blockers.
 
 ## Context and Orientation
 
@@ -368,9 +381,9 @@ official GitHub Actions signed/notarized release path for `v0.19`, verify
 run credentialed Codex/Claude account smoke, run packaged analytics opt-in/off
 smoke against official-build config, and refresh packaged update N-to-N+1
 evidence near stable. The local credentialed provider, packaged analytics, and
-packaged UI export portions are complete. The first official notarized CI
-release path passed but exposed an x64 export-browser resource gap; the rerun
-after the multi-arch staging fix, plus update N-to-N+1, still remain.
+packaged UI export portions are complete. The official notarized CI release
+rerun after the multi-arch staging fix is complete; update N-to-N+1 still
+remains.
 
 Milestone 5 closes the final v1 go/no-go. Complete packaged manual QA for fresh
 install, onboarding, projects, preview/timeline, comments/revisions, provider

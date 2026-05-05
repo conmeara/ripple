@@ -1308,6 +1308,9 @@ Done when:
 - MP4, MOV, and WebM exports succeed in validated environments.
 - Packaged UI export can produce an MP4 from the Renders pane using packaged
   resources.
+- Official GitHub Actions release workflow verifies signed/notarized macOS
+  artifacts, packaged export-browser resources for arm64 and x64, and update
+  metadata before uploading draft release assets.
 - Unit, integration, E2E, render/export, migration, packaging, and manual QA
   gates pass.
 - Packaged app update install flow passes the Phase 18 release gate.
@@ -1342,13 +1345,16 @@ Current baseline after Phase 19 local audit:
 - `bun run test:release`
 - `bun run test:package:smoke` verifies Ripple identity, app-managed CLIs, and
   the packaged export browser
+- Official GitHub Actions release run `25388403839` passed for draft
+  `v0.19.0`: staging, build, signing/notarization, packaged export-browser
+  architecture verification, `codesign` / `spctl` / `stapler`, update metadata,
+  GitHub Release upload, and workflow artifact upload
 - Playwright Electron artifacts for launch, onboarding, project creation,
   template creation, comments, preview shell, and Renders pane workflows
 - Packaged app smoke evidence now covers production analytics off/on, blank
   project preview/comment/MP4 export, and bundled-template comment flow
-- remaining manual/CI evidence still needed for notarized release artifacts,
-  update N-to-N+1, open-project, revisions, visual context, failure recovery,
-  and resize/keyboard behavior
+- remaining release evidence still needed for update N-to-N+1, open-project,
+  revisions, visual context, failure recovery, and resize/keyboard behavior
 
 Ripple should graduate from the 1Code baseline to full test suites plus a
 repeatable QA protocol. Testing is a release gate, not a best-effort cleanup
