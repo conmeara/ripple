@@ -131,6 +131,11 @@ short label `v0.19`.
   baseline for the runner's one-pixel native rounding difference, and
   current-frame comment visual capture now gives HyperFrames a 15s snapshot
   budget with a 30s process budget.
+- [x] 2026-05-05 / Codex: Fixed the quality CI package-smoke blocker where a
+  fresh checkout packaged without `Resources/bin/hyperframes`. Added a tracked
+  `resources/cli/hyperframes` wrapper, made `bun run package` stage current
+  platform Claude/Codex binaries plus export browsers before Electron Builder,
+  and reran local package/package-smoke validation.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -203,6 +208,16 @@ short label `v0.19`.
   staging Puppeteer's `chrome-headless-shell` into `Resources/browser`, package
   smoke verified the browser executable and packaged UI MP4 export passed when
   launched with `cwd` outside the repo.
+
+- Observation: Fresh-checkout package smoke must not rely on ignored local
+  platform-bin contents.
+  Evidence: Ripple Quality run `25396473385` passed quality, regression,
+  Electron UX, render smoke, and package build, then failed package smoke with
+  `Missing release/mac-arm64/Ripple.app/Contents/Resources/bin/hyperframes`.
+  `resources/bin/` is ignored, so the local `resources/bin/darwin-arm64`
+  wrapper existed only as generated state. The fix tracks
+  `resources/cli/hyperframes` and makes `package:stage` run `bin:stage` plus
+  `browser:stage` before packaging.
 
 - Observation: A passing signed/notarized release run was still an incomplete
   signal until packaged resources were inspected per architecture.
@@ -296,8 +311,8 @@ assets and retargeted the draft release to commit
 Passed local gates on 2026-05-05:
 
 - `bun run ts:check`: passed.
-- `bun run test:quality`: passed, 3 tests / 82 expectations; verifier found
-  36 workflow rows and 14 package scripts.
+- `bun run test:quality`: passed, 3 tests / 88 expectations; verifier found
+  36 workflow rows and 16 package scripts.
 - `bun run test:ux`: passed, 130 tests / 464 expectations.
 - `bun run test:agent`: passed, 97 tests / 321 expectations.
 - `bun run test:export`: passed, 152 tests / 748 expectations.
@@ -317,8 +332,9 @@ Passed local gates on 2026-05-05:
 - `git diff --check`: passed.
 - `bun run db:generate`: passed with "No schema changes, nothing to migrate".
 - `bun run test:export:smoke`: passed with MP4, MOV, and WebM outputs.
-- `bun run test:package:smoke`: passed against
-  `release/mac-arm64/Ripple.app`; the smoke now verifies `Resources/browser`.
+- `bun run test:package:smoke`: passed against freshly rebuilt
+  `release/mac-arm64/Ripple.app`; the smoke verifies `Resources/browser` and
+  packaged `Resources/bin/ripple`, `hyperframes`, `claude`, and `codex`.
 - `bun run test:release`: passed. It ran closeout, schema drift, real export
   smoke, local package, and package smoke; signing ran locally and notarization
   was skipped because local notarize options are unavailable.

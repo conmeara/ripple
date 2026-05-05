@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { readdirSync, readFileSync, statSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 
 interface PackageJson {
@@ -191,12 +191,23 @@ describe("HyperFrames packaged app configuration", () => {
   test("keeps app-managed agent CLIs without duplicating Claude SDK platform binaries", () => {
     const pkg = readPackageJson()
     const files = new Set(pkg.build.files ?? [])
+    const qualityWorkflow = readFileSync(".github/workflows/ripple-quality.yml", "utf-8")
 
     expect(files.has("!node_modules/@anthropic-ai/claude-agent-sdk-*/**/*")).toBe(true)
+    expect(pkg.scripts["bin:stage"]).toContain("bun run claude:download")
+    expect(pkg.scripts["bin:stage"]).toContain("bun run codex:download")
+    expect(pkg.scripts["package:stage"]).toContain("bun run bin:stage")
     expect(pkg.build.extraResources).toContainEqual(expect.objectContaining({
       from: "resources/bin/${platform}-${arch}",
       to: "bin",
     }))
+    expect(pkg.build.extraResources).toContainEqual(expect.objectContaining({
+      from: "resources/cli",
+      to: "bin",
+    }))
+    expect(existsSync("resources/cli/ripple")).toBe(true)
+    expect(existsSync("resources/cli/hyperframes")).toBe(true)
+    expect(qualityWorkflow).toContain("bun run package")
   })
 
   test("stages an app-managed export browser before packaging", () => {
@@ -205,6 +216,7 @@ describe("HyperFrames packaged app configuration", () => {
     const stageScript = readFileSync("scripts/stage-export-browser.mjs", "utf-8")
 
     expect(pkg.scripts["browser:stage"]).toBe("node scripts/stage-export-browser.mjs")
+    expect(pkg.scripts["package:stage"]).toContain("bun run browser:stage")
     for (const scriptName of [
       "package",
       "package:mac",
@@ -213,6 +225,10 @@ describe("HyperFrames packaged app configuration", () => {
       "dist",
       "dist:github",
       "dist:github:mac",
+    ]) {
+      expect(pkg.scripts[scriptName]).toContain("bun run package:stage")
+    }
+    for (const scriptName of [
       "release",
       "release:github:mac",
     ]) {

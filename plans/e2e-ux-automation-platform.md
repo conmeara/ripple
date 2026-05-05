@@ -190,8 +190,9 @@ Validation commands:
   MP4/MOV/WebM export smoke passed; packaged app smoke found
   `release/mac-arm64/Ripple.app` OK at 1.5G. Local macOS notarization was
   skipped because local notarize options were unavailable.
-- `bun run test:quality` passed 2026-05-05: 3 tests / 82 expectations;
-  verifier found 36 workflow rows and 14 package scripts.
+- `bun run test:quality` passed 2026-05-05 after Phase 19 package-staging
+  hardening: 3 tests / 88 expectations; verifier found 36 workflow rows and 16
+  package scripts.
 - `bun run test:ux` passed 2026-05-05: 129 tests / 458 expectations.
 - `bun run test:agent` passed 2026-05-05: 97 tests / 321 expectations.
 - `bun run test:export` passed 2026-05-05: 152 tests / 748 expectations.

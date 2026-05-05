@@ -17,7 +17,7 @@ Package metadata version: `0.19.0`.
 | Review everything implemented in `ROADMAP.md` | `ROADMAP.md` phase list and every `plans/phase-*.md` ExecPlan | Local audit completed. Phase plans exist for Phases 1-18 plus 10B and v2 sequence research; Phase 19 plan added in this pass. |
 | Review all phases | Phase 0-19 matrix below | Local phase matrix updated. Manual packaged-app QA remains the main v1 go/no-go input. |
 | Improve and optimize for v1 release | Release-readiness findings, patched docs/UI, validation commands | Improved in this pass: root README, AGENTS snapshot, roadmap Phase 19 linkage, preview setup wiring/copy, shipped import wording, macOS permission copy, package-size optimization, quality/regression platform, and this checklist. |
-| Do not accept proxy signals as completion | Command output, packaged app evidence, manual QA notes, artifact inspection | Substantially satisfied. Automated gates, package/resource smoke, local MP4/MOV/WebM export smoke, packaged UI MP4 export, packaged analytics opt-in/off smoke, credentialed provider smoke, and official signed/notarized CI release passed. The first official `v0.19` CI release exposed a missing x64 export browser; the rerun passed after multi-arch staging and a CI package-browser guard were added. |
+| Do not accept proxy signals as completion | Command output, packaged app evidence, manual QA notes, artifact inspection | Substantially satisfied. Automated gates, package/resource smoke, local MP4/MOV/WebM export smoke, packaged UI MP4 export, packaged analytics opt-in/off smoke, credentialed provider smoke, and official signed/notarized CI release passed. Release evidence exposed and fixed two packaging gaps: the first official `v0.19` CI release missed the x64 export browser, and quality CI package smoke later exposed that fresh checkouts needed tracked HyperFrames CLI staging plus current-platform Claude/Codex binary staging before `bun run package`. |
 | Ship the release as `v0.19` | `package.json`, release workflow input, GitHub release tag/name | Package metadata and packaged `Info.plist` are `0.19.0`; a draft `v0.19.0` release exists with refreshed signed/notarized arm64 and x64 macOS assets from GitHub Actions run `25393310437`, targeting commit `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`. |
 
 ## Phase Matrix
@@ -44,7 +44,7 @@ Package metadata version: `0.19.0`.
 | 16 Analytics Setup | `plans/phase-16-analytics-setup.md` | Opt-in main-process analytics sends only allowed sanitized events; analytics off sends nothing | Current analytics tests and packaged production analytics opt-in/off smoke pass. |
 | 17 Onboarding Screen | `plans/phase-17-onboarding-screen.md` | First-run dialog is skippable, local-first, and separates profile/email/analytics/provider setup | Covered by settings/onboarding tests and packaged skippable first-run smoke. |
 | 18 App Updates | `plans/phase-18-app-updates.md`, `.github/workflows/release.yml` | Signed/notarized beta N-to-N+1 update passes inside Ripple | Prior Phase 18 evidence records beta.1 to beta.2 success; recheck before stable. |
-| 19 Hardening And Release Readiness | `plans/phase-19-hardening-and-release-readiness.md`, this file | Full automated, package, render, analytics, update, and manual QA gates pass | Automated local gates, local export smoke, packaged UI export, packaged analytics, package smoke, credentialed provider smoke, and official signed/notarized CI release passed. Update refresh and remaining human QA gates still remain. |
+| 19 Hardening And Release Readiness | `plans/phase-19-hardening-and-release-readiness.md`, this file | Full automated, package, render, analytics, update, and manual QA gates pass | Automated local gates, local export smoke, packaged UI export, packaged analytics, package smoke, credentialed provider smoke, and official signed/notarized CI release passed. Package staging now prepares current-platform app-managed CLIs and export browsers from a fresh checkout. Update refresh and remaining human QA gates still remain. |
 
 ## Automated Gates
 
@@ -53,7 +53,7 @@ Run from `/Users/conmeara/code/ripple`.
 | Gate | Command | Pass condition | Evidence location |
 | --- | --- | --- | --- |
 | Focused Ripple regressions | `bun run test:ripple` | All tests pass | Passed 2026-05-05: 366 tests / 1485 expectations. |
-| Quality platform | `bun run test:quality` | Workflow matrix, fixtures, scripts, and closeout protocol verify | Passed 2026-05-05: 3 tests / 82 expectations; verifier found 36 workflow rows and 14 package scripts. |
+| Quality platform | `bun run test:quality` | Workflow matrix, fixtures, scripts, and closeout protocol verify | Passed 2026-05-05 after package-staging hardening: 3 tests / 88 expectations; verifier found 36 workflow rows and 16 package scripts. |
 | UX workflow sweep | `bun run test:ux` | User-facing renderer workflow slice passes | Passed 2026-05-05: 130 tests / 464 expectations. |
 | Electron UX automation | `bun run test:e2e` | Playwright launches built Electron, clicks launch/onboarding/project/template/comments/renders/open-project/visual-context/resize/generated-change review workflows, and retains screenshots/traces/logs on failure | Passed 2026-05-05: 5 Electron tests. |
 | Visual regression snapshot | `bun run test:visual` | Stable project-entry visual baseline matches, or intentional changes are reviewed with `bun run test:e2e:update` | Passed 2026-05-05: 1 Playwright visual test; baseline stored under `test/e2e/__screenshots__/`. |
@@ -67,8 +67,8 @@ Run from `/Users/conmeara/code/ripple`.
 | Production build | `bun run build` | Build exits 0 | Passed 2026-05-05 with existing Vite warnings. |
 | Whitespace | `git diff --check` | No whitespace errors | Passed 2026-05-05. |
 | Schema drift | `bun run db:generate` then inspect diff | No unintended migration diff, or generated migration is reviewed | Passed 2026-05-05: no schema changes. |
-| Package build | `bun run package` or platform package command | Packaged app contains expected resources and identity | Passed 2026-05-05 for local `--dir`; export browsers staged for `darwin-arm64` and `darwin-x64`, and the local arm64 app includes `Resources/browser`; notarization skipped locally. |
-| Package smoke | `bun run test:package:smoke` | Existing packaged app has Ripple identity, resources, CLI binaries, and export browser | Passed 2026-05-05 against `release/mac-arm64/Ripple.app` after export-browser verification was added. |
+| Package build | `bun run package` or platform package command | Packaged app contains expected resources and identity | Passed 2026-05-05 for local `--dir`; `package:stage` now runs `bin:stage` and `browser:stage`, so a fresh checkout stages current-platform Claude/Codex binaries plus arm64/x64 export browsers before packaging. Notarization skipped locally. |
+| Package smoke | `bun run test:package:smoke` | Existing packaged app has Ripple identity, resources, CLI binaries, and export browser | Passed 2026-05-05 against a freshly rebuilt `release/mac-arm64/Ripple.app`; smoke verified `Resources/bin/ripple`, tracked `Resources/bin/hyperframes`, downloaded `Resources/bin/claude`, downloaded `Resources/bin/codex`, and `Resources/browser`. |
 | Release script | `bun run test:release` | Closeout, schema drift, export smoke, package, and package smoke all pass | Passed 2026-05-05 after the `0.19.0` version bump and packaged export-browser fix. Notarization skipped locally because local notarize options were unavailable. |
 
 ## Artifact Audits
@@ -176,6 +176,12 @@ Complete these in a packaged app with isolated user data before stable v1.
   close to the old 10s process budget under full Electron load. The app now
   gives HyperFrames visual capture a 15s snapshot budget and a 30s process
   budget, so frame-attached comments have less timing fragility.
+- Quality CI then exposed a fresh-checkout packaging gap: `bun run package`
+  previously staged the export browser but relied on ignored local
+  `resources/bin/<platform>-<arch>` contents for app-managed CLIs. Packaging now
+  runs `package:stage`, which stages current-platform Claude/Codex binaries and
+  export browsers, and the tracked `resources/cli/hyperframes` wrapper is copied
+  into packaged `Resources/bin/hyperframes`.
 - The successful release workflow emitted a GitHub Actions annotation that
   Node.js 20 actions are deprecated and will move to Node.js 24 defaults in
   2026. This is not a v0.19 release blocker, but the release workflow should be
@@ -193,7 +199,8 @@ Complete these in a packaged app with isolated user data before stable v1.
   `resources/browser/darwin-x64/chrome-headless-shell`; `file` reports arm64
   and x86_64 respectively.
 - `bun run package` and `bun run test:package:smoke` passed again after the
-  multi-arch browser-staging change.
+  package-staging change; the package log showed `bin:stage` and `browser:stage`
+  ran before Electron Builder.
 - Local package size: about 1.7 GB total, with `Contents/Resources/browser`
   about 189 MB, `app.asar.unpacked` about 237 MB, and
   `Contents/Resources/bin` about 377 MB.
@@ -207,6 +214,9 @@ Complete these in a packaged app with isolated user data before stable v1.
   `Resources/bin/ripple --help`, `Resources/bin/hyperframes --version`
   (`0.4.40`), `Resources/bin/claude --version` (`2.1.123`), and
   `Resources/bin/codex --version` (`codex-cli 0.125.0`).
+- The packaged `Resources/bin/hyperframes` file contains the tracked
+  `resources/cli/hyperframes` wrapper, proving package smoke no longer depends
+  on ignored local platform-bin state.
 - Packaged export browser smoke passed:
   `Resources/browser/chrome-headless-shell --version` reports Chrome for Testing.
 - Packaged UI smoke passed from the final artifact: production analytics

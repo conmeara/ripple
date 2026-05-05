@@ -226,8 +226,9 @@ Dependencies:
 
 Current command evidence:
 
-- `bun run test:quality`: passed, 3 tests / 82 expectations; verifier reported
-  36 workflow rows and 14 package scripts.
+- `bun run test:quality`: passed, 3 tests / 88 expectations after Phase 19
+  package-staging hardening; verifier reported 36 workflow rows and 16 package
+  scripts.
 - `bun run test:ux`: passed, 129 tests / 458 expectations.
 - `bun run test:agent`: passed, 97 tests / 321 expectations.
 - `bun run test:export`: passed, 152 tests / 748 expectations.

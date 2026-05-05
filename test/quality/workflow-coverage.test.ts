@@ -41,6 +41,8 @@ const requiredWorkflowIds = [
 ]
 
 const requiredScripts = [
+  "bin:stage",
+  "package:stage",
   "test:quality",
   "test:ux",
   "test:agent",
@@ -84,5 +86,7 @@ describe("Ripple workflow coverage matrix", () => {
     expect(packageJson.scripts["test:release"]).toContain("test:export:smoke")
     expect(packageJson.scripts["test:release"]).toContain("test:package:smoke")
     expect(packageJson.scripts["test:closeout"]).toContain("test:e2e")
+    expect(packageJson.scripts["package"]).toContain("package:stage")
+    expect(packageJson.scripts["package:stage"]).toContain("bin:stage")
   })
 })

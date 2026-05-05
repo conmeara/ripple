@@ -48,6 +48,8 @@ const requiredWorkflowIds = [
 ]
 
 const requiredScripts = [
+  "bin:stage",
+  "package:stage",
   "test:quality",
   "test:ux",
   "test:agent",
