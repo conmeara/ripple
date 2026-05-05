@@ -3,7 +3,6 @@ import { toast } from "sonner"
 import { normalizeCodexStreamChunk } from "../../../../shared/codex-tool-normalizer"
 import {
   codexApiKeyAtom,
-  codexLoginModalOpenAtom,
   codexOnboardingAuthMethodAtom,
   codexOnboardingCompletedAtom,
   normalizeCodexApiKey,
@@ -12,13 +11,13 @@ import {
 import { appStore } from "../../../lib/jotai-store"
 import { trpcClient } from "../../../lib/trpc"
 import {
-  pendingAuthRetryMessageAtom,
   subChatCodexModelIdAtomFamily,
   subChatCodexThinkingAtomFamily,
 } from "../atoms"
 import { CODEX_MODELS, type CodexThinkingLevel } from "./models"
 import { useAgentSubChatStore } from "../stores/sub-chat-store"
 import type { AgentMessageMetadata } from "../ui/agent-message-usage"
+import { resolveCodexProviderAuthPrompt } from "./provider-auth-prompts"
 
 type UIMessageChunk = any
 
@@ -199,23 +198,17 @@ export class ACPChatTransport implements ChatTransport<UIMessage> {
 
                 void (async () => {
                   const credentials = await resolveCodexCredentialsForAuthError()
-                  const shouldAutoRetryOnce = credentials.hasAny && !forceNewSession
-
-                  appStore.set(pendingAuthRetryMessageAtom, {
+                  const result = resolveCodexProviderAuthPrompt({
                     subChatId: this.config.subChatId,
-                    provider: "codex",
                     prompt,
-                    ...(images.length > 0 && { images }),
-                    readyToRetry: shouldAutoRetryOnce,
+                    images,
+                    credentials,
+                    forceNewSession,
                   })
 
-                  if (!credentials.hasAny) {
-                    appStore.set(codexLoginModalOpenAtom, true)
-                  } else if (!shouldAutoRetryOnce) {
+                  if (result.type === "failed-saved-credentials") {
                     toast.error("Codex authentication failed", {
-                      description: credentials.hasApiKey
-                        ? "Saved Codex API key was rejected. Update it in Settings."
-                        : "Saved Codex subscription auth failed. Reconnect subscription in Settings.",
+                      description: result.description,
                     })
                   }
                 })()

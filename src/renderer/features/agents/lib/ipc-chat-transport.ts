@@ -1,8 +1,6 @@
 import type { ChatTransport, UIMessage } from "ai"
 import { toast } from "sonner"
 import {
-  claudeLoginModalConfigAtom,
-  agentsLoginModalOpenAtom,
   autoOfflineModeAtom,
   type CustomClaudeConfig,
   customClaudeConfigAtom,
@@ -21,10 +19,10 @@ import {
   compactingSubChatsAtom,
   expiredUserQuestionsAtom,
   MODEL_ID_MAP,
-  pendingAuthRetryMessageAtom,
   pendingUserQuestionsAtom,
   subChatModelIdAtomFamily,
 } from "../atoms"
+import { openClaudeProviderSetupPrompt } from "./provider-auth-prompts"
 import { useAgentSubChatStore } from "../stores/sub-chat-store"
 import type { AgentMessageMetadata } from "../ui/agent-message-usage"
 
@@ -334,21 +332,11 @@ export class IPCChatTransport implements ChatTransport<UIMessage> {
 
               // Handle authentication errors - show Claude login modal
               if (chunk.type === "auth-error") {
-                // Store the failed message for retry after successful auth
-                // readyToRetry=false prevents immediate retry - modal sets it to true on OAuth success
-                appStore.set(pendingAuthRetryMessageAtom, {
+                openClaudeProviderSetupPrompt({
                   subChatId: this.config.subChatId,
-                  provider: "claude-code",
                   prompt,
-                  ...(images.length > 0 && { images }),
-                  readyToRetry: false,
+                  images,
                 })
-                appStore.set(claudeLoginModalConfigAtom, {
-                  hideCustomModelSettingsLink: false,
-                  autoStartAuth: false,
-                })
-                // Show the Claude Code login modal
-                appStore.set(agentsLoginModalOpenAtom, true)
                 // Use controller.error() instead of controller.close() so that
                 // the SDK Chat properly resets status from "streaming" to "ready"
                 // This allows user to retry sending messages after failed auth

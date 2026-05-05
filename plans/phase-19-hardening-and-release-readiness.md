@@ -145,6 +145,12 @@ short label `v0.19`.
   `RIPPLE_E2E_PACKAGED_APP` and `bun run test:e2e:packaged`. Rebuilt
   `release/mac-arm64/Ripple.app`, reran package smoke, then ran packaged release
   QA; all 4 packaged workflows passed, including generated-change reject/accept.
+- [x] 2026-05-05 / Codex: Replaced a nondeterministic live-agent provider setup
+  E2E attempt with deterministic auth-error prompt coverage. Claude auth errors
+  now route through `openClaudeProviderSetupPrompt`, Codex auth errors route
+  through `resolveCodexProviderAuthPrompt`, and `bun run test:agent` verifies
+  missing-provider prompts, queued Codex retry, and saved-credential failure
+  recovery.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -328,10 +334,11 @@ arm64 and x64 macOS assets and retargeted the draft release to commit
 Passed local gates on 2026-05-05:
 
 - `bun run ts:check`: passed.
-- `bun run test:quality`: passed, 3 tests / 88 expectations; verifier found
+- `bun run test:quality`: passed, 3 tests / 90 expectations; verifier found
   36 workflow rows and 16 package scripts.
 - `bun run test:ux`: passed, 130 tests / 464 expectations.
-- `bun run test:agent`: passed, 97 tests / 321 expectations.
+- `bun run test:agent`: passed, 102 tests / 334 expectations after provider
+  auth-prompt coverage.
 - `bun run test:export`: passed, 152 tests / 748 expectations.
 - `bun run test:e2e`: passed, 6 Electron tests covering launch, skippable
   onboarding, project/template creation, existing-project open, preview
@@ -345,10 +352,11 @@ Passed local gates on 2026-05-05:
 - `bun run test:visual`: passed, 1 Playwright visual snapshot.
 - `bun run test:live`: default skip mode passes; credentialed smokes also passed
   with `RIPPLE_LIVE_PROVIDER_SMOKE=1` for both Codex and Claude.
-- `bun run test:ripple`: passed, 366 tests / 1485 expectations after the
-  explicit reject-action coverage.
+- `bun run test:ripple`: passed, 370 tests / 1507 expectations after provider
+  auth-prompt coverage.
 - `bun run test:hyperframes`: passed.
-- `bun test`: passed, 412 tests / 1722 expectations.
+- `bun test`: passed, 418 tests / 1767 expectations after provider auth-prompt
+  coverage.
 - `bun run build`: passed. Vite still reports existing warnings for
   `gray-matter` eval and mixed dynamic/static imports, but exits 0.
 - `git diff --check`: passed.
@@ -661,6 +669,5 @@ Initial release-readiness findings from this pass:
 Current remaining release blockers:
 
 - Packaged update N-to-N+1 refresh near stable.
-- Remaining human/manual QA gaps: app update flow, failure recovery, provider
-  setup prompts, offline local use, and MOV/WebM from the packaged UI if
-  desired.
+- Remaining human/manual QA gaps: app update flow, failure recovery, offline
+  local use, and MOV/WebM from the packaged UI if desired.

@@ -33,7 +33,7 @@ Package metadata version: `0.19.0`.
 | 6 Assets And Compositions Pane | `plans/phase-6-assets-compositions-pane.md` | Composition/asset pane uses project-safe reads and drives preview/timeline | Current focused tests pass; visual QA still needed. |
 | 7 Ripple Shell And Review Sidebar | `plans/phase-7-ripple-shell-and-review-sidebar.md` | Four-pane shell, right chat/comments pane, and utilities work together | Current shell tests pass; visual QA still needed. |
 | 8 Comments And Revisions | `plans/phase-8-comments-and-revisions.md` | Frame/time comments, isolated revisions, accept/reject/delete/restore work | Current comments/revisions tests pass; manual revision smoke still needed. |
-| 9 Codex And Claude Integrations | `plans/phase-9-codex-and-claude-integrations.md` | Provider setup is optional and agent runs stay in validated workspaces | Current agent-runtime tests pass; provider smoke still depends on configured credentials. |
+| 9 Codex And Claude Integrations | `plans/phase-9-codex-and-claude-integrations.md` | Provider setup is optional and agent runs stay in validated workspaces | Current agent-runtime tests pass, including deterministic Claude/Codex auth-error prompt coverage; provider smoke still depends on configured credentials. |
 | 10 Conversations And Proposals | `plans/phase-10-conversations-and-proposals.md` | Conversations/messages are canonical and comment chat handoff works | Current conversation tests pass. |
 | 10B Active Conversations | `plans/phase-10b-active-conversation-tabs-and-activity-badges.md` | Active chips/history/activity badges remain reliable | Current shell/activity tests pass. |
 | 11 Export | `plans/phase-11-renders-and-export.md` | MP4, MOV, WebM export through Producer with validated paths and recovery | Current export tests, local MP4/MOV/WebM render smoke, and packaged UI MP4 export pass after staging the export browser. |
@@ -52,17 +52,17 @@ Run from `/Users/conmeara/code/ripple`.
 
 | Gate | Command | Pass condition | Evidence location |
 | --- | --- | --- | --- |
-| Focused Ripple regressions | `bun run test:ripple` | All tests pass | Passed 2026-05-05: 366 tests / 1485 expectations. |
-| Quality platform | `bun run test:quality` | Workflow matrix, fixtures, scripts, and closeout protocol verify | Passed 2026-05-05 after package-staging hardening: 3 tests / 88 expectations; verifier found 36 workflow rows and 16 package scripts. |
+| Focused Ripple regressions | `bun run test:ripple` | All tests pass | Passed 2026-05-05 after provider prompt coverage: 370 tests / 1507 expectations. |
+| Quality platform | `bun run test:quality` | Workflow matrix, fixtures, scripts, and closeout protocol verify | Passed 2026-05-05 after provider prompt coverage: 3 tests / 90 expectations; verifier found 36 workflow rows and 16 package scripts. |
 | UX workflow sweep | `bun run test:ux` | User-facing renderer workflow slice passes | Passed 2026-05-05: 130 tests / 464 expectations. |
 | Electron UX automation | `bun run test:e2e` | Playwright launches built Electron, clicks launch/onboarding/project/template/comments/renders/open-project/visual-context/resize/preview reload/composition-switch/generated-change review workflows, and retains screenshots/traces/logs on failure | Passed 2026-05-05: 6 Electron tests. |
 | Packaged Electron UX automation | `bun run test:e2e:packaged` | Playwright launches the packaged `Ripple.app` artifact and replays trusted open-project, visual context, preview reload/composition-switch, and generated-change review workflows | Passed 2026-05-05 against `release/mac-arm64/Ripple.app`: 4 release QA workflows. |
 | Visual regression snapshot | `bun run test:visual` | Stable project-entry visual baseline matches, or intentional changes are reviewed with `bun run test:e2e:update` | Passed 2026-05-05: 1 Playwright visual test; baseline stored under `test/e2e/__screenshots__/`. |
-| Agent/runtime sweep | `bun run test:agent` | Provider, revisions, conversations, and runtime slice passes | Passed 2026-05-05: 97 tests / 321 expectations. |
+| Agent/runtime sweep | `bun run test:agent` | Provider, revisions, conversations, and runtime slice passes | Passed 2026-05-05 after provider auth-prompt extraction: 102 tests / 334 expectations. |
 | Credentialed provider smoke | `RIPPLE_LIVE_PROVIDER_SMOKE=1 RIPPLE_LIVE_PROVIDER=codex|claude bun run test:live` | Configured provider reports a real authenticated account without running a project mutation | Passed 2026-05-05: Codex connected with an available ChatGPT account; Claude connected through `claude.ai` / `firstParty`. |
 | Export workflow sweep | `bun run test:export` | HyperFrames/export workflow slice passes | Passed 2026-05-05: 152 tests / 748 expectations. |
 | Export format smoke | `bun run test:export:smoke` | Fixture renders MP4, MOV, and WebM with expected FFprobe facts | Passed 2026-05-05: MP4, MOV, and WebM rendered successfully. |
-| Full unit/integration sweep | `bun test` | All tests pass | Passed 2026-05-05 after E2E filename isolation: 411 tests / 1711 expectations. |
+| Full unit/integration sweep | `bun test` | All tests pass | Passed 2026-05-05 after provider prompt coverage: 418 tests / 1767 expectations. |
 | HyperFrames/export focused sweep | `bun run test:hyperframes` | All tests pass | Passed 2026-05-05: 152 tests / 748 expectations. |
 | TypeScript | `bun run ts:check` | No diagnostics | Passed 2026-05-05. |
 | Production build | `bun run build` | Build exits 0 | Passed 2026-05-05 with existing Vite warnings. |
@@ -98,7 +98,7 @@ Complete these in a packaged app with isolated user data before stable v1.
 | Templates | Blank and bundled template creation preview immediately offline | Packaged blank and bundled `app-showcase` creation passed. |
 | Comments | Frame/time comment creates the expected card and conversation | Packaged blank/template comment cards passed. |
 | Revision accept/reject | Generated-change preview can be accepted and rejected cleanly | Passed packaged release QA: the test seeds isolated generated-change proposals, clicks `Reject changes` and `Accept changes`, verifies persisted `rejected` / `accepted` statuses, confirms rejected worktree cleanup, and confirms Main receives the accepted title change. |
-| Agent setup | Missing Codex/Claude connection prompts from the first agent action only |  |
+| Agent setup | Missing Codex/Claude connection prompts from the first agent action only | Automated coverage now verifies Claude auth errors open the Claude setup prompt, Codex missing credentials open the Codex setup prompt, saved Codex credentials queue one retry without a modal, and repeated saved-credential failures show a recoverable error. App launch / project entry E2E continues to verify no provider setup gate appears before local work. |
 | Visual context | Current-frame screenshot or frame sheet attaches to comments when enabled | Passed built-Electron release QA for current-frame capture; also found and fixed a macOS `/var` to `/private/var` realpath boundary bug. |
 | Export | MP4, MOV, and WebM export complete in a validated environment | Packaged UI MP4 export passed; local Producer smoke passed MP4, MOV, and WebM. |
 | App updates | Older packaged beta updates to newer packaged beta inside Ripple | Prior beta.1 to beta.2 success should be refreshed near stable. |
@@ -270,5 +270,5 @@ Complete these in a packaged app with isolated user data before stable v1.
 
 - Refresh packaged update N-to-N+1 evidence near stable.
 - Complete remaining packaged app human QA rows in the checklist above, especially
-  update flow, failure recovery, provider setup prompts, offline local use, and
-  MOV/WebM from the packaged UI if desired.
+  update flow, failure recovery, offline local use, and MOV/WebM from the
+  packaged UI if desired.
