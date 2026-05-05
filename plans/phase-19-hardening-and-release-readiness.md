@@ -136,6 +136,11 @@ short label `v0.19`.
   `resources/cli/hyperframes` wrapper, made `bun run package` stage current
   platform Claude/Codex binaries plus export browsers before Electron Builder,
   and reran local package/package-smoke validation.
+- [x] 2026-05-05 / Codex: Added built-Electron preview reload and
+  composition-switch release QA with a two-composition HyperFrames fixture. The
+  workflow advances one frame, reloads preview, verifies the frame is preserved,
+  switches to a longer composition, verifies timeline duration updates while
+  current time is retained, and switches back to Main.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -324,10 +329,11 @@ Passed local gates on 2026-05-05:
 - `bun run test:ux`: passed, 130 tests / 464 expectations.
 - `bun run test:agent`: passed, 97 tests / 321 expectations.
 - `bun run test:export`: passed, 152 tests / 748 expectations.
-- `bun run test:e2e`: passed, 4 Electron tests covering launch, skippable
+- `bun run test:e2e`: passed, 6 Electron tests covering launch, skippable
   onboarding, project/template creation, existing-project open, preview
-  play/pause, mouse timeline seek, comments, stored visual context, resize /
-  keyboard controls, and Renders pane controls.
+  play/pause, mouse timeline seek, preview reload, composition switching,
+  comments, stored visual context, resize / keyboard controls, generated-change
+  accept/reject controls, and Renders pane controls.
 - `bun run test:visual`: passed, 1 Playwright visual snapshot.
 - `bun run test:live`: default skip mode passes; credentialed smokes also passed
   with `RIPPLE_LIVE_PROVIDER_SMOKE=1` for both Codex and Claude.
@@ -364,14 +370,15 @@ Passed local gates on 2026-05-05:
   symlink escape rejection.
 - Focused built-Electron release QA
   (`bunx playwright test --config test/e2e/playwright.config.ts test/e2e/release-qa.e2e.ts`):
-  passed, 3 workflow tests covering trusted open-project, no visible repo/clone
-  language, frame-comment visual capture, 980x720 shell usability, keyboard
+  passed, 4 workflow tests covering trusted open-project, no visible repo/clone
+  language, preview reload/frame preservation, composition-switch duration
+  updates, frame-comment visual capture, 980x720 shell usability, keyboard
   panel toggles, and generated-change accept/reject review controls.
-- Full Electron E2E (`bun run test:e2e`): passed, 5 workflow tests covering
+- Full Electron E2E (`bun run test:e2e`): passed, 6 workflow tests covering
   launch/onboarding/project creation, bundled template review, existing-project
-  open, visual context, resize/keyboard shell usability, and generated-change
-  accept/reject controls. Latest local rerun after the visual-capture timeout
-  hardening passed in 53.3s.
+  open, preview reload/composition switching, visual context, resize/keyboard
+  shell usability, and generated-change accept/reject controls. Latest local
+  rerun after adding preview reload/composition-switch coverage passed in 58.9s.
 - Focused comments renderer tests (`bun test src/renderer/features/comments`):
   passed, 9 tests / 31 expectations, including the explicit reject-action
   eligibility guard for live proposed generated changes.
@@ -646,5 +653,4 @@ Current remaining release blockers:
 - Packaged update N-to-N+1 refresh near stable.
 - Remaining human/manual QA gaps: packaged generated-change accept/reject
   artifact/manual pass, app update flow, failure recovery, provider setup prompts,
-  offline local use, reload / composition-switch preview checks, and MOV/WebM
-  from the packaged UI if desired.
+  offline local use, and MOV/WebM from the packaged UI if desired.

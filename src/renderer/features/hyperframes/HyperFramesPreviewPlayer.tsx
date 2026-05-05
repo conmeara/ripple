@@ -1120,6 +1120,7 @@ export function HyperFramesPreviewPlayer({
               </div>
               <div
                 ref={frameIndicatorRef}
+                data-testid="ripple-preview-frame-indicator"
                 className="mt-0.5 text-[10px] tabular-nums text-muted-foreground"
               >
                 {getTimelineFrameIndicator({

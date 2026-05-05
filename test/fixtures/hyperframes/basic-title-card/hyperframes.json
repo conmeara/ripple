@@ -1,5 +1,17 @@
 {
   "name": "Basic Title Card",
   "version": "1.0.0",
-  "entry": "index.html"
+  "entry": "index.html",
+  "width": 640,
+  "height": 360,
+  "fps": 30,
+  "compositions": [
+    {
+      "name": "Alternate",
+      "filePath": "compositions/alternate.html",
+      "dataCompositionId": "alternate",
+      "width": 640,
+      "height": 360
+    }
+  ]
 }

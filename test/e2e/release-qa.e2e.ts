@@ -76,6 +76,45 @@ test.describe("Ripple release QA workflows", () => {
     ).toBeGreaterThan(0)
   })
 
+  test("reloads preview and switches compositions without losing timeline state @workflow", async ({
+    electronApp,
+    page,
+    e2e,
+  }) => {
+    await dismissFirstRun(page)
+
+    await openBasicTitleCardProject({ electronApp, page, e2e })
+    await expect(page.getByTestId("ripple-preview-player")).toBeVisible()
+
+    const timeline = page.getByRole("slider", { name: "Preview time" })
+    const frameIndicator = page.getByTestId("ripple-preview-frame-indicator")
+    await expect(timeline).toHaveAttribute("aria-valuemax", "1")
+
+    await page.getByRole("button", { name: "Next frame" }).click()
+    await expect(frameIndicator).toHaveText("Frame 1 / 30")
+
+    await page.getByRole("button", { name: "Preview settings" }).click()
+    await page.getByRole("menuitem", { name: "Reload preview" }).click()
+    await expect(frameIndicator).toHaveText("Frame 1 / 30", {
+      timeout: 20_000,
+    })
+
+    const alternateRow = page.getByRole("button", {
+      name: /compositions\/alternate\.html/,
+    })
+    await expect(alternateRow).toBeVisible()
+    await alternateRow.click()
+    await expect(alternateRow).toHaveAttribute("aria-current", "true", { timeout: 20_000 })
+    await expect(timeline).toHaveAttribute("aria-valuemax", "2")
+    await expect(frameIndicator).toHaveText("Frame 1 / 60")
+
+    const mainRow = page.getByRole("button", { name: /index\.html/ })
+    await mainRow.click()
+    await expect(mainRow).toHaveAttribute("aria-current", "true", { timeout: 20_000 })
+    await expect(timeline).toHaveAttribute("aria-valuemax", "1")
+    await expect(frameIndicator).toHaveText("Frame 1 / 30")
+  })
+
   test("accepts and rejects generated changes through review controls @workflow", async ({
     electronApp,
     page,

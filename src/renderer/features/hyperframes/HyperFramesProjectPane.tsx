@@ -284,6 +284,8 @@ function CompositionRow({
       role="button"
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled}
+      aria-current={composition.isActive ? "true" : undefined}
+      data-testid={`ripple-composition-row-${composition.id}`}
       onClick={disabled ? undefined : handleSelect}
       onKeyDown={disabled ? undefined : handleKeyDown}
       className={cn(
