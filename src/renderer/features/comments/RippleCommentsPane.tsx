@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from "react"
 import {
+  Ban,
   Check,
   ChevronDown,
   CircleDot,
@@ -103,6 +104,7 @@ import {
 } from "../agents/lib/models"
 import {
   canPreviewRevisionChanges,
+  canRejectRevisionChanges,
   canRefreshRevisionChanges,
   canReplyToCommentThread,
   commentFilterLabels,
@@ -873,7 +875,7 @@ function revisionStatusLabel(status: RippleRevisionStatus): string {
     case "accepted":
       return "Accepted"
     case "rejected":
-      return "Changes deleted"
+      return "Changes rejected"
     case "superseded":
       return "Updated by a newer reply"
     case "failed":
@@ -954,7 +956,7 @@ function revisionAcceptControl(revision: RippleRevisionView, options: {
     case "accepted":
       return { label: "Changes accepted", disabled: true, busy: false }
     case "rejected":
-      return { label: "Changes deleted", disabled: true, busy: false }
+      return { label: "Changes rejected", disabled: true, busy: false }
     case "superseded":
       return { label: "Changes updated", disabled: true, busy: false }
     case "failed":
@@ -975,6 +977,8 @@ function CommentCard({
   onRestore,
   onRefreshRevision,
   onAcceptRevision,
+  onRejectRevision,
+  reviewActionPending,
   onOpenChat,
 }: {
   thread: RippleCommentThreadView
@@ -994,6 +998,8 @@ function CommentCard({
   onRestore: (threadId: string) => void
   onRefreshRevision: (revisionId: string) => void
   onAcceptRevision: (revisionId: string) => void
+  onRejectRevision: (revisionId: string) => void
+  reviewActionPending?: boolean
   onOpenChat: (
     conversationId: string,
     revisionId?: string | null,
@@ -1012,6 +1018,9 @@ function CommentCard({
     deleted: isDeleted,
   })
   const canRefreshLatestRevision = canRefreshRevisionChanges(revision, {
+    deleted: isDeleted,
+  })
+  const canRejectLatestRevision = canRejectRevisionChanges(revision, {
     deleted: isDeleted,
   })
   const canReply = canReplyToCommentThread(thread)
@@ -1203,6 +1212,12 @@ function CommentCard({
                   Refresh changes
                 </DropdownMenuItem>
               ) : null}
+              {revision && canRejectLatestRevision ? (
+                <DropdownMenuItem onSelect={() => onRejectRevision(revision.id)}>
+                  <Ban className="mr-2 h-4 w-4" />
+                  Reject changes
+                </DropdownMenuItem>
+              ) : null}
               {deletedFilter ? (
                 <DropdownMenuItem onSelect={() => onRestore(thread.id)}>
                   Restore
@@ -1232,17 +1247,28 @@ function CommentCard({
             </IconButton>
           )}
           {revision && !isDeleted ? (
-            <IconButton
-              label={acceptControl?.label ?? "Accept changes"}
-              disabled={acceptControl?.disabled ?? true}
-              onClick={() => onAcceptRevision(revision.id)}
-            >
-              {acceptControl?.busy ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4" />
-              )}
-            </IconButton>
+            <>
+              {canRejectLatestRevision ? (
+                <IconButton
+                  label="Reject changes"
+                  disabled={reviewActionPending}
+                  onClick={() => onRejectRevision(revision.id)}
+                >
+                  <Ban className="h-4 w-4" />
+                </IconButton>
+              ) : null}
+              <IconButton
+                label={acceptControl?.label ?? "Accept changes"}
+                disabled={(acceptControl?.disabled ?? true) || reviewActionPending}
+                onClick={() => onAcceptRevision(revision.id)}
+              >
+                {acceptControl?.busy ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+              </IconButton>
+            </>
           ) : null}
         </div>
       </div>
@@ -1384,6 +1410,19 @@ export function RippleCommentsPane({
     },
     onError: (error) => toast.error("Changes were not accepted", { description: error.message }),
   })
+  const rejectRevision = trpc.revisions.reject.useMutation({
+    onSuccess: async () => {
+      setSelectedThreadId(null)
+      onShowPrimaryPreview()
+      clearRipplePreviewCoordinator()
+      await Promise.all([
+        utils.revisions.listThreads.invalidate(),
+        utils.hyperframes.getPlayerSource.invalidate(),
+      ])
+      toast.success("Changes rejected")
+    },
+    onError: (error) => toast.error("Changes were not rejected", { description: error.message }),
+  })
 
   const threads = threadsQuery.data ?? []
   const anchor = useMemo(
@@ -1418,7 +1457,8 @@ export function RippleCommentsPane({
     deleteThread.isPending ||
     restoreThread.isPending ||
     refreshProposal.isPending ||
-    acceptRevision.isPending
+    acceptRevision.isPending ||
+    rejectRevision.isPending
 
   const handleSend = () => {
     const body = draft.trim() || commentAttachmentFallbackBody(draftAttachments)
@@ -1612,6 +1652,8 @@ export function RippleCommentsPane({
                   onRestore={(threadId) => restoreThread.mutate({ threadId })}
                   onRefreshRevision={(revisionId) => refreshProposal.mutate({ revisionId })}
                   onAcceptRevision={(revisionId) => acceptRevision.mutate({ revisionId })}
+                  onRejectRevision={(revisionId) => rejectRevision.mutate({ revisionId })}
+                  reviewActionPending={acceptRevision.isPending || rejectRevision.isPending}
                   onOpenChat={onOpenChat}
                 />
               )

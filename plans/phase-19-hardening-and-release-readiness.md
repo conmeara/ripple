@@ -105,6 +105,10 @@ short label `v0.19`.
   `/var` to `/private/var` realpath boundary bug in comment visual capture; the
   fix compares real project/source roots to real generated outputs and has
   focused unit coverage.
+- [x] 2026-05-05 / Codex: Added an explicit renderer `Reject changes` action
+  for proposed generated changes, wired it to the existing `revisions.reject`
+  mutation, reset preview state back to Main after rejection, and covered the
+  proposed-only reject eligibility helper in the UX suite.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -270,7 +274,7 @@ Passed local gates on 2026-05-05:
 - `bun run ts:check`: passed.
 - `bun run test:quality`: passed, 3 tests / 82 expectations; verifier found
   36 workflow rows and 14 package scripts.
-- `bun run test:ux`: passed, 129 tests / 458 expectations.
+- `bun run test:ux`: passed, 130 tests / 464 expectations.
 - `bun run test:agent`: passed, 97 tests / 321 expectations.
 - `bun run test:export`: passed, 152 tests / 748 expectations.
 - `bun run test:e2e`: passed, 4 Electron tests covering launch, skippable
@@ -280,7 +284,8 @@ Passed local gates on 2026-05-05:
 - `bun run test:visual`: passed, 1 Playwright visual snapshot.
 - `bun run test:live`: default skip mode passes; credentialed smokes also passed
   with `RIPPLE_LIVE_PROVIDER_SMOKE=1` for both Codex and Claude.
-- `bun run test:ripple`: passed.
+- `bun run test:ripple`: passed, 366 tests / 1485 expectations after the
+  explicit reject-action coverage.
 - `bun run test:hyperframes`: passed.
 - `bun test`: passed, 412 tests / 1722 expectations.
 - `bun run build`: passed. Vite still reports existing warnings for
@@ -314,6 +319,9 @@ Passed local gates on 2026-05-05:
   passed, 2 workflow tests covering trusted open-project, no visible repo/clone
   language, frame-comment visual capture, 980x720 shell usability, and
   keyboard panel toggles.
+- Focused comments renderer tests (`bun test src/renderer/features/comments`):
+  passed, 9 tests / 31 expectations, including the explicit reject-action
+  eligibility guard for live proposed generated changes.
 - Official GitHub Actions release run `25388403839`: passed in 30m21s. CI
   staged both browser architectures, verified x86_64 and arm64
   `chrome-headless-shell` executables inside the packaged app bundles, verified
@@ -580,7 +588,7 @@ Initial release-readiness findings from this pass:
 Current remaining release blockers:
 
 - Packaged update N-to-N+1 refresh near stable.
-- Remaining human/manual QA gaps: revision accept/reject, app update flow,
-  failure recovery, provider setup prompts, offline local use, reload /
-  composition-switch preview checks, and MOV/WebM from the packaged UI if
-  desired.
+- Remaining human/manual QA gaps: packaged generated-change accept/reject
+  end-to-end, app update flow, failure recovery, provider setup prompts,
+  offline local use, reload / composition-switch preview checks, and MOV/WebM
+  from the packaged UI if desired.

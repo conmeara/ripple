@@ -71,6 +71,17 @@ export function canRefreshRevisionChanges(
   )
 }
 
+export function canRejectRevisionChanges(
+  revision: RippleRevisionView | null | undefined,
+  options: { deleted?: boolean } = {},
+): boolean {
+  return Boolean(
+    revision &&
+      !options.deleted &&
+      revision.status === "proposed",
+  )
+}
+
 export function canReplyToCommentThread(
   thread: Pick<RippleCommentThreadView, "deletedAt">,
 ): boolean {

@@ -52,9 +52,9 @@ Run from `/Users/conmeara/code/ripple`.
 
 | Gate | Command | Pass condition | Evidence location |
 | --- | --- | --- | --- |
-| Focused Ripple regressions | `bun run test:ripple` | All tests pass | Passed 2026-05-05: 365 tests / 1479 expectations. |
+| Focused Ripple regressions | `bun run test:ripple` | All tests pass | Passed 2026-05-05: 366 tests / 1485 expectations. |
 | Quality platform | `bun run test:quality` | Workflow matrix, fixtures, scripts, and closeout protocol verify | Passed 2026-05-05: 3 tests / 82 expectations; verifier found 36 workflow rows and 14 package scripts. |
-| UX workflow sweep | `bun run test:ux` | User-facing renderer workflow slice passes | Passed 2026-05-05: 129 tests / 458 expectations. |
+| UX workflow sweep | `bun run test:ux` | User-facing renderer workflow slice passes | Passed 2026-05-05: 130 tests / 464 expectations. |
 | Electron UX automation | `bun run test:e2e` | Playwright launches built Electron, clicks launch/onboarding/project/template/comments/renders/open-project/visual-context/resize workflows, and retains screenshots/traces/logs on failure | Passed 2026-05-05: 4 Electron tests. |
 | Visual regression snapshot | `bun run test:visual` | Stable project-entry visual baseline matches, or intentional changes are reviewed with `bun run test:e2e:update` | Passed 2026-05-05: 1 Playwright visual test; baseline stored under `test/e2e/__screenshots__/`. |
 | Agent/runtime sweep | `bun run test:agent` | Provider, revisions, conversations, and runtime slice passes | Passed 2026-05-05: 97 tests / 321 expectations. |
@@ -96,7 +96,7 @@ Complete these in a packaged app with isolated user data before stable v1.
 | Preview/timeline | Play, pause, seek, reload, and composition switch stay synchronized | Packaged play/pause and mouse seek passed; reload/composition switch still needs human QA. |
 | Templates | Blank and bundled template creation preview immediately offline | Packaged blank and bundled `app-showcase` creation passed. |
 | Comments | Frame/time comment creates the expected card and conversation | Packaged blank/template comment cards passed. |
-| Revision accept/reject | Generated-change preview can be accepted and rejected cleanly |  |
+| Revision accept/reject | Generated-change preview can be accepted and rejected cleanly | Accept path has shared service coverage; the review card now exposes an explicit `Reject changes` action instead of requiring whole-comment deletion, with focused renderer eligibility coverage. Full packaged generated-change accept/reject still needs an end-to-end pass. |
 | Agent setup | Missing Codex/Claude connection prompts from the first agent action only |  |
 | Visual context | Current-frame screenshot or frame sheet attaches to comments when enabled | Passed built-Electron release QA for current-frame capture; also found and fixed a macOS `/var` to `/private/var` realpath boundary bug. |
 | Export | MP4, MOV, and WebM export complete in a validated environment | Packaged UI MP4 export passed; local Producer smoke passed MP4, MOV, and WebM. |
@@ -154,6 +154,11 @@ Complete these in a packaged app with isolated user data before stable v1.
   resize/keyboard controls. That test found a real macOS symlink-resolution
   bug in comment visual boundary checks; the fix compares real project roots to
   real generated outputs and has focused unit coverage.
+- Comment review cards now expose an explicit `Reject changes` action for
+  proposed generated changes. Previously the only visible rejection-like action
+  was deleting the entire comment; the renderer now calls the existing
+  `revisions.reject` mutation and resets preview state back to Main after
+  rejection.
 - The successful release workflow emitted a GitHub Actions annotation that
   Node.js 20 actions are deprecated and will move to Node.js 24 defaults in
   2026. This is not a v0.19 release blocker, but the release workflow should be
@@ -219,6 +224,6 @@ Complete these in a packaged app with isolated user data before stable v1.
 
 - Refresh packaged update N-to-N+1 evidence near stable.
 - Complete remaining packaged app human QA rows in the checklist above, especially
-  revision accept/reject, update flow, failure recovery, provider setup prompts,
-  offline local use, reload/composition-switch preview checks, and MOV/WebM from
-  the packaged UI if desired.
+  packaged generated-change accept/reject end-to-end, update flow, failure
+  recovery, provider setup prompts, offline local use, reload/composition-switch
+  preview checks, and MOV/WebM from the packaged UI if desired.

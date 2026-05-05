@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import type { RippleRevisionView } from "../../../shared/ripple-comments"
 import {
   canPreviewRevisionChanges,
+  canRejectRevisionChanges,
   canRefreshRevisionChanges,
   canReplyToCommentThread,
   hasActiveRevisionChanges,
@@ -54,5 +55,14 @@ describe("comment filter helpers", () => {
     expect(hasActiveRevisionChanges({ revisions: [revision("running")] })).toBe(true)
     expect(hasActiveRevisionChanges({ revisions: [revision("updating")] })).toBe(true)
     expect(hasActiveRevisionChanges({ revisions: [revision("proposed")] })).toBe(false)
+  })
+
+  test("allows explicit rejection only for live proposed changes", () => {
+    expect(canRejectRevisionChanges(revision("proposed"))).toBe(true)
+    expect(canRejectRevisionChanges(revision("proposed"), { deleted: true })).toBe(false)
+    expect(canRejectRevisionChanges(revision("accepted"))).toBe(false)
+    expect(canRejectRevisionChanges(revision("rejected"))).toBe(false)
+    expect(canRejectRevisionChanges(revision("running"))).toBe(false)
+    expect(canRejectRevisionChanges(null)).toBe(false)
   })
 })
