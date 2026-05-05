@@ -141,6 +141,10 @@ short label `v0.19`.
   workflow advances one frame, reloads preview, verifies the frame is preserved,
   switches to a longer composition, verifies timeline duration updates while
   current time is retained, and switches back to Main.
+- [x] 2026-05-05 / Codex: Added packaged-app E2E launch support via
+  `RIPPLE_E2E_PACKAGED_APP` and `bun run test:e2e:packaged`. Rebuilt
+  `release/mac-arm64/Ripple.app`, reran package smoke, then ran packaged release
+  QA; all 4 packaged workflows passed, including generated-change reject/accept.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -314,11 +318,11 @@ short label `v0.19`.
 
 Current outcome: local automated validation, Electron UX automation,
 render/export smoke, local package/resource smoke, credentialed provider smoke,
-packaged analytics smoke, and packaged UI export smoke are green after the Phase
-19 hardening and quality-platform patches. The package version is now `0.19.0`
-for the `v0.19` release target. The latest official GitHub Actions draft
-release run `25393310437` passed with signed/notarized arm64 and x64 macOS
-assets and retargeted the draft release to commit
+packaged analytics smoke, packaged UI export smoke, and packaged release QA are
+green after the Phase 19 hardening and quality-platform patches. The package
+version is now `0.19.0` for the `v0.19` release target. The latest official
+GitHub Actions draft release run `25393310437` passed with signed/notarized
+arm64 and x64 macOS assets and retargeted the draft release to commit
 `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`.
 
 Passed local gates on 2026-05-05:
@@ -334,6 +338,10 @@ Passed local gates on 2026-05-05:
   play/pause, mouse timeline seek, preview reload, composition switching,
   comments, stored visual context, resize / keyboard controls, generated-change
   accept/reject controls, and Renders pane controls.
+- `bun run test:e2e:packaged`: passed, 4 packaged release QA workflows against
+  `release/mac-arm64/Ripple.app`, covering trusted open-project, current-frame
+  visual context, preview reload/composition switching, and generated-change
+  accept/reject controls.
 - `bun run test:visual`: passed, 1 Playwright visual snapshot.
 - `bun run test:live`: default skip mode passes; credentialed smokes also passed
   with `RIPPLE_LIVE_PROVIDER_SMOKE=1` for both Codex and Claude.
@@ -378,7 +386,10 @@ Passed local gates on 2026-05-05:
   launch/onboarding/project creation, bundled template review, existing-project
   open, preview reload/composition switching, visual context, resize/keyboard
   shell usability, and generated-change accept/reject controls. Latest local
-  rerun after adding preview reload/composition-switch coverage passed in 58.9s.
+  rerun after adding packaged E2E launch support passed in 1.0m.
+- Packaged Electron release QA (`bun run test:e2e:packaged`): passed, 4
+  workflow tests against the local `release/mac-arm64/Ripple.app`, including the
+  generated-change reject/accept artifact pass, in 47.4s.
 - Focused comments renderer tests (`bun test src/renderer/features/comments`):
   passed, 9 tests / 31 expectations, including the explicit reject-action
   eligibility guard for live proposed generated changes.
@@ -392,9 +403,8 @@ Passed local gates on 2026-05-05:
 
 This phase is not complete until packaged update smoke near stable and remaining
 human/manual QA gaps are all either passed or documented with explicit release
-blockers. Generated-change accept/reject is now covered by built-Electron E2E,
-but still needs a packaged-artifact/manual pass before being closed for the
-release candidate.
+blockers. Generated-change accept/reject is now covered by both built-Electron
+E2E and packaged release QA.
 
 ## Context and Orientation
 
@@ -651,6 +661,6 @@ Initial release-readiness findings from this pass:
 Current remaining release blockers:
 
 - Packaged update N-to-N+1 refresh near stable.
-- Remaining human/manual QA gaps: packaged generated-change accept/reject
-  artifact/manual pass, app update flow, failure recovery, provider setup prompts,
-  offline local use, and MOV/WebM from the packaged UI if desired.
+- Remaining human/manual QA gaps: app update flow, failure recovery, provider
+  setup prompts, offline local use, and MOV/WebM from the packaged UI if
+  desired.

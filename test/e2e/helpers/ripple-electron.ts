@@ -10,7 +10,7 @@ import electronPath from "electron"
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { mkdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { dirname, join, resolve } from "node:path"
 
 export type RippleE2EContext = {
   repoRoot: string
@@ -62,17 +62,12 @@ export const test = base.extend<RippleFixtures>({
   },
 
   electronApp: async ({ e2e }, use, testInfo) => {
-    const appMain = join(e2e.repoRoot, "out/main/index.js")
-    if (!existsSync(appMain)) {
-      throw new Error(
-        `Missing built Electron main entry at ${appMain}. Run bun run build before Playwright tests.`,
-      )
-    }
+    const launchTarget = resolveElectronLaunchTarget(e2e.repoRoot)
 
     const app = await electron.launch({
-      executablePath: String(electronPath),
-      args: [appMain],
-      cwd: e2e.repoRoot,
+      executablePath: launchTarget.executablePath,
+      args: launchTarget.args,
+      cwd: launchTarget.cwd,
       env: {
         ...process.env,
         HOME: e2e.homeDir,
@@ -237,6 +232,43 @@ function createRunId(testInfo: TestInfo): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 36)
   return `${process.pid}-${testInfo.workerIndex}-${Date.now().toString(36)}-${titleSlug}`
+}
+
+function resolveElectronLaunchTarget(repoRoot: string): {
+  executablePath: string
+  args: string[]
+  cwd: string
+} {
+  const packagedApp = process.env.RIPPLE_E2E_PACKAGED_APP
+  if (packagedApp) {
+    const appPath = resolve(packagedApp)
+    const executablePath = process.platform === "darwin" && appPath.endsWith(".app")
+      ? join(appPath, "Contents", "MacOS", "Ripple")
+      : appPath
+
+    if (!existsSync(executablePath)) {
+      throw new Error(`Missing packaged Ripple executable at ${executablePath}.`)
+    }
+
+    return {
+      executablePath,
+      args: [],
+      cwd: dirname(appPath),
+    }
+  }
+
+  const appMain = join(repoRoot, "out/main/index.js")
+  if (!existsSync(appMain)) {
+    throw new Error(
+      `Missing built Electron main entry at ${appMain}. Run bun run build before Playwright tests.`,
+    )
+  }
+
+  return {
+    executablePath: String(electronPath),
+    args: [appMain],
+    cwd: repoRoot,
+  }
 }
 
 function findProjectDir(homeDir: string, projectName: string): string | null {

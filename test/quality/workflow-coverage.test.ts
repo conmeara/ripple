@@ -49,6 +49,7 @@ const requiredScripts = [
   "test:export",
   "test:export:smoke",
   "test:e2e",
+  "test:e2e:packaged",
   "test:e2e:update",
   "test:visual",
   "test:live",
