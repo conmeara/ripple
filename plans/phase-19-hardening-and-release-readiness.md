@@ -181,6 +181,14 @@ short label `v0.19`.
   found `0.19.0-beta.2`, downloaded the arm64 ZIP to 100%, installed through
   Squirrel.Mac, and verified the updated app as `0.19.0-beta.2` with
   `codesign`, `spctl`, and `stapler`.
+- [x] 2026-05-05 / Codex: Committed and pushed the repeatable packaged-update
+  smoke gate, then refreshed the official `v0.19.0` draft release as GitHub
+  Actions run `25404747970` from commit
+  `7fd91ef195000ea90b7e8ccae6e4592b96e8008c`. It passed staging, build,
+  signing/notarization, packaged export-browser architecture verification,
+  `codesign` / `spctl` / `stapler`, update metadata verification, GitHub
+  Release upload, workflow artifact upload, and `gh release view v0.19.0`
+  reports the draft release target as that SHA.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -359,9 +367,9 @@ smoke, packaged UI export smoke, packaged release QA, official signed/notarized
 release workflows, and near-stable packaged update smoke are green after the
 Phase 19 hardening and quality-platform patches. The package version is now
 `0.19.0` for the `v0.19` release target. The latest official GitHub Actions
-draft stable release run `25393310437` passed with signed/notarized arm64 and
+draft stable release run `25404747970` passed with signed/notarized arm64 and
 x64 macOS assets and retargeted the draft release to commit
-`8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`. Published prerelease update
+`7fd91ef195000ea90b7e8ccae6e4592b96e8008c`. Published prerelease update
 candidates `v0.19.0-beta.1` and `v0.19.0-beta.2` were built from commit
 `569a1bbd17208dd07a56a06737b70b38e7f7a6d4` and validated with a real packaged
 N-to-N+1 install.
@@ -442,13 +450,13 @@ Passed local gates on 2026-05-05:
 - Focused comments renderer tests (`bun test src/renderer/features/comments`):
   passed, 9 tests / 31 expectations, including the explicit reject-action
   eligibility guard for live proposed generated changes.
-- Official GitHub Actions release run `25393310437`: passed in 27m10s. CI
+- Official GitHub Actions release run `25404747970`: passed in 28m51s. CI
   staged both browser architectures, verified x86_64 and arm64
   `chrome-headless-shell` executables inside the packaged app bundles, verified
   notarized apps with `codesign`, `spctl`, and `stapler`, verified
   `release/latest-mac.yml` contains `version: 0.19.0`, and uploaded refreshed
   draft release assets for `v0.19.0`. `gh release view v0.19.0` reports the
-  draft release target as `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`.
+  draft release target as `7fd91ef195000ea90b7e8ccae6e4592b96e8008c`.
 - Official GitHub Actions prerelease runs `25403086125` and `25403086154`:
   passed from commit `569a1bbd17208dd07a56a06737b70b38e7f7a6d4`. They
   published `v0.19.0-beta.1` and `v0.19.0-beta.2` as prereleases after

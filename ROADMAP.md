@@ -1347,8 +1347,8 @@ Current baseline after Phase 19 local audit:
   the packaged export browser
 - `bun run test:update:smoke` verifies a published signed/notarized packaged
   app can update N-to-N+1 through Ripple
-- Official GitHub Actions release run `25393310437` passed for draft
-  `v0.19.0` from commit `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`:
+- Official GitHub Actions release run `25404747970` passed for draft
+  `v0.19.0` from commit `7fd91ef195000ea90b7e8ccae6e4592b96e8008c`:
   staging, build, signing/notarization, packaged export-browser architecture
   verification, `codesign` / `spctl` / `stapler`, update metadata, GitHub
   Release upload, workflow artifact upload, and draft release retargeting

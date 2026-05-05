@@ -18,7 +18,7 @@ Package metadata version: `0.19.0`.
 | Review all phases | Phase 0-19 matrix below | Local phase matrix updated. Required packaged-app QA evidence is complete for the `v0.19` release gate. |
 | Improve and optimize for v1 release | Release-readiness findings, patched docs/UI, validation commands | Improved in this pass: root README, AGENTS snapshot, roadmap Phase 19 linkage, preview setup wiring/copy, shipped import wording, macOS permission copy, package-size optimization, quality/regression platform, and this checklist. |
 | Do not accept proxy signals as completion | Command output, packaged app evidence, manual QA notes, artifact inspection | Satisfied for required Phase 19 gates. Automated gates, package/resource smoke, local MP4/MOV/WebM export smoke, packaged UI MP4 export, packaged offline-local smoke, packaged analytics opt-in/off smoke, credentialed provider smoke, official signed/notarized CI release, and near-stable packaged update N-to-N+1 smoke all passed. Release evidence exposed and fixed two packaging gaps: the first official `v0.19` CI release missed the x64 export browser, and quality CI package smoke later exposed that fresh checkouts needed tracked HyperFrames CLI staging plus current-platform Claude/Codex binary staging before `bun run package`. |
-| Ship the release as `v0.19` | `package.json`, release workflow input, GitHub release tag/name | Package metadata and packaged `Info.plist` are `0.19.0`; a draft `v0.19.0` release exists with refreshed signed/notarized arm64 and x64 macOS assets from GitHub Actions run `25393310437`, targeting commit `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`. |
+| Ship the release as `v0.19` | `package.json`, release workflow input, GitHub release tag/name | Package metadata and packaged `Info.plist` are `0.19.0`; a draft `v0.19.0` release exists with refreshed signed/notarized arm64 and x64 macOS assets from GitHub Actions run `25404747970`, targeting commit `7fd91ef195000ea90b7e8ccae6e4592b96e8008c`. |
 
 ## Phase Matrix
 
@@ -80,7 +80,7 @@ Run from `/Users/conmeara/code/ripple`.
 | Primary-path identity | Search shipped source/resources for `1Code`, `21st.dev`, `.21st`, `twentyfirst`, `Set up repository` | Passed local built-output audit: only legacy compatibility guards remain in `out/main/index.js`. |
 | Root docs | Read `README.md`, `AGENTS.md`, `ROADMAP.md`, `PLANS.md` | Updated in this pass to describe Ripple v1 state and Phase 19. |
 | Package resources | Inspect package output | Passed local package smoke: `Ripple.app`, app id/protocol, CLI wrapper, migrations, templates, skills/plugins, and app-managed Claude/Codex binaries are present. |
-| Release workflow | Inspect `.github/workflows/release.yml` and latest Actions run | Passed GitHub Actions run `25393310437` for the stable draft and near-stable prerelease runs `25403086125` / `25403086154`: signed/notarized artifacts published with GitHub update metadata and no app-embedded publishing secrets. The workflow verifies each packaged app contains an executable export browser with the expected macOS architecture, and existing draft refreshes now retarget the release to the run SHA. |
+| Release workflow | Inspect `.github/workflows/release.yml` and latest Actions run | Passed GitHub Actions run `25404747970` for the stable draft and near-stable prerelease runs `25403086125` / `25403086154`: signed/notarized artifacts published with GitHub update metadata and no app-embedded publishing secrets. The workflow verifies each packaged app contains an executable export browser with the expected macOS architecture, and existing draft refreshes now retarget the release to the run SHA. |
 | Analytics privacy | Inspect docs/tests and packaged opt-in smoke | Passed packaged production smoke: unset/denied consent blocked capture; opt-in captured an allowlisted event. |
 | Export outputs | Render fixture project to MP4, MOV, WebM | Passed local render/FFprobe smoke for MP4, MOV, and WebM; packaged UI MP4 export passed from the final app artifact. |
 | Manual QA | Complete checklist below | Fresh packaged app, onboarding skip, blank project, template project, preview seek, comments, analytics, MP4 export, open project, visual context, preview reload/composition switching, generated-change accept/reject, offline local use, and packaged update flow passed against packaged or built Electron artifacts. |
@@ -159,9 +159,10 @@ Complete these in a packaged app with isolated user data before stable v1.
 - A later release-refresh audit found that editing an existing draft release
   replaced assets but left the draft release target commit on the original run.
   `.github/workflows/release.yml` now passes `--target "$GITHUB_SHA"` when
-  editing an existing release. The final draft release refresh passed as
-  GitHub Actions run `25393310437` and `gh release view v0.19.0` reports target
-  commit `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`.
+  editing an existing release. After the final packaged-update smoke and
+  updater-gate commit, the stable draft release refresh passed as GitHub
+  Actions run `25404747970` and `gh release view v0.19.0` reports target
+  commit `7fd91ef195000ea90b7e8ccae6e4592b96e8008c`.
 - Built-Electron release QA now covers opening an existing HyperFrames project,
   creating a frame comment with stored current-frame visual context, and using
   resize/keyboard controls. That test found a real macOS symlink-resolution
@@ -253,11 +254,11 @@ Complete these in a packaged app with isolated user data before stable v1.
 
 ## Official Release Evidence
 
-- GitHub Actions release run `25393310437` passed in 27m10s from commit
-  `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`.
+- GitHub Actions release run `25404747970` passed in 28m51s from commit
+  `7fd91ef195000ea90b7e8ccae6e4592b96e8008c`.
 - Draft release: `v0.19.0` / `Ripple 0.19.0`, draft true, prerelease false.
 - Draft release target commit:
-  `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`.
+  `7fd91ef195000ea90b7e8ccae6e4592b96e8008c`.
 - Uploaded assets: `latest-mac.yml`, arm64/x64 DMG, arm64/x64 ZIP, and matching
   blockmaps.
 - Export browsers verified in CI:
