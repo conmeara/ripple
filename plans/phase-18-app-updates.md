@@ -152,9 +152,26 @@ preview, comments, revisions, or export.
   DMGs, arm64/x64 ZIPs, and blockmaps. Downloaded `beta-mac.yml` from the
   release and verified it records version `0.0.73-beta.1`, the release notes,
   and the arm64 ZIP primary update path.
-- [ ] Implement Milestone 4: prototype release channel metadata with two
+- [x] 2026-05-04 / Codex: Ninth beta release run `25349905648` for
+  `0.0.73-beta.2` on commit `8c6b176` completed successfully. GitHub Release
+  `v0.0.73-beta.2` is published as a prerelease with the same macOS asset set.
+  Downloaded `beta-mac.yml` and verified it records version `0.0.73-beta.2`,
+  beta.2 release notes, and the arm64 ZIP primary update path.
+- [x] 2026-05-04 / Codex: Validated the N-to-N+1 packaged macOS update path
+  inside Ripple. Unpacked signed/notarized beta.1 to a temporary test app,
+  launched it with isolated `CFFIXED_USER_HOME`, used the packaged renderer
+  `desktopApi` to switch to Early Access/beta, manually check updates, download
+  beta.2, and request restart/install. The update check returned
+  `0.0.73-beta.2`, progress reached 100%, `update-downloaded` fired for
+  beta.2, Squirrel.Mac installed the update, and the app bundle then reported
+  `CFBundleShortVersionString=0.0.73-beta.2`.
+- [x] 2026-05-04 / Codex: Verified the updated beta.2 test bundle locally with
+  `codesign --verify --deep --strict --verbose=2`, `spctl --assess --type
+  execute --verbose`, and `xcrun stapler validate`; all passed and Gatekeeper
+  reported `source=Notarized Developer ID`.
+- [x] Implement Milestone 4: prototype release channel metadata with two
   prerelease versions before stable publication.
-- [ ] Implement Milestone 5: validate signed/notarized macOS update install,
+- [x] Implement Milestone 5: validate signed/notarized macOS update install,
   then document Windows/Linux gates.
 
 ## Surprises & Discoveries
@@ -643,6 +660,9 @@ Manual packaged QA:
   update from N to N+1 entirely inside Ripple. Expected: the app discovers the
   reachable GitHub Release feed, downloads from Ripple, shows ready-to-restart,
   restarts/installs, and launches as N+1.
+  Result: Passed on 2026-05-04 with `0.0.73-beta.1` updating to
+  `0.0.73-beta.2` from the packaged app via `desktopApi` manual check,
+  download, and restart/install.
 - Simulate missing feed configuration. Expected: menu/settings checks are
   harmless no-ops and local Ripple workflows are unaffected.
 - Simulate network failure. Expected: a recoverable error is logged/shown, and
@@ -828,7 +848,9 @@ Known signing/notarization values and secret status:
 
 Open questions before implementation:
 
-- Decide whether to create the initial release workflow as macOS-only first or
-  include Windows/Linux artifact placeholders immediately.
-- Decide exact post-gate automation, if any: add tag-push release triggers
-  after validation, or keep `workflow_dispatch` for all public releases.
+- Resolved: create the initial official update workflow as macOS-only first.
+  Windows/Linux release gates remain documented expectations until signing,
+  packaging, and updater infrastructure are provisioned for those platforms.
+- Resolved for Phase 18: keep public releases manual through `workflow_dispatch`
+  after validation. Tag-push release automation can be reconsidered after the
+  first stable macOS update ships cleanly.
