@@ -86,6 +86,14 @@ short label `v0.19`.
 - [x] 2026-05-05 / Codex: Ran packaged-app production analytics off/on smoke,
   packaged blank-project preview/comment/MP4 export smoke, and packaged bundled
   template/comment smoke against the final local artifact.
+- [x] 2026-05-05 / Codex: Ran the first official `v0.19.0` draft release
+  workflow. It passed signing, notarization, stapling, update metadata, and
+  artifact upload, but the x64 packaging logs showed
+  `resources/browser/darwin-x64` was missing.
+- [x] 2026-05-05 / Codex: Fixed export-browser staging to prepare both
+  `darwin-arm64` and `darwin-x64` on macOS, added a release workflow guard that
+  verifies each packaged app's export browser architecture, and reran local
+  package/package-smoke validation.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -159,6 +167,15 @@ short label `v0.19`.
   smoke verified the browser executable and packaged UI MP4 export passed when
   launched with `cwd` outside the repo.
 
+- Observation: A passing signed/notarized release run was still an incomplete
+  signal until packaged resources were inspected per architecture.
+  Evidence: GitHub Actions run `25386520079` for `v0.19.0` passed signing,
+  notarization, stapling, update metadata, release upload, and workflow artifact
+  upload. Its packaging log still included a missing
+  `resources/browser/darwin-x64` warning, so the x64 artifact likely lacked
+  `Resources/browser` until staging became multi-arch and CI began verifying
+  every packaged app bundle.
+
 - Observation: `ROADMAP.md` linked only some phase ExecPlans even though plans
   exist for Phases 1-19 plus 10B.
   Evidence: A roadmap section scan showed missing `ExecPlan:` lines for
@@ -221,6 +238,12 @@ short label `v0.19`.
   the user's home cache or repo checkout.
   Date/Author: 2026-05-05 / Codex.
 
+- Decision: Stage both macOS browser architectures before mac release builds.
+  Rationale: The official release workflow builds arm64 and x64 app bundles in
+  one macOS job, while `electron-builder` resolves
+  `resources/browser/${platform}-${arch}` separately for each artifact.
+  Date/Author: 2026-05-05 / Codex.
+
 ## Outcomes & Retrospective
 
 Current outcome: local automated validation, Electron UX automation,
@@ -263,6 +286,12 @@ Passed local gates on 2026-05-05:
 - Local signing verification passed with
   `codesign --verify --deep --strict --verbose=2 release/mac-arm64/Ripple.app`;
   `spctl` and `stapler` still fail locally because the artifact is not notarized.
+- `bun run browser:stage` now stages both
+  `resources/browser/darwin-arm64/chrome-headless-shell` and
+  `resources/browser/darwin-x64/chrome-headless-shell`; `file` reports arm64
+  and x86_64 respectively.
+- After the multi-arch staging fix, the focused HyperFrames package/runtime
+  tests, `bun run package`, and `bun run test:package:smoke` passed locally.
 
 This phase is not complete until official signed/notarized CI release evidence,
 packaged update smoke near stable, and remaining human/manual QA gaps are all
@@ -339,8 +368,9 @@ official GitHub Actions signed/notarized release path for `v0.19`, verify
 run credentialed Codex/Claude account smoke, run packaged analytics opt-in/off
 smoke against official-build config, and refresh packaged update N-to-N+1
 evidence near stable. The local credentialed provider, packaged analytics, and
-packaged UI export portions are complete; the official notarized CI release and
-update N-to-N+1 portions remain.
+packaged UI export portions are complete. The first official notarized CI
+release path passed but exposed an x64 export-browser resource gap; the rerun
+after the multi-arch staging fix, plus update N-to-N+1, still remain.
 
 Milestone 5 closes the final v1 go/no-go. Complete packaged manual QA for fresh
 install, onboarding, projects, preview/timeline, comments/revisions, provider
@@ -476,8 +506,9 @@ Primary dependencies:
 - GitHub Actions release workflow `.github/workflows/release.yml`.
 - HyperFrames package family pinned at `0.4.40`.
 - FFmpeg/FFprobe via bundled or system resolution for render validation.
-- Staged Puppeteer `chrome-headless-shell` under `resources/browser/<platform>-<arch>`
-  for packaged Producer exports.
+- Staged Puppeteer `chrome-headless-shell` under
+  `resources/browser/<platform>-<arch>` for packaged Producer exports; macOS
+  release builds require both `darwin-arm64` and `darwin-x64`.
 - PostHog official-build env for analytics smoke.
 - Apple signing/notarization secrets for macOS release workflow.
 

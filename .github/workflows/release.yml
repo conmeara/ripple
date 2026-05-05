@@ -160,6 +160,39 @@ jobs:
           bunx electron-builder --mac --publish never \
             -c.mac.notarize=true
 
+      - name: Verify packaged export browsers
+        shell: bash
+        run: |
+          set -euo pipefail
+          apps=()
+          while IFS= read -r -d '' app_path; do
+            apps+=("$app_path")
+          done < <(find release -maxdepth 3 -type d -name "Ripple.app" -print0)
+          if [[ ${#apps[@]} -eq 0 ]]; then
+            echo "No packaged Ripple.app bundles were produced."
+            exit 1
+          fi
+          for app_path in "${apps[@]}"; do
+            browser="$app_path/Contents/Resources/browser/chrome-headless-shell"
+            if [[ ! -x "$browser" ]]; then
+              echo "Packaged export browser missing or not executable: $browser"
+              exit 1
+            fi
+            browser_file="$(file "$browser")"
+            echo "$browser_file"
+            if [[ "$app_path" == *"/mac-arm64/"* ]]; then
+              grep -q "arm64" <<< "$browser_file" || {
+                echo "Expected arm64 export browser in $app_path"
+                exit 1
+              }
+            else
+              grep -q "x86_64" <<< "$browser_file" || {
+                echo "Expected x86_64 export browser in $app_path"
+                exit 1
+              }
+            fi
+          done
+
       - name: Verify notarized apps
         shell: bash
         run: |

@@ -202,6 +202,7 @@ describe("HyperFrames packaged app configuration", () => {
   test("stages an app-managed export browser before packaging", () => {
     const pkg = readPackageJson()
     const releaseWorkflow = readFileSync(".github/workflows/release.yml", "utf-8")
+    const stageScript = readFileSync("scripts/stage-export-browser.mjs", "utf-8")
 
     expect(pkg.scripts["browser:stage"]).toBe("node scripts/stage-export-browser.mjs")
     for (const scriptName of [
@@ -222,6 +223,13 @@ describe("HyperFrames packaged app configuration", () => {
       to: "browser",
     }))
     expect(releaseWorkflow).toContain("bun run browser:stage")
+    expect(releaseWorkflow).toContain("Verify packaged export browsers")
+    expect(releaseWorkflow).toContain("Contents/Resources/browser/chrome-headless-shell")
+    expect(stageScript).toContain('platform: "darwin"')
+    expect(stageScript).toContain('arch: "arm64"')
+    expect(stageScript).toContain('arch: "x64"')
+    expect(stageScript).toContain('puppeteerPlatform: "mac_arm"')
+    expect(stageScript).toContain('puppeteerPlatform: "mac"')
   })
 
   test("keeps macOS permission prompts branded for Ripple", () => {

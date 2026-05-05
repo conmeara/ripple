@@ -17,8 +17,8 @@ Package metadata version: `0.19.0`.
 | Review everything implemented in `ROADMAP.md` | `ROADMAP.md` phase list and every `plans/phase-*.md` ExecPlan | Local audit completed. Phase plans exist for Phases 1-18 plus 10B and v2 sequence research; Phase 19 plan added in this pass. |
 | Review all phases | Phase 0-19 matrix below | Local phase matrix updated. Manual packaged-app QA remains the main v1 go/no-go input. |
 | Improve and optimize for v1 release | Release-readiness findings, patched docs/UI, validation commands | Improved in this pass: root README, AGENTS snapshot, roadmap Phase 19 linkage, preview setup wiring/copy, shipped import wording, macOS permission copy, package-size optimization, quality/regression platform, and this checklist. |
-| Do not accept proxy signals as completion | Command output, packaged app evidence, manual QA notes, artifact inspection | Substantially satisfied locally. Automated gates, package/resource smoke, local MP4/MOV/WebM export smoke, packaged UI MP4 export, packaged analytics opt-in/off smoke, and credentialed provider smoke passed; official notarized CI release, update N-to-N+1 smoke, and remaining human QA still gate stable. |
-| Ship the release as `v0.19` | `package.json`, release workflow input, GitHub release tag/name | Package metadata and packaged `Info.plist` are `0.19.0`; final signed/notarized release evidence still needs the official GitHub Actions path for `v0.19`. |
+| Do not accept proxy signals as completion | Command output, packaged app evidence, manual QA notes, artifact inspection | Substantially satisfied locally. Automated gates, package/resource smoke, local MP4/MOV/WebM export smoke, packaged UI MP4 export, packaged analytics opt-in/off smoke, and credentialed provider smoke passed. The first official `v0.19` CI release passed notarization but exposed a missing x64 export browser; multi-arch staging and a CI package-browser guard are now added, and the official rerun still gates stable. |
+| Ship the release as `v0.19` | `package.json`, release workflow input, GitHub release tag/name | Package metadata and packaged `Info.plist` are `0.19.0`; a draft `v0.19.0` release exists, but final signed/notarized release evidence still needs the rerun after the multi-arch export-browser fix. |
 
 ## Phase Matrix
 
@@ -44,7 +44,7 @@ Package metadata version: `0.19.0`.
 | 16 Analytics Setup | `plans/phase-16-analytics-setup.md` | Opt-in main-process analytics sends only allowed sanitized events; analytics off sends nothing | Current analytics tests and packaged production analytics opt-in/off smoke pass. |
 | 17 Onboarding Screen | `plans/phase-17-onboarding-screen.md` | First-run dialog is skippable, local-first, and separates profile/email/analytics/provider setup | Covered by settings/onboarding tests and packaged skippable first-run smoke. |
 | 18 App Updates | `plans/phase-18-app-updates.md`, `.github/workflows/release.yml` | Signed/notarized beta N-to-N+1 update passes inside Ripple | Prior Phase 18 evidence records beta.1 to beta.2 success; recheck before stable. |
-| 19 Hardening And Release Readiness | `plans/phase-19-hardening-and-release-readiness.md`, this file | Full automated, package, render, analytics, update, and manual QA gates pass | Automated local gates, local export smoke, packaged UI export, packaged analytics, package smoke, and credentialed provider smoke passed; official notarized CI/update/human QA gates remain. |
+| 19 Hardening And Release Readiness | `plans/phase-19-hardening-and-release-readiness.md`, this file | Full automated, package, render, analytics, update, and manual QA gates pass | Automated local gates, local export smoke, packaged UI export, packaged analytics, package smoke, and credentialed provider smoke passed. First official CI release notarized but revealed the x64 export-browser packaging gap; fix and CI guard are in place, with official rerun/update/human QA gates still remaining. |
 
 ## Automated Gates
 
@@ -67,7 +67,7 @@ Run from `/Users/conmeara/code/ripple`.
 | Production build | `bun run build` | Build exits 0 | Passed 2026-05-05 with existing Vite warnings. |
 | Whitespace | `git diff --check` | No whitespace errors | Passed 2026-05-05. |
 | Schema drift | `bun run db:generate` then inspect diff | No unintended migration diff, or generated migration is reviewed | Passed 2026-05-05: no schema changes. |
-| Package build | `bun run package` or platform package command | Packaged app contains expected resources and identity | Passed 2026-05-05 for local `--dir`; export browser staged into `Resources/browser`; notarization skipped locally. |
+| Package build | `bun run package` or platform package command | Packaged app contains expected resources and identity | Passed 2026-05-05 for local `--dir`; export browsers staged for `darwin-arm64` and `darwin-x64`, and the local arm64 app includes `Resources/browser`; notarization skipped locally. |
 | Package smoke | `bun run test:package:smoke` | Existing packaged app has Ripple identity, resources, CLI binaries, and export browser | Passed 2026-05-05 against `release/mac-arm64/Ripple.app` after export-browser verification was added. |
 | Release script | `bun run test:release` | Closeout, schema drift, export smoke, package, and package smoke all pass | Passed 2026-05-05 after the `0.19.0` version bump and packaged export-browser fix. Notarization skipped locally because local notarize options were unavailable. |
 
@@ -78,7 +78,7 @@ Run from `/Users/conmeara/code/ripple`.
 | Primary-path identity | Search shipped source/resources for `1Code`, `21st.dev`, `.21st`, `twentyfirst`, `Set up repository` | Passed local built-output audit: only legacy compatibility guards remain in `out/main/index.js`. |
 | Root docs | Read `README.md`, `AGENTS.md`, `ROADMAP.md`, `PLANS.md` | Updated in this pass to describe Ripple v1 state and Phase 19. |
 | Package resources | Inspect package output | Passed local package smoke: `Ripple.app`, app id/protocol, CLI wrapper, migrations, templates, skills/plugins, and app-managed Claude/Codex binaries are present. |
-| Release workflow | Inspect `.github/workflows/release.yml` and latest Actions run | Signed/notarized artifacts publish with GitHub update metadata and no app-embedded publishing secrets. |
+| Release workflow | Inspect `.github/workflows/release.yml` and latest Actions run | Signed/notarized artifacts publish with GitHub update metadata and no app-embedded publishing secrets. The workflow now also verifies each packaged app contains an executable export browser with the expected macOS architecture. |
 | Analytics privacy | Inspect docs/tests and packaged opt-in smoke | Passed packaged production smoke: unset/denied consent blocked capture; opt-in captured an allowlisted event. |
 | Export outputs | Render fixture project to MP4, MOV, WebM | Passed local render/FFprobe smoke for MP4, MOV, and WebM; packaged UI MP4 export passed from the final app artifact. |
 | Manual QA | Complete checklist below | Fresh packaged app, onboarding skip, blank project, template project, preview seek, comments, analytics, and MP4 export passed by automated packaged UI smoke; remaining human QA rows are listed below. |
@@ -138,6 +138,11 @@ Complete these in a packaged app with isolated user data before stable v1.
   headless export browser. Packaging now stages Puppeteer's
   `chrome-headless-shell` into `Resources/browser`, and package smoke verifies
   the browser executable.
+- The first official `v0.19.0` draft release workflow passed signing,
+  notarization, stapling, update metadata, and artifact upload, but its x64
+  packaging log showed `resources/browser/darwin-x64` was missing. Browser
+  staging now prepares both `darwin-arm64` and `darwin-x64`, and the release
+  workflow fails if either packaged app is missing the right export browser.
 - `plans/v2/sequences-and-composition-structure.md` remains a v2 research plan
   outside the active v1 roadmap.
 
@@ -146,6 +151,12 @@ Complete these in a packaged app with isolated user data before stable v1.
 - `bun run test:release` rebuilt `release/mac-arm64/Ripple.app`, passed
   automated closeout, schema drift, export smoke, package, and package smoke,
   and exited 0 after the `0.19.0` version bump and packaged export-browser fix.
+- `bun run browser:stage` now stages both
+  `resources/browser/darwin-arm64/chrome-headless-shell` and
+  `resources/browser/darwin-x64/chrome-headless-shell`; `file` reports arm64
+  and x86_64 respectively.
+- `bun run package` and `bun run test:package:smoke` passed again after the
+  multi-arch browser-staging change.
 - Local package size: about 1.7 GB total, with `Contents/Resources/browser`
   about 189 MB, `app.asar.unpacked` about 237 MB, and
   `Contents/Resources/bin` about 377 MB.
@@ -173,8 +184,10 @@ Complete these in a packaged app with isolated user data before stable v1.
 
 ## Remaining V0.19 Release Blockers
 
-- Run the official GitHub Actions release workflow for `v0.19` and verify
-  signed, notarized, stapled artifacts with `codesign`, `spctl`, and `stapler`.
+- Rerun the official GitHub Actions release workflow for `v0.19` after the
+  multi-arch export-browser fix, then verify signed, notarized, stapled
+  artifacts with `codesign`, `spctl`, and `stapler`, and confirm no packaged
+  export-browser warnings remain.
 - Refresh packaged update N-to-N+1 evidence near stable.
 - Complete remaining packaged app human QA rows in the checklist above, especially
   open-project, revision accept/reject, visual context, update flow, failure

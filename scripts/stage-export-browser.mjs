@@ -13,16 +13,47 @@ import { dirname, join, relative } from "node:path"
 import { homedir } from "node:os"
 
 const repoRoot = process.cwd()
-const platformArch = `${process.platform}-${process.arch}`
-const outputDir = join(repoRoot, "resources", "browser", platformArch)
 const cacheRoot = process.env.PUPPETEER_CACHE_DIR ||
   join(homedir(), ".cache", "puppeteer")
 
-function executableNames() {
+function defaultTargets() {
   if (process.platform === "darwin") {
+    return [
+      {
+        platform: "darwin",
+        arch: "arm64",
+        puppeteerPlatform: "mac_arm",
+      },
+      {
+        platform: "darwin",
+        arch: "x64",
+        puppeteerPlatform: "mac",
+      },
+    ]
+  }
+
+  return [{
+    platform: process.platform,
+    arch: process.arch,
+    puppeteerPlatform: puppeteerPlatformFor(process.platform, process.arch),
+  }]
+}
+
+function puppeteerPlatformFor(platform, arch) {
+  if (platform === "linux") return arch === "arm64" ? "linux_arm" : "linux"
+  if (platform === "win32") return arch === "ia32" ? "win32" : "win64"
+  return undefined
+}
+
+function outputDirFor(target) {
+  return join(repoRoot, "resources", "browser", `${target.platform}-${target.arch}`)
+}
+
+function executableNames(target) {
+  if (target.platform === "darwin") {
     return ["chrome-headless-shell", "Google Chrome for Testing"]
   }
-  if (process.platform === "win32") {
+  if (target.platform === "win32") {
     return ["chrome-headless-shell.exe", "chrome.exe"]
   }
   return ["chrome-headless-shell", "chrome"]
@@ -50,8 +81,8 @@ function findMacAppRoot(path) {
   return parts.slice(0, index + 1).join("/")
 }
 
-function candidateFromExecutable(executable) {
-  const macAppRoot = process.platform === "darwin" ? findMacAppRoot(executable) : null
+function candidateFromExecutable(executable, target) {
+  const macAppRoot = target.platform === "darwin" ? findMacAppRoot(executable) : null
   if (macAppRoot) {
     return {
       executable,
@@ -69,19 +100,25 @@ function candidateFromExecutable(executable) {
   }
 }
 
-function collectCandidates() {
-  const names = new Set(executableNames())
+function matchesTargetCache(path, target) {
+  if (!target.puppeteerPlatform) return true
+  return path.split("\\").join("/").includes(`/${target.puppeteerPlatform}-`)
+}
+
+function collectCandidates(target) {
+  const names = new Set(executableNames(target))
   const candidates = []
   const explicit = process.env.RIPPLE_EXPORT_BROWSER_SOURCE ||
     process.env.PRODUCER_HEADLESS_SHELL_PATH
 
   if (explicit && existsSync(explicit) && statSync(explicit).isFile()) {
-    candidates.push(candidateFromExecutable(explicit))
+    candidates.push(candidateFromExecutable(explicit, target))
   }
 
   walk(cacheRoot, (path, entry) => {
     if (!entry.isFile() || !names.has(entry.name)) return
-    candidates.push(candidateFromExecutable(path))
+    if (!matchesTargetCache(path, target)) return
+    candidates.push(candidateFromExecutable(path, target))
   })
 
   return candidates.sort((a, b) => {
@@ -92,11 +129,23 @@ function collectCandidates() {
   })
 }
 
-function installBrowserIfMissing() {
-  console.log("[stage-export-browser] no Puppeteer browser found; installing chrome-headless-shell")
+function installBrowserIfMissing(target) {
+  const platformArgs = target.puppeteerPlatform
+    ? ["--platform", target.puppeteerPlatform]
+    : []
+  console.log(
+    `[stage-export-browser] no Puppeteer browser found for ` +
+      `${target.platform}-${target.arch}; installing chrome-headless-shell`,
+  )
   const result = spawnSync(
     "bunx",
-    ["puppeteer", "browsers", "install", "chrome-headless-shell"],
+    [
+      "puppeteer",
+      "browsers",
+      "install",
+      "chrome-headless-shell",
+      ...platformArgs,
+    ],
     { stdio: "inherit", env: process.env },
   )
   if (result.status !== 0) {
@@ -107,7 +156,8 @@ function installBrowserIfMissing() {
   }
 }
 
-function stage(candidate) {
+function stage(target, candidate) {
+  const outputDir = outputDirFor(target)
   rmSync(outputDir, { recursive: true, force: true })
   mkdirSync(outputDir, { recursive: true })
 
@@ -131,13 +181,18 @@ function stage(candidate) {
   console.log(`[stage-export-browser] staged ${executable}`)
 }
 
-let candidates = collectCandidates()
-if (candidates.length === 0) {
-  installBrowserIfMissing()
-  candidates = collectCandidates()
-}
-if (candidates.length === 0) {
-  throw new Error("No export browser candidate was available after install.")
-}
+for (const target of defaultTargets()) {
+  let candidates = collectCandidates(target)
+  if (candidates.length === 0) {
+    installBrowserIfMissing(target)
+    candidates = collectCandidates(target)
+  }
+  if (candidates.length === 0) {
+    throw new Error(
+      `No export browser candidate was available after install for ` +
+        `${target.platform}-${target.arch}.`,
+    )
+  }
 
-stage(candidates[0])
+  stage(target, candidates[0])
+}
