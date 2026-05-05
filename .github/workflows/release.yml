@@ -260,6 +260,7 @@ jobs:
           )
           edit_args=(
             -R conmeara/ripple
+            --target "$GITHUB_SHA"
             --title "Ripple $RIPPLE_RELEASE_VERSION"
             --notes-file build/release-notes.md
           )
