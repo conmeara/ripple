@@ -207,8 +207,11 @@ export async function prepareCanonicalVisualDir(input: {
   await assertExistingVisualSymlinkInsideProject(input.projectPath, visualDir)
   await mkdir(visualDir, { recursive: true })
 
-  const visualDirRealPath = await realpath(visualDir)
-  if (!isPathInsideDirectory(input.projectPath, visualDirRealPath)) {
+  const [projectRealPath, visualDirRealPath] = await Promise.all([
+    realpath(input.projectPath),
+    realpath(visualDir),
+  ])
+  if (!isPathInsideDirectory(projectRealPath, visualDirRealPath)) {
     throw new Error("Comment visual storage is outside the project.")
   }
   return visualDir
@@ -265,8 +268,11 @@ async function captureSingleFrame(input: {
     }
 
     const sourceFrame = join(snapshotDir, changed[0])
-    const sourceFrameRealPath = await realpath(sourceFrame)
-    if (!isPathInsideDirectory(input.sourcePath, sourceFrameRealPath)) {
+    const [sourcePathReal, sourceFrameRealPath] = await Promise.all([
+      realpath(input.sourcePath),
+      realpath(sourceFrame),
+    ])
+    if (!isPathInsideDirectory(sourcePathReal, sourceFrameRealPath)) {
       throw new Error("HyperFrames produced a frame outside the source project.")
     }
 
@@ -329,8 +335,11 @@ async function captureRangeSheet(input: {
 
     const sourceSheetPath = resolve(input.sourcePath, normalizeRelativeProjectPath(payload.sheet.path))
     const sourceBundleDir = dirname(sourceSheetPath)
-    const sourceBundleRealPath = await realpath(sourceBundleDir)
-    if (!isPathInsideDirectory(input.sourcePath, sourceBundleRealPath)) {
+    const [sourcePathReal, sourceBundleRealPath] = await Promise.all([
+      realpath(input.sourcePath),
+      realpath(sourceBundleDir),
+    ])
+    if (!isPathInsideDirectory(sourcePathReal, sourceBundleRealPath)) {
       throw new Error("Frame-sheet output is outside the source project.")
     }
 

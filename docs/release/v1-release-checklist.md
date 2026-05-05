@@ -52,10 +52,10 @@ Run from `/Users/conmeara/code/ripple`.
 
 | Gate | Command | Pass condition | Evidence location |
 | --- | --- | --- | --- |
-| Focused Ripple regressions | `bun run test:ripple` | All tests pass | Passed 2026-05-05: 363 tests / 1459 expectations. |
+| Focused Ripple regressions | `bun run test:ripple` | All tests pass | Passed 2026-05-05: 365 tests / 1479 expectations. |
 | Quality platform | `bun run test:quality` | Workflow matrix, fixtures, scripts, and closeout protocol verify | Passed 2026-05-05: 3 tests / 82 expectations; verifier found 36 workflow rows and 14 package scripts. |
 | UX workflow sweep | `bun run test:ux` | User-facing renderer workflow slice passes | Passed 2026-05-05: 129 tests / 458 expectations. |
-| Electron UX automation | `bun run test:e2e` | Playwright launches built Electron, clicks launch/onboarding/project/template/comments/renders workflows, and retains screenshots/traces/logs on failure | Passed 2026-05-05: 2 Electron tests. |
+| Electron UX automation | `bun run test:e2e` | Playwright launches built Electron, clicks launch/onboarding/project/template/comments/renders/open-project/visual-context/resize workflows, and retains screenshots/traces/logs on failure | Passed 2026-05-05: 4 Electron tests. |
 | Visual regression snapshot | `bun run test:visual` | Stable project-entry visual baseline matches, or intentional changes are reviewed with `bun run test:e2e:update` | Passed 2026-05-05: 1 Playwright visual test; baseline stored under `test/e2e/__screenshots__/`. |
 | Agent/runtime sweep | `bun run test:agent` | Provider, revisions, conversations, and runtime slice passes | Passed 2026-05-05: 97 tests / 321 expectations. |
 | Credentialed provider smoke | `RIPPLE_LIVE_PROVIDER_SMOKE=1 RIPPLE_LIVE_PROVIDER=codex|claude bun run test:live` | Configured provider reports a real authenticated account without running a project mutation | Passed 2026-05-05: Codex connected with an available ChatGPT account; Claude connected through `claude.ai` / `firstParty`. |
@@ -81,7 +81,7 @@ Run from `/Users/conmeara/code/ripple`.
 | Release workflow | Inspect `.github/workflows/release.yml` and latest Actions run | Passed GitHub Actions run `25388403839`: signed/notarized artifacts published with GitHub update metadata and no app-embedded publishing secrets. The workflow now also verifies each packaged app contains an executable export browser with the expected macOS architecture. |
 | Analytics privacy | Inspect docs/tests and packaged opt-in smoke | Passed packaged production smoke: unset/denied consent blocked capture; opt-in captured an allowlisted event. |
 | Export outputs | Render fixture project to MP4, MOV, WebM | Passed local render/FFprobe smoke for MP4, MOV, and WebM; packaged UI MP4 export passed from the final app artifact. |
-| Manual QA | Complete checklist below | Fresh packaged app, onboarding skip, blank project, template project, preview seek, comments, analytics, and MP4 export passed by automated packaged UI smoke; remaining human QA rows are listed below. |
+| Manual QA | Complete checklist below | Fresh packaged app, onboarding skip, blank project, template project, preview seek, comments, analytics, and MP4 export passed by automated packaged UI smoke; built-Electron release QA covers open project, visual context, and resize/keyboard. Remaining human QA rows are listed below. |
 
 ## Manual QA
 
@@ -92,19 +92,19 @@ Complete these in a packaged app with isolated user data before stable v1.
 | Fresh install | App opens to Ripple project-first entry without sign-in | Passed packaged isolated-userData smoke. |
 | First-run onboarding | User can skip optional profile/email/analytics/provider setup | Passed packaged isolated-userData smoke. |
 | New project | Creates `~/Ripple/<project-name>` and opens previewable default composition | Passed packaged blank-project smoke. |
-| Open project | Existing valid HyperFrames project opens without repo language |  |
+| Open project | Existing valid HyperFrames project opens without repo language | Passed built-Electron release QA with a trusted native-dialog mock and the basic HyperFrames fixture. |
 | Preview/timeline | Play, pause, seek, reload, and composition switch stay synchronized | Packaged play/pause and mouse seek passed; reload/composition switch still needs human QA. |
 | Templates | Blank and bundled template creation preview immediately offline | Packaged blank and bundled `app-showcase` creation passed. |
 | Comments | Frame/time comment creates the expected card and conversation | Packaged blank/template comment cards passed. |
 | Revision accept/reject | Generated-change preview can be accepted and rejected cleanly |  |
 | Agent setup | Missing Codex/Claude connection prompts from the first agent action only |  |
-| Visual context | Current-frame screenshot or frame sheet attaches to comments when enabled |  |
+| Visual context | Current-frame screenshot or frame sheet attaches to comments when enabled | Passed built-Electron release QA for current-frame capture; also found and fixed a macOS `/var` to `/private/var` realpath boundary bug. |
 | Export | MP4, MOV, and WebM export complete in a validated environment | Packaged UI MP4 export passed; local Producer smoke passed MP4, MOV, and WebM. |
 | App updates | Older packaged beta updates to newer packaged beta inside Ripple | Prior beta.1 to beta.2 success should be refreshed near stable. |
 | Analytics | Off sends nothing; opt-in sends only allowed sanitized events | Passed packaged production opt-in/off smoke. |
 | Offline local use | Project creation, preview, comments, and export do not require network |  |
 | Failure recovery | Missing Node/FFmpeg, preview startup failure, export failure, and failed update check show recoverable errors |  |
-| Resize/keyboard | Four-pane shell avoids overlap and keeps controls usable |  |
+| Resize/keyboard | Four-pane shell avoids overlap and keeps controls usable | Passed built-Electron release QA at 980x720 with keyboard panel toggles and visible preview/comments controls. |
 
 ## Current Findings
 
@@ -149,6 +149,11 @@ Complete these in a packaged app with isolated user data before stable v1.
   `release/mac-arm64/.../chrome-headless-shell` as arm64, verified notarized
   apps with `codesign`, `spctl`, and `stapler`, verified `latest-mac.yml`
   contains `version: 0.19.0`, and replaced the draft release assets.
+- Built-Electron release QA now covers opening an existing HyperFrames project,
+  creating a frame comment with stored current-frame visual context, and using
+  resize/keyboard controls. That test found a real macOS symlink-resolution
+  bug in comment visual boundary checks; the fix compares real project roots to
+  real generated outputs and has focused unit coverage.
 - The successful release workflow emitted a GitHub Actions annotation that
   Node.js 20 actions are deprecated and will move to Node.js 24 defaults in
   2026. This is not a v0.19 release blocker, but the release workflow should be
@@ -214,5 +219,6 @@ Complete these in a packaged app with isolated user data before stable v1.
 
 - Refresh packaged update N-to-N+1 evidence near stable.
 - Complete remaining packaged app human QA rows in the checklist above, especially
-  open-project, revision accept/reject, visual context, update flow, failure
-  recovery, resize/keyboard, and MOV/WebM from the packaged UI if desired.
+  revision accept/reject, update flow, failure recovery, provider setup prompts,
+  offline local use, reload/composition-switch preview checks, and MOV/WebM from
+  the packaged UI if desired.

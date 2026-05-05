@@ -74,6 +74,27 @@ describe("comment visual context", () => {
     }
   })
 
+  test("accepts project paths that resolve through a filesystem symlink", async () => {
+    if (process.platform === "win32") return
+
+    const projectPath = await mkdtemp(join(tmpdir(), "ripple-comment-visual-project-"))
+    const linkRoot = await mkdtemp(join(tmpdir(), "ripple-comment-visual-link-"))
+    const linkedProjectPath = join(linkRoot, "linked-project")
+    try {
+      await symlink(projectPath, linkedProjectPath, "dir")
+
+      await expect(prepareCanonicalVisualDir({
+        projectPath: linkedProjectPath,
+        threadId: "thread-through-link",
+      })).resolves.toBe(
+        join(linkedProjectPath, ".ripple", "comment-visuals", "thread-through-link"),
+      )
+    } finally {
+      await rm(linkRoot, { recursive: true, force: true })
+      await rm(projectPath, { recursive: true, force: true })
+    }
+  })
+
   test("rejects comment visual storage symlinks before creating out-of-project directories", async () => {
     const projectPath = await mkdtemp(join(tmpdir(), "ripple-comment-visual-project-"))
     const outsidePath = await mkdtemp(join(tmpdir(), "ripple-comment-visual-outside-"))

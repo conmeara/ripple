@@ -1350,11 +1350,17 @@ Current baseline after Phase 19 local audit:
   architecture verification, `codesign` / `spctl` / `stapler`, update metadata,
   GitHub Release upload, and workflow artifact upload
 - Playwright Electron artifacts for launch, onboarding, project creation,
-  template creation, comments, preview shell, and Renders pane workflows
+  template creation, existing-project open, comments, stored visual context,
+  preview shell, resize/keyboard controls, and Renders pane workflows
+- Comment visual capture now has focused regression coverage for
+  symlink-resolved macOS project paths so app-generated frames are validated
+  against real project/source roots without rejecting `/var` to `/private/var`
+  resolutions.
 - Packaged app smoke evidence now covers production analytics off/on, blank
   project preview/comment/MP4 export, and bundled-template comment flow
-- remaining release evidence still needed for update N-to-N+1, open-project,
-  revisions, visual context, failure recovery, and resize/keyboard behavior
+- remaining release evidence still needed for update N-to-N+1, revisions,
+  failure recovery, provider setup prompts, offline local use, reload /
+  composition-switch preview checks, and optional packaged MOV/WebM UI export
 
 Ripple should graduate from the 1Code baseline to full test suites plus a
 repeatable QA protocol. Testing is a release gate, not a best-effort cleanup

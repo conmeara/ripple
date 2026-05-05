@@ -12,7 +12,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 
-type RippleE2EContext = {
+export type RippleE2EContext = {
   repoRoot: string
   runId: string
   tempRoot: string

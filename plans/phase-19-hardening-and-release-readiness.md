@@ -99,6 +99,12 @@ short label `v0.19`.
   signing/notarization, packaged export-browser architecture verification,
   `codesign` / `spctl` / `stapler`, update metadata verification, GitHub
   Release upload, and workflow artifact upload.
+- [x] 2026-05-05 / Codex: Added built-Electron release QA for opening an
+  existing HyperFrames project, storing current-frame visual context for a frame
+  comment, and resize/keyboard shell usability. The new test exposed a macOS
+  `/var` to `/private/var` realpath boundary bug in comment visual capture; the
+  fix compares real project/source roots to real generated outputs and has
+  focused unit coverage.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -267,9 +273,10 @@ Passed local gates on 2026-05-05:
 - `bun run test:ux`: passed, 129 tests / 458 expectations.
 - `bun run test:agent`: passed, 97 tests / 321 expectations.
 - `bun run test:export`: passed, 152 tests / 748 expectations.
-- `bun run test:e2e`: passed, 2 Electron tests covering launch, skippable
-  onboarding, project/template creation, preview play/pause, mouse timeline
-  seek, comments, and Renders pane controls.
+- `bun run test:e2e`: passed, 4 Electron tests covering launch, skippable
+  onboarding, project/template creation, existing-project open, preview
+  play/pause, mouse timeline seek, comments, stored visual context, resize /
+  keyboard controls, and Renders pane controls.
 - `bun run test:visual`: passed, 1 Playwright visual snapshot.
 - `bun run test:live`: default skip mode passes; credentialed smokes also passed
   with `RIPPLE_LIVE_PROVIDER_SMOKE=1` for both Codex and Claude.
@@ -299,6 +306,14 @@ Passed local gates on 2026-05-05:
   and x86_64 respectively.
 - After the multi-arch staging fix, the focused HyperFrames package/runtime
   tests, `bun run package`, and `bun run test:package:smoke` passed locally.
+- `bun test src/main/lib/revisions/comment-visuals.test.ts`: passed, 5 tests /
+  12 expectations, including symlink-resolved project paths and visual-storage
+  symlink escape rejection.
+- Focused built-Electron release QA
+  (`playwright test --config test/e2e/playwright.config.ts test/e2e/release-qa.e2e.ts`):
+  passed, 2 workflow tests covering trusted open-project, no visible repo/clone
+  language, frame-comment visual capture, 980x720 shell usability, and
+  keyboard panel toggles.
 - Official GitHub Actions release run `25388403839`: passed in 30m21s. CI
   staged both browser architectures, verified x86_64 and arm64
   `chrome-headless-shell` executables inside the packaged app bundles, verified
@@ -564,9 +579,8 @@ Initial release-readiness findings from this pass:
 
 Current remaining release blockers:
 
-- Official signed/notarized/stapled GitHub Actions release evidence for
-  `v0.19`.
 - Packaged update N-to-N+1 refresh near stable.
-- Remaining human/manual QA gaps: open-project, revision accept/reject, visual
-  context, app update flow, failure recovery, resize/keyboard, provider setup
-  prompts, and MOV/WebM from the packaged UI if desired.
+- Remaining human/manual QA gaps: revision accept/reject, app update flow,
+  failure recovery, provider setup prompts, offline local use, reload /
+  composition-switch preview checks, and MOV/WebM from the packaged UI if
+  desired.
