@@ -219,6 +219,14 @@ short label `v0.19`.
   `resources/cli/hyperframes` and makes `package:stage` run `bin:stage` plus
   `browser:stage` before packaging.
 
+- Observation: CI package staging needs authenticated GitHub API access for
+  Codex downloads.
+  Evidence: Ripple Quality run `25398237524` passed through Electron UX and
+  render-format smoke, then failed in `Package app` after `claude:download`
+  succeeded and `codex:download` returned `HTTP 403`. The release workflow
+  already exports `GH_TOKEN` / `GITHUB_TOKEN`; the quality workflow now does the
+  same so the Codex downloader uses the Actions token.
+
 - Observation: A passing signed/notarized release run was still an incomplete
   signal until packaged resources were inspected per architecture.
   Evidence: GitHub Actions run `25386520079` for `v0.19.0` passed signing,

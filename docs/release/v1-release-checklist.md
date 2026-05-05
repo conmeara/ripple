@@ -182,6 +182,11 @@ Complete these in a packaged app with isolated user data before stable v1.
   runs `package:stage`, which stages current-platform Claude/Codex binaries and
   export browsers, and the tracked `resources/cli/hyperframes` wrapper is copied
   into packaged `Resources/bin/hyperframes`.
+- The first quality CI run after package-staging hardening reached `Package app`
+  but failed on `codex:download` with GitHub API `HTTP 403`; the quality
+  workflow now exposes `GH_TOKEN` and `GITHUB_TOKEN` like the release workflow so
+  Codex binary downloads use the Actions token instead of unauthenticated API
+  quota.
 - The successful release workflow emitted a GitHub Actions annotation that
   Node.js 20 actions are deprecated and will move to Node.js 24 defaults in
   2026. This is not a v0.19 release blocker, but the release workflow should be

@@ -208,6 +208,8 @@ describe("HyperFrames packaged app configuration", () => {
     expect(existsSync("resources/cli/ripple")).toBe(true)
     expect(existsSync("resources/cli/hyperframes")).toBe(true)
     expect(qualityWorkflow).toContain("bun run package")
+    expect(qualityWorkflow).toContain("GH_TOKEN: ${{ github.token }}")
+    expect(qualityWorkflow).toContain("GITHUB_TOKEN: ${{ github.token }}")
   })
 
   test("stages an app-managed export browser before packaging", () => {

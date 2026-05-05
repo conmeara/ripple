@@ -23,6 +23,8 @@ jobs:
       CI: "1"
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
       NODE_OPTIONS: --max-old-space-size=8192
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
