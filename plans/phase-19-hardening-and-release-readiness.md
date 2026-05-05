@@ -120,6 +120,11 @@ short label `v0.19`.
   `codesign` / `spctl` / `stapler`, update metadata verification, GitHub
   Release upload, workflow artifact upload, and the draft release now targets
   that SHA.
+- [x] 2026-05-05 / Codex: Added built-Electron generated-change review QA. The
+  release workflow test now seeds proposed isolated generated changes, clicks
+  `Reject changes` and `Accept changes`, verifies persisted revision statuses,
+  verifies rejected worktree cleanup, and verifies Main receives the accepted
+  change.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -328,10 +333,14 @@ Passed local gates on 2026-05-05:
   12 expectations, including symlink-resolved project paths and visual-storage
   symlink escape rejection.
 - Focused built-Electron release QA
-  (`playwright test --config test/e2e/playwright.config.ts test/e2e/release-qa.e2e.ts`):
-  passed, 2 workflow tests covering trusted open-project, no visible repo/clone
-  language, frame-comment visual capture, 980x720 shell usability, and
-  keyboard panel toggles.
+  (`bunx playwright test --config test/e2e/playwright.config.ts test/e2e/release-qa.e2e.ts`):
+  passed, 3 workflow tests covering trusted open-project, no visible repo/clone
+  language, frame-comment visual capture, 980x720 shell usability, keyboard
+  panel toggles, and generated-change accept/reject review controls.
+- Full Electron E2E (`bun run test:e2e`): passed, 5 workflow tests covering
+  launch/onboarding/project creation, bundled template review, existing-project
+  open, visual context, resize/keyboard shell usability, and generated-change
+  accept/reject controls.
 - Focused comments renderer tests (`bun test src/renderer/features/comments`):
   passed, 9 tests / 31 expectations, including the explicit reject-action
   eligibility guard for live proposed generated changes.
@@ -345,7 +354,9 @@ Passed local gates on 2026-05-05:
 
 This phase is not complete until packaged update smoke near stable and remaining
 human/manual QA gaps are all either passed or documented with explicit release
-blockers.
+blockers. Generated-change accept/reject is now covered by built-Electron E2E,
+but still needs a packaged-artifact/manual pass before being closed for the
+release candidate.
 
 ## Context and Orientation
 
@@ -603,6 +614,6 @@ Current remaining release blockers:
 
 - Packaged update N-to-N+1 refresh near stable.
 - Remaining human/manual QA gaps: packaged generated-change accept/reject
-  end-to-end, app update flow, failure recovery, provider setup prompts,
+  artifact/manual pass, app update flow, failure recovery, provider setup prompts,
   offline local use, reload / composition-switch preview checks, and MOV/WebM
   from the packaged UI if desired.

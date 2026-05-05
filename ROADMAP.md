@@ -1352,10 +1352,15 @@ Current baseline after Phase 19 local audit:
   Release upload, workflow artifact upload, and draft release retargeting
 - Playwright Electron artifacts for launch, onboarding, project creation,
   template creation, existing-project open, comments, stored visual context,
-  preview shell, resize/keyboard controls, and Renders pane workflows
+  preview shell, resize/keyboard controls, generated-change accept/reject
+  controls, and Renders pane workflows
 - Comment review cards expose an explicit `Reject changes` action for proposed
   generated changes, backed by the existing main-process rejection mutation and
   focused renderer eligibility coverage.
+- Generated-change review controls now have built-Electron E2E coverage that
+  clicks `Reject changes` and `Accept changes`, verifies persisted revision
+  status, checks rejected worktree cleanup, and confirms the accepted change is
+  applied to Main.
 - Comment visual capture now has focused regression coverage for
   symlink-resolved macOS project paths so app-generated frames are validated
   against real project/source roots without rejecting `/var` to `/private/var`
@@ -1363,7 +1368,7 @@ Current baseline after Phase 19 local audit:
 - Packaged app smoke evidence now covers production analytics off/on, blank
   project preview/comment/MP4 export, and bundled-template comment flow
 - remaining release evidence still needed for update N-to-N+1, packaged
-  generated-change accept/reject end-to-end, failure recovery, provider setup
+  generated-change accept/reject artifact/manual pass, failure recovery, provider setup
   prompts, offline local use, reload / composition-switch preview checks, and
   optional packaged MOV/WebM UI export
 

@@ -35,7 +35,7 @@ evidence tied to product workflows, not to run a random pile of tests.
 | Preview player, composition source, timeline | `bun test src/main/lib/hyperframes src/renderer/features/hyperframes` | `bun run test:hyperframes` and `bun run test:e2e` |
 | Assets and composition pane | `bun test src/main/lib/hyperframes/project-browser.test.ts src/renderer/features/hyperframes/project-model.test.ts` | `bun run test:ux` |
 | Comments, markers, replies | `bun test src/shared/ripple-comments.test.ts src/renderer/features/comments src/renderer/features/hyperframes/preview-comment-markers.test.ts` | `bun run test:ripple` and `bun run test:e2e` |
-| Revisions and accept/reject | `bun test src/main/lib/revisions src/renderer/features/ripple-shell/ripple-preview-target.test.ts` | `bun run test:agent` |
+| Revisions and accept/reject | `bun test src/main/lib/revisions src/renderer/features/ripple-shell/ripple-preview-target.test.ts` | `bun run test:agent`; add `bun run test:e2e` when review controls or generated-change UX changes |
 | Chat, active tabs, conversations | `bun test src/main/lib/conversations src/shared/ripple-conversations.test.ts src/renderer/features/ripple-shell/active-conversations.test.ts` | `bun run test:agent` |
 | Provider runtime, tools, attachments, skills, MCP | `bun run test:agent` | `bun run test:ripple`; use `bun run test:live` only with explicit provider credentials |
 | Visual context and frame sheets | `bun test src/cli src/main/lib/revisions/comment-visuals.test.ts src/main/lib/agent-runtime/runtime-attachments.test.ts` | `bun run test:agent` |
