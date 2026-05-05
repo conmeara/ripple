@@ -55,6 +55,7 @@ const requiredScripts = [
   "test:visual",
   "test:live",
   "test:package:smoke",
+  "test:update:smoke",
   "test:closeout",
   "test:release",
 ]

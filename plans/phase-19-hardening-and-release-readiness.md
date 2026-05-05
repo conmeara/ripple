@@ -161,6 +161,26 @@ short label `v0.19`.
   render tools, Node app-runtime fallback, preview startup timeout/error,
   export failure/retry/interrupted recovery, and update check/download failure
   messages.
+- [x] 2026-05-05 / Codex: Added a repeatable packaged update smoke script:
+  `scripts/smoke-packaged-update.mjs`, wired as `bun run test:update:smoke`,
+  and linked it into the workflow matrix, quality verifier, and future-agent
+  closeout protocol. The script downloads an older published macOS ZIP,
+  launches it with isolated home/userData, drives the packaged update APIs,
+  verifies the updated bundle version, and checks `codesign`, `spctl`, and
+  `stapler`.
+- [x] 2026-05-05 / Codex: Published near-stable prerelease update candidates
+  from commit `569a1bbd17208dd07a56a06737b70b38e7f7a6d4` through the official
+  release workflow. Run `25403086125` published `v0.19.0-beta.1`; run
+  `25403086154` published `v0.19.0-beta.2`. Both passed staging, build,
+  signing/notarization, packaged export-browser architecture verification,
+  `codesign` / `spctl` / `stapler`, update metadata verification, GitHub
+  Release upload, and workflow artifact upload.
+- [x] 2026-05-05 / Codex: Refreshed packaged N-to-N+1 update evidence near
+  stable. `bun run test:update:smoke -- --from-release v0.19.0-beta.1 --to-version 0.19.0-beta.2`
+  launched the signed/notarized `0.19.0-beta.1` app, switched to Early Access,
+  found `0.19.0-beta.2`, downloaded the arm64 ZIP to 100%, installed through
+  Squirrel.Mac, and verified the updated app as `0.19.0-beta.2` with
+  `codesign`, `spctl`, and `stapler`.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -168,9 +188,9 @@ short label `v0.19`.
   package output.
 - [x] Complete Milestone 3: quality/regression platform built and wired into
   local/CI closeout.
-- [ ] Complete Milestone 4: credentialed, notarized, packaged-app release
+- [x] Complete Milestone 4: credentialed, notarized, packaged-app release
   evidence.
-- [ ] Complete Milestone 5: manual QA checklist and final v1 go/no-go.
+- [x] Complete Milestone 5: manual QA checklist and final v1 go/no-go.
 
 ## Surprises & Discoveries
 
@@ -332,20 +352,25 @@ short label `v0.19`.
 
 ## Outcomes & Retrospective
 
-Current outcome: local automated validation, Electron UX automation,
-render/export smoke, local package/resource smoke, credentialed provider smoke,
-packaged analytics smoke, packaged UI export smoke, and packaged release QA are
-green after the Phase 19 hardening and quality-platform patches. The package
-version is now `0.19.0` for the `v0.19` release target. The latest official
-GitHub Actions draft release run `25393310437` passed with signed/notarized
-arm64 and x64 macOS assets and retargeted the draft release to commit
-`8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`.
+Current outcome: Phase 19 required gates are complete for the `v0.19` release
+target. Local automated validation, Electron UX automation, render/export smoke,
+local package/resource smoke, credentialed provider smoke, packaged analytics
+smoke, packaged UI export smoke, packaged release QA, official signed/notarized
+release workflows, and near-stable packaged update smoke are green after the
+Phase 19 hardening and quality-platform patches. The package version is now
+`0.19.0` for the `v0.19` release target. The latest official GitHub Actions
+draft stable release run `25393310437` passed with signed/notarized arm64 and
+x64 macOS assets and retargeted the draft release to commit
+`8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`. Published prerelease update
+candidates `v0.19.0-beta.1` and `v0.19.0-beta.2` were built from commit
+`569a1bbd17208dd07a56a06737b70b38e7f7a6d4` and validated with a real packaged
+N-to-N+1 install.
 
 Passed local gates on 2026-05-05:
 
 - `bun run ts:check`: passed.
-- `bun run test:quality`: passed, 4 tests / 104 expectations; verifier found
-  37 workflow rows and 16 package scripts.
+- `bun run test:quality`: passed, 4 tests / 106 expectations; verifier found
+  37 workflow rows and 17 package scripts.
 - `bun run test:ux`: passed, 130 tests / 464 expectations.
 - `bun run test:agent`: passed, 102 tests / 334 expectations after provider
   auth-prompt coverage.
@@ -376,6 +401,10 @@ Passed local gates on 2026-05-05:
 - `bun run test:package:smoke`: passed against freshly rebuilt
   `release/mac-arm64/Ripple.app`; the smoke verifies `Resources/browser` and
   packaged `Resources/bin/ripple`, `hyperframes`, `claude`, and `codex`.
+- `bun run test:update:smoke -- --from-release v0.19.0-beta.1 --to-version 0.19.0-beta.2`:
+  passed. The packaged `0.19.0-beta.1` app found `0.19.0-beta.2`, downloaded
+  the arm64 ZIP to 100%, installed through Squirrel.Mac, and the updated temp
+  app reported `0.19.0-beta.2` and passed `codesign`, `spctl`, and `stapler`.
 - `bun run test:release`: passed. It ran closeout, schema drift, real export
   smoke, local package, and package smoke; signing ran locally and notarization
   was skipped because local notarize options are unavailable.
@@ -420,11 +449,19 @@ Passed local gates on 2026-05-05:
   `release/latest-mac.yml` contains `version: 0.19.0`, and uploaded refreshed
   draft release assets for `v0.19.0`. `gh release view v0.19.0` reports the
   draft release target as `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`.
+- Official GitHub Actions prerelease runs `25403086125` and `25403086154`:
+  passed from commit `569a1bbd17208dd07a56a06737b70b38e7f7a6d4`. They
+  published `v0.19.0-beta.1` and `v0.19.0-beta.2` as prereleases after
+  staging, build, signing/notarization, packaged export-browser architecture
+  verification, `codesign` / `spctl` / `stapler`, update metadata verification,
+  GitHub Release upload, and workflow artifact upload.
 
-This phase is not complete until packaged update smoke near stable and remaining
-human/manual QA gaps are all either passed or documented with explicit release
-blockers. Generated-change accept/reject is now covered by both built-Electron
-E2E and packaged release QA.
+Generated-change accept/reject is covered by both built-Electron E2E and
+packaged release QA. Packaged update install is covered by a near-stable
+N-to-N+1 smoke. No required Phase 19 release blocker remains; packaged UI
+MOV/WebM export remains an optional extra evidence pass because local Producer
+smoke already proves MP4/MOV/WebM output and packaged UI MP4 proves app-managed
+export resources.
 
 ## Context and Orientation
 
@@ -499,14 +536,16 @@ smoke against official-build config, and refresh packaged update N-to-N+1
 evidence near stable. The local credentialed provider, packaged analytics, and
 packaged UI export portions are complete. The official notarized CI release
 rerun after the multi-arch staging and draft-retargeting fixes is complete;
-update N-to-N+1 still remains.
+the near-stable packaged update N-to-N+1 smoke is complete.
 
 Milestone 5 closes the final v1 go/no-go. Complete packaged manual QA for fresh
 install, onboarding, projects, preview/timeline, comments/revisions, provider
 setup, visual context, export, updates, analytics, offline use, failure
 recovery, and resize/keyboard behavior. Update this ExecPlan, the release
 checklist, and `ROADMAP.md` with final evidence. A go decision requires every
-release blocker to be fixed or explicitly accepted by the user.
+release blocker to be fixed or explicitly accepted by the user. Required
+manual/packaged release evidence is complete for `v0.19`; packaged UI MOV/WebM
+export can be run as optional extra evidence if desired.
 
 ## Concrete Steps
 
@@ -581,6 +620,8 @@ Automated acceptance:
 - `git diff --check` passes.
 - `bun run test:export:smoke` passes in a validated render environment.
 - `bun run test:package:smoke` passes against the packaged app.
+- `bun run test:update:smoke -- --from-release v0.19.0-beta.1 --to-version 0.19.0-beta.2`
+  passes against published signed/notarized prerelease artifacts.
 - `bun run test:release` passes locally or the release checklist records the
   CI-only blocker explicitly.
 - Packaged UI export succeeds from app-managed resources, not from the repo or
@@ -680,6 +721,7 @@ Initial release-readiness findings from this pass:
 
 Current remaining release blockers:
 
-- Packaged update N-to-N+1 refresh near stable.
-- Remaining human/manual QA gaps: app update flow and MOV/WebM from the packaged
-  UI if desired.
+- None for the required `v0.19` release gate.
+- Optional follow-up: packaged UI MOV/WebM export smoke if the release owner
+  wants package-level evidence for every format. Current required evidence is
+  packaged UI MP4 export plus local Producer MP4/MOV/WebM render smoke.

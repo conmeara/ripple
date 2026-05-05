@@ -24,9 +24,11 @@ evidence tied to product workflows, not to run a random pile of tests.
    runs closeout, schema drift, export smoke, package, and package smoke.
 8. Use `bun run test:e2e:packaged` for packaged-app workflow evidence after
    building or selecting a `Ripple.app` artifact.
-9. For anything marked release-gated, either run the smoke or record the exact
+9. Use `bun run test:update:smoke -- --from-release <tag> --to-version <version>`
+   when refreshing the packaged app N-to-N+1 update gate.
+10. For anything marked release-gated, either run the smoke or record the exact
    missing gate in `docs/release/v1-release-checklist.md`.
-10. For packaging or CI-resource changes, keep `bun run bin:stage` and
+11. For packaging or CI-resource changes, keep `bun run bin:stage` and
    `bun run package:stage` wired through `bun run package` so fresh checkouts
    stage app-managed CLIs and export browsers before package smoke.
 
@@ -46,7 +48,7 @@ evidence tied to product workflows, not to run a random pile of tests.
 | Visual context and frame sheets | `bun test src/cli src/main/lib/revisions/comment-visuals.test.ts src/main/lib/agent-runtime/runtime-attachments.test.ts` | `bun run test:agent` |
 | Exports and Renders pane | `bun run test:export` | `bun run test:e2e`, `bun run test:export:smoke`, and packaged UI export smoke after browser/package changes |
 | Analytics or privacy | `bun test src/shared/ripple-analytics.test.ts src/main/lib/analytics.test.ts src/main/lib/config.test.ts` | Packaged PostHog smoke from the release checklist |
-| App updates | `bun test src/main/lib/auto-updater-source.test.ts src/main/lib/update-release-config.test.ts src/renderer/components/update-banner.test.ts` | Packaged N-to-N+1 update smoke |
+| App updates | `bun test src/main/lib/auto-updater-source.test.ts src/main/lib/update-release-config.test.ts src/renderer/components/update-banner.test.ts` | `bun run test:update:smoke -- --from-release <tag> --to-version <version>` |
 | Packaging/resources/identity | `bun run build && bun run package && bun run test:package:smoke` | `bun run package` must invoke `bun run package:stage`, which invokes `bun run bin:stage`; package smoke must verify `Resources/browser` for exports, then credentialed signed/notarized release workflow |
 | Quality docs, workflow matrix, scripts, fixtures | `bun run test:quality` | `bun run test:closeout` |
 

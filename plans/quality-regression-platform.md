@@ -53,6 +53,10 @@ all have named coverage rows and closeout commands.
 - [x] 2026-05-05 / Codex: Ran `bun run test:release`; it passed closeout,
   schema drift, export smoke, package, and package smoke. Local macOS
   notarization was skipped because notarize options are not configured locally.
+- [x] 2026-05-05 / Codex: Added packaged update smoke coverage with
+  `scripts/smoke-packaged-update.mjs` and `bun run test:update:smoke`, raising
+  the workflow matrix to 37 rows and the verifier to 17 required package
+  scripts.
 
 ## Surprises & Discoveries
 
@@ -95,10 +99,11 @@ all have named coverage rows and closeout commands.
 ## Outcomes & Retrospective
 
 The v1 quality platform is implemented and locally validated. The workflow
-matrix covers 36 named user journeys and the verifier keeps the matrix, package
+matrix covers 37 named user journeys and the verifier keeps the matrix, package
 scripts, fixtures, evidence paths, and closeout docs from drifting. The new
 command tiers let future agents choose targeted UX, agent/runtime, export,
-package, or full closeout sweeps instead of guessing from the entire suite.
+package, packaged update, or full closeout sweeps instead of guessing from the
+entire suite.
 
 The export smoke was worth adding immediately: it caught a non-renderable test
 fixture that normal file-presence checks would have missed. That failure is now
@@ -121,6 +126,7 @@ Important artifacts:
 - `test/fixtures/hyperframes/basic-title-card`: deterministic smoke fixture.
 - `scripts/verify-ripple-quality-platform.mjs`: matrix/script verifier.
 - `scripts/smoke-packaged-ripple.mjs`: packaged app contract smoke.
+- `scripts/smoke-packaged-update.mjs`: packaged N-to-N+1 update smoke.
 - `scripts/smoke-ripple-export-formats.ts`: real MP4/MOV/WebM render smoke.
 - `package.json`: command entry points.
 
@@ -178,6 +184,9 @@ Release-candidate validation:
 
 - `bun run test:package:smoke` passes after `bun run package`.
 - `bun run test:export:smoke` passes in a validated render environment.
+- `bun run test:update:smoke -- --from-release <tag> --to-version <version>`
+  passes for signed/notarized published update candidates when refreshing the
+  release update gate.
 - `bun run test:release` passes when local packaging/notarization prerequisites
   are available, or the release checklist records any CI-only gate explicitly.
 
@@ -209,9 +218,11 @@ matrix.
 Created interfaces:
 
 - package scripts: `test:quality`, `test:ux`, `test:agent`, `test:export`,
-  `test:export:smoke`, `test:package:smoke`, `test:closeout`, `test:release`
+  `test:export:smoke`, `test:package:smoke`, `test:update:smoke`,
+  `test:closeout`, `test:release`
 - verifier: `scripts/verify-ripple-quality-platform.mjs`
 - package smoke: `scripts/smoke-packaged-ripple.mjs`
+- update smoke: `scripts/smoke-packaged-update.mjs`
 - export smoke: `scripts/smoke-ripple-export-formats.ts`
 
 Dependencies:
@@ -226,8 +237,8 @@ Dependencies:
 
 Current command evidence:
 
-- `bun run test:quality`: passed, 3 tests / 88 expectations after Phase 19
-  package-staging hardening; verifier reported 36 workflow rows and 16 package
+- `bun run test:quality`: passed, 4 tests / 106 expectations after packaged
+  update smoke wiring; verifier reported 37 workflow rows and 17 package
   scripts.
 - `bun run test:ux`: passed, 129 tests / 458 expectations.
 - `bun run test:agent`: passed, 97 tests / 321 expectations.
@@ -240,6 +251,8 @@ Current command evidence:
   Playwright specs were isolated from Bun discovery; the full-suite segment
   reported 411 tests / 1711 expectations.
 - `bun run test:package:smoke`: passed against `release/mac-arm64/Ripple.app`.
+- `bun run test:update:smoke -- --from-release v0.19.0-beta.1 --to-version 0.19.0-beta.2`:
+  passed against signed/notarized near-stable prereleases.
 - `bun run db:generate`: passed with no schema changes.
 - `bun run test:release`: passed after the Electron E2E gate was added to
   closeout; it reran the closeout gate, confirmed no schema changes, rendered

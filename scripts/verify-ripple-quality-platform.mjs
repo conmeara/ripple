@@ -60,6 +60,7 @@ const requiredScripts = [
   "test:visual",
   "test:live",
   "test:package:smoke",
+  "test:update:smoke",
   "test:closeout",
   "test:release",
   "test:ripple",
@@ -97,6 +98,7 @@ mustExist(matrixPath)
 mustExist(closeoutPath)
 mustExist(releaseChecklistPath)
 mustExist("scripts/smoke-packaged-ripple.mjs")
+mustExist("scripts/smoke-packaged-update.mjs")
 mustExist("scripts/smoke-ripple-export-formats.ts")
 mustExist("scripts/smoke-live-provider.mjs")
 mustExist(".github/workflows/ripple-quality.yml")

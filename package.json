@@ -51,6 +51,7 @@
     "test:visual": "bun run build && playwright test --config test/e2e/playwright.config.ts --grep @visual",
     "test:live": "node scripts/smoke-live-provider.mjs",
     "test:package:smoke": "node scripts/smoke-packaged-ripple.mjs",
+    "test:update:smoke": "node scripts/smoke-packaged-update.mjs",
     "test:closeout": "bun run test:quality && bun run test:ripple && bun run test:hyperframes && bun test && bun run ts:check && bun run test:e2e && git diff --check",
     "test:release": "bun run test:closeout && bun run db:generate && bun run test:export:smoke && bun run package && bun run test:package:smoke",
     "test:ripple": "bun test src/cli src/main/lib/ripple-projects src/main/lib/hyperframes src/main/lib/exports src/main/lib/revisions src/main/lib/agent-runtime src/main/lib/conversations src/main/lib/git/worktree-config.test.ts src/main/windows/chat-ownership.test.ts src/shared/ripple-activity.test.ts src/shared/ripple-comments.test.ts src/shared/ripple-conversations.test.ts src/shared/ripple-exports.test.ts src/renderer/components/ui/resizable-sidebar.test.ts src/renderer/components/dialogs/settings-tabs/agents-capability-settings.test.ts src/renderer/features/sidebar/project-chat-selection.test.ts src/renderer/features/onboarding src/renderer/features/templates src/renderer/features/hyperframes src/renderer/features/comments src/renderer/features/agents/lib src/renderer/features/agents/commands src/renderer/features/agents/utils src/renderer/features/ripple-shell src/renderer/features/renders",

@@ -1345,11 +1345,21 @@ Current baseline after Phase 19 local audit:
 - `bun run test:release`
 - `bun run test:package:smoke` verifies Ripple identity, app-managed CLIs, and
   the packaged export browser
+- `bun run test:update:smoke` verifies a published signed/notarized packaged
+  app can update N-to-N+1 through Ripple
 - Official GitHub Actions release run `25393310437` passed for draft
   `v0.19.0` from commit `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`:
   staging, build, signing/notarization, packaged export-browser architecture
   verification, `codesign` / `spctl` / `stapler`, update metadata, GitHub
   Release upload, workflow artifact upload, and draft release retargeting
+- Official GitHub Actions prerelease runs `25403086125` and `25403086154`
+  published `v0.19.0-beta.1` and `v0.19.0-beta.2` from commit
+  `569a1bbd17208dd07a56a06737b70b38e7f7a6d4`; both passed signing,
+  notarization, packaged export-browser architecture checks, update metadata,
+  GitHub Release upload, and workflow artifact upload
+- `bun run test:update:smoke -- --from-release v0.19.0-beta.1 --to-version 0.19.0-beta.2`
+  passed: packaged `0.19.0-beta.1` discovered, downloaded, installed, and
+  verified `0.19.0-beta.2` through Ripple's packaged updater
 - Playwright Electron artifacts for launch, onboarding, project creation,
   template creation, existing-project open, comments, stored visual context,
   preview shell, resize/keyboard controls, generated-change accept/reject
@@ -1367,8 +1377,9 @@ Current baseline after Phase 19 local audit:
   resolutions.
 - Packaged app smoke evidence now covers production analytics off/on, blank
   project preview/comment/MP4 export, and bundled-template comment flow
-- remaining release evidence still needed for update N-to-N+1 and optional
-  packaged MOV/WebM UI export
+- no required Phase 19 release blocker remains; packaged UI MOV/WebM export
+  remains optional extra evidence because local Producer smoke covers
+  MP4/MOV/WebM and packaged UI MP4 covers app-managed export resources
 
 Ripple should graduate from the 1Code baseline to full test suites plus a
 repeatable QA protocol. Testing is a release gate, not a best-effort cleanup

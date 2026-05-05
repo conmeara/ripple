@@ -23,11 +23,16 @@ or an explicit release-gate smoke.
 - Release gate: `bun run test:release`, which runs closeout, schema drift,
   real export smoke, package, and package smoke; then complete the manual and
   credentialed gates in `docs/release/v1-release-checklist.md`.
+- Packaged update gate: `bun run test:update:smoke -- --from-release <tag> --to-version <version>`
+  when a signed/notarized published app must prove N-to-N+1 update install.
 
 `test:package:smoke` expects an existing local package at
 `release/mac-arm64/Ripple.app` on macOS unless `RIPPLE_PACKAGED_APP` points at a
 different app bundle. `test:export:smoke` is the real render-format smoke and
 should be run in a validated environment with browser/FFmpeg access.
+`test:update:smoke` downloads a published macOS ZIP, launches it with isolated
+home/userData, drives the packaged update APIs, and verifies the updated app
+with macOS signing/notarization checks.
 
 ## Electron E2E Artifacts
 

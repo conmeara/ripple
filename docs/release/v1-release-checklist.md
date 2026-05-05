@@ -15,24 +15,24 @@ Package metadata version: `0.19.0`.
 | Requirement | Evidence to inspect | Current status |
 | --- | --- | --- |
 | Review everything implemented in `ROADMAP.md` | `ROADMAP.md` phase list and every `plans/phase-*.md` ExecPlan | Local audit completed. Phase plans exist for Phases 1-18 plus 10B and v2 sequence research; Phase 19 plan added in this pass. |
-| Review all phases | Phase 0-19 matrix below | Local phase matrix updated. Manual packaged-app QA remains the main v1 go/no-go input. |
+| Review all phases | Phase 0-19 matrix below | Local phase matrix updated. Required packaged-app QA evidence is complete for the `v0.19` release gate. |
 | Improve and optimize for v1 release | Release-readiness findings, patched docs/UI, validation commands | Improved in this pass: root README, AGENTS snapshot, roadmap Phase 19 linkage, preview setup wiring/copy, shipped import wording, macOS permission copy, package-size optimization, quality/regression platform, and this checklist. |
-| Do not accept proxy signals as completion | Command output, packaged app evidence, manual QA notes, artifact inspection | Substantially satisfied. Automated gates, package/resource smoke, local MP4/MOV/WebM export smoke, packaged UI MP4 export, packaged offline-local smoke, packaged analytics opt-in/off smoke, credentialed provider smoke, and official signed/notarized CI release passed. Release evidence exposed and fixed two packaging gaps: the first official `v0.19` CI release missed the x64 export browser, and quality CI package smoke later exposed that fresh checkouts needed tracked HyperFrames CLI staging plus current-platform Claude/Codex binary staging before `bun run package`. |
+| Do not accept proxy signals as completion | Command output, packaged app evidence, manual QA notes, artifact inspection | Satisfied for required Phase 19 gates. Automated gates, package/resource smoke, local MP4/MOV/WebM export smoke, packaged UI MP4 export, packaged offline-local smoke, packaged analytics opt-in/off smoke, credentialed provider smoke, official signed/notarized CI release, and near-stable packaged update N-to-N+1 smoke all passed. Release evidence exposed and fixed two packaging gaps: the first official `v0.19` CI release missed the x64 export browser, and quality CI package smoke later exposed that fresh checkouts needed tracked HyperFrames CLI staging plus current-platform Claude/Codex binary staging before `bun run package`. |
 | Ship the release as `v0.19` | `package.json`, release workflow input, GitHub release tag/name | Package metadata and packaged `Info.plist` are `0.19.0`; a draft `v0.19.0` release exists with refreshed signed/notarized arm64 and x64 macOS assets from GitHub Actions run `25393310437`, targeting commit `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`. |
 
 ## Phase Matrix
 
 | Phase | Primary artifact | Release evidence required | Status |
 | --- | --- | --- | --- |
-| 0 Planning And Instruction Reset | `AGENTS.md`, `PLANS.md`, `ROADMAP.md` | Ripple-specific agent instructions and roadmap are current | Updated in Phase 19; final pre-release read still recommended. |
-| 1 Local-First Boot | `plans/phase-1-local-first-boot.md` | Fresh app entry reaches project-first shell without sign-in | Packaged isolated-userData smoke passed; remaining human install QA still recommended. |
+| 0 Planning And Instruction Reset | `AGENTS.md`, `PLANS.md`, `ROADMAP.md` | Ripple-specific agent instructions and roadmap are current | Updated in Phase 19 and included in the release audit. |
+| 1 Local-First Boot | `plans/phase-1-local-first-boot.md` | Fresh app entry reaches project-first shell without sign-in | Packaged isolated-userData smoke passed. |
 | 2 Ripple Project Creation | `plans/phase-2-ripple-project-creation.md` | Create/open under `~/Ripple`, scaffold is previewable, lifecycle actions work | Covered by `bun run test:ripple`; packaged blank/template project creation passed. |
 | 3 HyperFrames Service Layer | `plans/phase-3-hyperframes-service-layer.md` | Main-process environment, discovery, preview, snapshot, render APIs work | Current HyperFrames tests and packaged UI export smoke pass. |
 | 4 HyperFrames Preview Player | `plans/phase-4-hyperframes-preview-player.md` | Official player-backed preview loads, seeks, reloads, and errors clearly | Current focused tests and packaged preview play/seek smoke pass. |
-| 5 HyperFrames Timeline | `plans/phase-5-hyperframes-timeline.md` | Timeline stays synced with player and selection state | Current focused tests and packaged mouse-seek smoke pass; remaining visual QA recommended. |
-| 6 Assets And Compositions Pane | `plans/phase-6-assets-compositions-pane.md` | Composition/asset pane uses project-safe reads and drives preview/timeline | Current focused tests pass; visual QA still needed. |
-| 7 Ripple Shell And Review Sidebar | `plans/phase-7-ripple-shell-and-review-sidebar.md` | Four-pane shell, right chat/comments pane, and utilities work together | Current shell tests pass; visual QA still needed. |
-| 8 Comments And Revisions | `plans/phase-8-comments-and-revisions.md` | Frame/time comments, isolated revisions, accept/reject/delete/restore work | Current comments/revisions tests pass; manual revision smoke still needed. |
+| 5 HyperFrames Timeline | `plans/phase-5-hyperframes-timeline.md` | Timeline stays synced with player and selection state | Current focused tests, built-Electron preview reload/composition switching, and packaged mouse-seek smoke pass. |
+| 6 Assets And Compositions Pane | `plans/phase-6-assets-compositions-pane.md` | Composition/asset pane uses project-safe reads and drives preview/timeline | Current focused tests and packaged open-project/composition-switch evidence pass. |
+| 7 Ripple Shell And Review Sidebar | `plans/phase-7-ripple-shell-and-review-sidebar.md` | Four-pane shell, right chat/comments pane, and utilities work together | Current shell tests and built-Electron resize/keyboard QA pass. |
+| 8 Comments And Revisions | `plans/phase-8-comments-and-revisions.md` | Frame/time comments, isolated revisions, accept/reject/delete/restore work | Current comments/revisions tests, built-Electron generated-change review QA, and packaged accept/reject QA pass. |
 | 9 Codex And Claude Integrations | `plans/phase-9-codex-and-claude-integrations.md` | Provider setup is optional and agent runs stay in validated workspaces | Current agent-runtime tests pass, including deterministic Claude/Codex auth-error prompt coverage; provider smoke still depends on configured credentials. |
 | 10 Conversations And Proposals | `plans/phase-10-conversations-and-proposals.md` | Conversations/messages are canonical and comment chat handoff works | Current conversation tests pass. |
 | 10B Active Conversations | `plans/phase-10b-active-conversation-tabs-and-activity-badges.md` | Active chips/history/activity badges remain reliable | Current shell/activity tests pass. |
@@ -43,8 +43,8 @@ Package metadata version: `0.19.0`.
 | 15 Rebrand And Service Decoupling | `plans/phase-15-rebrand-and-service-decoupling.md` | Primary shipped paths remove 1Code/21st/repo-first identity | Built output audit now only finds legacy compatibility guards. |
 | 16 Analytics Setup | `plans/phase-16-analytics-setup.md` | Opt-in main-process analytics sends only allowed sanitized events; analytics off sends nothing | Current analytics tests and packaged production analytics opt-in/off smoke pass. |
 | 17 Onboarding Screen | `plans/phase-17-onboarding-screen.md` | First-run dialog is skippable, local-first, and separates profile/email/analytics/provider setup | Covered by settings/onboarding tests and packaged skippable first-run smoke. |
-| 18 App Updates | `plans/phase-18-app-updates.md`, `.github/workflows/release.yml` | Signed/notarized beta N-to-N+1 update passes inside Ripple | Prior Phase 18 evidence records beta.1 to beta.2 success; recheck before stable. |
-| 19 Hardening And Release Readiness | `plans/phase-19-hardening-and-release-readiness.md`, this file | Full automated, package, render, analytics, update, and manual QA gates pass | Automated local gates, local export smoke, packaged UI export, packaged analytics, package smoke, credentialed provider smoke, and official signed/notarized CI release passed. Package staging now prepares current-platform app-managed CLIs and export browsers from a fresh checkout. Update refresh and remaining human QA gates still remain. |
+| 18 App Updates | `plans/phase-18-app-updates.md`, `.github/workflows/release.yml` | Signed/notarized beta N-to-N+1 update passes inside Ripple | Passed again near stable: published `v0.19.0-beta.1` and `v0.19.0-beta.2` from commit `569a1bbd17208dd07a56a06737b70b38e7f7a6d4`; packaged `beta.1` discovered, downloaded, installed, and verified `beta.2` through Ripple. |
+| 19 Hardening And Release Readiness | `plans/phase-19-hardening-and-release-readiness.md`, this file | Full automated, package, render, analytics, update, and manual QA gates pass | Required release gates passed. Automated local gates, local export smoke, packaged UI export, packaged analytics, package smoke, credentialed provider smoke, official signed/notarized CI release, packaged release QA, offline-local QA, failure-recovery audit, and near-stable packaged update smoke passed. Package staging now prepares current-platform app-managed CLIs and export browsers from a fresh checkout. |
 
 ## Automated Gates
 
@@ -53,7 +53,7 @@ Run from `/Users/conmeara/code/ripple`.
 | Gate | Command | Pass condition | Evidence location |
 | --- | --- | --- | --- |
 | Focused Ripple regressions | `bun run test:ripple` | All tests pass | Passed 2026-05-05 after provider prompt coverage: 370 tests / 1507 expectations. |
-| Quality platform | `bun run test:quality` | Workflow matrix, fixtures, scripts, and closeout protocol verify | Passed 2026-05-05 after failure-recovery audit coverage: 4 tests / 104 expectations; verifier found 37 workflow rows and 16 package scripts. |
+| Quality platform | `bun run test:quality` | Workflow matrix, fixtures, scripts, and closeout protocol verify | Passed 2026-05-05 after adding repeatable update-smoke wiring: 4 tests / 106 expectations; verifier found 37 workflow rows and 17 package scripts. |
 | UX workflow sweep | `bun run test:ux` | User-facing renderer workflow slice passes | Passed 2026-05-05: 130 tests / 464 expectations. |
 | Electron UX automation | `bun run test:e2e` | Playwright launches built Electron, clicks launch/onboarding/project/template/comments/renders/open-project/visual-context/resize/preview reload/composition-switch/generated-change review workflows, and retains screenshots/traces/logs on failure | Passed 2026-05-05: 6 passed, 1 packaged-only offline export workflow skipped. |
 | Packaged Electron UX automation | `bun run test:e2e:packaged` | Playwright launches the packaged `Ripple.app` artifact and replays trusted open-project, visual context, preview reload/composition-switch, generated-change review, and offline local-use workflows | Passed 2026-05-05 against `release/mac-arm64/Ripple.app`: 5 release QA workflows. |
@@ -70,6 +70,7 @@ Run from `/Users/conmeara/code/ripple`.
 | Schema drift | `bun run db:generate` then inspect diff | No unintended migration diff, or generated migration is reviewed | Passed 2026-05-05: no schema changes. |
 | Package build | `bun run package` or platform package command | Packaged app contains expected resources and identity | Passed 2026-05-05 for local `--dir`; `package:stage` now runs `bin:stage` and `browser:stage`, so a fresh checkout stages current-platform Claude/Codex binaries plus arm64/x64 export browsers before packaging. Notarization skipped locally. |
 | Package smoke | `bun run test:package:smoke` | Existing packaged app has Ripple identity, resources, CLI binaries, and export browser | Passed 2026-05-05 against a freshly rebuilt `release/mac-arm64/Ripple.app`; smoke verified `Resources/bin/ripple`, tracked `Resources/bin/hyperframes`, downloaded `Resources/bin/claude`, downloaded `Resources/bin/codex`, and `Resources/browser`. |
+| Packaged update smoke | `bun run test:update:smoke -- --from-release v0.19.0-beta.1 --to-version 0.19.0-beta.2` | Older signed/notarized packaged app discovers, downloads, installs, and verifies the newer packaged app through Ripple | Passed 2026-05-05: `0.19.0-beta.1` found `0.19.0-beta.2`, downloaded the arm64 ZIP to 100%, installed through Squirrel.Mac, and the updated app passed `codesign`, `spctl`, and `stapler`. |
 | Release script | `bun run test:release` | Closeout, schema drift, export smoke, package, and package smoke all pass | Passed 2026-05-05 after the `0.19.0` version bump and packaged export-browser fix. Notarization skipped locally because local notarize options were unavailable. |
 
 ## Artifact Audits
@@ -79,10 +80,10 @@ Run from `/Users/conmeara/code/ripple`.
 | Primary-path identity | Search shipped source/resources for `1Code`, `21st.dev`, `.21st`, `twentyfirst`, `Set up repository` | Passed local built-output audit: only legacy compatibility guards remain in `out/main/index.js`. |
 | Root docs | Read `README.md`, `AGENTS.md`, `ROADMAP.md`, `PLANS.md` | Updated in this pass to describe Ripple v1 state and Phase 19. |
 | Package resources | Inspect package output | Passed local package smoke: `Ripple.app`, app id/protocol, CLI wrapper, migrations, templates, skills/plugins, and app-managed Claude/Codex binaries are present. |
-| Release workflow | Inspect `.github/workflows/release.yml` and latest Actions run | Passed GitHub Actions run `25393310437`: signed/notarized artifacts published with GitHub update metadata and no app-embedded publishing secrets. The workflow verifies each packaged app contains an executable export browser with the expected macOS architecture, and existing draft refreshes now retarget the release to the run SHA. |
+| Release workflow | Inspect `.github/workflows/release.yml` and latest Actions run | Passed GitHub Actions run `25393310437` for the stable draft and near-stable prerelease runs `25403086125` / `25403086154`: signed/notarized artifacts published with GitHub update metadata and no app-embedded publishing secrets. The workflow verifies each packaged app contains an executable export browser with the expected macOS architecture, and existing draft refreshes now retarget the release to the run SHA. |
 | Analytics privacy | Inspect docs/tests and packaged opt-in smoke | Passed packaged production smoke: unset/denied consent blocked capture; opt-in captured an allowlisted event. |
 | Export outputs | Render fixture project to MP4, MOV, WebM | Passed local render/FFprobe smoke for MP4, MOV, and WebM; packaged UI MP4 export passed from the final app artifact. |
-| Manual QA | Complete checklist below | Fresh packaged app, onboarding skip, blank project, template project, preview seek, comments, analytics, MP4 export, open project, visual context, preview reload/composition switching, generated-change accept/reject, and offline local use passed against packaged or built Electron artifacts. Remaining human QA rows are listed below. |
+| Manual QA | Complete checklist below | Fresh packaged app, onboarding skip, blank project, template project, preview seek, comments, analytics, MP4 export, open project, visual context, preview reload/composition switching, generated-change accept/reject, offline local use, and packaged update flow passed against packaged or built Electron artifacts. |
 
 ## Manual QA
 
@@ -101,7 +102,7 @@ Complete these in a packaged app with isolated user data before stable v1.
 | Agent setup | Missing Codex/Claude connection prompts from the first agent action only | Automated coverage now verifies Claude auth errors open the Claude setup prompt, Codex missing credentials open the Codex setup prompt, saved Codex credentials queue one retry without a modal, and repeated saved-credential failures show a recoverable error. App launch / project entry E2E continues to verify no provider setup gate appears before local work. |
 | Visual context | Current-frame screenshot or frame sheet attaches to comments when enabled | Passed built-Electron release QA for current-frame capture; also found and fixed a macOS `/var` to `/private/var` realpath boundary bug. |
 | Export | MP4, MOV, and WebM export complete in a validated environment | Packaged UI MP4 export passed; local Producer smoke passed MP4, MOV, and WebM. |
-| App updates | Older packaged beta updates to newer packaged beta inside Ripple | Prior beta.1 to beta.2 success should be refreshed near stable. |
+| App updates | Older packaged beta updates to newer packaged beta inside Ripple | Passed near stable: published `v0.19.0-beta.1` and `v0.19.0-beta.2`, launched the signed/notarized `beta.1` app with isolated home/userData, switched to Early Access, manually checked, downloaded `beta.2` to 100%, installed through Squirrel.Mac, and verified the updated app as `0.19.0-beta.2` with `codesign`, `spctl`, and `stapler`. |
 | Analytics | Off sends nothing; opt-in sends only allowed sanitized events | Passed packaged production opt-in/off smoke. |
 | Offline local use | Project creation, preview, comments, and export do not require network | Passed packaged release QA with external renderer HTTP/S requests blocked: created a local project, reached preview readiness, recorded a frame comment, completed a packaged MP4 export, and asserted no external requests were attempted. |
 | Failure recovery | Missing Node/FFmpeg, preview startup failure, export failure, and failed update check show recoverable errors | Passed automated recovery audit. Evidence covers missing render tools without throwing, app-runtime fallback for Node, preview timeout/start failure codes, export failed/interrupted states with Retry, stale export recovery, and update check/download failure messages. |
@@ -132,6 +133,11 @@ Complete these in a packaged app with isolated user data before stable v1.
   workflow matrix, future-agent closeout protocol, Electron E2E, visual
   snapshot, deterministic fixture, package/export smokes, provider smoke
   scaffolding, CI reporting, and `test:release` wiring are in place.
+- The packaged update gate is now repeatable through
+  `scripts/smoke-packaged-update.mjs` / `bun run test:update:smoke`, which
+  downloads an older published macOS ZIP, launches it with isolated home and
+  userData, drives the packaged `desktopApi` update flow, verifies the installed
+  bundle version, and checks `codesign`, `spctl`, and `stapler`.
 - `package.json` is set to `0.19.0` for the `v0.19` target and the final local
   packaged `Info.plist` reports `CFBundleShortVersionString` / `CFBundleVersion`
   as `0.19.0`.
@@ -265,9 +271,24 @@ Complete these in a packaged app with isolated user data before stable v1.
 - Update metadata verification passed in CI:
   `release/latest-mac.yml` contains `version: 0.19.0`, and packaged
   `app-update.yml` points to GitHub owner `conmeara` / repo `ripple`.
+- Near-stable prerelease update candidates passed through the same official
+  release workflow from commit
+  `569a1bbd17208dd07a56a06737b70b38e7f7a6d4`:
+  `25403086125` published `v0.19.0-beta.1`, and `25403086154` published
+  `v0.19.0-beta.2`. Both runs passed staging, build, signing/notarization,
+  export-browser architecture verification, `codesign`, `spctl`, `stapler`,
+  update metadata verification, release upload, and workflow artifact upload.
+- Packaged update smoke passed on 2026-05-05 with
+  `bun run test:update:smoke -- --from-release v0.19.0-beta.1 --to-version 0.19.0-beta.2`.
+  The packaged `0.19.0-beta.1` app found `0.19.0-beta.2` on the beta channel,
+  downloaded the arm64 ZIP to 100%, installed through Squirrel.Mac, and the
+  updated temp app reported `CFBundleShortVersionString=0.19.0-beta.2` and
+  passed `codesign --verify --deep --strict --verbose=2`,
+  `spctl --assess --type execute --verbose`, and `xcrun stapler validate`.
 
 ## Remaining V0.19 Release Blockers
 
-- Refresh packaged update N-to-N+1 evidence near stable.
-- Complete remaining packaged app human QA rows in the checklist above, especially
-  update flow and MOV/WebM from the packaged UI if desired.
+- None for the required `v0.19` release gate.
+- Optional follow-up: run packaged UI MOV/WebM export smoke if the release owner
+  wants package-level evidence for every format. Current required evidence is
+  packaged UI MP4 export plus local Producer MP4/MOV/WebM render smoke.
