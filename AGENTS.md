@@ -49,32 +49,38 @@ plan, product specification, release criteria, and testing strategy, read
 
 ## Architecture Snapshot
 
-Current code is still mostly 1Code-shaped:
+Current code is in v1 release-hardening mode. It still contains useful inherited
+1Code foundations, but the primary Ripple paths are now implemented around local
+motion projects:
 
-- `src/main/`: Electron main process, auth, analytics, updater, database,
-  tRPC routers, terminal, git/worktree helpers, Claude/Codex execution.
-- `src/preload/`: context-isolated bridge exposing tRPC and `desktopApi`.
-- `src/renderer/`: React 19 renderer with the current agents shell, onboarding,
-  sidebar, chat, preview, diff, file viewer, terminal, settings, automations,
-  and kanban.
-- `src/main/lib/db/schema/index.ts`: current Drizzle schema. It includes
-  Ripple project/comment/revision, conversation, workspace, and agent-runtime
+- `src/main/`: Electron main process, optional auth/provider setup, privacy
+  guarded analytics, app updates, database, tRPC routers, terminal,
+  git/worktree internals, Ripple project services, HyperFrames orchestration,
+  exports, comments/revisions, conversations, and Claude/Codex execution.
+- `src/preload/`: context-isolated bridge exposing tRPC and `desktopApi`
+  methods for project, analytics, update, preview, export, and agent surfaces.
+- `src/renderer/`: React 19 renderer with project-first onboarding, Ripple
+  shell, assets/compositions/templates pane, center HyperFrames
+  preview/timeline/export surface, right chat/comment pane, settings,
+  automations, kanban, and inherited advanced utilities where still useful.
+- `src/main/lib/db/schema/index.ts`: active Drizzle schema for Ripple projects,
+  comments, revisions, exports, conversations, workspaces, and agent runtime
   records. Legacy `chats` and renderer/provider `subChatId` compatibility names
   still exist in places, but the physical `sub_chats` table is retired from the
   active Ripple schema.
+- `src/main/lib/ripple-projects/`, `src/main/lib/hyperframes/`,
+  `src/main/lib/exports/`, `src/main/lib/revisions/`,
+  `src/main/lib/conversations/`, and `src/main/lib/agent-runtime/`: main
+  process-owned Ripple product services.
+- `src/renderer/features/ripple-shell/`, `src/renderer/features/hyperframes/`,
+  `src/renderer/features/comments/`, and `src/renderer/features/renders/`:
+  primary motion-creation and review UI surfaces.
 - `PLANS.md`: ExecPlan rules and template for complex work.
 - `ROADMAP.md`: active roadmap/spec and durable product context.
 
-Target Ripple additions:
-
-- HyperFrames project service in the main process.
-- tRPC APIs for project creation, environment checks, composition discovery,
-  preview lifecycle, snapshots, render/export, comments, revisions,
-  conversations, and agent runtime.
-- Renderer shell with project rail, assets/compositions pane, center
-  HyperFrames preview/timeline/export surface, and right chat/comment pane.
-- SQLite coverage for remaining export jobs, environment readiness, and any
-  follow-on conversation fields tracked in `ROADMAP.md`.
+Near-term release work should focus on Phase 19 hardening: broad automated
+gates, packaged-app QA, export/render verification, analytics/update smokes,
+manual release checklist completion, and primary-path language audits.
 
 ## ExecPlans
 
@@ -102,6 +108,14 @@ Use Bun unless a task specifically requires another package manager.
 bun run dev
 bun test
 bun run test:ripple
+bun run test:quality
+bun run test:ux
+bun run test:agent
+bun run test:export
+bun run test:package:smoke
+bun run test:export:smoke
+bun run test:closeout
+bun run test:release
 bun run build
 bun run ts:check
 bun run package
@@ -118,12 +132,25 @@ Notes:
 - `bun run test:ripple` runs the focused Ripple regression suite:
   project paths/scaffold/metadata/environment/lifecycle, hidden `.ripple`
   setup config, project chat selection, chat ownership, New Project shortcut
-  routing, and selected-project mapping.
+  routing, selected-project mapping, onboarding, templates, preview/timeline,
+  comments, agents, shell state, and renders.
+- `bun run test:quality` verifies the workflow coverage matrix, test fixtures,
+  package scripts, and future-agent closeout protocol.
+- `bun run test:ux`, `bun run test:agent`, and `bun run test:export` are
+  workflow-focused slices for renderer UX, provider/revision runtime, and
+  HyperFrames/export work.
+- `bun run test:package:smoke` expects a built package and checks packaged
+  identity/resources/CLIs. `bun run test:export:smoke` runs real MP4/MOV/WebM
+  render validation in a prepared render environment.
+- `bun run test:closeout` is the broad local pre-claim gate for future agents.
 - `bun run ts:check` is the current TypeScript check.
 - Ripple should grow full unit, integration, renderer/component, Electron E2E,
   render/export, packaging, and manual QA gates; see `ROADMAP.md`.
 - HyperFrames integration should eventually validate Node.js 22+, FFmpeg, and
   `npx hyperframes doctor` through app-managed flows.
+- For future-agent regression closeout, start with
+  `docs/testing/agent-closeout.md` and map touched behavior to
+  `docs/testing/ux-workflow-coverage.md`.
 
 ## Implementation Rules
 

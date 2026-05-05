@@ -116,28 +116,53 @@ Operational constraints:
 
 ## Current Codebase Reality
 
-The codebase currently provides useful foundations:
+The original foundation is still visible in advanced/internal surfaces, but the
+active v1 path is now Ripple-shaped and in release-hardening mode.
+
+Implemented foundations:
 
 - Electron + React 19 + TypeScript + Vite desktop app.
 - Tailwind, Radix UI, Motion, Sonner, Lucide, Jotai, Zustand, TanStack Query.
 - tRPC IPC between renderer and main process.
 - SQLite + Drizzle with migrations.
-- Claude Code and Codex provider paths.
-- Legacy chat/sub-chat state, streaming messages, queued sends, tool rendering.
+- Claude Agent SDK and Codex App Server provider paths.
 - Git/worktree, diff, file viewer, terminal, settings, MCP/plugins,
-  automations, kanban, and voice-related systems.
+  automations, kanban, and voice-related systems retained as secondary or
+  internal foundations where they still serve Ripple.
 
-The codebase still conflicts with Ripple in major ways:
+Implemented Ripple v1 surfaces:
 
-- Main window loading is auth-gated.
-- Renderer app entry is billing/provider-gated, then repo-gated.
-- Project APIs are folder/repo/GitHub oriented.
-- Default clone paths still use `.21st`.
-- The DB lacks Ripple domain entities.
-- Preview is a sandbox/dev-server iframe, not HyperFrames Studio/player.
-- Review is branch/commit/PR/diff oriented, not frame/comment/revision oriented.
-- Branding and service URLs still reference 1Code and 21st.
-- HyperFrames packages and runtime orchestration are not integrated yet.
+- Local-first app entry and project-first onboarding without mandatory sign-in,
+  provider setup, GitHub, repo setup, or billing gates.
+- `~/Ripple/<project-name>` project creation, scaffold, metadata, lifecycle,
+  hidden setup config, and app-managed HyperFrames context.
+- Main-process HyperFrames project, preview, composition discovery, timeline,
+  snapshot, template, frame-sheet, and render/export services.
+- Center-stage Ripple shell with project rail, assets/compositions/templates
+  pane, HyperFrames preview/timeline/export surface, and right chat/comment
+  pane.
+- Frame/time comments, isolated revisions/proposals, accept/reject/delete/
+  restore flows, active conversation tabs, and activity badges.
+- Canonical Ripple conversations/messages with remaining `subChatId` names
+  treated as renderer/provider compatibility identifiers.
+- DB-backed export jobs and `Renders` pane for MP4, MOV, and WebM.
+- Bundled HyperFrames templates, previews, app-managed agent skills/context,
+  and `ripple frame-sheet` visual-context tooling.
+- Ripple app identity, CLI wrappers, app icons, update config, optional
+  analytics consent, first-run onboarding, and GitHub Releases app update flow.
+
+Remaining v1 release risks:
+
+- Phase 19 must refresh broad automated gates, packaged-resource audits,
+  render/export smokes, analytics opt-in/off packaged smoke, manual QA, and
+  stable-release update evidence before v1 is called ready.
+- Some inherited developer-tool components remain for advanced/debug or
+  compatibility paths. Primary shipped paths must continue to be audited for
+  `1Code`, `21st.dev`, repo/worktree/branch/clone language, mandatory auth,
+  and generic dev-preview assumptions.
+- Multi-sequence/video-variant structure is parked in
+  `plans/v2/sequences-and-composition-structure.md` and is not active v1 scope
+  unless a validation spike explicitly promotes it.
 
 ## Target Tech Stack
 
@@ -562,6 +587,8 @@ Done when:
 
 ### Phase 2: Ripple Project Creation
 
+ExecPlan: `plans/phase-2-ripple-project-creation.md`
+
 Goals:
 
 - Replace repo-first onboarding with project-first create/open flows.
@@ -667,6 +694,8 @@ Done when:
 
 ### Phase 5: HyperFrames Timeline
 
+ExecPlan: `plans/phase-5-hyperframes-timeline.md`
+
 Goals:
 
 - Add a HyperFrames-native timeline under the Phase 4 preview player.
@@ -709,6 +738,8 @@ Done when:
   normal product surface.
 
 ### Phase 6: Assets And Compositions Pane
+
+ExecPlan: `plans/phase-6-assets-compositions-pane.md`
 
 Goals:
 
@@ -954,6 +985,8 @@ Done when:
 
 ### Phase 13: Agent Prompting And Skills
 
+ExecPlan: `plans/phase-13-agent-prompting-and-skills.md`
+
 Goals:
 
 - Replace generic app/coding-scene prompts with HyperFrames-aware motion editor
@@ -1029,6 +1062,8 @@ Done when:
 
 ### Phase 15: Rebrand And Service Decoupling
 
+ExecPlan: `plans/phase-15-rebrand-and-service-decoupling.md`
+
 Goals:
 
 - Remove shipped primary-path `1Code`, `21st.dev`, `twentyfirst-agents`,
@@ -1060,6 +1095,8 @@ Done when:
   are Ripple-owned.
 
 ### Phase 16: Analytics Setup
+
+ExecPlan: `plans/phase-16-analytics-setup.md`
 
 Goals:
 
@@ -1115,6 +1152,8 @@ Done when:
 
 ### Phase 17: Onboarding Screen
 
+ExecPlan: `plans/phase-17-onboarding-screen.md`
+
 Goals:
 
 - Replace inherited repo/provider-first onboarding with a compact Ripple
@@ -1166,6 +1205,8 @@ Done when:
   developer-tool language in the primary path.
 
 ### Phase 18: App Updates
+
+ExecPlan: `plans/phase-18-app-updates.md`
 
 Goals:
 
@@ -1241,6 +1282,10 @@ Done when:
 
 ### Phase 19: Hardening And Release Readiness
 
+ExecPlan: `plans/phase-19-hardening-and-release-readiness.md`
+
+Release checklist: `docs/release/v1-release-checklist.md`
+
 Goals:
 
 - Build full automated test suites and QA coverage for Ripple.
@@ -1266,18 +1311,51 @@ Done when:
   no files, paths, prompts, messages, comments, media, export paths, or raw IDs
   appear in captured payloads.
 - Packaging no longer references missing old release scripts or 1Code assets.
+- `docs/release/v1-release-checklist.md` is current and maps every release
+  requirement, command, artifact audit, and manual QA item to inspected
+  evidence.
 
 ## Testing Strategy
 
-Current baseline:
+Current baseline after Phase 19 local audit:
 
 - `bun run ts:check`
-- manual Electron smoke tests
-- existing Drizzle migration flow
+- `bun run test:quality`
+- `bun run test:ux`
+- `bun run test:agent`
+- `bun run test:export`
+- `bun run test:e2e`
+- `bun run test:visual`
+- `bun run test:live` as an opt-in credentialed provider smoke
+- `bun run test:ripple`
+- `bun run test:hyperframes`
+- `bun test`
+- `bun run db:generate`
+- `bun run build`
+- `bun run package` for local packaged-resource smoke
+- Playwright Electron artifacts for launch, onboarding, project creation,
+  template creation, comments, preview shell, and Renders pane workflows
+- manual Electron smoke tests for packaged, signed, update, analytics, and
+  credentialed provider gates that still need release evidence
 
 Ripple should graduate from the 1Code baseline to full test suites plus a
 repeatable QA protocol. Testing is a release gate, not a best-effort cleanup
 task.
+
+Quality platform artifacts:
+
+- `plans/quality-regression-platform.md`
+- `docs/testing/ux-workflow-coverage.md`
+- `docs/testing/agent-closeout.md`
+- `docs/testing/README.md`
+- `test/quality/`
+- `test/fixtures/hyperframes/basic-title-card/`
+- `test/e2e/`
+- `scripts/verify-ripple-quality-platform.mjs`
+- `scripts/smoke-packaged-ripple.mjs`
+- `scripts/smoke-ripple-export-formats.ts`
+- `scripts/smoke-live-provider.mjs`
+- `.github/workflows/ripple-quality.yml`
 
 ### Automated Test Suites
 
@@ -1370,8 +1448,9 @@ Initial recommendation:
   Vitest gives better mocking, watch mode, and DOM integration than ad hoc Bun
   tests for this stack.
 - Renderer components: React Testing Library on Vitest.
-- Electron E2E: Playwright with Electron support, or an equivalent Electron test
-  harness.
+- Electron E2E: Playwright with Electron support, launched against the built
+  Electron app with isolated temporary homes and retained screenshots/traces on
+  failure.
 - Render validation: FFprobe plus frame snapshot checks.
 - Manual/visual QA: Codex Computer Use for packaged-app and desktop interaction
   checks, especially first-run flows, resizing, menus, dialogs, export
@@ -1386,6 +1465,10 @@ experience proves otherwise.
 Before a Ripple release:
 
 - type check passes
+- quality platform verification passes
+- UX workflow sweep passes
+- agent/runtime workflow sweep passes
+- HyperFrames/export workflow sweep passes
 - unit suite passes
 - main-process integration suite passes
 - renderer/component suite passes

@@ -65,33 +65,43 @@ import { migrateLegacyUserData } from "./lib/user-data-migration"
 // Use different protocol in dev to avoid conflicts with production app
 const PROTOCOL = getAppProtocol(IS_DEV)
 
-// Set dev mode userData path BEFORE requestSingleInstanceLock()
-// This ensures dev and prod have separate instance locks
+// Set userData path BEFORE requestSingleInstanceLock().
+// This ensures dev, prod, and automated E2E runs have separate instance locks.
 {
-  const defaultUserDataPath = app.getPath("userData")
-  const appDataParent = dirname(defaultUserDataPath)
-  const userDataPath = join(appDataParent, getAppUserDataDir(IS_DEV))
-  app.setPath("userData", userDataPath)
-
-  const legacyUserDataPaths = getLegacyUserDataDirs(IS_DEV)
-    .map((dirName) => join(appDataParent, dirName))
-    .filter((legacyPath) => legacyPath !== userDataPath)
-
-  const migration = migrateLegacyUserData({
-    destinationPath: userDataPath,
-    legacyPaths: legacyUserDataPaths,
-    appVersion: app.getVersion(),
-  })
-
-  if (migration.migrated) {
-    console.log(
-      `[App] Migrated legacy userData from ${migration.sourcePath} to ${migration.destinationPath}`,
-    )
-    if (migration.authReadable === false) {
-      console.warn("[App] Migrated auth data could not be decrypted")
+  const e2eUserDataPath = process.env.RIPPLE_E2E_USER_DATA_DIR?.trim()
+  if (e2eUserDataPath) {
+    const e2eHomePath = process.env.RIPPLE_E2E_HOME_DIR?.trim()
+    if (e2eHomePath) {
+      app.setPath("home", e2eHomePath)
     }
-  } else if (IS_DEV) {
-    console.log("[Dev] Using separate userData path:", userDataPath)
+    app.setPath("userData", e2eUserDataPath)
+    console.log("[E2E] Using isolated userData path:", e2eUserDataPath)
+  } else {
+    const defaultUserDataPath = app.getPath("userData")
+    const appDataParent = dirname(defaultUserDataPath)
+    const userDataPath = join(appDataParent, getAppUserDataDir(IS_DEV))
+    app.setPath("userData", userDataPath)
+
+    const legacyUserDataPaths = getLegacyUserDataDirs(IS_DEV)
+      .map((dirName) => join(appDataParent, dirName))
+      .filter((legacyPath) => legacyPath !== userDataPath)
+
+    const migration = migrateLegacyUserData({
+      destinationPath: userDataPath,
+      legacyPaths: legacyUserDataPaths,
+      appVersion: app.getVersion(),
+    })
+
+    if (migration.migrated) {
+      console.log(
+        `[App] Migrated legacy userData from ${migration.sourcePath} to ${migration.destinationPath}`,
+      )
+      if (migration.authReadable === false) {
+        console.warn("[App] Migrated auth data could not be decrypted")
+      }
+    } else if (IS_DEV) {
+      console.log("[Dev] Using separate userData path:", userDataPath)
+    }
   }
 }
 

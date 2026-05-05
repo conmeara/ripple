@@ -381,7 +381,10 @@ export function RippleFirstRunDialog() {
   return (
     <>
       <AlertDialog open={open}>
-        <AlertDialogContent className="w-[560px] max-h-[calc(100vh-3rem)] overflow-hidden p-0 outline-none ring-0 focus:outline-none focus-visible:outline-none focus-visible:ring-0">
+        <AlertDialogContent
+          className="w-[560px] max-h-[calc(100vh-3rem)] overflow-hidden p-0 outline-none ring-0 focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+          data-testid="ripple-first-run-dialog"
+        >
           <AlertDialogHeader className="space-y-2 pb-3">
             <div className="flex justify-end">
               <div
@@ -543,6 +546,7 @@ export function RippleFirstRunDialog() {
                   setStep("preferences")
                 }
               }}
+              data-testid={isPreferencesStep ? "ripple-first-run-skip" : "ripple-first-run-back"}
             >
               {isPreferencesStep ? "Set up later" : "Back"}
             </Button>
@@ -556,6 +560,7 @@ export function RippleFirstRunDialog() {
                   void finish("completed")
                 }
               }}
+              data-testid={isPreferencesStep ? "ripple-first-run-continue" : "ripple-first-run-finish"}
             >
               {isSaving && <IconSpinner className="mr-2 h-4 w-4" />}
               {isPreferencesStep ? "Continue" : "Start creating"}

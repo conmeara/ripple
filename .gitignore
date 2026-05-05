@@ -5,7 +5,11 @@ node_modules/
 dist/
 release/
 release-*/
+!docs/release/
+!docs/release/*.md
 out/
+playwright-report/
+test-results/
 
 # IDE
 .idea/

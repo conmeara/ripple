@@ -3,16 +3,17 @@
 import { useState } from "react"
 import { useTheme } from "next-themes"
 // import Image from "next/image" // Desktop doesn't use next/image
+import { FolderOpen } from "lucide-react"
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "../../../components/ui/hover-card"
-import { useSetAtom, atom } from "jotai"
-// import { agentsSettingsDialogOpenAtom, agentsSettingsDialogActiveTabAtom } from "@/lib/atoms/agents-settings-dialog"
-const agentsSettingsDialogOpenAtom = atom(false)
-const agentsSettingsDialogActiveTabAtom = atom<string | null>(null)
-import { GitHubIcon } from "../../../icons"
+import { useSetAtom } from "jotai"
+import {
+  agentsSettingsDialogActiveTabAtom,
+  agentsSettingsDialogOpenAtom,
+} from "../../../lib/atoms"
 
 interface PreviewSetupHoverCardProps {
   children: React.ReactNode
@@ -25,7 +26,7 @@ export function PreviewSetupHoverCard({ children }: PreviewSetupHoverCardProps) 
   const [open, setOpen] = useState(false)
 
   const handleOpenSettings = () => {
-    setSettingsActiveTab("github")
+    setSettingsActiveTab("projects")
     setSettingsDialogOpen(true)
     setOpen(false)
   }
@@ -74,7 +75,7 @@ export function PreviewSetupHoverCard({ children }: PreviewSetupHoverCardProps) 
           <div className="space-y-1.5">
             <h4 className="text-sm font-semibold">Preview not available</h4>
             <p className="text-[13px] text-muted-foreground leading-relaxed">
-              To see live preview of your changes, you need to set up your repository first.
+              Choose or create a Ripple project with a previewable HyperFrames composition.
             </p>
           </div>
 
@@ -83,12 +84,11 @@ export function PreviewSetupHoverCard({ children }: PreviewSetupHoverCardProps) 
             onClick={handleOpenSettings}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 text-[13px] font-medium bg-foreground text-background hover:bg-foreground/90 rounded-md transition-colors"
           >
-            <GitHubIcon className="h-3.5 w-3.5" />
-            <span>Set up repository</span>
+            <FolderOpen className="h-3.5 w-3.5" />
+            <span>Open project settings</span>
           </button>
         </div>
       </HoverCardContent>
     </HoverCard>
   )
 }
-

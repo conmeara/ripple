@@ -281,10 +281,10 @@ export const AgentToolRegistry: Record<string, ToolMeta> = {
     variant: "simple",
   },
 
-  // Cloning indicator - shown while sandbox is being created
+  // Import indicator - shown while a remote project workspace is being prepared
   "tool-cloning": {
     icon: GitBranch,
-    title: () => "Cloning repo",
+    title: () => "Preparing project",
     variant: "simple",
   },
 

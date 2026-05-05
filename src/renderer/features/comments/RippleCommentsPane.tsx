@@ -633,6 +633,7 @@ function CommentComposer({
             placeholder={placeholder}
             className="min-h-[40px] min-w-0 flex-1 px-0 py-1 text-sm placeholder:text-muted-foreground/70"
             onPaste={handlePaste}
+            data-testid="ripple-comment-composer-input"
           />
         </div>
         {attachments.length > 0 || visualContextChip ? (
@@ -1535,6 +1536,7 @@ export function RippleCommentsPane({
     <div
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-tl-background text-foreground"
       onClickCapture={handlePaneClickCapture}
+      data-testid="ripple-comments-pane"
     >
       <div className="flex h-12 min-w-0 shrink-0 items-center justify-between px-4">
         <DropdownMenu>

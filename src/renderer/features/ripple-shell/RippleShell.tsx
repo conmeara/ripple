@@ -738,7 +738,10 @@ export function RippleShell({
   }, [])
 
   return (
-    <div className="relative flex h-full min-w-0 flex-col overflow-hidden bg-background">
+    <div
+      className="relative flex h-full min-w-0 flex-col overflow-hidden bg-background"
+      data-testid="ripple-shell"
+    >
       <RippleRevisionQueueWorker projectId={selectedProject.id} />
       {!isSidebarOpen && (
         <TrafficLights
@@ -776,7 +779,10 @@ export function RippleShell({
               </Tooltip>
             </div>
           )}
-          <div className="min-w-0 truncate text-sm font-semibold text-foreground/90">
+          <div
+            className="min-w-0 truncate text-sm font-semibold text-foreground/90"
+            data-testid="ripple-shell-project-name"
+          >
             {selectedProject.name}
           </div>
         </div>
@@ -796,6 +802,7 @@ export function RippleShell({
                     shellState.rightPaneMode === "renders" &&
                     "bg-foreground/[0.10] text-foreground",
                 )}
+                data-testid="ripple-renders-button"
               >
                 <CirclePlay className="h-3 w-3" />
                 Renders

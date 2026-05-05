@@ -883,8 +883,12 @@ export function HyperFramesPreviewPlayer({
     <div
       ref={rootRef}
       className="flex h-full min-h-0 flex-col bg-tl-background text-foreground [&:fullscreen]:h-screen [&:fullscreen]:w-screen"
+      data-testid="ripple-preview-player"
     >
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-tl-background p-1">
+      <div
+        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-tl-background p-1"
+        data-testid="ripple-preview-stage"
+      >
         <div
           className={cn(
             "relative max-h-full overflow-hidden rounded-md bg-black shadow-sm ring-1 ring-border/70",

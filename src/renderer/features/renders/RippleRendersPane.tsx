@@ -426,7 +426,10 @@ export function RippleRendersPane({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-tl-background">
+    <div
+      className="flex h-full min-h-0 flex-col bg-tl-background"
+      data-testid="ripple-renders-pane"
+    >
       <div className="border-b border-border/60 px-3 pb-3">
         <div className="mb-3 flex h-9 items-center justify-between">
           <div className="flex items-center gap-2">
@@ -568,6 +571,7 @@ export function RippleRendersPane({
           disabled={!canStart}
           onClick={handleStart}
           className="mt-2 h-8 w-full gap-1.5 rounded-md text-xs"
+          data-testid="ripple-export-button"
         >
           {startExport.isPending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />

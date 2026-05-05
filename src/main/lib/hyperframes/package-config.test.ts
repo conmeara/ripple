@@ -6,7 +6,12 @@ interface PackageJson {
   dependencies: Record<string, string>
   scripts: Record<string, string>
   build: {
+    files?: string[]
     asarUnpack?: string[]
+    extraResources?: Array<{ from?: string; to?: string; filter?: string[] }>
+    mac?: {
+      extendInfo?: Record<string, string>
+    }
   }
 }
 
@@ -181,5 +186,24 @@ describe("HyperFrames packaged app configuration", () => {
     expect(asarUnpack.has("node_modules/hyperframes/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/puppeteer/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/puppeteer-core/**/*")).toBe(true)
+  })
+
+  test("keeps app-managed agent CLIs without duplicating Claude SDK platform binaries", () => {
+    const pkg = readPackageJson()
+    const files = new Set(pkg.build.files ?? [])
+
+    expect(files.has("!node_modules/@anthropic-ai/claude-agent-sdk-*/**/*")).toBe(true)
+    expect(pkg.build.extraResources).toContainEqual(expect.objectContaining({
+      from: "resources/bin/${platform}-${arch}",
+      to: "bin",
+    }))
+  })
+
+  test("keeps macOS permission prompts branded for Ripple", () => {
+    const pkg = readPackageJson()
+    const extendInfo = pkg.build.mac?.extendInfo ?? {}
+
+    expect(extendInfo.NSCameraUsageDescription).toContain("Ripple")
+    expect(extendInfo.NSMicrophoneUsageDescription).toContain("Ripple")
   })
 })

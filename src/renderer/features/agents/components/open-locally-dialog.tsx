@@ -76,7 +76,7 @@ export function OpenLocallyDialog({
 
   const cloneMutation = trpc.sandboxImport.cloneFromSandbox.useMutation({
     onSuccess: (result) => {
-      toast.success("Cloned and opened locally")
+      toast.success("Imported and opened locally")
 
       // Invalidate list queries so sidebar updates
       utils.chats.list.invalidate()
@@ -89,7 +89,7 @@ export function OpenLocallyDialog({
       onClose()
     },
     onError: (error) => {
-      toast.error(`Clone failed: ${error.message}`)
+      toast.error(`Import failed: ${error.message}`)
     },
   })
 
@@ -171,8 +171,8 @@ export function OpenLocallyDialog({
     const destResult = await pickDestMutation.mutateAsync({ suggestedName: repo })
     if (!destResult.success || !destResult.targetPath) return
 
-    // Clone
-    toast.info("Cloning repository... this may take a while")
+    // Import
+    toast.info("Preparing a local project... this may take a while")
     cloneMutation.mutate({
       sandboxId: remoteChat.sandbox_id,
       remoteChatId: remoteChat.id,
@@ -245,11 +245,11 @@ export function OpenLocallyDialog({
                     <div className="p-6">
                       <h2 className="text-lg font-semibold mb-2">Project not found locally</h2>
                       <p className="text-sm text-muted-foreground mb-5">
-                        This sandbox is working on{" "}
+                        This remote session is working on{" "}
                         <code className="px-1.5 py-0.5 bg-muted rounded text-foreground text-xs">
                           {repository}
                         </code>
-                        , but we couldn't find it on your machine.
+                        , but we couldn't find a local Ripple project for it on your machine.
                       </p>
 
                       <div className="space-y-2">
@@ -264,7 +264,7 @@ export function OpenLocallyDialog({
                               <Folder className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium">I have it cloned</div>
+                              <div className="text-sm font-medium">Choose a local project</div>
                               <div className="text-xs text-muted-foreground">
                                 Point us to your local copy
                               </div>
@@ -283,9 +283,9 @@ export function OpenLocallyDialog({
                               <Download className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium">Clone from sandbox</div>
+                              <div className="text-sm font-medium">Import as local project</div>
                               <div className="text-xs text-muted-foreground">
-                                Download the repository (may take a while)
+                                Download the project files (may take a while)
                               </div>
                             </div>
                           </div>
@@ -298,7 +298,7 @@ export function OpenLocallyDialog({
                           {locateMutation.isPending && "Opening folder picker..."}
                           {pickDestMutation.isPending && "Opening folder picker..."}
                           {importMutation.isPending && "Importing..."}
-                          {cloneMutation.isPending && "Cloning repository..."}
+                          {cloneMutation.isPending && "Preparing local project..."}
                         </div>
                       )}
                     </div>

@@ -148,7 +148,10 @@ export function ProjectEntryPage() {
   }
 
   return (
-    <div className="h-screen w-screen overflow-y-auto bg-background select-none">
+    <div
+      className="h-screen w-screen overflow-y-auto bg-background select-none"
+      data-testid="ripple-project-entry"
+    >
       <RippleFirstRunDialog />
       <div
         className="fixed top-0 left-0 right-0 h-10"
@@ -171,6 +174,7 @@ export function ProjectEntryPage() {
       <form
         onSubmit={handleCreateProject}
         className="mx-auto flex min-h-screen w-full max-w-[920px] flex-col justify-center space-y-7 px-5 py-20"
+        data-testid="ripple-project-entry-form"
       >
         <div className="mx-auto w-full max-w-[460px] text-center space-y-4">
           <div className="flex items-center justify-center mx-auto w-max">
@@ -201,6 +205,7 @@ export function ProjectEntryPage() {
               autoFocus={!showFirstRunDialog}
               disabled={isBusy}
               className="h-10"
+              data-testid="ripple-project-name-input"
             />
           </div>
         </div>
@@ -210,6 +215,7 @@ export function ProjectEntryPage() {
             type="submit"
             className="h-9 w-full gap-2"
             disabled={!projectName.trim() || isBusy}
+            data-testid="ripple-create-project-button"
           >
             {createProject.isPending ? (
               <IconSpinner className="h-4 w-4" />
@@ -224,6 +230,7 @@ export function ProjectEntryPage() {
             className="h-9 w-full gap-2"
             disabled={isBusy}
             onClick={() => openProject.mutate()}
+            data-testid="ripple-open-project-button"
           >
             {openProject.isPending ? (
               <IconSpinner className="h-4 w-4" />

@@ -1,0 +1,89 @@
+name: Ripple Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ripple-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop-quality:
+    name: Desktop UX and release smokes
+    runs-on: macos-14
+    timeout-minutes: 90
+    env:
+      CI: "1"
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      NODE_OPTIONS: --max-old-space-size=8192
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Set up Python for native rebuilds
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify quality platform
+        run: bun run test:quality
+
+      - name: Run Ripple regression suite
+        run: bun run test:ripple
+
+      - name: Run Electron UX automation
+        run: bun run test:e2e
+
+      - name: Run render-format smoke
+        run: bun run test:export:smoke
+
+      - name: Package app
+        run: bun run package
+
+      - name: Run packaged app smoke
+        run: bun run test:package:smoke
+
+      - name: Upload E2E report and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripple-e2e-artifacts
+          path: |
+            playwright-report/ripple-e2e
+            test-results/ripple-e2e
+          if-no-files-found: ignore
+
+      - name: Upload render smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripple-render-smoke-artifacts
+          path: test-results/ripple-export-smoke
+          if-no-files-found: ignore
+
+      - name: Upload package smoke logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripple-package-smoke-artifacts
+          path: |
+            release/*.yml
+            release/*.yaml
+            release/*.json
+            release/mac-arm64/*.log
+          if-no-files-found: ignore

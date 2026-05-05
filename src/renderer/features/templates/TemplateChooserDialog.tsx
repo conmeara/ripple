@@ -209,6 +209,7 @@ function TemplateCard({
           ? "border-primary/80 bg-primary/[0.04]"
           : "border-border/70 hover:border-primary/50 hover:bg-foreground/[0.025]",
       )}
+      data-testid={`ripple-template-card-${template.id}`}
     >
       <TemplatePoster template={template} previewActive={previewActive} />
       <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
@@ -258,14 +259,17 @@ export function TemplateGallery({
 
   if (templates.length === 0) {
     return (
-      <div className="grid min-h-40 place-items-center rounded-md border border-border/70 bg-muted/20 text-sm text-muted-foreground">
+      <div
+        className="grid min-h-40 place-items-center rounded-md border border-border/70 bg-muted/20 text-sm text-muted-foreground"
+        data-testid="ripple-template-gallery-loading"
+      >
         Loading templates
       </div>
     )
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-testid="ripple-template-gallery">
       <div className="flex items-center gap-1 overflow-x-auto pb-1">
         <Button
           type="button"

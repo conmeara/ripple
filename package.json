@@ -36,7 +36,20 @@
     "templates:motion-previews": "bun scripts/render-hyperframes-template-motion-previews.ts",
     "test": "bun test",
     "test:hyperframes": "bun test src/main/lib/hyperframes src/main/lib/exports src/shared/ripple-exports.test.ts src/renderer/features/hyperframes src/renderer/features/renders",
-    "test:ripple": "bun test src/cli src/main/lib/ripple-projects src/main/lib/hyperframes src/main/lib/exports src/main/lib/revisions src/main/lib/agent-runtime src/main/lib/conversations src/main/lib/git/worktree-config.test.ts src/main/windows/chat-ownership.test.ts src/shared/ripple-activity.test.ts src/shared/ripple-comments.test.ts src/shared/ripple-conversations.test.ts src/shared/ripple-exports.test.ts src/renderer/components/ui/resizable-sidebar.test.ts src/renderer/components/dialogs/settings-tabs/agents-capability-settings.test.ts src/renderer/features/sidebar/project-chat-selection.test.ts src/renderer/features/hyperframes src/renderer/features/comments src/renderer/features/agents/lib src/renderer/features/agents/commands src/renderer/features/agents/utils src/renderer/features/ripple-shell src/renderer/features/renders",
+    "test:quality": "bun test test/quality && node scripts/verify-ripple-quality-platform.mjs",
+    "test:ux": "bun test src/renderer/features/onboarding src/renderer/features/templates src/renderer/features/ripple-shell src/renderer/features/hyperframes src/renderer/features/comments src/renderer/features/renders src/renderer/features/sidebar/project-chat-selection.test.ts src/renderer/components/dialogs/settings-tabs/agents-capability-settings.test.ts src/renderer/components/update-banner.test.ts src/shared/ripple-activity.test.ts src/shared/ripple-comments.test.ts src/shared/ripple-conversations.test.ts src/shared/ripple-exports.test.ts",
+    "test:agent": "bun test src/main/lib/agent-runtime src/main/lib/conversations src/main/lib/revisions src/renderer/features/agents/lib src/renderer/features/agents/commands src/renderer/features/agents/utils src/shared/ripple-conversations.test.ts src/shared/ripple-comments.test.ts",
+    "test:export": "bun run test:hyperframes",
+    "test:export:smoke": "bun scripts/smoke-ripple-export-formats.ts",
+    "test:e2e": "bun run build && playwright test --config test/e2e/playwright.config.ts",
+    "test:e2e:update": "bun run build && playwright test --config test/e2e/playwright.config.ts --update-snapshots",
+    "test:e2e:headed": "bun run build && playwright test --config test/e2e/playwright.config.ts --headed",
+    "test:visual": "bun run build && playwright test --config test/e2e/playwright.config.ts --grep @visual",
+    "test:live": "node scripts/smoke-live-provider.mjs",
+    "test:package:smoke": "node scripts/smoke-packaged-ripple.mjs",
+    "test:closeout": "bun run test:quality && bun run test:ripple && bun run test:hyperframes && bun test && bun run ts:check && bun run test:e2e && git diff --check",
+    "test:release": "bun run test:closeout && bun run db:generate && bun run test:export:smoke && bun run package && bun run test:package:smoke",
+    "test:ripple": "bun test src/cli src/main/lib/ripple-projects src/main/lib/hyperframes src/main/lib/exports src/main/lib/revisions src/main/lib/agent-runtime src/main/lib/conversations src/main/lib/git/worktree-config.test.ts src/main/windows/chat-ownership.test.ts src/shared/ripple-activity.test.ts src/shared/ripple-comments.test.ts src/shared/ripple-conversations.test.ts src/shared/ripple-exports.test.ts src/renderer/components/ui/resizable-sidebar.test.ts src/renderer/components/dialogs/settings-tabs/agents-capability-settings.test.ts src/renderer/features/sidebar/project-chat-selection.test.ts src/renderer/features/onboarding src/renderer/features/templates src/renderer/features/hyperframes src/renderer/features/comments src/renderer/features/agents/lib src/renderer/features/agents/commands src/renderer/features/agents/utils src/renderer/features/ripple-shell src/renderer/features/renders",
     "ts:check": "tsc --noEmit",
     "postinstall": "node -e \"if(!process.env.VERCEL){require('child_process').execSync('electron-rebuild -f -w better-sqlite3,node-pty',{stdio:'inherit'})}\" && node scripts/patch-electron-dev.mjs"
   },
@@ -134,6 +147,7 @@
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^4.0.0",
     "@electron/rebuild": "^4.0.3",
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/container-queries": "^0.1.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/diff": "^8.0.0",
@@ -181,7 +195,8 @@
       }
     ],
     "files": [
-      "out/**/*"
+      "out/**/*",
+      "!node_modules/@anthropic-ai/claude-agent-sdk-*/**/*"
     ],
     "extraResources": [
       {
@@ -284,6 +299,7 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
+        "NSCameraUsageDescription": "Ripple needs camera access only if you choose to capture camera input for visual context.",
         "NSMicrophoneUsageDescription": "Ripple needs microphone access for voice dictation"
       }
     },
