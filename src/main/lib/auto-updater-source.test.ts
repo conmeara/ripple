@@ -33,4 +33,12 @@ describe("Phase 18 updater runtime guardrails", () => {
     expect(source).toContain("autoUpdater.allowDowngrade = false")
     expect(source).toContain('await checkForUpdates(true, "automatic")')
   })
+
+  test("keeps downloaded updates behind the explicit restart action", () => {
+    const source = readFileSync("src/main/lib/auto-updater.ts", "utf-8")
+
+    expect(source).toContain("autoUpdater.autoInstallOnAppQuit = false")
+    expect(source).not.toContain("autoUpdater.autoInstallOnAppQuit = true")
+    expect(source).toContain("quitAndInstall")
+  })
 })

@@ -138,8 +138,8 @@ export function useUpdateChecker() {
   }, [setState, isDismissed])
 
   // Actions
-  const checkForUpdates = useCallback(() => {
-    return window.desktopApi?.checkForUpdates?.()
+  const checkForUpdates = useCallback((force?: boolean) => {
+    return window.desktopApi?.checkForUpdates?.(force)
   }, [])
 
   const downloadUpdate = useCallback(async () => {
@@ -158,6 +158,10 @@ export function useUpdateChecker() {
   }, [])
 
   const dismissUpdate = useCallback(() => {
+    if (state.status === "ready") {
+      return
+    }
+
     if (state.version) {
       localStorage.setItem(
         DISMISSED_KEY,
@@ -168,7 +172,7 @@ export function useUpdateChecker() {
       )
       setState({ status: "idle" })
     }
-  }, [state.version, setState])
+  }, [state.status, state.version, setState])
 
   return {
     state,

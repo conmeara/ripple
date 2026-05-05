@@ -22,7 +22,7 @@ function initAutoUpdaterConfig() {
 
   // Configure updater behavior
   autoUpdater.autoDownload = false // Let user decide when to download
-  autoUpdater.autoInstallOnAppQuit = true // Install on quit if downloaded
+  autoUpdater.autoInstallOnAppQuit = false // Install only from explicit Restart to update
   autoUpdater.autoRunAppAfterInstall = true // Restart app after install
 }
 

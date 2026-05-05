@@ -8,6 +8,7 @@ import { IconSpinner } from "../icons"
 // For testing: set to "available", "downloading", or "just-updated" to see the UI
 // Change to "none" for production
 const MOCK_STATE: "none" | "available" | "downloading" | "just-updated" = "none"
+const READY_DISMISS_KEY = "__ready__"
 
 export function UpdateBanner() {
   const {
@@ -26,6 +27,7 @@ export function UpdateBanner() {
 
   // Optimistic loading state - show spinner immediately on click
   const [isPending, setIsPending] = useState(false)
+  const [hiddenReadyKey, setHiddenReadyKey] = useState<string | null>(null)
 
   // Use mock or real state
   const isMocking = MOCK_STATE !== "none"
@@ -91,6 +93,17 @@ export function UpdateBanner() {
     }
   }, [realState.status])
 
+  useEffect(() => {
+    if (realState.status !== "ready") {
+      setHiddenReadyKey(null)
+      return
+    }
+
+    if (hiddenReadyKey && hiddenReadyKey !== (realState.version ?? READY_DISMISS_KEY)) {
+      setHiddenReadyKey(null)
+    }
+  }, [hiddenReadyKey, realState.status, realState.version])
+
   // Get progress percentage
   const progress = "progress" in state ? state.progress : undefined
 
@@ -110,6 +123,9 @@ export function UpdateBanner() {
   const handleDismiss = () => {
     if (isMocking) {
       setMockStatus("dismissed")
+    } else if (state.status === "ready") {
+      const version = "version" in state ? state.version : undefined
+      setHiddenReadyKey(version ?? READY_DISMISS_KEY)
     } else {
       dismissUpdate()
     }
@@ -193,6 +209,17 @@ export function UpdateBanner() {
     state.status === "not-available" ||
     state.status === "error"
   ) {
+    return null
+  }
+
+  const readyDismissKey =
+    state.status === "ready"
+      ? "version" in state
+        ? state.version ?? READY_DISMISS_KEY
+        : READY_DISMISS_KEY
+      : null
+
+  if (readyDismissKey && hiddenReadyKey === readyDismissKey) {
     return null
   }
 

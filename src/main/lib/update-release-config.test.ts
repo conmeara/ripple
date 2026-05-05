@@ -80,5 +80,6 @@ describe("Phase 18 release configuration", () => {
     expect(source).toContain("Automatic Checks")
     expect(source).toContain("Early Access")
     expect(source).toContain("Restart to update")
+    expect(source).toContain("checkForUpdates(true)")
   })
 })

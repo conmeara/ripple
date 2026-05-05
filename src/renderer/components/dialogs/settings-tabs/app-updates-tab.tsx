@@ -146,7 +146,7 @@ export function AppUpdatesTab() {
 
     setUpdateState({ status: "checking" })
     try {
-      const result = await checkForUpdates()
+      const result = await checkForUpdates(true)
       if (!result) {
         setUpdateState({
           status: "not-available",
