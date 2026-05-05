@@ -1345,10 +1345,11 @@ Current baseline after Phase 19 local audit:
 - `bun run test:release`
 - `bun run test:package:smoke` verifies Ripple identity, app-managed CLIs, and
   the packaged export browser
-- Official GitHub Actions release run `25388403839` passed for draft
-  `v0.19.0`: staging, build, signing/notarization, packaged export-browser
-  architecture verification, `codesign` / `spctl` / `stapler`, update metadata,
-  GitHub Release upload, and workflow artifact upload
+- Official GitHub Actions release run `25393310437` passed for draft
+  `v0.19.0` from commit `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`:
+  staging, build, signing/notarization, packaged export-browser architecture
+  verification, `codesign` / `spctl` / `stapler`, update metadata, GitHub
+  Release upload, workflow artifact upload, and draft release retargeting
 - Playwright Electron artifacts for launch, onboarding, project creation,
   template creation, existing-project open, comments, stored visual context,
   preview shell, resize/keyboard controls, and Renders pane workflows

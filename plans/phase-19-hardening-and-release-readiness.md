@@ -109,6 +109,17 @@ short label `v0.19`.
   for proposed generated changes, wired it to the existing `revisions.reject`
   mutation, reset preview state back to Main after rejection, and covered the
   proposed-only reject eligibility helper in the UX suite.
+- [x] 2026-05-05 / Codex: Found that refreshing an existing draft release
+  replaced assets but left the draft release target commit on the original run.
+  Updated `.github/workflows/release.yml` so existing draft edits pass
+  `--target "$GITHUB_SHA"`.
+- [x] 2026-05-05 / Codex: Reran the official `v0.19.0` draft release workflow
+  as GitHub Actions run `25393310437` from commit
+  `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`; it passed staging, build,
+  signing/notarization, packaged export-browser architecture verification,
+  `codesign` / `spctl` / `stapler`, update metadata verification, GitHub
+  Release upload, workflow artifact upload, and the draft release now targets
+  that SHA.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -266,8 +277,10 @@ Current outcome: local automated validation, Electron UX automation,
 render/export smoke, local package/resource smoke, credentialed provider smoke,
 packaged analytics smoke, and packaged UI export smoke are green after the Phase
 19 hardening and quality-platform patches. The package version is now `0.19.0`
-for the `v0.19` release target. The official GitHub Actions draft release run
-`25388403839` also passed with signed/notarized arm64 and x64 macOS assets.
+for the `v0.19` release target. The latest official GitHub Actions draft
+release run `25393310437` passed with signed/notarized arm64 and x64 macOS
+assets and retargeted the draft release to commit
+`8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`.
 
 Passed local gates on 2026-05-05:
 
@@ -322,12 +335,13 @@ Passed local gates on 2026-05-05:
 - Focused comments renderer tests (`bun test src/renderer/features/comments`):
   passed, 9 tests / 31 expectations, including the explicit reject-action
   eligibility guard for live proposed generated changes.
-- Official GitHub Actions release run `25388403839`: passed in 30m21s. CI
+- Official GitHub Actions release run `25393310437`: passed in 27m10s. CI
   staged both browser architectures, verified x86_64 and arm64
   `chrome-headless-shell` executables inside the packaged app bundles, verified
   notarized apps with `codesign`, `spctl`, and `stapler`, verified
   `release/latest-mac.yml` contains `version: 0.19.0`, and uploaded refreshed
-  draft release assets for `v0.19.0`.
+  draft release assets for `v0.19.0`. `gh release view v0.19.0` reports the
+  draft release target as `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`.
 
 This phase is not complete until packaged update smoke near stable and remaining
 human/manual QA gaps are all either passed or documented with explicit release
@@ -405,8 +419,8 @@ run credentialed Codex/Claude account smoke, run packaged analytics opt-in/off
 smoke against official-build config, and refresh packaged update N-to-N+1
 evidence near stable. The local credentialed provider, packaged analytics, and
 packaged UI export portions are complete. The official notarized CI release
-rerun after the multi-arch staging fix is complete; update N-to-N+1 still
-remains.
+rerun after the multi-arch staging and draft-retargeting fixes is complete;
+update N-to-N+1 still remains.
 
 Milestone 5 closes the final v1 go/no-go. Complete packaged manual QA for fresh
 install, onboarding, projects, preview/timeline, comments/revisions, provider
