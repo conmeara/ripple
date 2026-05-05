@@ -16,8 +16,11 @@ test.describe("Ripple fresh launch and project workflow", () => {
     await expect(page.getByTestId("ripple-project-entry")).toBeVisible()
     await expect(page.getByRole("heading", { name: "Create a project" })).toBeVisible()
     await expect(page.getByText("Local files are saved in ~/Ripple")).toBeVisible()
+    const projectEntrySnapshot = process.env.CI
+      ? "project-entry-form-ci.png"
+      : "project-entry-form.png"
     await expect(page.getByTestId("ripple-project-entry-form")).toHaveScreenshot(
-      "project-entry-form.png",
+      projectEntrySnapshot,
       {
         style: `
           [data-testid="ripple-project-entry-form"] {

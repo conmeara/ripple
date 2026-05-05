@@ -127,9 +127,10 @@ short label `v0.19`.
   change.
 - [x] 2026-05-05 / Codex: Hardened release QA reliability after local/CI
   evidence showed two timing-sensitive edges: the project-entry visual snapshot
-  now freezes the form width during comparison, and current-frame comment
-  visual capture now gives HyperFrames a 15s snapshot budget with a 30s process
-  budget.
+  now freezes the form width during comparison and uses a CI-specific macOS
+  baseline for the runner's one-pixel native rounding difference, and
+  current-frame comment visual capture now gives HyperFrames a 15s snapshot
+  budget with a 30s process budget.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
