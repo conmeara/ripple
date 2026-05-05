@@ -199,6 +199,31 @@ describe("HyperFrames packaged app configuration", () => {
     }))
   })
 
+  test("stages an app-managed export browser before packaging", () => {
+    const pkg = readPackageJson()
+    const releaseWorkflow = readFileSync(".github/workflows/release.yml", "utf-8")
+
+    expect(pkg.scripts["browser:stage"]).toBe("node scripts/stage-export-browser.mjs")
+    for (const scriptName of [
+      "package",
+      "package:mac",
+      "package:win",
+      "package:linux",
+      "dist",
+      "dist:github",
+      "dist:github:mac",
+      "release",
+      "release:github:mac",
+    ]) {
+      expect(pkg.scripts[scriptName]).toContain("bun run browser:stage")
+    }
+    expect(pkg.build.extraResources).toContainEqual(expect.objectContaining({
+      from: "resources/browser/${platform}-${arch}",
+      to: "browser",
+    }))
+    expect(releaseWorkflow).toContain("bun run browser:stage")
+  })
+
   test("keeps macOS permission prompts branded for Ripple", () => {
     const pkg = readPackageJson()
     const extendInfo = pkg.build.mac?.extendInfo ?? {}

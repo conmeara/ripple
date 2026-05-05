@@ -1,6 +1,6 @@
 {
   "name": "ripple",
-  "version": "0.0.72",
+  "version": "0.19.0",
   "private": true,
   "description": "Ripple - local-first motion graphics with AI agents",
   "author": {
@@ -11,21 +11,22 @@
     "dev": "node scripts/patch-electron-dev.mjs && electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "package": "electron-builder --dir",
-    "package:mac": "electron-builder --mac",
-    "package:win": "electron-builder --win",
-    "package:linux": "electron-builder --linux",
-    "dist": "electron-builder",
-    "dist:github": "electron-builder --publish always",
-    "dist:github:mac": "electron-builder --mac --publish always",
+    "browser:stage": "node scripts/stage-export-browser.mjs",
+    "package": "bun run browser:stage && electron-builder --dir",
+    "package:mac": "bun run browser:stage && electron-builder --mac",
+    "package:win": "bun run browser:stage && electron-builder --win",
+    "package:linux": "bun run browser:stage && electron-builder --linux",
+    "dist": "bun run browser:stage && electron-builder",
+    "dist:github": "bun run browser:stage && electron-builder --publish always",
+    "dist:github:mac": "bun run browser:stage && electron-builder --mac --publish always",
     "dist:manifest:fallback": "node scripts/generate-update-manifest.mjs",
     "dist:upload:fallback": "node -e \"console.log('Fallback uploads are maintainer-managed; official updates publish through GitHub Releases.')\"",
     "claude:download": "node scripts/download-claude-binary.mjs --version=2.1.123",
     "claude:download:all": "node scripts/download-claude-binary.mjs --version=2.1.123 --all",
     "codex:download": "node scripts/download-codex-binary.mjs --version=0.125.0",
     "codex:download:all": "node scripts/download-codex-binary.mjs --version=0.125.0 --all",
-    "release": "rm -rf release && bun install --frozen-lockfile && bun run claude:download:all && bun run codex:download:all && bun run build && electron-builder --mac --publish never",
-    "release:github:mac": "rm -rf release && bun install --frozen-lockfile && bun run claude:download:all && bun run codex:download:all && bun run build && electron-builder --mac --publish always",
+    "release": "rm -rf release && bun install --frozen-lockfile && bun run claude:download:all && bun run codex:download:all && bun run browser:stage && bun run build && electron-builder --mac --publish never",
+    "release:github:mac": "rm -rf release && bun install --frozen-lockfile && bun run claude:download:all && bun run codex:download:all && bun run browser:stage && bun run build && electron-builder --mac --publish always",
     "release:dev": "rm -rf release && bun run claude:download && bun run codex:download && bun run build && bun run package:mac && rm -rf node_modules && bun i",
     "sync:public": "./scripts/sync-to-public.sh",
     "icon:generate": "node scripts/generate-icon.mjs",
@@ -220,6 +221,13 @@
       {
         "from": "resources/bin/VERSION",
         "to": "bin/VERSION"
+      },
+      {
+        "from": "resources/browser/${platform}-${arch}",
+        "to": "browser",
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "build",

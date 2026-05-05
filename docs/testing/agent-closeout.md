@@ -39,10 +39,10 @@ evidence tied to product workflows, not to run a random pile of tests.
 | Chat, active tabs, conversations | `bun test src/main/lib/conversations src/shared/ripple-conversations.test.ts src/renderer/features/ripple-shell/active-conversations.test.ts` | `bun run test:agent` |
 | Provider runtime, tools, attachments, skills, MCP | `bun run test:agent` | `bun run test:ripple`; use `bun run test:live` only with explicit provider credentials |
 | Visual context and frame sheets | `bun test src/cli src/main/lib/revisions/comment-visuals.test.ts src/main/lib/agent-runtime/runtime-attachments.test.ts` | `bun run test:agent` |
-| Exports and Renders pane | `bun run test:export` | `bun run test:e2e` plus `bun run test:export:smoke` in a validated render environment |
+| Exports and Renders pane | `bun run test:export` | `bun run test:e2e`, `bun run test:export:smoke`, and packaged UI export smoke after browser/package changes |
 | Analytics or privacy | `bun test src/shared/ripple-analytics.test.ts src/main/lib/analytics.test.ts src/main/lib/config.test.ts` | Packaged PostHog smoke from the release checklist |
 | App updates | `bun test src/main/lib/auto-updater-source.test.ts src/main/lib/update-release-config.test.ts src/renderer/components/update-banner.test.ts` | Packaged N-to-N+1 update smoke |
-| Packaging/resources/identity | `bun run build && bun run package && bun run test:package:smoke` | Credentialed signed/notarized release workflow |
+| Packaging/resources/identity | `bun run build && bun run package && bun run test:package:smoke` | Credentialed signed/notarized release workflow; package smoke must verify `Resources/browser` for exports |
 | Quality docs, workflow matrix, scripts, fixtures | `bun run test:quality` | `bun run test:closeout` |
 
 ## Evidence Format

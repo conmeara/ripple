@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process"
 import { createInterface } from "node:readline"
-import { existsSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { once } from "node:events"
+
+const packageVersion = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")).version
 
 const enabled = process.env.RIPPLE_LIVE_PROVIDER_SMOKE === "1"
 const provider = process.env.RIPPLE_LIVE_PROVIDER
@@ -123,7 +125,7 @@ async function smokeCodex(binary) {
       clientInfo: {
         name: "ripple-live-smoke",
         title: "Ripple Live Smoke",
-        version: "0.0.0",
+        version: packageVersion,
       },
       capabilities: { experimentalApi: true },
     })

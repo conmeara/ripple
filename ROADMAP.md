@@ -1286,6 +1286,8 @@ ExecPlan: `plans/phase-19-hardening-and-release-readiness.md`
 
 Release checklist: `docs/release/v1-release-checklist.md`
 
+Current release target: `v0.19` (`package.json` version `0.19.0`).
+
 Goals:
 
 - Build full automated test suites and QA coverage for Ripple.
@@ -1294,6 +1296,8 @@ Goals:
 - Validate package resources.
 - Finish analytics release validation with a packaged-app smoke against the
   Ripple PostHog project.
+- Ship packaged exports with an app-managed headless browser, not a dependency
+  on the user's Puppeteer cache or repo checkout.
 - Produce release checklist for Ripple.
 
 Done when:
@@ -1302,6 +1306,8 @@ Done when:
 - New project creates and previews.
 - Comment revision can be accepted/rejected.
 - MP4, MOV, and WebM exports succeed in validated environments.
+- Packaged UI export can produce an MP4 from the Renders pane using packaged
+  resources.
 - Unit, integration, E2E, render/export, migration, packaging, and manual QA
   gates pass.
 - Packaged app update install flow passes the Phase 18 release gate.
@@ -1333,10 +1339,16 @@ Current baseline after Phase 19 local audit:
 - `bun run db:generate`
 - `bun run build`
 - `bun run package` for local packaged-resource smoke
+- `bun run test:release`
+- `bun run test:package:smoke` verifies Ripple identity, app-managed CLIs, and
+  the packaged export browser
 - Playwright Electron artifacts for launch, onboarding, project creation,
   template creation, comments, preview shell, and Renders pane workflows
-- manual Electron smoke tests for packaged, signed, update, analytics, and
-  credentialed provider gates that still need release evidence
+- Packaged app smoke evidence now covers production analytics off/on, blank
+  project preview/comment/MP4 export, and bundled-template comment flow
+- remaining manual/CI evidence still needed for notarized release artifacts,
+  update N-to-N+1, open-project, revisions, visual context, failure recovery,
+  and resize/keyboard behavior
 
 Ripple should graduate from the 1Code baseline to full test suites plus a
 repeatable QA protocol. Testing is a release gate, not a best-effort cleanup
@@ -1355,6 +1367,7 @@ Quality platform artifacts:
 - `scripts/smoke-packaged-ripple.mjs`
 - `scripts/smoke-ripple-export-formats.ts`
 - `scripts/smoke-live-provider.mjs`
+- `scripts/stage-export-browser.mjs`
 - `.github/workflows/ripple-quality.yml`
 
 ### Automated Test Suites

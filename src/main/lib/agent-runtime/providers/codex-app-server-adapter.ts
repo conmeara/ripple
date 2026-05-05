@@ -295,7 +295,7 @@ class CodexAppServerClient {
       clientInfo: {
         name: "ripple",
         title: "Ripple",
-        version: "0.0.72",
+        version: app.getVersion(),
       },
       capabilities: {
         experimentalApi: true,

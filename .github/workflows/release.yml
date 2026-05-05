@@ -147,6 +147,9 @@ jobs:
           bun run claude:download:all
           bun run codex:download:all
 
+      - name: Stage packaged export browser
+        run: bun run browser:stage
+
       - name: Build renderer and main process
         run: bun run build
 

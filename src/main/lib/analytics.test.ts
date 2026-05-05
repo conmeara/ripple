@@ -59,7 +59,7 @@ describe("main-process Ripple analytics boundary", () => {
       provider,
       runtimeConfig: enabledRuntime,
       userDataPath: await createUserDataPath(),
-      appVersion: "0.0.72",
+      appVersion: "0.19.0",
       platform: "darwin",
     })
 
@@ -82,7 +82,7 @@ describe("main-process Ripple analytics boundary", () => {
       provider,
       runtimeConfig: enabledRuntime,
       userDataPath: await createUserDataPath(),
-      appVersion: "0.0.72",
+      appVersion: "0.19.0",
       platform: "darwin",
     })
 
@@ -115,7 +115,7 @@ describe("main-process Ripple analytics boundary", () => {
       provider,
       runtimeConfig: enabledRuntime,
       userDataPath: await createUserDataPath(),
-      appVersion: "0.0.72",
+      appVersion: "0.19.0",
       platform: "darwin",
     })
 
@@ -140,7 +140,7 @@ describe("main-process Ripple analytics boundary", () => {
       provider,
       runtimeConfig: enabledRuntime,
       userDataPath: await createUserDataPath(),
-      appVersion: "0.0.72",
+      appVersion: "0.19.0",
       platform: "darwin",
     })
     setAnalyticsConsent("granted", "settings")
@@ -167,7 +167,7 @@ describe("main-process Ripple analytics boundary", () => {
       provider,
       runtimeConfig: { ...enabledRuntime, configured: false, enabled: false, reason: "unconfigured" },
       userDataPath,
-      appVersion: "0.0.72",
+      appVersion: "0.19.0",
       platform: "darwin",
     })
     setAnalyticsConsent("granted", "settings")
@@ -180,7 +180,7 @@ describe("main-process Ripple analytics boundary", () => {
       provider: active.provider,
       runtimeConfig: enabledRuntime,
       userDataPath,
-      appVersion: "0.0.72",
+      appVersion: "0.19.0",
       platform: "darwin",
     })
     setAnalyticsConsent("granted", "settings")
@@ -197,7 +197,7 @@ describe("main-process Ripple analytics boundary", () => {
       provider,
       runtimeConfig: enabledRuntime,
       userDataPath: await createUserDataPath(),
-      appVersion: "0.0.72",
+      appVersion: "0.19.0",
       platform: "darwin",
     })
     setAnalyticsConsent("denied", "settings")
@@ -225,7 +225,7 @@ describe("main-process Ripple analytics boundary", () => {
       provider,
       runtimeConfig: enabledRuntime,
       userDataPath: await createUserDataPath(),
-      appVersion: "0.0.72",
+      appVersion: "0.19.0",
       platform: "darwin",
     })
 
@@ -249,7 +249,7 @@ describe("main-process Ripple analytics boundary", () => {
       provider,
       runtimeConfig: enabledRuntime,
       userDataPath: await createUserDataPath(),
-      appVersion: "0.0.72",
+      appVersion: "0.19.0",
       platform: "darwin",
     })
 
@@ -275,7 +275,7 @@ describe("main-process Ripple analytics boundary", () => {
       provider,
       runtimeConfig: enabledRuntime,
       userDataPath: await createUserDataPath(),
-      appVersion: "0.0.72",
+      appVersion: "0.19.0",
       platform: "darwin",
     })
 

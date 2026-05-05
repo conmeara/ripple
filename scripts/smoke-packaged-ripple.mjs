@@ -38,6 +38,7 @@ for (const relative of [
   "app.asar",
   "migrations",
   "bin",
+  "browser",
   "build",
   "hyperframes-templates",
   "agent-skills",
@@ -75,6 +76,7 @@ if (process.platform === "darwin") {
 }
 
 const binPath = join(resourcesPath, "bin")
+const browserPath = join(resourcesPath, "browser")
 const bins = {
   ripple: ["--help"],
   hyperframes: ["--version"],
@@ -88,6 +90,30 @@ for (const [binary, args] of Object.entries(bins)) {
   assertExists(binaryPath)
   const output = run(binaryPath, args)
   if (!output) fail(`${binary} produced no output`)
+}
+
+const browserCandidates = process.platform === "darwin"
+  ? [
+    join(browserPath, "chrome-headless-shell"),
+    join(
+      browserPath,
+      "Google Chrome for Testing.app",
+      "Contents",
+      "MacOS",
+      "Google Chrome for Testing",
+    ),
+  ]
+  : process.platform === "win32"
+    ? [join(browserPath, "chrome-headless-shell.exe"), join(browserPath, "chrome.exe")]
+    : [join(browserPath, "chrome-headless-shell"), join(browserPath, "chrome")]
+
+const browserExecutable = browserCandidates.find((candidate) => existsSync(candidate))
+if (!browserExecutable) {
+  fail(`Missing packaged export browser. Tried: ${browserCandidates.join(", ")}`)
+}
+const browserVersion = run(browserExecutable, ["--version"])
+if (!/Chrome|Chromium/i.test(browserVersion)) {
+  fail(`Packaged export browser produced unexpected version: ${browserVersion}`)
 }
 
 const totalSize = statSync(appPath).isDirectory()

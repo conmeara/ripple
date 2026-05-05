@@ -18,6 +18,10 @@ actual implementation, closes primary-path polish and safety gaps, runs current
 validation, records manual QA evidence, and produces the final v1 release
 checklist.
 
+The current release target is `v0.19`. Repository package metadata uses the
+semver package version `0.19.0`; release tags and user-facing notes may use the
+short label `v0.19`.
+
 ## Progress
 
 - [x] 2026-05-05 / Codex: Started Phase 19 from the active goal to review
@@ -58,12 +62,40 @@ checklist.
 - [x] 2026-05-05 / Codex: Started the companion quality/regression platform
   plan at `plans/quality-regression-platform.md` and linked the testing
   workflow matrix / future-agent closeout artifacts into the roadmap.
+- [x] 2026-05-05 / Codex: Completed the quality/regression platform:
+  Playwright Electron E2E, visual snapshot baseline, workflow matrix, future
+  agent closeout protocol, deterministic HyperFrames fixture, package/export
+  smoke scripts, opt-in live-provider smoke, CI workflow, and `test:release`
+  wiring are implemented and committed.
+- [x] 2026-05-05 / Codex: Reconciled this plan before beginning the remaining
+  manual/packaged release gates so future agents do not redo completed quality
+  platform work.
+- [x] 2026-05-05 / Codex: Set the package version to `0.19.0` for the `v0.19`
+  release target.
+- [x] 2026-05-05 / Codex: Found and fixed a packaged UI export blocker:
+  `Ripple.app` did not ship a headless browser for HyperFrames Producer, so
+  packaged Renders exports failed with `EXPORT_BROWSER_MISSING`.
+- [x] 2026-05-05 / Codex: Added `scripts/stage-export-browser.mjs`, wired it
+  into package/release scripts, added `Resources/browser` to package resources,
+  and hardened `scripts/smoke-packaged-ripple.mjs` to verify the export browser.
+- [x] 2026-05-05 / Codex: Reran `bun run test:release` after the version bump and
+  browser-staging fix; it passed with local signing and local notarization still
+  skipped.
+- [x] 2026-05-05 / Codex: Ran credentialed provider smokes for Codex and Claude;
+  both reported connected accounts without project mutation.
+- [x] 2026-05-05 / Codex: Ran packaged-app production analytics off/on smoke,
+  packaged blank-project preview/comment/MP4 export smoke, and packaged bundled
+  template/comment smoke against the final local artifact.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
 - [x] Complete Milestone 2: packaged-resource evidence refresh for local
   package output.
-- [ ] Complete Milestone 3: manual QA checklist and final v1 go/no-go.
+- [x] Complete Milestone 3: quality/regression platform built and wired into
+  local/CI closeout.
+- [ ] Complete Milestone 4: credentialed, notarized, packaged-app release
+  evidence.
+- [ ] Complete Milestone 5: manual QA checklist and final v1 go/no-go.
 
 ## Surprises & Discoveries
 
@@ -92,17 +124,18 @@ checklist.
 
 - Observation: Sequence/composition structure remains v2, not v1 release
   scope.
-  Evidence: `plans/v2/sequences-and-composition-structure.md` is modified in
-  the working tree and states that visible multi-sequence UX should stay gated
-  by a validation spike before returning to the active roadmap.
+  Evidence: `plans/v2/sequences-and-composition-structure.md` is committed as
+  a v2 research plan and states that visible multi-sequence UX should stay
+  gated by a validation spike before returning to the active roadmap.
 
 - Observation: Local package output was carrying a duplicated 205 MB Claude
   binary through the SDK optional platform package.
   Evidence: Before the package optimization, `app.asar.unpacked` was about
   447 MB and contained
   `node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/claude`. After
-  excluding `node_modules/@anthropic-ai/claude-agent-sdk-*/**/*`, local package
-  output is about 1.5 GB total, `app.asar.unpacked` is about 242 MB, and
+  excluding `node_modules/@anthropic-ai/claude-agent-sdk-*/**/*`, before adding
+  the packaged export browser local package output was about 1.5 GB total,
+  `app.asar.unpacked` was about 242 MB, and
   `find release/mac-arm64/Ripple.app/Contents/Resources -path '*claude-agent-sdk-darwin-arm64*'`
   returns no paths.
 
@@ -118,11 +151,30 @@ checklist.
   `release/mac-arm64/Ripple.app`; electron-builder reported
   `skipped macOS notarization` because local notarize options were unavailable.
 
+- Observation: Packaged UI export needed app-managed browser resources, not just
+  Node package resources.
+  Evidence: A packaged app launched with isolated userData created a failed
+  export job: `Ripple's export browser is not available in this build.` After
+  staging Puppeteer's `chrome-headless-shell` into `Resources/browser`, package
+  smoke verified the browser executable and packaged UI MP4 export passed when
+  launched with `cwd` outside the repo.
+
 - Observation: `ROADMAP.md` linked only some phase ExecPlans even though plans
   exist for Phases 1-19 plus 10B.
   Evidence: A roadmap section scan showed missing `ExecPlan:` lines for
   Phases 2, 5, 6, 13, 15, 16, 17, and 18. The roadmap now links every
   implemented non-Phase-0 plan.
+
+- Observation: The automated quality platform is no longer future Phase 19
+  work.
+  Evidence: `test/e2e/`, `test/quality/`,
+  `test/fixtures/hyperframes/basic-title-card/`, `docs/testing/`,
+  `scripts/smoke-live-provider.mjs`,
+  `scripts/smoke-packaged-ripple.mjs`,
+  `scripts/smoke-ripple-export-formats.ts`,
+  `scripts/verify-ripple-quality-platform.mjs`, and
+  `.github/workflows/ripple-quality.yml` exist and are wired through
+  `package.json`.
 
 ## Decision Log
 
@@ -157,28 +209,64 @@ checklist.
   package size without changing the runtime binary source.
   Date/Author: 2026-05-05 / Codex.
 
+- Decision: Treat `v0.19` as the release target label and `0.19.0` as the
+  package metadata version.
+  Rationale: Electron Builder and update metadata expect semver package
+  versions, while the user-facing milestone can use the shorter `v0.19` label.
+  Date/Author: 2026-05-05 / Codex.
+
+- Decision: Stage an app-managed headless export browser for packaged builds.
+  Rationale: Local dev exports can resolve Puppeteer's browser cache, but a
+  packaged Ripple app must export from its own resources instead of relying on
+  the user's home cache or repo checkout.
+  Date/Author: 2026-05-05 / Codex.
+
 ## Outcomes & Retrospective
 
-Current outcome: local automated validation and local package/resource smoke are
-green after the Phase 19 hardening patches.
+Current outcome: local automated validation, Electron UX automation,
+render/export smoke, local package/resource smoke, credentialed provider smoke,
+packaged analytics smoke, and packaged UI export smoke are green after the Phase
+19 hardening and quality-platform patches. The package version is now `0.19.0`
+for the `v0.19` release target.
 
 Passed local gates on 2026-05-05:
 
 - `bun run ts:check`: passed.
-- `bun run test:ripple`: passed, 356 tests / 1424 expectations.
-- `bun run test:hyperframes`: passed, 152 tests / 748 expectations.
-- `bun test`: passed, 408 tests / 1629 expectations.
+- `bun run test:quality`: passed, 3 tests / 82 expectations; verifier found
+  36 workflow rows and 14 package scripts.
+- `bun run test:ux`: passed, 129 tests / 458 expectations.
+- `bun run test:agent`: passed, 97 tests / 321 expectations.
+- `bun run test:export`: passed, 152 tests / 748 expectations.
+- `bun run test:e2e`: passed, 2 Electron tests covering launch, skippable
+  onboarding, project/template creation, preview play/pause, mouse timeline
+  seek, comments, and Renders pane controls.
+- `bun run test:visual`: passed, 1 Playwright visual snapshot.
+- `bun run test:live`: default skip mode passes; credentialed smokes also passed
+  with `RIPPLE_LIVE_PROVIDER_SMOKE=1` for both Codex and Claude.
+- `bun run test:ripple`: passed.
+- `bun run test:hyperframes`: passed.
+- `bun test`: passed, 412 tests / 1722 expectations.
 - `bun run build`: passed. Vite still reports existing warnings for
   `gray-matter` eval and mixed dynamic/static imports, but exits 0.
 - `git diff --check`: passed.
 - `bun run db:generate`: passed with "No schema changes, nothing to migrate".
-- `bun run package`: passed for local `--dir` output; signing ran locally and
-  notarization was skipped because local notarize options are unavailable.
+- `bun run test:export:smoke`: passed with MP4, MOV, and WebM outputs.
+- `bun run test:package:smoke`: passed against
+  `release/mac-arm64/Ripple.app`; the smoke now verifies `Resources/browser`.
+- `bun run test:release`: passed. It ran closeout, schema drift, real export
+  smoke, local package, and package smoke; signing ran locally and notarization
+  was skipped because local notarize options are unavailable.
+- Packaged UI smoke passed against the final local artifact: production
+  analytics off/on, blank project creation, preview play/pause/seek, frame
+  comment, Renders pane MP4 export, bundled template creation, pane toggle, and
+  template comment.
+- Local signing verification passed with
+  `codesign --verify --deep --strict --verbose=2 release/mac-arm64/Ripple.app`;
+  `spctl` and `stapler` still fail locally because the artifact is not notarized.
 
-This phase is not complete until manual packaged-app QA, credentialed release
-workflow verification, notarized artifact checks, packaged analytics opt-in/off
-smoke, packaged update smoke near stable, and real MP4/MOV/WebM export smoke are
-all either passed or documented with explicit release blockers.
+This phase is not complete until official signed/notarized CI release evidence,
+packaged update smoke near stable, and remaining human/manual QA gaps are all
+either passed or documented with explicit release blockers.
 
 ## Context and Orientation
 
@@ -198,6 +286,10 @@ Important release surfaces:
 - `docs/testing/ux-workflow-coverage.md`: workflow-to-test coverage matrix.
 - `docs/testing/agent-closeout.md`: future-agent closeout protocol.
 - `plans/quality-regression-platform.md`: companion quality platform plan.
+- `test/e2e/`: Playwright Electron UX automation and visual baseline.
+- `test/quality/`: quality platform integrity tests.
+- `test/fixtures/hyperframes/basic-title-card/`: deterministic export smoke
+  fixture.
 - `package.json`: scripts, dependencies, electron-builder configuration,
   update publishing metadata, and app identity.
 - `.github/workflows/release.yml`: official macOS signed/notarized release
@@ -213,9 +305,8 @@ Important release surfaces:
   `src/renderer/features/comments/`, and `src/renderer/features/renders/`:
   primary Ripple UI.
 
-The current working tree began this pass with an existing modification to
-`plans/v2/sequences-and-composition-structure.md`. Treat that v2 plan as
-pre-existing work; do not revert it.
+The v2 sequence/composition plan is committed research and remains outside the
+active v1 release unless the user explicitly promotes it.
 
 ## Plan of Work
 
@@ -237,13 +328,24 @@ aligned with Phase 18, refresh package identity/string audits, perform at least
 one package smoke when the local machine can do it, and record any CI-only gate
 that must be rerun before stable.
 
-Milestone 3 refreshes product smoke evidence. Validate project creation,
-preview/timeline, comments/revisions, exports, analytics opt-in/off behavior,
-and app update behavior from packaged or fixture-backed paths where possible.
-Use manual QA for desktop visual flows that the current automated suite does not
-cover.
+Milestone 3 is complete: the quality/regression platform exists and must be
+used rather than rebuilt. It provides workflow matrix coverage, Playwright
+Electron E2E, visual snapshots, deterministic fixtures, package/export smokes,
+provider smoke scaffolding, CI reporting, and future-agent closeout rules.
 
-Milestone 4 closes the final v1 go/no-go. Update this ExecPlan, the release
+Milestone 4 refreshes credentialed and packaged release evidence. Run the
+official GitHub Actions signed/notarized release path for `v0.19`, verify
+`codesign`, `spctl`, `stapler`, update metadata, and artifact upload results,
+run credentialed Codex/Claude account smoke, run packaged analytics opt-in/off
+smoke against official-build config, and refresh packaged update N-to-N+1
+evidence near stable. The local credentialed provider, packaged analytics, and
+packaged UI export portions are complete; the official notarized CI release and
+update N-to-N+1 portions remain.
+
+Milestone 5 closes the final v1 go/no-go. Complete packaged manual QA for fresh
+install, onboarding, projects, preview/timeline, comments/revisions, provider
+setup, visual context, export, updates, analytics, offline use, failure
+recovery, and resize/keyboard behavior. Update this ExecPlan, the release
 checklist, and `ROADMAP.md` with final evidence. A go decision requires every
 release blocker to be fixed or explicitly accepted by the user.
 
@@ -268,38 +370,62 @@ Run commands from `/Users/conmeara/code/ripple` unless noted otherwise.
    suites that exercise the header/preview settings behavior.
 
 4. Run broad automated gates:
+   `bun run test:quality`,
+   `bun run test:ux`,
+   `bun run test:agent`,
+   `bun run test:export`,
    `bun run test:ripple`,
    `bun test`,
    `bun run test:hyperframes`,
    `bun run ts:check`,
+   `bun run test:e2e`,
    `bun run build`,
    and `git diff --check`.
 
 5. Check package/resource identity:
    run a package smoke if possible, inspect the generated app bundle/resource
-   list, and rerun the string audit against shipped paths.
+   list including `Resources/browser`, and rerun the string audit against
+   shipped paths.
 
-6. Refresh release-update evidence:
+6. Refresh release-update and notarization evidence:
    inspect `.github/workflows/release.yml`, latest GitHub Actions release runs,
-   beta/stable release metadata, and packaged in-app update smoke notes.
+   beta/stable release metadata, `codesign` / `spctl` / `stapler` results, and
+   packaged in-app update smoke notes.
 
 7. Refresh analytics/export evidence:
    run analytics sanitizer/config tests, perform packaged PostHog opt-in/off
-   smoke when official-build config is available, and validate MP4/MOV/WebM
-   output with FFprobe/frame checks in a validated environment.
+   smoke when official-build config is available, validate MP4/MOV/WebM output
+   with FFprobe/frame checks in a validated environment, and run at least one
+   packaged UI export after packaging/resource changes.
 
 8. Complete manual QA checklist in `docs/release/v1-release-checklist.md`.
+
+9. For the `v0.19` release target, keep `package.json` at `0.19.0` unless the
+   user chooses a different semver patch or prerelease suffix.
 
 ## Validation and Acceptance
 
 Automated acceptance:
 
+- `package.json` version is `0.19.0` for the `v0.19` release target.
+- `bun run test:quality` passes.
+- `bun run test:ux` passes.
+- `bun run test:agent` passes.
+- `bun run test:export` passes.
 - `bun run test:ripple` passes.
 - `bun test` passes.
 - `bun run test:hyperframes` passes.
 - `bun run ts:check` passes.
+- `bun run test:e2e` passes.
+- `bun run test:visual` passes when UI baselines are in scope.
 - `bun run build` passes.
 - `git diff --check` passes.
+- `bun run test:export:smoke` passes in a validated render environment.
+- `bun run test:package:smoke` passes against the packaged app.
+- `bun run test:release` passes locally or the release checklist records the
+  CI-only blocker explicitly.
+- Packaged UI export succeeds from app-managed resources, not from the repo or
+  a user cache.
 - Primary-path string audit has no unreviewed 1Code/21st/repo-first hits.
 
 Release acceptance:
@@ -314,7 +440,11 @@ Release acceptance:
   environment.
 - Packaged official-build analytics smoke proves opt-in/off behavior and
   forbidden payload exclusion.
+- Packaged app creates a blank project, previews/seeks, records a frame comment,
+  and exports a visible MP4 render from the Renders pane.
 - App update N-to-N+1 packaged install is refreshed near stable release.
+- Official macOS release artifacts are signed, notarized, stapled, and verified
+  through GitHub Actions before external distribution.
 - No release-blocking primary-path `1Code`, `21st.dev`, repo-first,
   app-entry-auth-gated, or Remotion/generic-app-preview assumption remains.
 
@@ -332,9 +462,8 @@ Actions secrets, or a clean CI runner. If local packaging is blocked by this
 machine, use CI evidence and record the local blocker rather than weakening the
 release gate.
 
-Do not revert pre-existing user changes, including the current v2 sequence plan
-modification. If a pre-existing change conflicts with v1 release scope, document
-the conflict and ask the user before moving or discarding it.
+Do not promote the committed v2 sequence plan into v1 release scope unless the
+user explicitly asks for that product change and the validation spike passes.
 
 ## Interfaces and Dependencies
 
@@ -343,9 +472,12 @@ Primary dependencies:
 - Bun scripts in `package.json`.
 - Electron/electron-builder package configuration in `package.json` and
   `electron-builder.yml`.
+- Package metadata version `0.19.0` for the `v0.19` target.
 - GitHub Actions release workflow `.github/workflows/release.yml`.
 - HyperFrames package family pinned at `0.4.40`.
 - FFmpeg/FFprobe via bundled or system resolution for render validation.
+- Staged Puppeteer `chrome-headless-shell` under `resources/browser/<platform>-<arch>`
+  for packaged Producer exports.
 - PostHog official-build env for analytics smoke.
 - Apple signing/notarization secrets for macOS release workflow.
 
@@ -367,10 +499,16 @@ Current Phase 19 artifacts:
 - `README.md`
 - `AGENTS.md`
 - `ROADMAP.md`
-
-Current known pre-existing worktree change:
-
-- `plans/v2/sequences-and-composition-structure.md`
+- `docs/testing/`
+- `test/e2e/`
+- `test/quality/`
+- `test/fixtures/hyperframes/basic-title-card/`
+- `.github/workflows/ripple-quality.yml`
+- `scripts/smoke-live-provider.mjs`
+- `scripts/smoke-packaged-ripple.mjs`
+- `scripts/smoke-ripple-export-formats.ts`
+- `scripts/stage-export-browser.mjs`
+- `scripts/verify-ripple-quality-platform.mjs`
 
 Initial release-readiness findings from this pass:
 
@@ -379,3 +517,12 @@ Initial release-readiness findings from this pass:
 - `ROADMAP.md` current-state language still needs release-state refresh.
 - `PreviewSetupHoverCard` had stale repository copy and disconnected settings
   atoms.
+
+Current remaining release blockers:
+
+- Official signed/notarized/stapled GitHub Actions release evidence for
+  `v0.19`.
+- Packaged update N-to-N+1 refresh near stable.
+- Remaining human/manual QA gaps: open-project, revision accept/reject, visual
+  context, app update flow, failure recovery, resize/keyboard, provider setup
+  prompts, and MOV/WebM from the packaged UI if desired.

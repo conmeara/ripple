@@ -38,7 +38,7 @@ describe("legacy userData migration", () => {
     const result = migrateLegacyUserData({
       destinationPath: destination,
       legacyPaths: [legacy],
-      appVersion: "0.0.72",
+      appVersion: "0.19.0",
       validateAuth: () => true,
     })
 
@@ -53,7 +53,7 @@ describe("legacy userData migration", () => {
 
     const marker = JSON.parse(readFileSync(join(destination, "ripple-migration.json"), "utf8"))
     expect(marker.sourcePath).toBe(legacy)
-    expect(marker.appVersion).toBe("0.0.72")
+    expect(marker.appVersion).toBe("0.19.0")
     expect(marker.copiedPaths).toContain("data/agents.db")
     expect(marker.authReadable).toBe(true)
   })
