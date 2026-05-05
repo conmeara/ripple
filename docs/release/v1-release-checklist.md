@@ -17,7 +17,7 @@ Package metadata version: `0.19.0`.
 | Review everything implemented in `ROADMAP.md` | `ROADMAP.md` phase list and every `plans/phase-*.md` ExecPlan | Local audit completed. Phase plans exist for Phases 1-18 plus 10B and v2 sequence research; Phase 19 plan added in this pass. |
 | Review all phases | Phase 0-19 matrix below | Local phase matrix updated. Manual packaged-app QA remains the main v1 go/no-go input. |
 | Improve and optimize for v1 release | Release-readiness findings, patched docs/UI, validation commands | Improved in this pass: root README, AGENTS snapshot, roadmap Phase 19 linkage, preview setup wiring/copy, shipped import wording, macOS permission copy, package-size optimization, quality/regression platform, and this checklist. |
-| Do not accept proxy signals as completion | Command output, packaged app evidence, manual QA notes, artifact inspection | Substantially satisfied. Automated gates, package/resource smoke, local MP4/MOV/WebM export smoke, packaged UI MP4 export, packaged analytics opt-in/off smoke, credentialed provider smoke, and official signed/notarized CI release passed. Release evidence exposed and fixed two packaging gaps: the first official `v0.19` CI release missed the x64 export browser, and quality CI package smoke later exposed that fresh checkouts needed tracked HyperFrames CLI staging plus current-platform Claude/Codex binary staging before `bun run package`. |
+| Do not accept proxy signals as completion | Command output, packaged app evidence, manual QA notes, artifact inspection | Substantially satisfied. Automated gates, package/resource smoke, local MP4/MOV/WebM export smoke, packaged UI MP4 export, packaged offline-local smoke, packaged analytics opt-in/off smoke, credentialed provider smoke, and official signed/notarized CI release passed. Release evidence exposed and fixed two packaging gaps: the first official `v0.19` CI release missed the x64 export browser, and quality CI package smoke later exposed that fresh checkouts needed tracked HyperFrames CLI staging plus current-platform Claude/Codex binary staging before `bun run package`. |
 | Ship the release as `v0.19` | `package.json`, release workflow input, GitHub release tag/name | Package metadata and packaged `Info.plist` are `0.19.0`; a draft `v0.19.0` release exists with refreshed signed/notarized arm64 and x64 macOS assets from GitHub Actions run `25393310437`, targeting commit `8dd8a71d2c2cb2e599fd246d7d54222bdb3ec64b`. |
 
 ## Phase Matrix
@@ -53,10 +53,10 @@ Run from `/Users/conmeara/code/ripple`.
 | Gate | Command | Pass condition | Evidence location |
 | --- | --- | --- | --- |
 | Focused Ripple regressions | `bun run test:ripple` | All tests pass | Passed 2026-05-05 after provider prompt coverage: 370 tests / 1507 expectations. |
-| Quality platform | `bun run test:quality` | Workflow matrix, fixtures, scripts, and closeout protocol verify | Passed 2026-05-05 after provider prompt coverage: 3 tests / 90 expectations; verifier found 36 workflow rows and 16 package scripts. |
+| Quality platform | `bun run test:quality` | Workflow matrix, fixtures, scripts, and closeout protocol verify | Passed 2026-05-05 after offline workflow mapping: 3 tests / 91 expectations; verifier found 37 workflow rows and 16 package scripts. |
 | UX workflow sweep | `bun run test:ux` | User-facing renderer workflow slice passes | Passed 2026-05-05: 130 tests / 464 expectations. |
-| Electron UX automation | `bun run test:e2e` | Playwright launches built Electron, clicks launch/onboarding/project/template/comments/renders/open-project/visual-context/resize/preview reload/composition-switch/generated-change review workflows, and retains screenshots/traces/logs on failure | Passed 2026-05-05: 6 Electron tests. |
-| Packaged Electron UX automation | `bun run test:e2e:packaged` | Playwright launches the packaged `Ripple.app` artifact and replays trusted open-project, visual context, preview reload/composition-switch, and generated-change review workflows | Passed 2026-05-05 against `release/mac-arm64/Ripple.app`: 4 release QA workflows. |
+| Electron UX automation | `bun run test:e2e` | Playwright launches built Electron, clicks launch/onboarding/project/template/comments/renders/open-project/visual-context/resize/preview reload/composition-switch/generated-change review workflows, and retains screenshots/traces/logs on failure | Passed 2026-05-05: 6 passed, 1 packaged-only offline export workflow skipped. |
+| Packaged Electron UX automation | `bun run test:e2e:packaged` | Playwright launches the packaged `Ripple.app` artifact and replays trusted open-project, visual context, preview reload/composition-switch, generated-change review, and offline local-use workflows | Passed 2026-05-05 against `release/mac-arm64/Ripple.app`: 5 release QA workflows. |
 | Visual regression snapshot | `bun run test:visual` | Stable project-entry visual baseline matches, or intentional changes are reviewed with `bun run test:e2e:update` | Passed 2026-05-05: 1 Playwright visual test; baseline stored under `test/e2e/__screenshots__/`. |
 | Agent/runtime sweep | `bun run test:agent` | Provider, revisions, conversations, and runtime slice passes | Passed 2026-05-05 after provider auth-prompt extraction: 102 tests / 334 expectations. |
 | Credentialed provider smoke | `RIPPLE_LIVE_PROVIDER_SMOKE=1 RIPPLE_LIVE_PROVIDER=codex|claude bun run test:live` | Configured provider reports a real authenticated account without running a project mutation | Passed 2026-05-05: Codex connected with an available ChatGPT account; Claude connected through `claude.ai` / `firstParty`. |
@@ -82,7 +82,7 @@ Run from `/Users/conmeara/code/ripple`.
 | Release workflow | Inspect `.github/workflows/release.yml` and latest Actions run | Passed GitHub Actions run `25393310437`: signed/notarized artifacts published with GitHub update metadata and no app-embedded publishing secrets. The workflow verifies each packaged app contains an executable export browser with the expected macOS architecture, and existing draft refreshes now retarget the release to the run SHA. |
 | Analytics privacy | Inspect docs/tests and packaged opt-in smoke | Passed packaged production smoke: unset/denied consent blocked capture; opt-in captured an allowlisted event. |
 | Export outputs | Render fixture project to MP4, MOV, WebM | Passed local render/FFprobe smoke for MP4, MOV, and WebM; packaged UI MP4 export passed from the final app artifact. |
-| Manual QA | Complete checklist below | Fresh packaged app, onboarding skip, blank project, template project, preview seek, comments, analytics, MP4 export, open project, visual context, preview reload/composition switching, and generated-change accept/reject passed against packaged or built Electron artifacts. Remaining human QA rows are listed below. |
+| Manual QA | Complete checklist below | Fresh packaged app, onboarding skip, blank project, template project, preview seek, comments, analytics, MP4 export, open project, visual context, preview reload/composition switching, generated-change accept/reject, and offline local use passed against packaged or built Electron artifacts. Remaining human QA rows are listed below. |
 
 ## Manual QA
 
@@ -103,7 +103,7 @@ Complete these in a packaged app with isolated user data before stable v1.
 | Export | MP4, MOV, and WebM export complete in a validated environment | Packaged UI MP4 export passed; local Producer smoke passed MP4, MOV, and WebM. |
 | App updates | Older packaged beta updates to newer packaged beta inside Ripple | Prior beta.1 to beta.2 success should be refreshed near stable. |
 | Analytics | Off sends nothing; opt-in sends only allowed sanitized events | Passed packaged production opt-in/off smoke. |
-| Offline local use | Project creation, preview, comments, and export do not require network |  |
+| Offline local use | Project creation, preview, comments, and export do not require network | Passed packaged release QA with external renderer HTTP/S requests blocked: created a local project, reached preview readiness, recorded a frame comment, completed a packaged MP4 export, and asserted no external requests were attempted. |
 | Failure recovery | Missing Node/FFmpeg, preview startup failure, export failure, and failed update check show recoverable errors |  |
 | Resize/keyboard | Four-pane shell avoids overlap and keeps controls usable | Passed built-Electron release QA at 980x720 with keyboard panel toggles and visible preview/comments controls. |
 
@@ -270,5 +270,4 @@ Complete these in a packaged app with isolated user data before stable v1.
 
 - Refresh packaged update N-to-N+1 evidence near stable.
 - Complete remaining packaged app human QA rows in the checklist above, especially
-  update flow, failure recovery, offline local use, and MOV/WebM from the
-  packaged UI if desired.
+  update flow, failure recovery, and MOV/WebM from the packaged UI if desired.

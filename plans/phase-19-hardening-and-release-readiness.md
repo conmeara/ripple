@@ -151,6 +151,11 @@ short label `v0.19`.
   through `resolveCodexProviderAuthPrompt`, and `bun run test:agent` verifies
   missing-provider prompts, queued Codex retry, and saved-credential failure
   recovery.
+- [x] 2026-05-05 / Codex: Added packaged offline local-use release QA. The
+  packaged app test blocks external renderer HTTP/S requests, creates a local
+  project, verifies preview readiness, records a frame comment, completes an
+  MP4 export through packaged resources, and asserts no external request was
+  attempted.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -334,21 +339,22 @@ arm64 and x64 macOS assets and retargeted the draft release to commit
 Passed local gates on 2026-05-05:
 
 - `bun run ts:check`: passed.
-- `bun run test:quality`: passed, 3 tests / 90 expectations; verifier found
-  36 workflow rows and 16 package scripts.
+- `bun run test:quality`: passed, 3 tests / 91 expectations; verifier found
+  37 workflow rows and 16 package scripts.
 - `bun run test:ux`: passed, 130 tests / 464 expectations.
 - `bun run test:agent`: passed, 102 tests / 334 expectations after provider
   auth-prompt coverage.
 - `bun run test:export`: passed, 152 tests / 748 expectations.
-- `bun run test:e2e`: passed, 6 Electron tests covering launch, skippable
+- `bun run test:e2e`: passed, 6 Electron tests and skipped 1 packaged-only
+  offline export workflow, covering launch, skippable
   onboarding, project/template creation, existing-project open, preview
   play/pause, mouse timeline seek, preview reload, composition switching,
   comments, stored visual context, resize / keyboard controls, generated-change
   accept/reject controls, and Renders pane controls.
-- `bun run test:e2e:packaged`: passed, 4 packaged release QA workflows against
+- `bun run test:e2e:packaged`: passed, 5 packaged release QA workflows against
   `release/mac-arm64/Ripple.app`, covering trusted open-project, current-frame
-  visual context, preview reload/composition switching, and generated-change
-  accept/reject controls.
+  visual context, preview reload/composition switching, generated-change
+  accept/reject controls, and offline project/comment/export local use.
 - `bun run test:visual`: passed, 1 Playwright visual snapshot.
 - `bun run test:live`: default skip mode passes; credentialed smokes also passed
   with `RIPPLE_LIVE_PROVIDER_SMOKE=1` for both Codex and Claude.
@@ -395,9 +401,10 @@ Passed local gates on 2026-05-05:
   open, preview reload/composition switching, visual context, resize/keyboard
   shell usability, and generated-change accept/reject controls. Latest local
   rerun after adding packaged E2E launch support passed in 1.0m.
-- Packaged Electron release QA (`bun run test:e2e:packaged`): passed, 4
+- Packaged Electron release QA (`bun run test:e2e:packaged`): passed, 5
   workflow tests against the local `release/mac-arm64/Ripple.app`, including the
-  generated-change reject/accept artifact pass, in 47.4s.
+  generated-change reject/accept artifact pass and offline local-use export
+  pass, in 1.4m.
 - Focused comments renderer tests (`bun test src/renderer/features/comments`):
   passed, 9 tests / 31 expectations, including the explicit reject-action
   eligibility guard for live proposed generated changes.
@@ -669,5 +676,5 @@ Initial release-readiness findings from this pass:
 Current remaining release blockers:
 
 - Packaged update N-to-N+1 refresh near stable.
-- Remaining human/manual QA gaps: app update flow, failure recovery, offline
-  local use, and MOV/WebM from the packaged UI if desired.
+- Remaining human/manual QA gaps: app update flow, failure recovery, and
+  MOV/WebM from the packaged UI if desired.

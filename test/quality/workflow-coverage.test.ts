@@ -33,6 +33,7 @@ const requiredWorkflowIds = [
   "UPDATES-02",
   "PACKAGE-01",
   "PACKAGE-02",
+  "OFFLINE-01",
   "FAILURE-01",
   "LAYOUT-01",
   "SECURITY-01",

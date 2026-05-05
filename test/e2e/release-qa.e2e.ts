@@ -1,12 +1,14 @@
 import { existsSync } from "node:fs"
 import { execFile } from "node:child_process"
 import { copyFile, cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { promisify } from "node:util"
 import type { ElectronApplication, Page } from "@playwright/test"
 import {
+  createProjectFromEntry,
   dismissFirstRun,
   expect,
+  expectProjectFile,
   test,
   type RippleE2EContext,
 } from "./helpers/ripple-electron"
@@ -56,7 +58,7 @@ test.describe("Ripple release QA workflows", () => {
     await expect(page.getByTestId("ripple-preview-player")).toBeVisible()
     await expect(page.getByRole("button", { name: "Comments" })).toBeVisible()
 
-    await page.getByRole("button", { name: "Comments" }).click()
+    await page.getByTestId("ripple-shell").getByRole("button", { name: "Comments" }).click()
     await expect(page.getByTestId("ripple-comments-pane")).toBeVisible()
     await expect(page.getByText("Current frame")).toBeVisible()
 
@@ -136,7 +138,7 @@ test.describe("Ripple release QA workflows", () => {
     await expect(page.getByTestId("ripple-shell-project-name")).toContainText(
       "Basic Title Card",
     )
-    await page.getByRole("button", { name: "Comments" }).click()
+    await page.getByTestId("ripple-shell").getByRole("button", { name: "Comments" }).click()
     await expect(page.getByTestId("ripple-comments-pane")).toBeVisible()
 
     const rejectCard = page
@@ -173,7 +175,90 @@ test.describe("Ripple release QA workflows", () => {
       },
     ).toContain("Accepted Review Title")
   })
+
+  test("creates, previews, comments, and exports with external network blocked @workflow", async ({
+    electronApp,
+    page,
+    e2e,
+  }) => {
+    test.skip(
+      !process.env.RIPPLE_E2E_PACKAGED_APP,
+      "Packaged artifact required for offline export smoke.",
+    )
+    const network = await blockExternalNetwork(electronApp, e2e.logs)
+
+    await dismissFirstRun(page)
+    const projectName = `E2E Offline ${e2e.runId}`
+    await createProjectFromEntry(page, projectName)
+    const indexPath = await expectProjectFile(e2e, projectName, "index.html")
+    const projectDir = dirname(indexPath)
+
+    await expect(page.getByTestId("ripple-preview-player")).toBeVisible()
+    await expect(page.getByRole("slider", { name: "Preview time" })).toHaveAttribute(
+      "aria-disabled",
+      "false",
+      { timeout: 45_000 },
+    )
+
+    await page
+      .getByTestId("ripple-shell")
+      .getByRole("button", { name: "Comments" })
+      .click()
+    const commentText = "Offline smoke comment on this frame."
+    await page.getByTestId("ripple-comment-composer-input").fill(commentText)
+    await page.getByRole("button", { name: "Send comment" }).click()
+    await expect(
+      page.locator("[data-comment-card='true']").filter({ hasText: commentText }),
+    ).toBeVisible({ timeout: 30_000 })
+
+    await page.getByTestId("ripple-renders-button").click()
+    await expect(page.getByTestId("ripple-renders-pane")).toBeVisible()
+    await page.getByTestId("ripple-export-button").click()
+    await expect(page.getByText("Complete")).toBeVisible({ timeout: 120_000 })
+    await expect
+      .poll(() => countExportFiles(projectDir), {
+        message: "expected a packaged offline MP4 export",
+        timeout: 10_000,
+      })
+      .toBeGreaterThan(0)
+
+    expect(network.externalRequests).toEqual([])
+  })
 })
+
+async function blockExternalNetwork(
+  electronApp: ElectronApplication,
+  logs: string[],
+): Promise<{ externalRequests: string[] }> {
+  const externalRequests: string[] = []
+  await electronApp.context().route("**/*", async (route) => {
+    const url = route.request().url()
+    if (isExternalHttpUrl(url)) {
+      externalRequests.push(url)
+      logs.push(`[network:block] ${url}`)
+      await route.abort("blockedbyclient")
+      return
+    }
+    await route.continue()
+  })
+  return { externalRequests }
+}
+
+function isExternalHttpUrl(url: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return false
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false
+  const hostname = parsed.hostname.toLowerCase()
+  return hostname !== "localhost" &&
+    hostname !== "127.0.0.1" &&
+    hostname !== "::1" &&
+    !hostname.endsWith(".localhost")
+}
 
 async function openBasicTitleCardProject({
   electronApp,
@@ -216,13 +301,23 @@ async function countCommentVisualFiles(projectDir: string): Promise<number> {
   return countImages(root)
 }
 
+async function countExportFiles(projectDir: string): Promise<number> {
+  const root = join(projectDir, "exports")
+  if (!existsSync(root)) return 0
+  return countFiles(root, /\.(mp4|mov|webm)$/i)
+}
+
 async function countImages(root: string): Promise<number> {
+  return countFiles(root, /\.(png|jpg|jpeg|webp)$/i)
+}
+
+async function countFiles(root: string, pattern: RegExp): Promise<number> {
   let count = 0
   for (const entry of await readdir(root, { withFileTypes: true })) {
     const child = join(root, entry.name)
     if (entry.isDirectory()) {
-      count += await countImages(child)
-    } else if (/\.(png|jpg|jpeg|webp)$/i.test(entry.name)) {
+      count += await countFiles(child, pattern)
+    } else if (pattern.test(entry.name)) {
       count += 1
     }
   }
