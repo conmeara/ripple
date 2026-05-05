@@ -156,6 +156,11 @@ short label `v0.19`.
   project, verifies preview readiness, records a frame comment, completes an
   MP4 export through packaged resources, and asserts no external request was
   attempted.
+- [x] 2026-05-05 / Codex: Added a quality-level failure recovery audit that
+  maps the release checklist to concrete tests and UI affordances for missing
+  render tools, Node app-runtime fallback, preview startup timeout/error,
+  export failure/retry/interrupted recovery, and update check/download failure
+  messages.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -339,7 +344,7 @@ arm64 and x64 macOS assets and retargeted the draft release to commit
 Passed local gates on 2026-05-05:
 
 - `bun run ts:check`: passed.
-- `bun run test:quality`: passed, 3 tests / 91 expectations; verifier found
+- `bun run test:quality`: passed, 4 tests / 104 expectations; verifier found
   37 workflow rows and 16 package scripts.
 - `bun run test:ux`: passed, 130 tests / 464 expectations.
 - `bun run test:agent`: passed, 102 tests / 334 expectations after provider
@@ -676,5 +681,5 @@ Initial release-readiness findings from this pass:
 Current remaining release blockers:
 
 - Packaged update N-to-N+1 refresh near stable.
-- Remaining human/manual QA gaps: app update flow, failure recovery, and
-  MOV/WebM from the packaged UI if desired.
+- Remaining human/manual QA gaps: app update flow and MOV/WebM from the packaged
+  UI if desired.

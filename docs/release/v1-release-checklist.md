@@ -53,7 +53,7 @@ Run from `/Users/conmeara/code/ripple`.
 | Gate | Command | Pass condition | Evidence location |
 | --- | --- | --- | --- |
 | Focused Ripple regressions | `bun run test:ripple` | All tests pass | Passed 2026-05-05 after provider prompt coverage: 370 tests / 1507 expectations. |
-| Quality platform | `bun run test:quality` | Workflow matrix, fixtures, scripts, and closeout protocol verify | Passed 2026-05-05 after offline workflow mapping: 3 tests / 91 expectations; verifier found 37 workflow rows and 16 package scripts. |
+| Quality platform | `bun run test:quality` | Workflow matrix, fixtures, scripts, and closeout protocol verify | Passed 2026-05-05 after failure-recovery audit coverage: 4 tests / 104 expectations; verifier found 37 workflow rows and 16 package scripts. |
 | UX workflow sweep | `bun run test:ux` | User-facing renderer workflow slice passes | Passed 2026-05-05: 130 tests / 464 expectations. |
 | Electron UX automation | `bun run test:e2e` | Playwright launches built Electron, clicks launch/onboarding/project/template/comments/renders/open-project/visual-context/resize/preview reload/composition-switch/generated-change review workflows, and retains screenshots/traces/logs on failure | Passed 2026-05-05: 6 passed, 1 packaged-only offline export workflow skipped. |
 | Packaged Electron UX automation | `bun run test:e2e:packaged` | Playwright launches the packaged `Ripple.app` artifact and replays trusted open-project, visual context, preview reload/composition-switch, generated-change review, and offline local-use workflows | Passed 2026-05-05 against `release/mac-arm64/Ripple.app`: 5 release QA workflows. |
@@ -104,7 +104,7 @@ Complete these in a packaged app with isolated user data before stable v1.
 | App updates | Older packaged beta updates to newer packaged beta inside Ripple | Prior beta.1 to beta.2 success should be refreshed near stable. |
 | Analytics | Off sends nothing; opt-in sends only allowed sanitized events | Passed packaged production opt-in/off smoke. |
 | Offline local use | Project creation, preview, comments, and export do not require network | Passed packaged release QA with external renderer HTTP/S requests blocked: created a local project, reached preview readiness, recorded a frame comment, completed a packaged MP4 export, and asserted no external requests were attempted. |
-| Failure recovery | Missing Node/FFmpeg, preview startup failure, export failure, and failed update check show recoverable errors |  |
+| Failure recovery | Missing Node/FFmpeg, preview startup failure, export failure, and failed update check show recoverable errors | Passed automated recovery audit. Evidence covers missing render tools without throwing, app-runtime fallback for Node, preview timeout/start failure codes, export failed/interrupted states with Retry, stale export recovery, and update check/download failure messages. |
 | Resize/keyboard | Four-pane shell avoids overlap and keeps controls usable | Passed built-Electron release QA at 980x720 with keyboard panel toggles and visible preview/comments controls. |
 
 ## Current Findings
@@ -270,4 +270,4 @@ Complete these in a packaged app with isolated user data before stable v1.
 
 - Refresh packaged update N-to-N+1 evidence near stable.
 - Complete remaining packaged app human QA rows in the checklist above, especially
-  update flow, failure recovery, and MOV/WebM from the packaged UI if desired.
+  update flow and MOV/WebM from the packaged UI if desired.

@@ -1367,8 +1367,8 @@ Current baseline after Phase 19 local audit:
   resolutions.
 - Packaged app smoke evidence now covers production analytics off/on, blank
   project preview/comment/MP4 export, and bundled-template comment flow
-- remaining release evidence still needed for update N-to-N+1, failure
-  recovery, and optional packaged MOV/WebM UI export
+- remaining release evidence still needed for update N-to-N+1 and optional
+  packaged MOV/WebM UI export
 
 Ripple should graduate from the 1Code baseline to full test suites plus a
 repeatable QA protocol. Testing is a release gate, not a best-effort cleanup
