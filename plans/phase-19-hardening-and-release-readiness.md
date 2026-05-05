@@ -125,6 +125,11 @@ short label `v0.19`.
   `Reject changes` and `Accept changes`, verifies persisted revision statuses,
   verifies rejected worktree cleanup, and verifies Main receives the accepted
   change.
+- [x] 2026-05-05 / Codex: Hardened release QA reliability after local/CI
+  evidence showed two timing-sensitive edges: the project-entry visual snapshot
+  now freezes the form width during comparison, and current-frame comment
+  visual capture now gives HyperFrames a 15s snapshot budget with a 30s process
+  budget.
 - [x] Complete Milestone 0: release-baseline audit and primary-path language
   cleanup.
 - [x] Complete Milestone 1: automated gate run and failures fixed or recorded.
@@ -340,7 +345,8 @@ Passed local gates on 2026-05-05:
 - Full Electron E2E (`bun run test:e2e`): passed, 5 workflow tests covering
   launch/onboarding/project creation, bundled template review, existing-project
   open, visual context, resize/keyboard shell usability, and generated-change
-  accept/reject controls.
+  accept/reject controls. Latest local rerun after the visual-capture timeout
+  hardening passed in 53.3s.
 - Focused comments renderer tests (`bun test src/renderer/features/comments`):
   passed, 9 tests / 31 expectations, including the explicit reject-action
   eligibility guard for live proposed generated changes.

@@ -18,6 +18,14 @@ test.describe("Ripple fresh launch and project workflow", () => {
     await expect(page.getByText("Local files are saved in ~/Ripple")).toBeVisible()
     await expect(page.getByTestId("ripple-project-entry-form")).toHaveScreenshot(
       "project-entry-form.png",
+      {
+        style: `
+          [data-testid="ripple-project-entry-form"] {
+            width: 920px !important;
+            max-width: 920px !important;
+          }
+        `,
+      },
     )
 
     const projectName = `E2E Blank ${e2e.runId}`

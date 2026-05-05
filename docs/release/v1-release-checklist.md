@@ -170,6 +170,10 @@ Complete these in a packaged app with isolated user data before stable v1.
   visible `Reject changes` and `Accept changes` actions, verifies persisted
   status changes, checks rejected worktree cleanup, and checks Main is updated
   after acceptance.
+- Release QA exposed that current-frame snapshot capture could take close to
+  the old 10s process budget under full Electron load. The app now gives
+  HyperFrames visual capture a 15s snapshot budget and a 30s process budget, so
+  frame-attached comments have less timing fragility.
 - The successful release workflow emitted a GitHub Actions annotation that
   Node.js 20 actions are deprecated and will move to Node.js 24 defaults in
   2026. This is not a v0.19 release blocker, but the release workflow should be

@@ -50,6 +50,8 @@ export interface CommentVisualAttachmentResolution {
 }
 
 const sourceCaptureLocks = new Map<string, Promise<void>>()
+const FRAME_CAPTURE_HYPERFRAMES_TIMEOUT_MS = 15_000
+const FRAME_CAPTURE_PROCESS_TIMEOUT_MS = 30_000
 
 function normalizeRelativeProjectPath(filePath: string): string {
   const normalized = normalize(filePath).replace(/\\/g, "/")
@@ -250,12 +252,12 @@ async function captureSingleFrame(input: {
       "--at",
       atSeconds,
       "--timeout",
-      "5000",
+      String(FRAME_CAPTURE_HYPERFRAMES_TIMEOUT_MS),
       input.sourcePath,
     ], {
       cwd: input.sourcePath,
       repoRoot: input.repoRoot,
-      timeout: 10_000,
+      timeout: FRAME_CAPTURE_PROCESS_TIMEOUT_MS,
     })
     if (!command.ok) {
       throw new Error("HyperFrames could not capture the current frame.")
