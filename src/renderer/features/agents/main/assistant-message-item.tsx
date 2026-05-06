@@ -253,8 +253,18 @@ function getRuntimeDataLabel(part: any): string | null {
       return "Approved request"
     case "file_change":
       return "Updated proposal diff"
-    case "status":
+    case "status": {
+      const label = typeof data.payload?.label === "string" ? data.payload.label : null
+      if (
+        data.payload?.capabilities ||
+        data.payload?.sessionInit ||
+        label?.startsWith("Loaded Codex context") ||
+        label?.startsWith("Loaded Claude context")
+      ) {
+        return null
+      }
       return typeof data.payload?.label === "string" ? data.payload.label : null
+    }
     default:
       return null
   }

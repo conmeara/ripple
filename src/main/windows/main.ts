@@ -25,6 +25,7 @@ import {
   syncUpdateContactPreference,
 } from "../lib/analytics"
 import { registerGitWatcherIPC } from "../lib/git/watcher"
+import { registerHyperframesSourceWatcherIPC } from "../lib/hyperframes"
 import { hasActiveClaudeSessions, abortAllClaudeSessions } from "../lib/trpc/routers/claude"
 import { hasActiveCodexStreams, abortAllCodexStreams } from "../lib/trpc/routers/codex"
 import { getBuildAssetPath } from "../lib/packaged-assets"
@@ -702,6 +703,7 @@ function registerIpcHandlers(): void {
 
   // Register git watcher IPC handlers
   registerGitWatcherIPC()
+  registerHyperframesSourceWatcherIPC()
 
   // Register VS Code theme scanner IPC handlers
   registerThemeScannerIPC()

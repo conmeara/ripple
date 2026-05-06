@@ -1,5 +1,6 @@
 import { BrowserWindow } from "electron"
 import { cleanupWindowSubscriptions } from "../lib/git/watcher/ipc-bridge"
+import { cleanupHyperframesSourceWindowSubscriptions } from "../lib/hyperframes"
 import { ChatOwnershipRegistry } from "./chat-ownership"
 
 /**
@@ -44,6 +45,7 @@ class WindowManager {
     window.on("closed", () => {
       // Cleanup git watcher subscriptions for this window to prevent memory leaks
       cleanupWindowSubscriptions(electronId)
+      cleanupHyperframesSourceWindowSubscriptions(electronId)
       // Release any chat ownership held by this window
       this.releaseAllChats(electronId)
 

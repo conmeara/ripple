@@ -65,6 +65,7 @@ import {
   saveActivityAcknowledgements,
   type ActivityAcknowledgementRecords,
 } from "../ripple-shell/activity-acknowledgements"
+import { useHyperframesSourceChangeListener } from "./use-hyperframes-source-change-listener"
 
 interface HyperFramesProjectPaneProps {
   projectId: string
@@ -106,9 +107,11 @@ function AssetIcon({
 function CompositionPreview({
   projectId,
   composition,
+  refreshVersion,
 }: {
   projectId: string
   composition: RippleProjectCompositionItem
+  refreshVersion: number
 }) {
   const visibilityTimeoutRef = useRef<number | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -137,7 +140,7 @@ function CompositionPreview({
 
     async function loadPreview() {
       try {
-        const response = await fetch(buildHyperframesPlayerFetchUrl(narrowedSourceUrl, 0), {
+        const response = await fetch(buildHyperframesPlayerFetchUrl(narrowedSourceUrl, refreshVersion), {
           cache: "no-store",
           signal: abortController.signal,
         })
@@ -170,7 +173,7 @@ function CompositionPreview({
         URL.revokeObjectURL(objectUrl)
       }
     }
-  }, [sourceQuery.data?.source.sourceUrl])
+  }, [refreshVersion, sourceQuery.data?.source.sourceUrl])
 
   useEffect(() => {
     if (visibilityTimeoutRef.current !== null) {
@@ -260,6 +263,7 @@ function CompositionRow({
   activitySummary,
   activityBadgeState,
   projectId,
+  sourceRefreshVersion,
 }: {
   composition: RippleProjectCompositionItem
   disabled: boolean
@@ -268,6 +272,7 @@ function CompositionRow({
   activitySummary?: RippleActivitySummary | null
   activityBadgeState?: RippleActivityBadgeState | null
   projectId: string
+  sourceRefreshVersion: number
 }) {
   const badge = activityBadgeState
     ? activityBadgePresentation(activityBadgeState, activitySummary)
@@ -296,7 +301,11 @@ function CompositionRow({
           : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
       )}
     >
-      <CompositionPreview projectId={projectId} composition={composition} />
+      <CompositionPreview
+        projectId={projectId}
+        composition={composition}
+        refreshVersion={sourceRefreshVersion}
+      />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
           <span className="block min-w-0 flex-1 truncate text-[13px] font-medium">
@@ -465,6 +474,15 @@ export function HyperFramesProjectPane({
     loadActivityAcknowledgements(projectId),
   )
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [sourceRefreshVersion, setSourceRefreshVersion] = useState(0)
+  const handleHyperframesSourceChange = useCallback(() => {
+    setSourceRefreshVersion((version) => version + 1)
+  }, [])
+  useHyperframesSourceChangeListener({
+    projectId,
+    enabled: Boolean(projectId),
+    onChange: handleHyperframesSourceChange,
+  })
   const utils = trpc.useUtils()
   const browserQuery = trpc.hyperframes.getProjectBrowserModel.useQuery(
     { projectId },
@@ -785,6 +803,7 @@ export function HyperFramesProjectPane({
                       acknowledgementRecords: activityAcknowledgements,
                     })}
                     projectId={projectId}
+                    sourceRefreshVersion={sourceRefreshVersion}
                   />
                 ))}
               </div>

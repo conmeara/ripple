@@ -90,6 +90,40 @@ describe("AgentRuntimeUIProjector", () => {
     ])
   })
 
+  test("keeps provider capability status out of visible assistant parts", () => {
+    const projector = new AgentRuntimeUIProjector()
+
+    expect(projector.project({
+      type: "status",
+      providerType: "codex:capabilities",
+      providerId: "run-1",
+      payload: {
+        status: "running",
+        label: "Loaded Codex context: 1 MCP server, Ripple policy",
+        capabilities: { appServer: true },
+        sessionInit: { tools: ["Bash"] },
+      },
+    })).toEqual([])
+
+    expect(projector.project({
+      type: "status",
+      providerType: "thread/compacted",
+      providerId: "turn-1",
+      payload: {
+        status: "running",
+        label: "Compacted context",
+      },
+    })).toEqual([
+      expect.objectContaining({
+        type: "data-agent-runtime",
+        data: expect.objectContaining({
+          kind: "status",
+          label: "Compacted context",
+        }),
+      }),
+    ])
+  })
+
   test("builds persisted assistant parts with tools, reasoning, and usage metadata", () => {
     const projection = buildAgentRuntimeAssistantProjection({
       fallbackText: "Fallback",

@@ -8,6 +8,11 @@ import type {
   UpdateContactPreferenceInput,
   UpdateContactPreferenceState,
 } from "../shared/ripple-analytics"
+import type {
+  HyperframesSourceWatchEvent,
+  HyperframesSourceWatchSubscription,
+  HyperframesSourceWatchSubscriptionInput,
+} from "../shared/hyperframes-source-watch"
 
 // Remote crash reporting is disabled until Ripple has a separate opt-in and
 // sanitized exception extras.
@@ -264,6 +269,13 @@ contextBridge.exposeInMainWorld("desktopApi", {
     return () => ipcRenderer.removeListener("git:status-changed", handler)
   },
 
+  // HyperFrames source change events (from project/worktree source watcher)
+  onHyperframesSourceChanged: (callback: (data: HyperframesSourceWatchEvent) => void) => {
+    const handler = (_event: unknown, data: HyperframesSourceWatchEvent) => callback(data)
+    ipcRenderer.on("hyperframes:source-changed", handler)
+    return () => ipcRenderer.removeListener("hyperframes:source-changed", handler)
+  },
+
   // Worktree setup failure events
   onWorktreeSetupFailed: (callback: (data: { kind: "create-failed" | "setup-failed"; message: string; projectId: string }) => void) => {
     const handler = (_event: unknown, data: { kind: "create-failed" | "setup-failed"; message: string; projectId: string }) => callback(data)
@@ -274,6 +286,10 @@ contextBridge.exposeInMainWorld("desktopApi", {
   // Subscribe to git watcher for a worktree (from renderer)
   subscribeToGitWatcher: (worktreePath: string) => ipcRenderer.invoke("git:subscribe-watcher", worktreePath),
   unsubscribeFromGitWatcher: (worktreePath: string) => ipcRenderer.invoke("git:unsubscribe-watcher", worktreePath),
+  subscribeToHyperframesSourceWatcher: (input: HyperframesSourceWatchSubscriptionInput) =>
+    ipcRenderer.invoke("hyperframes:subscribe-source-watcher", input) as Promise<HyperframesSourceWatchSubscription | null>,
+  unsubscribeFromHyperframesSourceWatcher: (subscriptionKey: string) =>
+    ipcRenderer.invoke("hyperframes:unsubscribe-source-watcher", subscriptionKey),
 
   // VS Code theme scanning
   scanVSCodeThemes: () => ipcRenderer.invoke("vscode:scan-themes"),
@@ -431,6 +447,10 @@ export interface DesktopApi {
   onGitStatusChanged: (callback: (data: { worktreePath: string; changes: Array<{ path: string; type: "add" | "change" | "unlink" }> }) => void) => () => void
   subscribeToGitWatcher: (worktreePath: string) => Promise<void>
   unsubscribeFromGitWatcher: (worktreePath: string) => Promise<void>
+  // HyperFrames source changes
+  onHyperframesSourceChanged: (callback: (data: HyperframesSourceWatchEvent) => void) => () => void
+  subscribeToHyperframesSourceWatcher: (input: HyperframesSourceWatchSubscriptionInput) => Promise<HyperframesSourceWatchSubscription | null>
+  unsubscribeFromHyperframesSourceWatcher: (subscriptionKey: string) => Promise<void>
   // VS Code theme scanning
   scanVSCodeThemes: () => Promise<DiscoveredTheme[]>
   loadVSCodeTheme: (themePath: string) => Promise<VSCodeThemeData>

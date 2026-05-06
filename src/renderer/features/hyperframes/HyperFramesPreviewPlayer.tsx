@@ -80,6 +80,7 @@ import {
   prewarmRipplePreviewPlayer,
 } from "./preview-coordinator"
 import { useRippleTimelinePlayerAdapter } from "./timeline-player-adapter"
+import { useHyperframesSourceChangeListener } from "./use-hyperframes-source-change-listener"
 
 interface HyperFramesPreviewPlayerProps {
   projectId: string
@@ -231,6 +232,7 @@ export function HyperFramesPreviewPlayer({
   }>({ duration: 0, model: null })
   const [timelineEditModel, setTimelineEditModel] = useState<RippleTimelineModel | null>(null)
   const [settledSeekRequestId, setSettledSeekRequestId] = useState<number | null>(null)
+  const sourceRefreshSeekTimeRef = useRef(0)
   const requestedSeekTime =
     typeof seekToTime === "number" && Number.isFinite(seekToTime)
       ? Math.max(0, seekToTime)
@@ -339,6 +341,21 @@ export function HyperFramesPreviewPlayer({
     isPreviewSettling && settledTimelineSnapshot.duration > 0
       ? settledTimelineSnapshot.duration
       : duration
+  sourceRefreshSeekTimeRef.current = displayTime
+
+  const handleHyperframesSourceChange = useCallback(() => {
+    setTimelineEditModel(null)
+    adapter.reload({ seekTime: sourceRefreshSeekTimeRef.current })
+  }, [adapter.reload])
+
+  useHyperframesSourceChangeListener({
+    projectId,
+    revisionId,
+    chatId,
+    enabled: Boolean(projectId),
+    onChange: handleHyperframesSourceChange,
+  })
+
   const displayTimelineModel =
     isPreviewSettling && settledTimelineSnapshot.model
       ? settledTimelineSnapshot.model

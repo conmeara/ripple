@@ -236,6 +236,21 @@ function isToolFailure(payload: Record<string, unknown>): boolean {
   return status === "failed" || status === "error" || status === "declined"
 }
 
+function shouldProjectStatusEvent(
+  event: RuntimeEventLike,
+  payload: Record<string, unknown>,
+): boolean {
+  const label = compactLabel(payload.label)
+  const recovery = compactLabel(payload.recovery)
+
+  if (event.providerType?.endsWith(":capabilities")) return false
+  if (isRecord(payload.capabilities) || isRecord(payload.sessionInit)) return false
+  if (label?.startsWith("Loaded Codex context")) return false
+  if (label?.startsWith("Loaded Claude context")) return false
+
+  return Boolean(label || recovery)
+}
+
 export function extractRuntimeUsageMetadata(
   payload: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -404,8 +419,7 @@ export class AgentRuntimeUIProjector {
       }
       case "status": {
         const label = compactLabel(payload.label)
-        const recovery = compactLabel(payload.recovery)
-        if (!label && !recovery) return []
+        if (!shouldProjectStatusEvent(event, payload)) return []
         return [{
           type: "data-agent-runtime",
           id: stableEventId("status", event),

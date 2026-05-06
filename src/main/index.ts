@@ -32,6 +32,7 @@ import {
 } from "./lib/cli"
 import { cleanupGitWatchers } from "./lib/git/watcher"
 import {
+  cleanupHyperframesSourceWatchers,
   previewManager,
   registerHyperframesPlayerProtocolPrivileges,
   registerHyperframesPlayerSourceProtocol,
@@ -1081,6 +1082,7 @@ if (gotTheLock) {
     renderManager.cancelAll()
     await cancelAllExports()
     await cleanupGitWatchers()
+    await cleanupHyperframesSourceWatchers()
     await shutdownAnalytics()
     await closeDatabase()
   })

@@ -20,6 +20,7 @@ import {
   recordRunAssistantProjection,
   recordRunUserPromptProjection,
 } from "./transcript-projection"
+import { buildConversationHistoryContext } from "./chat-history-context"
 import {
   appendRuntimeContextToPrompt,
   buildAgentRuntimeContextPrompt,
@@ -486,6 +487,11 @@ export async function executeAgentRun(
     const providerPrompt = appendRuntimeContextToPrompt({
       prompt: context.run.prompt,
       context: [
+        buildConversationHistoryContext({
+          db,
+          run: context.run,
+          thread: context.thread,
+        }),
         buildAgentRuntimeContextPrompt({
           db,
           resolved: {
