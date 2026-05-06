@@ -40,6 +40,8 @@ describe("Phase 18 release configuration", () => {
     expect(workflow).toContain("actions/setup-python@v5")
     expect(workflow).toContain("CSC_LINK")
     expect(workflow).toContain("APPLE_API_KEY_P8")
+    expect(workflow).toContain("MAIN_VITE_RIPPLE_ANALYTICS_KEY")
+    expect(workflow).toContain("MAIN_VITE_RIPPLE_ANALYTICS_HOST")
     expect(workflow).toContain("-c.mac.notarize=true")
     expect(workflow).toContain("codesign --verify --deep --strict")
     expect(workflow).toContain("spctl --assess --type execute")
