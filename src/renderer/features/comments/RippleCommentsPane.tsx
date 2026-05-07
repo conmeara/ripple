@@ -581,6 +581,8 @@ function CommentComposer({
   modelSelector?: ReactNode
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const [isFocused, setIsFocused] = useState(false)
   const hasContent = value.trim().length > 0 || attachments.length > 0
 
   const addFiles = async (files: File[]) => {
@@ -610,100 +612,113 @@ function CommentComposer({
   }
 
   return (
-    <PromptInput
-      value={value}
-      onValueChange={onChange}
-      onSubmit={onSubmit}
-      maxHeight={160}
-      className="relative z-10 min-w-0 max-w-full overflow-hidden rounded-xl border bg-input-background p-2 transition-[border-color,box-shadow] duration-150 focus-within:ring-2 focus-within:ring-primary/50"
+    <div
+      className="relative w-full"
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={handleDrop}
     >
       <div
-        className="flex min-w-0 flex-col gap-2"
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={handleDrop}
+        className="relative w-full cursor-text"
+        onClick={() => textareaRef.current?.focus()}
       >
-        <div className="flex min-w-0 items-start gap-2">
-          {timecode ? (
-            <span className="mt-1 shrink-0 rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
-              {timecode}
-            </span>
-          ) : null}
-          <PromptInputTextarea
-            placeholder={placeholder}
-            className="min-h-[40px] min-w-0 flex-1 px-0 py-1 text-sm placeholder:text-muted-foreground/70"
-            onPaste={handlePaste}
-            data-testid="ripple-comment-composer-input"
-          />
-        </div>
-        {attachments.length > 0 ? (
-          <div className="flex min-w-0 flex-wrap gap-1">
-            {attachments.map((attachment, index) => (
-              <span
-                key={`${attachment.type}-${attachment.filename ?? "attachment"}-${index}`}
-                className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/60 bg-background/80 px-2 py-1 text-xs text-muted-foreground"
-              >
-                {attachment.type === "image" ? (
-                  <ImageIcon className="h-3.5 w-3.5 shrink-0" />
-                ) : (
-                  <FileText className="h-3.5 w-3.5 shrink-0" />
-                )}
-                <span className="truncate">
-                  {attachment.filename ?? (attachment.type === "image" ? "image" : "file")}
+        <PromptInput
+          value={value}
+          onValueChange={onChange}
+          onSubmit={onSubmit}
+          maxHeight={160}
+          className={cn(
+            "border bg-input-background relative z-10 p-2 rounded-xl transition-[border-color,box-shadow] duration-150 min-w-0 max-w-full",
+            isFocused && "ring-2 ring-primary/50",
+          )}
+        >
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex min-w-0 items-start gap-2">
+              {timecode ? (
+                <span className="mt-1 shrink-0 rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
+                  {timecode}
                 </span>
-                <button
-                  type="button"
-                  className="ml-1 rounded-sm text-muted-foreground hover:text-foreground"
-                  onClick={() =>
-                    onAttachmentsChange?.(
-                      attachments.filter((_, itemIndex) => itemIndex !== index),
-                    )
-                  }
-                >
-                  <X className="h-3 w-3" />
-                  <span className="sr-only">Remove attachment</span>
-                </button>
-              </span>
-            ))}
-          </div>
-        ) : null}
-        <PromptInputActions className="min-w-0 w-full">
-          <div className="flex min-w-0 flex-1 items-center gap-1">
-            {modelSelector}
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-1">
-            {onAttachmentsChange ? (
-              <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={(event) => {
-                    const files = Array.from(event.target.files ?? [])
-                    event.target.value = ""
-                    void addFiles(files)
-                  }}
-                />
-                <IconButton
-                  label="Attach file"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isSubmitting}
-                >
-                  <AttachIcon className="h-4 w-4" />
-                </IconButton>
-              </>
+              ) : null}
+              <PromptInputTextarea
+                ref={textareaRef}
+                placeholder={placeholder}
+                className="min-h-[40px] min-w-0 flex-1 px-0 py-1 text-sm placeholder:text-muted-foreground/70"
+                onPaste={handlePaste}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                data-testid="ripple-comment-composer-input"
+              />
+            </div>
+            {attachments.length > 0 ? (
+              <div className="flex min-w-0 flex-wrap gap-1">
+                {attachments.map((attachment, index) => (
+                  <span
+                    key={`${attachment.type}-${attachment.filename ?? "attachment"}-${index}`}
+                    className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/60 bg-background/80 px-2 py-1 text-xs text-muted-foreground"
+                  >
+                    {attachment.type === "image" ? (
+                      <ImageIcon className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                      <FileText className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                    <span className="truncate">
+                      {attachment.filename ?? (attachment.type === "image" ? "image" : "file")}
+                    </span>
+                    <button
+                      type="button"
+                      className="ml-1 rounded-sm text-muted-foreground hover:text-foreground"
+                      onClick={() =>
+                        onAttachmentsChange?.(
+                          attachments.filter((_, itemIndex) => itemIndex !== index),
+                        )
+                      }
+                    >
+                      <X className="h-3 w-3" />
+                      <span className="sr-only">Remove attachment</span>
+                    </button>
+                  </span>
+                ))}
+              </div>
             ) : null}
-            <AgentSendButton
-              disabled={!hasContent || isSubmitting}
-              isSubmitting={isSubmitting}
-              hasContent={hasContent}
-              onClick={onSubmit}
-              ariaLabel="Send comment"
-            />
+            <PromptInputActions className="min-w-0 w-full">
+              <div className="flex min-w-0 flex-1 items-center gap-1">
+                {modelSelector}
+              </div>
+              <div className="ml-auto flex shrink-0 items-center gap-1">
+                {onAttachmentsChange ? (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(event) => {
+                        const files = Array.from(event.target.files ?? [])
+                        event.target.value = ""
+                        void addFiles(files)
+                      }}
+                    />
+                    <IconButton
+                      label="Attach file"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isSubmitting}
+                    >
+                      <AttachIcon className="h-4 w-4" />
+                    </IconButton>
+                  </>
+                ) : null}
+                <AgentSendButton
+                  disabled={!hasContent || isSubmitting}
+                  isSubmitting={isSubmitting}
+                  hasContent={hasContent}
+                  onClick={onSubmit}
+                  ariaLabel="Send comment"
+                />
+              </div>
+            </PromptInputActions>
           </div>
-        </PromptInputActions>
+        </PromptInput>
       </div>
-    </PromptInput>
+    </div>
   )
 }
 
@@ -1596,7 +1611,7 @@ export function RippleCommentsPane({
         )}
       </div>
 
-      <div className="relative z-10 min-w-0 shrink-0 overflow-hidden px-3 pb-2 shadow-sm shadow-background">
+      <div className="pb-2 shadow-sm shadow-background relative z-10 px-3">
         <CommentComposer
           value={draft}
           onChange={setDraft}

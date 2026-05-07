@@ -6,6 +6,8 @@ import {
   fitPreviewStageSize,
   formatPreviewTimecode,
   getPreviewPlayerControlLayout,
+  resolvePreviewNavigationHold,
+  resolvePreviewSeekRequestTime,
   shouldRenderPreviewCloseControl,
   shouldIssuePreviewSeekRequest,
   shouldSettlePreviewSeekRequest,
@@ -174,6 +176,106 @@ describe("HyperFrames preview player controls", () => {
       shouldSettlePreviewSeekRequest({
         ...baseReadiness,
         currentTime: 4.001,
+      }),
+    ).toBe(true)
+  })
+
+  test("holds the clicked target while a new preview source loads", () => {
+    const hold = resolvePreviewNavigationHold({
+      requestedTime: 4,
+      seekRequestId: 12,
+      settledSeekRequestId: 11,
+      isReady: true,
+      isLoadingSource: true,
+      isPreviewSourceFetching: false,
+      currentTime: 1.25,
+      currentDuration: 8,
+      settledDisplayTime: 1.25,
+      settledDuration: 8,
+    })
+
+    expect(hold.hasPendingSeek).toBe(true)
+    expect(hold.isPreviewSettling).toBe(true)
+    expect(hold.seekTargetTime).toBe(4)
+    expect(hold.displayTime).toBe(4)
+    expect(hold.displayDuration).toBe(8)
+    expect(hold.previewControlsReady).toBe(false)
+    expect(hold.timelineInteractionsReady).toBe(false)
+  })
+
+  test("settles navigation against the clamped timestamp for shorter sources", () => {
+    const hold = resolvePreviewNavigationHold({
+      requestedTime: 12,
+      seekRequestId: 13,
+      settledSeekRequestId: 12,
+      isReady: true,
+      isLoadingSource: false,
+      isPreviewSourceFetching: false,
+      currentTime: 6,
+      currentDuration: 6,
+      settledDisplayTime: 9,
+      settledDuration: 9,
+    })
+
+    expect(resolvePreviewSeekRequestTime({ requestedTime: 12, duration: 6 })).toBe(6)
+    expect(hold.seekTargetTime).toBe(6)
+    expect(hold.displayTime).toBe(6)
+    expect(hold.displayDuration).toBe(6)
+    expect(
+      shouldSettlePreviewSeekRequest({
+        requestedTime: hold.seekTargetTime,
+        seekRequestId: 13,
+        settledSeekRequestId: 12,
+        isReady: true,
+        isLoadingSource: false,
+        isPreviewSourceFetching: false,
+        currentTime: 6,
+      }),
+    ).toBe(true)
+  })
+
+  test("does not keep the scrubber disabled for non-blocking source refetches", () => {
+    const hold = resolvePreviewNavigationHold({
+      requestedTime: null,
+      seekRequestId: undefined,
+      settledSeekRequestId: null,
+      isReady: true,
+      isLoadingSource: false,
+      isPreviewSourceFetching: true,
+      currentTime: 3.25,
+      currentDuration: 6,
+      settledDisplayTime: 0,
+      settledDuration: 0,
+    })
+
+    expect(hold.hasPendingSeek).toBe(false)
+    expect(hold.isPreviewSettling).toBe(false)
+    expect(hold.displayTime).toBe(3.25)
+    expect(hold.previewControlsReady).toBe(true)
+    expect(hold.timelineInteractionsReady).toBe(true)
+  })
+
+  test("can settle a landed seek even while the source query is refetching", () => {
+    const readiness = {
+      requestedTime: 3.25,
+      seekRequestId: 14,
+      settledSeekRequestId: 13,
+      isReady: true,
+      isLoadingSource: false,
+      isPreviewSourceFetching: true,
+    }
+
+    expect(
+      shouldIssuePreviewSeekRequest({
+        ...readiness,
+        issuedSeekRequestId: null,
+        issuedSeekTime: null,
+      }),
+    ).toBe(true)
+    expect(
+      shouldSettlePreviewSeekRequest({
+        ...readiness,
+        currentTime: 3.25,
       }),
     ).toBe(true)
   })

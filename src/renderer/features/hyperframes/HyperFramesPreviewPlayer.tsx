@@ -73,6 +73,7 @@ import {
   fitPreviewStageSize,
   formatPreviewTimecode,
   getPreviewPlayerControlLayout,
+  resolvePreviewNavigationHold,
   type ZoomValue,
   shouldRenderPreviewCloseControl,
   shouldIssuePreviewSeekRequest,
@@ -369,26 +370,28 @@ export function HyperFramesPreviewPlayer({
     !previewControlLayout.showCaptionControl ||
     !previewControlLayout.showTimelineControl ||
     !previewControlLayout.showFullscreenControl
-  const hasPendingPreviewSeek =
-    requestedSeekTime !== null &&
-    typeof seekRequestId === "number" &&
-    settledSeekRequestId !== seekRequestId
   const isPreviewSourceFetching = sourceQuery.isFetching
-  const isPreviewSettling =
-    isLoadingSource || hasPendingPreviewSeek || isPreviewSourceFetching
-  const pendingDisplayTime =
-    requestedSeekTime !== null && hasPendingPreviewSeek
-      ? requestedSeekTime
-      : null
-  const displayTime =
-    pendingDisplayTime ??
-    (isPreviewSettling && settledTimelineSnapshot.duration > 0
-      ? settledDisplayTimeRef.current
-      : currentTime)
-  const displayDuration =
-    isPreviewSettling && settledTimelineSnapshot.duration > 0
-      ? settledTimelineSnapshot.duration
-      : duration
+  const previewNavigationHold = resolvePreviewNavigationHold({
+    requestedTime: requestedSeekTime,
+    seekRequestId,
+    settledSeekRequestId,
+    isReady,
+    isLoadingSource,
+    isPreviewSourceFetching,
+    currentTime,
+    currentDuration: duration,
+    settledDisplayTime: settledDisplayTimeRef.current,
+    settledDuration: settledTimelineSnapshot.duration,
+  })
+  const {
+    hasPendingSeek: hasPendingPreviewSeek,
+    isPreviewSettling,
+    seekTargetTime: previewSeekTargetTime,
+    displayTime,
+    displayDuration,
+    previewControlsReady,
+    timelineInteractionsReady,
+  } = previewNavigationHold
   sourceRefreshSeekTimeRef.current = displayTime
 
   const handleHyperframesSourceChange = useCallback(() => {
@@ -411,10 +414,6 @@ export function HyperFramesPreviewPlayer({
   previewFpsRef.current = displayTimelineModel?.fps ?? PREVIEW_FPS
   const progress =
     displayDuration > 0 ? clamp((displayTime / displayDuration) * 100, 0, 100) : 0
-  const previewControlsReady =
-    isReady && !isLoadingSource && !hasPendingPreviewSeek && !isPreviewSourceFetching
-  const timelineInteractionsReady =
-    isReady && !isLoadingSource && !hasPendingPreviewSeek
   const canUseTimeline = previewControlsReady && displayDuration > 0
   const commentMarkers = useMemo(
     () => buildPreviewCommentMarkers(commentThreadsQuery.data ?? [], displayDuration),
@@ -699,7 +698,7 @@ export function HyperFramesPreviewPlayer({
 
     const issuedSeek = issuedPreviewSeekRef.current
     if (!shouldIssuePreviewSeekRequest({
-      requestedTime: requestedSeekTime,
+      requestedTime: previewSeekTargetTime,
       seekRequestId,
       settledSeekRequestId,
       isReady,
@@ -711,21 +710,24 @@ export function HyperFramesPreviewPlayer({
       return
     }
 
-    if (typeof seekRequestId === "number") {
+    if (typeof seekRequestId === "number" && previewSeekTargetTime !== null) {
       issuedPreviewSeekRef.current = {
         requestId: seekRequestId,
-        time: requestedSeekTime,
+        time: previewSeekTargetTime,
         canSettle: false,
       }
       scheduleSeekSettleAfterPaint(seekRequestId)
     }
-    adapter.seek(requestedSeekTime)
+    if (previewSeekTargetTime !== null) {
+      adapter.seek(previewSeekTargetTime)
+    }
   }, [
     adapter.seek,
     cancelSeekSettleFrames,
     isLoadingSource,
     isPreviewSourceFetching,
     isReady,
+    previewSeekTargetTime,
     requestedSeekTime,
     scheduleSeekSettleAfterPaint,
     seekRequestId,
@@ -738,7 +740,7 @@ export function HyperFramesPreviewPlayer({
     if (issuedSeek?.requestId !== seekRequestId || !issuedSeek.canSettle) return
 
     if (shouldSettlePreviewSeekRequest({
-      requestedTime: requestedSeekTime,
+      requestedTime: previewSeekTargetTime,
       seekRequestId,
       settledSeekRequestId,
       isReady,
@@ -756,6 +758,7 @@ export function HyperFramesPreviewPlayer({
     isLoadingSource,
     isPreviewSourceFetching,
     isReady,
+    previewSeekTargetTime,
     requestedSeekTime,
     seekRequestId,
     settledSeekRequestId,

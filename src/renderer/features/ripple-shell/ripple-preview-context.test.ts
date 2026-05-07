@@ -321,6 +321,35 @@ describe("Ripple preview context transitions", () => {
     expect(state.pendingSeekTime).toBe(9)
   })
 
+  test("keeps review navigation anchored until the player lands there", () => {
+    const state = reduce(
+      createInitialRipplePreviewContext({
+        projectId: "project-1",
+        compositionId: "composition-1",
+      }),
+      { type: "preview-time-changed", time: 1.25 },
+      {
+        type: "select-comment-preview",
+        threadId: "thread-1",
+        revisionId: "revision-1",
+        time: 4,
+      },
+      { type: "preview-time-changed", time: 0 },
+      { type: "preview-time-changed", time: 4, frame: 120, fps: 30 },
+      { type: "preview-time-changed", time: 4.5, frame: 135, fps: 30 },
+    )
+
+    expect(state.selectedCommentThreadId).toBe("thread-1")
+    expect(state.target).toEqual({
+      kind: "comment-revision",
+      revisionId: "revision-1",
+      seekTime: 4,
+    })
+    expect(state.time).toBe(4.5)
+    expect(state.frame).toBe(135)
+    expect(state.pendingSeekTime).toBeNull()
+  })
+
   test("preview time updates keep frame/fps while absorbing tiny player drift", () => {
     const state = reduce(
       createInitialRipplePreviewContext({

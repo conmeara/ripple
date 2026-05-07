@@ -37,6 +37,18 @@ const ICONSET_SIZES = [
 ]
 
 const ICO_SIZES = [16, 32, 48, 64, 128, 256]
+const APP_ICON_MARK_SCALE = 0.78
+const APP_ICON_MARK_OFFSET = Number(((1024 * (1 - APP_ICON_MARK_SCALE)) / 2).toFixed(2))
+const DOCK_ICON_TILE_SCALE = 0.86
+const DOCK_ICON_TILE_OFFSET = Number(((1024 * (1 - DOCK_ICON_TILE_SCALE)) / 2).toFixed(2))
+
+function appIconMarkTransform() {
+  return `translate(${APP_ICON_MARK_OFFSET} ${APP_ICON_MARK_OFFSET}) scale(${APP_ICON_MARK_SCALE})`
+}
+
+function dockIconTileTransform() {
+  return `translate(${DOCK_ICON_TILE_OFFSET} ${DOCK_ICON_TILE_OFFSET}) scale(${DOCK_ICON_TILE_SCALE})`
+}
 
 function assertFile(path) {
   if (!existsSync(path)) {
@@ -80,9 +92,8 @@ async function renderSvgDataUrl(browser, dataUrl, size, outputPath) {
   return Buffer.from(screenshot)
 }
 
-function appIconSvg({ backgroundColor, markColor }) {
-  return `<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
+function appIconDefs(markColor) {
+  return `<defs>
     <filter id="mark-shadow" x="198" y="323" width="628" height="378" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
       <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#000000" flood-opacity="${markColor === "#FFFFFF" ? "0.34" : "0.16"}"/>
     </filter>
@@ -92,30 +103,53 @@ function appIconSvg({ backgroundColor, markColor }) {
     <clipPath id="tileClip">
       <rect width="1024" height="1024" rx="220"/>
     </clipPath>
-  </defs>
+  </defs>`
+}
 
-  <g clip-path="url(#tileClip)">
+function appIconTile({ backgroundColor, markColor }) {
+  return `<g clip-path="url(#tileClip)">
     <rect width="1024" height="1024" rx="220" fill="${backgroundColor}"/>
 
-    <g filter="url(#mark-shadow)" stroke="${markColor}" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M360 390L254 512L360 634"/>
-      <path d="M664 390L770 512L664 634"/>
-    </g>
+    <g transform="${appIconMarkTransform()}">
+      <g filter="url(#mark-shadow)" stroke="${markColor}" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M360 390L254 512L360 634"/>
+        <path d="M664 390L770 512L664 634"/>
+      </g>
 
-    <g filter="url(#playhead-shadow)">
-      <rect x="480" y="154" width="64" height="716" rx="32" fill="${markColor}"/>
+      <g filter="url(#playhead-shadow)">
+        <rect x="480" y="154" width="64" height="716" rx="32" fill="${markColor}"/>
+      </g>
     </g>
+  </g>`
+}
+
+function appIconSvg({ backgroundColor, markColor }) {
+  return `<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  ${appIconDefs(markColor)}
+
+  ${appIconTile({ backgroundColor, markColor })}
+</svg>`
+}
+
+function dockIconSvg({ backgroundColor, markColor }) {
+  return `<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  ${appIconDefs(markColor)}
+
+  <g transform="${dockIconTileTransform()}">
+    ${appIconTile({ backgroundColor, markColor })}
   </g>
 </svg>`
 }
 
 function iconComposerMarkSvg() {
   return `<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <g stroke="black" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M360 390L254 512L360 634"/>
-    <path d="M664 390L770 512L664 634"/>
+  <g transform="${appIconMarkTransform()}">
+    <g stroke="black" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M360 390L254 512L360 634"/>
+      <path d="M664 390L770 512L664 634"/>
+    </g>
+    <rect x="480" y="154" width="64" height="716" rx="32" fill="black"/>
   </g>
-  <rect x="480" y="154" width="64" height="716" rx="32" fill="black"/>
 </svg>`
 }
 
@@ -244,7 +278,7 @@ async function main() {
 
     await renderSvgMarkup(
       browser,
-      appIconSvg({
+      dockIconSvg({
         backgroundColor: "#FBFBF6",
         markColor: "#050505",
       }),
@@ -255,7 +289,7 @@ async function main() {
 
     await renderSvgMarkup(
       browser,
-      appIconSvg({
+      dockIconSvg({
         backgroundColor: "#050505",
         markColor: "#FFFFFF",
       }),

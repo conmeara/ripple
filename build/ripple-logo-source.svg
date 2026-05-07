@@ -16,13 +16,15 @@
   <g clip-path="url(#tileClip)">
     <rect width="1024" height="1024" rx="220" fill="#050505"/>
 
-    <g filter="url(#mark-glow)" stroke="#FFFFFF" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M360 390L254 512L360 634"/>
-      <path d="M664 390L770 512L664 634"/>
-    </g>
+    <g transform="translate(112.64 112.64) scale(0.78)">
+      <g filter="url(#mark-glow)" stroke="#FFFFFF" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M360 390L254 512L360 634"/>
+        <path d="M664 390L770 512L664 634"/>
+      </g>
 
-    <g filter="url(#playhead-glow)">
-      <rect x="480" y="154" width="64" height="716" rx="32" fill="#FFFFFF"/>
+      <g filter="url(#playhead-glow)">
+        <rect x="480" y="154" width="64" height="716" rx="32" fill="#FFFFFF"/>
+      </g>
     </g>
   </g>
 </svg>

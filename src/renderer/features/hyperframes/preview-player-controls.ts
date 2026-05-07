@@ -45,6 +45,29 @@ export interface PreviewIssuedSeekRequest {
   issuedSeekTime: number | null
 }
 
+export interface PreviewNavigationHoldInput {
+  requestedTime: number | null
+  seekRequestId?: number
+  settledSeekRequestId: number | null
+  isReady: boolean
+  isLoadingSource: boolean
+  isPreviewSourceFetching: boolean
+  currentTime: number
+  currentDuration: number
+  settledDisplayTime: number
+  settledDuration: number
+}
+
+export interface PreviewNavigationHoldState {
+  hasPendingSeek: boolean
+  isPreviewSettling: boolean
+  seekTargetTime: number | null
+  displayTime: number
+  displayDuration: number
+  previewControlsReady: boolean
+  timelineInteractionsReady: boolean
+}
+
 const PREVIEW_TIMECODE_FALLBACK_FPS = 30
 const PREVIEW_LAYOUT_FALLBACK_WIDTH = 16
 const PREVIEW_LAYOUT_FALLBACK_HEIGHT = 9
@@ -215,9 +238,29 @@ function canUsePreviewSeekRequest(input: PreviewSeekRequestReadiness): boolean {
     typeof input.seekRequestId === "number" &&
     input.settledSeekRequestId !== input.seekRequestId &&
     input.isReady &&
-    !input.isLoadingSource &&
-    !input.isPreviewSourceFetching
+    !input.isLoadingSource
   )
+}
+
+function safePreviewTime(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, value) : 0
+}
+
+function safePreviewDuration(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 0
+}
+
+export function resolvePreviewSeekRequestTime(input: {
+  requestedTime: number | null
+  duration: number
+}): number | null {
+  if (input.requestedTime === null || !Number.isFinite(input.requestedTime)) {
+    return null
+  }
+
+  const requestedTime = safePreviewTime(input.requestedTime)
+  const duration = safePreviewDuration(input.duration)
+  return duration > 0 ? Math.min(requestedTime, duration) : requestedTime
 }
 
 function previewSeekTimesEqual(a: number | null, b: number | null): boolean {
@@ -239,6 +282,57 @@ export function shouldSettlePreviewSeekRequest(
 ): boolean {
   if (!canUsePreviewSeekRequest(input)) return false
   return previewSeekTimesEqual(input.currentTime, input.requestedTime)
+}
+
+export function resolvePreviewNavigationHold(
+  input: PreviewNavigationHoldInput,
+): PreviewNavigationHoldState {
+  const activeSourceReady =
+    input.isReady &&
+    !input.isLoadingSource
+  const sourceFetchIsBlocking =
+    input.isPreviewSourceFetching &&
+    !activeSourceReady
+  const currentDuration = safePreviewDuration(input.currentDuration)
+  const settledDuration = safePreviewDuration(input.settledDuration)
+  const seekTargetTime = resolvePreviewSeekRequestTime({
+    requestedTime: input.requestedTime,
+    duration: activeSourceReady ? currentDuration : 0,
+  })
+  const hasPendingSeek =
+    seekTargetTime !== null &&
+    typeof input.seekRequestId === "number" &&
+    input.settledSeekRequestId !== input.seekRequestId
+  const isPreviewSettling =
+    input.isLoadingSource ||
+    sourceFetchIsBlocking ||
+    hasPendingSeek
+  const displayDuration =
+    isPreviewSettling && settledDuration > 0 && !activeSourceReady
+      ? settledDuration
+      : currentDuration
+  const displayTime =
+    hasPendingSeek && seekTargetTime !== null
+      ? seekTargetTime
+      : isPreviewSettling && settledDuration > 0
+        ? safePreviewTime(input.settledDisplayTime)
+        : safePreviewTime(input.currentTime)
+
+  return {
+    hasPendingSeek,
+    isPreviewSettling,
+    seekTargetTime,
+    displayTime,
+    displayDuration,
+    previewControlsReady:
+      input.isReady &&
+      !input.isLoadingSource &&
+      !hasPendingSeek,
+    timelineInteractionsReady:
+      input.isReady &&
+      !input.isLoadingSource &&
+      !hasPendingSeek,
+  }
 }
 
 function getTargetElement(target: EventTarget | null | undefined): Element | null {
