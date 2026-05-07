@@ -45,6 +45,7 @@ import {
   approvalBoundaryWarning,
   assessCodexAppServerApprovalRequest,
   buildCodexPermissionApprovalResponse,
+  isCodexAppServerAutoApprovedVisualCommand,
 } from "./codex-app-server-approval"
 
 function getRepoRoot(): string | undefined {
@@ -55,6 +56,10 @@ const activeClients = new Map<string, {
   client: CodexAppServerClient
   cancel: () => void
 }>()
+
+const APP_MANAGED_CODEX_THREAD_CONFIG = {
+  suppress_unstable_features_warning: true,
+} as const
 
 class CodexRunCancelledError extends Error {
   constructor() {
@@ -548,6 +553,13 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
             params: message.params,
             workspaceRoot: input.cwd,
           })
+          if (isCodexAppServerAutoApprovedVisualCommand({
+            params: message.params,
+            workspaceRoot: input.cwd,
+            assessment,
+          })) {
+            return assessment.approveResponse
+          }
           const approval = await sink.requestApproval({
             providerRequestId,
             kind: assessment.requestedNetwork ? "network" : "command",
@@ -823,7 +835,7 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
           modelProvider: null,
           approvalPolicy: "on-request",
           sandbox: "workspace-write",
-          config: null,
+          config: APP_MANAGED_CODEX_THREAD_CONFIG,
           ...threadInstructionParams(),
           personality: null,
           ephemeral: true,

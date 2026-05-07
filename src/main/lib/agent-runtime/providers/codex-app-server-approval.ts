@@ -24,10 +24,49 @@ type CodexAppServerApprovalAssessment = {
   unsupportedPermissionReferences: string[]
 }
 
+const AUTO_APPROVED_VISUAL_COMMAND =
+  /^ripple\s+(?:snapshot|frame-sheet)(?:\s|$)/
+const SHELL_CONTROL_CHARS = new Set([";", "&", "|", "<", ">", "\n", "\r"])
+
 function isWorkspacePath(value: unknown, cwd: string): boolean {
   if (typeof value !== "string" || !value.trim()) return false
   const candidate = resolve(cwd, value)
   return isPathInsideDirectory(cwd, candidate)
+}
+
+function hasShellControlOperator(command: string): boolean {
+  let inSingleQuote = false
+  let inDoubleQuote = false
+  let escaped = false
+
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index]
+    const next = command[index + 1]
+
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === "\\") {
+      escaped = true
+      continue
+    }
+    if (char === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote
+      continue
+    }
+    if (char === "\"" && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote
+      continue
+    }
+    if (!inSingleQuote && char === "`") return true
+    if (!inSingleQuote && char === "$" && next === "(") return true
+    if (!inSingleQuote && !inDoubleQuote && SHELL_CONTROL_CHARS.has(char)) {
+      return true
+    }
+  }
+
+  return false
 }
 
 function collectPermissionPathReferences(value: unknown): {
@@ -221,6 +260,29 @@ export function assessCodexAppServerApprovalRequest(input: {
     requestedPermissionPaths,
     unsupportedPermissionReferences,
   }
+}
+
+export function isCodexAppServerAutoApprovedVisualCommand(input: {
+  params: any
+  workspaceRoot: string
+  assessment?: CodexAppServerApprovalAssessment
+}): boolean {
+  const params = input.params ?? {}
+  const command = typeof params.command === "string" ? params.command.trim() : ""
+  if (!command || hasShellControlOperator(command)) return false
+  if (!AUTO_APPROVED_VISUAL_COMMAND.test(command)) return false
+  if (!isWorkspacePath(params.cwd, input.workspaceRoot)) return false
+
+  const assessment = input.assessment ??
+    assessCodexAppServerApprovalRequest({
+      params,
+      workspaceRoot: input.workspaceRoot,
+    })
+  return assessment.canApprove &&
+    !assessment.approvalWarning &&
+    !assessment.requestedNetwork &&
+    assessment.requestedPermissionPaths.length === 0 &&
+    assessment.unsupportedPermissionReferences.length === 0
 }
 
 export function buildCodexPermissionApprovalResponse(input: {

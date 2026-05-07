@@ -52,6 +52,7 @@ describe("comment filter helpers", () => {
     expect(canPreviewRevisionChanges(revision("queued", null, null))).toBe(false)
     expect(canPreviewRevisionChanges(revision("preparing"))).toBe(false)
     expect(canPreviewRevisionChanges(revision("accepted"))).toBe(true)
+    expect(canPreviewRevisionChanges(revision("answered"))).toBe(false)
     expect(canPreviewRevisionChanges(revision("rejected"))).toBe(false)
   })
 
@@ -64,6 +65,7 @@ describe("comment filter helpers", () => {
   test("allows explicit rejection only for live proposed changes", () => {
     expect(canRejectRevisionChanges(revision("proposed"))).toBe(true)
     expect(canRejectRevisionChanges(revision("proposed"), { deleted: true })).toBe(false)
+    expect(canRejectRevisionChanges(revision("answered"))).toBe(false)
     expect(canRejectRevisionChanges(revision("accepted"))).toBe(false)
     expect(canRejectRevisionChanges(revision("rejected"))).toBe(false)
     expect(canRejectRevisionChanges(revision("running"))).toBe(false)

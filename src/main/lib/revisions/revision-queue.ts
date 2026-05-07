@@ -30,6 +30,7 @@ const WORKTREE_REQUIRED_STATUSES = [
   "running",
   "updating",
   "proposed",
+  "answered",
 ] as const
 // Failed revisions keep their workspace so Open in Chat can recover the work.
 const CLEANUP_TERMINAL_STATUSES = ["rejected", "superseded"] as const

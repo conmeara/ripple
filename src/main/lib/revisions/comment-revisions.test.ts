@@ -113,6 +113,18 @@ describe("comment revision summaries", () => {
     expect(prompt).toContain("Frame: 38 to 83")
     expect(prompt).toContain("Element selector: .lower-third-title")
     expect(prompt).toContain("Clip: lower-third:title")
+    expect(prompt).toContain(
+      "First decide whether the user's comment asks for a visual/content change.",
+    )
+    expect(prompt).toContain(
+      "If it is only a question, QA note, acknowledgement, or observation, do not edit files",
+    )
+    expect(prompt).toContain("Use `ripple snapshot --at current --json`")
+    expect(prompt).toContain("`ripple frame-sheet --range <start>..<end> --json`")
+    expect(prompt).toContain(
+      "Do not mention internal paths, worktrees, sandboxing, permissions, local preview ports",
+    )
+    expect(prompt).not.toContain("Edit only this Ripple/HyperFrames project")
   })
 
   test("appends follow-up prompts to the same revision conversation transcript", () => {

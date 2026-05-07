@@ -127,8 +127,9 @@ export async function resolveAgentRunContext(input: {
       "Ripple app-managed visual-context skill for this run:",
       "ripple-visual-context",
       `Loaded from: ${visualContextSkillRoot}`,
-      "Use it proactively after creating or editing visible motion work to choose between HyperFrames CLI inspection, snapshots, render tools, and Ripple visual context commands.",
-      "For visual sanity checks, default to `ripple sheet --range 0s..8s --samples 8 --columns 4 --settle 0 --backend engine --json` from the project directory. Use app-managed bare commands (`ripple`, `hyperframes`) instead of `npx`, `bunx`, or package installs.",
+      "Use it proactively after creating or editing visible motion work. Ripple comment runs may already include automatic visual context: frame comments get a still frame, and range comments get a frame sheet.",
+      "For any extra visual context, use the app-aware `ripple snapshot` and `ripple frame-sheet` commands. Use `ripple snapshot --at current --json` for the visible app frame, `ripple snapshot --at 1.25s --json` for an exact timestamp, and `ripple frame-sheet --range 0s..8s --samples 8 --columns 4 --json` for a compact frame sheet. Add `--composition <path>` when you need another composition.",
+      "Use bundled HyperFrames CLI and skills for structure, linting, inspection, and export work. Use app-managed bare commands (`ripple`, `hyperframes`) instead of `npx`, `bunx`, or package installs.",
       "If local image viewing is unavailable, do not call image-view/open/browser tools just to inspect the generated sheet; report the sheet path and manifest details so Ripple can show the artifact.",
     ].join("\n"),
   ].join("\n\n")

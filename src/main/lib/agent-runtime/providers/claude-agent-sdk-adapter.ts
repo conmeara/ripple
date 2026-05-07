@@ -38,10 +38,8 @@ const activeControllers = new Map<string, AbortController>()
 export const RIPPLE_CLAUDE_AUTO_ALLOWED_TOOLS = [
   "Bash(ripple snapshot)",
   "Bash(ripple snapshot *)",
-  "Bash(ripple sheet)",
-  "Bash(ripple sheet *)",
-  "Bash(ripple context)",
-  "Bash(ripple context *)",
+  "Bash(ripple frame-sheet)",
+  "Bash(ripple frame-sheet *)",
 ] as const
 
 function safeJsonParse(value: string): Record<string, unknown> {

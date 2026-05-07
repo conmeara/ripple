@@ -858,6 +858,8 @@ function revisionStatusLabel(status: RippleRevisionStatus): string {
       return "Updating"
     case "proposed":
       return "Changes ready"
+    case "answered":
+      return "No changes needed"
     case "accepted":
       return "Accepted"
     case "rejected":
@@ -889,6 +891,7 @@ function commentStatusVisual(
   if (
     thread.status === "resolved" ||
     revision?.status === "proposed" ||
+    revision?.status === "answered" ||
     revision?.status === "accepted"
   ) {
     return { label: "Done", className: "bg-emerald-500" }
@@ -918,6 +921,8 @@ function revisionAcceptControl(revision: RippleRevisionView, options: {
   switch (revision.status) {
     case "proposed":
       return { label: "Accept changes", disabled: false, busy: false }
+    case "answered":
+      return { label: "No changes needed", disabled: true, busy: false }
     case "updating":
       return {
         label: "Updating",

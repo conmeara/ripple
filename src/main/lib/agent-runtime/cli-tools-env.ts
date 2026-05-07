@@ -58,6 +58,7 @@ export function buildRippleAgentToolEnvironment(
     PATH: pathValue,
     Path: process.platform === "win32" ? pathValue : baseEnv.Path,
     RIPPLE_AGENT_WORKSPACE_ROOT: workspaceRoot,
+    RIPPLE_AGENT_VISUAL_CONTEXT_MODE: "clean",
     ...(input.visualContextEndpoint && input.visualContextToken
       ? {
         RIPPLE_VISUAL_CONTEXT_ENDPOINT: input.visualContextEndpoint,

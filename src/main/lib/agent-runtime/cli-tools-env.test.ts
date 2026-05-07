@@ -105,7 +105,7 @@ describe("Ripple agent CLI tool environment", () => {
       chmodSync(appPath, 0o755)
       symlinkSync(wrapperPath, installedPath)
 
-      const output = execFileSync(installedPath, ["sheet", "--help"], {
+      const output = execFileSync(installedPath, ["frame-sheet", "--help"], {
         encoding: "utf8",
       })
 
@@ -113,7 +113,7 @@ describe("Ripple agent CLI tool environment", () => {
       expect(output).toContain(
         join(root, "Contents", "Resources", "app.asar", "out", "main", "ripple-cli.js"),
       )
-      expect(output).toContain("ARGS=sheet --help")
+      expect(output).toContain("ARGS=frame-sheet --help")
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -155,6 +155,7 @@ describe("Ripple agent CLI tool environment", () => {
     expect(env.HYPERFRAMES_NO_UPDATE_CHECK).toBe("1")
     expect(env.HYPERFRAMES_NO_AUTO_INSTALL).toBe("1")
     expect(env.RIPPLE_AGENT_WORKSPACE_ROOT).toBe(resolve("/tmp/ripple-project"))
+    expect(env.RIPPLE_AGENT_VISUAL_CONTEXT_MODE).toBe("clean")
   })
 
   test("adds visual context endpoint variables when the app service is available", () => {
@@ -175,9 +176,10 @@ describe("Ripple agent CLI tool environment", () => {
       "/tmp/ripple-project/.ripple/agent-visual-context/run/manifest.json",
     )
     expect(env.RIPPLE_AGENT_WORKSPACE_ROOT).toBe(resolve("/tmp/ripple-project"))
+    expect(env.RIPPLE_AGENT_VISUAL_CONTEXT_MODE).toBe("clean")
   })
 
-  test("app-managed ripple sheet command uses the injected endpoint", async () => {
+  test("app-managed ripple frame-sheet command uses the injected endpoint", async () => {
     const repoRoot = process.cwd()
     const projectDir = mkdtempSync(join(tmpdir(), "ripple-agent-visual-cli-"))
     let requestedBackend: string | null = null
@@ -238,15 +240,13 @@ describe("Ripple agent CLI tool environment", () => {
         visualContextToken: endpoint.token,
       })
       const stdout = execFileSync("ripple", [
-        "sheet",
+        "frame-sheet",
         "--range",
         "0s..1s",
         "--samples",
         "2",
         "--columns",
         "2",
-        "--backend",
-        "engine",
         "--json",
       ], {
         cwd: projectDir,
@@ -257,8 +257,12 @@ describe("Ripple agent CLI tool environment", () => {
       const payload = JSON.parse(stdout)
 
       expect(payload.ok).toBe(true)
-      expect(payload.backend).toBe("engine")
+      expect(payload.type).toBe("sheet")
       expect(requestedBackend).toBe("engine")
+      expect(stdout).not.toContain("backend")
+      expect(stdout).not.toContain("endpoint")
+      expect(stdout).not.toContain("handoff")
+      expect(stdout).not.toContain("fallback")
       expect(existsSync(join(projectDir, payload.sheet.path))).toBe(true)
       expect(existsSync(join(projectDir, payload.sheet.manifestPath))).toBe(true)
     } finally {
@@ -335,8 +339,6 @@ describe("Ripple agent CLI tool environment", () => {
         "snapshot",
         "--at",
         "current",
-        "--backend",
-        "engine",
         "--json",
       ], {
         cwd: projectDir,
@@ -347,7 +349,7 @@ describe("Ripple agent CLI tool environment", () => {
       const payload = JSON.parse(stdout)
 
       expect(payload.ok).toBe(true)
-      expect(payload.backend).toBe("engine")
+      expect(payload.type).toBe("snapshot")
       expect(payload.snapshot.sample).toEqual({
         timeMs: 733,
         frame: 22,
@@ -360,8 +362,12 @@ describe("Ripple agent CLI tool environment", () => {
         fps: 30,
         width: 1280,
         height: 720,
-        preferredBackend: "engine",
       }))
+      expect(JSON.stringify(snapshotRequest)).not.toContain("preferredBackend")
+      expect(stdout).not.toContain("backend")
+      expect(stdout).not.toContain("endpoint")
+      expect(stdout).not.toContain("handoff")
+      expect(stdout).not.toContain("fallback")
       expect(existsSync(join(projectDir, payload.snapshot.path))).toBe(true)
     } finally {
       await endpoint?.close()

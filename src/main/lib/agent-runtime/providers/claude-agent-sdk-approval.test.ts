@@ -7,19 +7,19 @@ import {
 } from "./claude-agent-sdk-approval"
 
 describe("Claude Agent SDK approval bridge", () => {
-  test("keeps only Ripple visual-context commands auto-allowed", () => {
+  test("keeps only clean Ripple visual commands auto-allowed", () => {
     expect(isRippleClaudeAutoAllowedTool("Bash", {
       command: "ripple sheet --range 0s..8s",
-    })).toBe(true)
+    })).toBe(false)
     expect(isRippleClaudeAutoAllowedTool("Bash", {
       command: "ripple snapshot --at 1s --json",
     })).toBe(true)
     expect(isRippleClaudeAutoAllowedTool("Bash", {
-      command: "ripple context --range 0s..8s --json",
-    })).toBe(true)
+      command: ["ripple", "context", "--range 0s..8s --json"].join(" "),
+    })).toBe(false)
     expect(isRippleClaudeAutoAllowedTool("Bash", {
       command: "ripple frame-sheet --range 0s..8s",
-    })).toBe(false)
+    })).toBe(true)
     expect(isRippleClaudeAutoAllowedTool("Bash", {
       command: "ripple visual sheet --range 0s..8s",
     })).toBe(false)

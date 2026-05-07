@@ -5,7 +5,7 @@ import type {
 } from "../types"
 
 const CLAUDE_AUTO_ALLOWED_VISUAL_CONTEXT =
-  /^ripple\s+(?:sheet|snapshot|context)(?:\s|$)/
+  /^ripple\s+(?:snapshot|frame-sheet)(?:\s|$)/
 const SHELL_CONTROL_CHARS = new Set([";", "&", "|", "<", ">", "\n", "\r"])
 
 type ClaudePermissionOptions = {

@@ -114,9 +114,10 @@ for (const [binary, args] of Object.entries(bins)) {
 
 const rippleBinaryName = process.platform === "win32" ? "ripple.exe" : "ripple"
 const rippleBinaryPath = join(binPath, rippleBinaryName)
-const rippleVisualHelp = run(rippleBinaryPath, ["visual", "--help"])
-if (!rippleVisualHelp.includes("snapshot") || !rippleVisualHelp.includes("sheet")) {
-  fail("Packaged ripple visual CLI did not expose snapshot and sheet commands.")
+const rippleSnapshotHelp = run(rippleBinaryPath, ["snapshot", "--help"])
+const rippleFrameSheetHelp = run(rippleBinaryPath, ["frame-sheet", "--help"])
+if (!rippleSnapshotHelp.includes("current") || !rippleFrameSheetHelp.includes("frame sheet")) {
+  fail("Packaged ripple visual CLI did not expose snapshot and frame-sheet guidance.")
 }
 
 const visualProjectDir = mkdtempSync(join(tmpdir(), "ripple-package-visual-"))
@@ -141,14 +142,11 @@ try {
   </body>
 </html>`)
   const visualSnapshot = run(rippleBinaryPath, [
-    "visual",
     "snapshot",
     "--dir",
     visualProjectDir,
     "--at",
     "0.5s",
-    "--backend",
-    "engine",
     "--width",
     "320",
     "--height",
@@ -156,8 +154,8 @@ try {
     "--json",
   ])
   const parsedVisualSnapshot = JSON.parse(visualSnapshot)
-  if (!parsedVisualSnapshot.ok || parsedVisualSnapshot.backend !== "engine") {
-    fail(`Packaged ripple visual Engine snapshot failed: ${visualSnapshot}`)
+  if (!parsedVisualSnapshot.ok || !parsedVisualSnapshot.snapshot?.path) {
+    fail(`Packaged ripple snapshot failed: ${visualSnapshot}`)
   }
   assertExists(join(visualProjectDir, parsedVisualSnapshot.snapshot.path))
 } finally {

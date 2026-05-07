@@ -16,6 +16,7 @@ export const RIPPLE_REVISION_STATUSES = [
   "running",
   "updating",
   "proposed",
+  "answered",
   "accepted",
   "rejected",
   "superseded",

@@ -84,6 +84,7 @@ export function previewCommentMarkerTone(
   if (
     thread.status === "resolved" ||
     revision?.status === "proposed" ||
+    revision?.status === "answered" ||
     revision?.status === "accepted"
   ) {
     return "done"

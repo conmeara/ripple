@@ -72,6 +72,7 @@ const REUSABLE_FOLLOW_UP_STATUSES = [
   "running",
   "updating",
   "proposed",
+  "answered",
   "failed",
 ] as const
 
@@ -882,6 +883,7 @@ export async function createRevisionForThread(input: {
         .run()
       if (
         reusableBaseRevision.status === "proposed" ||
+        reusableBaseRevision.status === "answered" ||
         reusableBaseRevision.status === "failed" ||
         reusableBaseRevision.status === "queued" ||
         reusableBaseRevision.status === "preparing" ||
@@ -1266,7 +1268,7 @@ export async function refreshRevisionProposal(id: string): Promise<RippleComment
     baseProjectCommit: revision.baseProjectCommit,
   })
   const summary = diffSummaryFromPatch(diff)
-  const nextStatus = summary.fileCount > 0 ? "proposed" : revision.status
+  const nextStatus = summary.fileCount > 0 ? "proposed" : "answered"
   db.update(revisions)
     .set({
       status: nextStatus,
@@ -1338,9 +1340,10 @@ export async function updateStaleRevisionProposal(id: string): Promise<RippleCom
     const summary = diffSummaryFromPatch(refresh.summaryPatch)
 
     if (refresh.refreshed) {
+      const nextStatus = summary.fileCount > 0 ? "proposed" : "answered"
       db.update(revisions)
         .set({
-          status: "proposed",
+          status: nextStatus,
           baseProjectCommit: refresh.currentCommit,
           diffSummary: serializeDiffSummary(summary),
           errorMessage: null,
@@ -1450,7 +1453,7 @@ export async function completeRevisionBackgroundRun(id: string): Promise<RippleC
 
   const completedRevision = db.update(revisions)
     .set({
-      status: "proposed",
+      status: summary.fileCount > 0 ? "proposed" : "answered",
       diffSummary: serializeDiffSummary(summary),
       errorMessage: null,
       updatedAt: dateNow(),
@@ -1516,7 +1519,14 @@ export async function rejectRevision(id: string): Promise<RippleCommentThreadVie
       .where(and(
         eq(revisions.threadId, revision.threadId),
         eq(revisions.contextPath, revision.contextPath),
-        inArray(revisions.status, ["queued", "preparing", "running", "updating", "proposed"]),
+        inArray(revisions.status, [
+          "queued",
+          "preparing",
+          "running",
+          "updating",
+          "proposed",
+          "answered",
+        ]),
       ))
       .all()
       .find((item) => item.id !== revision.id)

@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { readFile } from "node:fs/promises"
 import { buildCodexAppServerEnv } from "./codex-app-server-env"
-import { assessCodexAppServerApprovalRequest } from "./codex-app-server-approval"
+import {
+  assessCodexAppServerApprovalRequest,
+  isCodexAppServerAutoApprovedVisualCommand,
+} from "./codex-app-server-approval"
 import { buildCodexTurnInput } from "./codex-app-server-input"
 import {
   buildCodexTurnSkillInputs,
@@ -427,6 +430,70 @@ describe("Codex App Server approval policy", () => {
     )
     expect(assessment.approveResponse).toEqual({ decision: "acceptForSession" })
   })
+
+  test("auto-approves only clean Ripple visual commands inside the workspace", () => {
+    expect(isCodexAppServerAutoApprovedVisualCommand({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        command: "ripple snapshot --at current --json",
+        availableDecisions: ["acceptForSession", "decline"],
+      },
+    })).toBe(true)
+    expect(isCodexAppServerAutoApprovedVisualCommand({
+      workspaceRoot,
+      params: {
+        cwd: `${workspaceRoot}/compositions`,
+        command: "ripple frame-sheet --range 0s..8s --samples 8 --json",
+        availableDecisions: ["accept", "decline"],
+      },
+    })).toBe(true)
+    expect(isCodexAppServerAutoApprovedVisualCommand({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        command: "ripple context --range 0s..8s --json",
+      },
+    })).toBe(false)
+    expect(isCodexAppServerAutoApprovedVisualCommand({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        command: "ripple sheet --range 0s..8s --json",
+      },
+    })).toBe(false)
+    expect(isCodexAppServerAutoApprovedVisualCommand({
+      workspaceRoot,
+      params: {
+        cwd: "/tmp/other-project",
+        command: "ripple snapshot --at current --json",
+      },
+    })).toBe(false)
+    expect(isCodexAppServerAutoApprovedVisualCommand({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        command: "ripple frame-sheet --json > /tmp/sheet.json",
+      },
+    })).toBe(false)
+    expect(isCodexAppServerAutoApprovedVisualCommand({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        command: "ripple snapshot --at $(date) --json",
+      },
+    })).toBe(false)
+    expect(isCodexAppServerAutoApprovedVisualCommand({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        command: "ripple frame-sheet --range 0s..8s --json",
+        additionalPermissions: {
+          network: { enabled: true },
+        },
+      },
+    })).toBe(false)
+  })
 })
 
 describe("Codex App Server input", () => {
@@ -444,6 +511,7 @@ describe("Codex App Server input", () => {
     expect(source).toContain("ephemeral: true")
     expect(source).toContain('sessionStartSource: "clear"')
     expect(source).toContain("persistExtendedHistory: false")
+    expect(source).toContain("suppress_unstable_features_warning: true")
     expect(source).toContain('approvalPolicy: "on-request"')
     expect(source).not.toContain('approvalPolicy: "on-failure"')
     expect(source).toContain('"skills/list"')

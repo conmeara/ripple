@@ -32,7 +32,7 @@ async function makeProject(): Promise<string> {
 
 async function writeHandoffManifest(projectDir: string): Promise<string> {
   const handoffDir = join(projectDir, ".ripple", "agent-visual-context", "run-test")
-  const sheetDir = join(projectDir, ".ripple", "frame-sheets", "fs_handoff")
+  const sheetDir = join(projectDir, ".ripple", "frame-sheets", "fs_prepared")
   await mkdir(handoffDir, { recursive: true })
   await mkdir(sheetDir, { recursive: true })
   await writeFile(join(handoffDir, "snapshot.png"), ONE_BY_ONE_PNG)
@@ -42,8 +42,8 @@ async function writeHandoffManifest(projectDir: string): Promise<string> {
     fps: 24,
     rangeMs: [0, 8000],
     samples: [
-      { index: 0, timeMs: 0, frame: 0, path: ".ripple/frame-sheets/fs_handoff/frames/000.png" },
-      { index: 1, timeMs: 8000, frame: 192, path: ".ripple/frame-sheets/fs_handoff/frames/001.png" },
+      { index: 0, timeMs: 0, frame: 0, path: ".ripple/frame-sheets/fs_prepared/frames/000.png" },
+      { index: 1, timeMs: 8000, frame: 192, path: ".ripple/frame-sheets/fs_prepared/frames/001.png" },
     ],
   }, null, 2)}\n`)
   const manifestPath = join(handoffDir, "manifest.json")
@@ -63,9 +63,9 @@ async function writeHandoffManifest(projectDir: string): Promise<string> {
       elapsedMs: 4,
     },
     sheet: {
-      id: "fs_handoff",
-      path: ".ripple/frame-sheets/fs_handoff/sheet.png",
-      manifestPath: ".ripple/frame-sheets/fs_handoff/manifest.json",
+      id: "fs_prepared",
+      path: ".ripple/frame-sheets/fs_prepared/sheet.png",
+      manifestPath: ".ripple/frame-sheets/fs_prepared/manifest.json",
       sampleCount: 2,
       summary: "Frame sheet captured by Ripple.",
       backend: "fast-browser",
@@ -352,12 +352,12 @@ describe("ripple visual CLI commands", () => {
       expect(snapshot.exitCode).toBe(0)
       const snapshotPayload = JSON.parse(snapshot.stdout)
       expect(snapshotPayload.backend).toBe("fast-browser")
-      expect(snapshotPayload.snapshot.path).toBe(".ripple/visual-context/snapshots/snap_handoff/handoff.png")
+      expect(snapshotPayload.snapshot.path).toBe(".ripple/visual-context/snapshots/snap_handoff/current.png")
       expect(snapshotPayload.snapshot.sample).toEqual({ timeMs: 0, frame: 0 })
-      expect(snapshotPayload.warnings[0]).toContain("app-prepared visual context handoff")
+      expect(snapshotPayload.warnings[0]).toContain("prepared app visual context")
 
       const sheet = await runVisualCommand([
-        "sheet",
+        "frame-sheet",
         "--dir",
         projectDir,
         "--range",
@@ -375,17 +375,185 @@ describe("ripple visual CLI commands", () => {
       const sheetPayload = JSON.parse(sheet.stdout)
       expect(sheetPayload.backend).toBe("fast-browser")
       expect(sheetPayload.fallbackFrom).toBe("visual-context-handoff")
-      expect(sheetPayload.sheet.path).toBe(".ripple/frame-sheets/fs_handoff/sheet.png")
+      expect(sheetPayload.sheet.path).toBe(".ripple/frame-sheets/fs_prepared/sheet.png")
     } finally {
       await rm(projectDir, { recursive: true, force: true })
     }
   })
 
-  test("wraps frame-sheet JSON for the future-facing sheet command", async () => {
+  test("cleans direct visual commands inside app-managed agent runs", async () => {
+    const projectDir = await makeProject()
+    try {
+      const handoffManifestPath = await writeHandoffManifest(projectDir)
+      const env = {
+        RIPPLE_AGENT_VISUAL_CONTEXT_MODE: "clean",
+        RIPPLE_VISUAL_CONTEXT_ENDPOINT: "http://127.0.0.1:9",
+        RIPPLE_VISUAL_CONTEXT_TOKEN: "dead-endpoint",
+        RIPPLE_VISUAL_CONTEXT_MANIFEST: handoffManifestPath,
+      }
+
+      const snapshot = await runVisualCommand([
+        "snapshot",
+        "--dir",
+        projectDir,
+        "--at",
+        "current",
+        "--composition",
+        "index.html",
+        "--json",
+      ], {
+        env,
+        idFactory: () => "snap_legacy_clean",
+      })
+
+      expect(snapshot.exitCode).toBe(0)
+      const snapshotPayload = JSON.parse(snapshot.stdout)
+      expect(snapshotPayload).toEqual({
+        ok: true,
+        type: "snapshot",
+        snapshot: {
+          id: "snap_legacy_clean",
+          path: ".ripple/visual-context/snapshots/snap_legacy_clean/current.png",
+          sample: { timeMs: 0, frame: 0 },
+          width: 1280,
+          height: 720,
+        },
+        context: {
+          compositionPath: "index.html",
+          samples: [{ timeMs: 0, frame: 0 }],
+        },
+        elapsedMs: expect.any(Number),
+      })
+      expect(snapshot.stdout).not.toContain("backend")
+      expect(snapshot.stdout).not.toContain("endpoint")
+      expect(snapshot.stdout).not.toContain("handoff")
+      expect(snapshot.stdout).not.toContain("fallback")
+
+      const sheet = await runVisualCommand([
+        "frame-sheet",
+        "--dir",
+        projectDir,
+        "--range",
+        "0s..8s",
+        "--samples",
+        "8",
+        "--columns",
+        "4",
+        "--json",
+      ], { env })
+
+      expect(sheet.exitCode).toBe(0)
+      const sheetPayload = JSON.parse(sheet.stdout)
+      expect(sheetPayload.ok).toBe(true)
+      expect(sheetPayload.type).toBe("sheet")
+      expect(sheetPayload.sheet.path).toBe(".ripple/frame-sheets/fs_prepared/sheet.png")
+      expect(sheetPayload.context.compositionPath).toBe("index.html")
+      expect(sheetPayload.context.samples).toHaveLength(2)
+      expect(sheet.stdout).not.toContain("backend")
+      expect(sheet.stdout).not.toContain("endpoint")
+      expect(sheet.stdout).not.toContain("handoff")
+      expect(sheet.stdout).not.toContain("fallback")
+    } finally {
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test("captures the current app frame through the snapshot command", async () => {
+    const projectDir = await makeProject()
+    const service: VisualContextService = {
+      warmProject: async () => undefined,
+      captureFrames: async () => {
+        throw new Error("not used")
+      },
+      captureSnapshot: async (input: VisualSnapshotInput) => {
+        const framePath = join(String(input.outputDir), "context-current.png")
+        await writeFile(framePath, ONE_BY_ONE_PNG)
+        return {
+          backend: "engine",
+          frames: [{
+            index: 0,
+            timeMs: input.timeMs,
+            frame: Math.round((input.timeMs / 1000) * input.fps),
+            path: framePath,
+            width: input.width,
+            height: input.height,
+            sizeBytes: ONE_BY_ONE_PNG.length,
+          }],
+          elapsedMs: 5,
+          timings: {},
+          warnings: [],
+          cleanupPaths: [],
+        }
+      },
+      invalidateProject: async () => undefined,
+      shutdown: async () => undefined,
+    }
+    const handle = await createVisualContextEndpoint({
+      service,
+      workspaceRoot: projectDir,
+      token: "token-test",
+      resolveCurrentFrameSnapshot: async () => ({
+        projectPath: projectDir,
+        compositionPath: "index.html",
+        timeMs: 1500,
+        fps: 24,
+        width: 1280,
+        height: 720,
+      }),
+    })
+    try {
+      const result = await runRippleCli([
+        "snapshot",
+        "--dir",
+        projectDir,
+        "--at",
+        "current",
+        "--json",
+      ], {
+        idFactory: () => "snap_context_current",
+        env: {
+          RIPPLE_AGENT_VISUAL_CONTEXT_MODE: "clean",
+          RIPPLE_VISUAL_CONTEXT_ENDPOINT: handle.endpoint,
+          RIPPLE_VISUAL_CONTEXT_TOKEN: handle.token,
+        },
+      })
+
+      expect(result.exitCode).toBe(0)
+      const payload = JSON.parse(result.stdout)
+      expect(payload).toEqual({
+        ok: true,
+        type: "snapshot",
+        snapshot: {
+          id: "snap_context_current",
+          path: ".ripple/visual-context/snapshots/snap_context_current/context-current.png",
+          sample: {
+            timeMs: 1500,
+            frame: 36,
+          },
+          width: 1280,
+          height: 720,
+        },
+        context: {
+          compositionPath: null,
+          samples: [{ timeMs: 1500, frame: 36 }],
+        },
+        elapsedMs: expect.any(Number),
+      })
+      expect(result.stdout).not.toContain("backend")
+      expect(result.stdout).not.toContain("endpoint")
+      expect(result.stdout).not.toContain("handoff")
+      expect(result.stdout).not.toContain("fallback")
+    } finally {
+      await handle.close()
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test("wraps frame-sheet JSON for the future-facing frame-sheet command", async () => {
     const projectDir = await makeProject()
     try {
       const result = await runVisualCommand([
-        "sheet",
+        "frame-sheet",
         "--dir",
         projectDir,
         "--at",
@@ -423,7 +591,7 @@ describe("ripple visual CLI commands", () => {
 
   test("returns structured sheet errors before frame-sheet parsing", async () => {
     const jsonResult = await runVisualCommand([
-      "sheet",
+      "frame-sheet",
       "--backend",
       "bogus",
       "--json",
@@ -434,7 +602,7 @@ describe("ripple visual CLI commands", () => {
     expect(JSON.parse(jsonResult.stdout).error.code).toBe("INVALID_BACKEND")
 
     const textResult = await runVisualCommand([
-      "sheet",
+      "frame-sheet",
       "--backend",
     ])
     expect(textResult.exitCode).toBe(1)
@@ -486,7 +654,7 @@ describe("ripple visual CLI commands", () => {
 
     try {
       const result = await runVisualCommand([
-        "sheet",
+        "frame-sheet",
         "--dir",
         projectDir,
         "--at",
@@ -515,11 +683,11 @@ describe("ripple visual CLI commands", () => {
     }
   })
 
-  test("returns modest context metadata from the generated frame-sheet manifest", async () => {
+  test("returns modest context metadata from the generated frame-sheet manifest in app-managed runs", async () => {
     const projectDir = await makeProject()
     try {
       const result = await runVisualCommand([
-        "context",
+        "frame-sheet",
         "--dir",
         projectDir,
         "--range",
@@ -532,6 +700,9 @@ describe("ripple visual CLI commands", () => {
         "index.html",
         "--json",
       ], {
+        env: {
+          RIPPLE_AGENT_VISUAL_CONTEXT_MODE: "clean",
+        },
         idFactory: () => "fs_context",
         captureFrames: async ({ timestampsMs }) => {
           await mkdir(projectDir, { recursive: true })
@@ -551,6 +722,7 @@ describe("ripple visual CLI commands", () => {
       expect(result.exitCode).toBe(0)
       const payload = JSON.parse(result.stdout)
       expect(payload.ok).toBe(true)
+      expect(payload.type).toBe("sheet")
       expect(payload.context.compositionPath).toBe("index.html")
       expect(payload.context.fps).toBe(24)
       expect(payload.context.rangeMs).toEqual([0, 2000])
@@ -573,7 +745,9 @@ describe("ripple visual CLI commands", () => {
 
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain("snapshot")
-    expect(result.stdout).toContain("sheet")
+    expect(result.stdout).toContain("frame-sheet")
+    expect(result.stdout).not.toContain("context")
+    expect(result.stdout).not.toContain("\n  sheet")
   })
 
   test("routes top-level snapshot commands directly", async () => {
@@ -583,20 +757,23 @@ describe("ripple visual CLI commands", () => {
     expect(result.stdout).toContain("Usage: ripple snapshot")
   })
 
-  test("routes top-level context help without trying to parse sheet JSON", async () => {
+  test("does not route the removed combined visual command", async () => {
     const result = await runRippleCli(["context", "--help"])
 
-    expect(result.exitCode).toBe(0)
-    expect(result.stdout).toContain("Usage: ripple context")
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain("Unknown ripple command: context")
   })
 
-  test("rejects legacy grouped visual and frame-sheet commands", async () => {
-    const visualResult = await runRippleCli(["visual", "sheet", "--json"])
-    const frameSheetResult = await runRippleCli(["frame-sheet", "--json"])
+  test("keeps legacy grouped visual and hidden sheet commands as compatibility aliases", async () => {
+    const visualResult = await runRippleCli(["visual", "frame-sheet", "--help"])
+    const sheetResult = await runRippleCli(["sheet", "--help"])
+    const frameSheetResult = await runRippleCli(["frame-sheet", "--help"])
 
-    expect(visualResult.exitCode).toBe(1)
-    expect(JSON.parse(visualResult.stdout).error.code).toBe("UNKNOWN_COMMAND")
-    expect(frameSheetResult.exitCode).toBe(1)
-    expect(JSON.parse(frameSheetResult.stdout).error.code).toBe("UNKNOWN_COMMAND")
+    expect(visualResult.exitCode).toBe(0)
+    expect(visualResult.stdout).toContain("Usage: ripple frame-sheet")
+    expect(sheetResult.exitCode).toBe(0)
+    expect(sheetResult.stdout).toContain("Usage: ripple frame-sheet")
+    expect(frameSheetResult.exitCode).toBe(0)
+    expect(frameSheetResult.stdout).toContain("Usage: ripple frame-sheet")
   })
 })

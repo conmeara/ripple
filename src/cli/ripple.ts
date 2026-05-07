@@ -6,9 +6,8 @@ export function rippleHelpText(): string {
     "Usage: ripple <command> [options]",
     "",
     "Commands:",
-    "  snapshot       Capture one visual frame at an explicit time",
-    "  sheet          Create a compact frame sheet",
-    "  context        Create a frame sheet plus manifest metadata",
+    "  snapshot       Capture the current frame or one exact visual frame",
+    "  frame-sheet    Create a compact frame sheet across time",
     "",
     "Run ripple <command> --help for command options.",
     "",
@@ -23,8 +22,11 @@ export async function runRippleCli(
   if (!command || command === "--help" || command === "-h") {
     return { exitCode: 0, stdout: rippleHelpText(), stderr: "" }
   }
-  if (command === "snapshot" || command === "sheet" || command === "context") {
+  if (command === "snapshot" || command === "sheet" || command === "frame-sheet") {
     return runVisualCommand([command, ...rest], options)
+  }
+  if (command === "visual") {
+    return runVisualCommand(rest, options)
   }
 
   const wantsJson = rest.includes("--json") || args.includes("--json")

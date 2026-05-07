@@ -343,13 +343,12 @@ describe("Visual Context quality and speed matrix", () => {
         projectDir,
         "--at",
         "current",
-        "--backend",
-        "engine",
         "--json",
       ], {
         cwd: projectDir,
         repoRoot,
         env: {
+          RIPPLE_AGENT_VISUAL_CONTEXT_MODE: "clean",
           RIPPLE_VISUAL_CONTEXT_ENDPOINT: endpoint.endpoint,
           RIPPLE_VISUAL_CONTEXT_TOKEN: endpoint.token,
         },
@@ -359,8 +358,12 @@ describe("Visual Context quality and speed matrix", () => {
       expect(result.exitCode).toBe(0)
       const payload = JSON.parse(result.stdout)
       expect(payload.ok).toBe(true)
-      expect(payload.backend).toBe("engine")
+      expect(payload.type).toBe("snapshot")
       expect(payload.snapshot.sample).toEqual({ timeMs: 500, frame: 15 })
+      expect(result.stdout).not.toContain("backend")
+      expect(result.stdout).not.toContain("endpoint")
+      expect(result.stdout).not.toContain("handoff")
+      expect(result.stdout).not.toContain("fallback")
       expect(elapsedMs).toBeLessThan(7000)
       await expectPngQuality({
         path: join(projectDir, payload.snapshot.path),
@@ -375,7 +378,7 @@ describe("Visual Context quality and speed matrix", () => {
     }
   }, 60000)
 
-  timedTest("covers sheet and context artifacts, quality, and timing", async () => {
+  timedTest("covers sheet and frame-sheet artifacts, quality, and timing", async () => {
     const projectDir = await makeProject()
     try {
       const sheetStartedAt = performance.now()
@@ -387,8 +390,6 @@ describe("Visual Context quality and speed matrix", () => {
         "0s,0.5s,1s",
         "--columns",
         "3",
-        "--backend",
-        "engine",
         "--json",
       ], {
         cwd: projectDir,
@@ -423,7 +424,7 @@ describe("Visual Context quality and speed matrix", () => {
 
       const contextStartedAt = performance.now()
       const contextResult = await runRippleCli([
-        "context",
+        "frame-sheet",
         "--dir",
         projectDir,
         "--range",
@@ -432,18 +433,24 @@ describe("Visual Context quality and speed matrix", () => {
         "3",
         "--columns",
         "3",
-        "--backend",
-        "engine",
         "--json",
       ], {
         cwd: projectDir,
         repoRoot,
+        env: {
+          RIPPLE_AGENT_VISUAL_CONTEXT_MODE: "clean",
+        },
       })
       const contextElapsedMs = performance.now() - contextStartedAt
       expect(contextResult.exitCode).toBe(0)
       const contextPayload = JSON.parse(contextResult.stdout)
       expect(contextPayload.ok).toBe(true)
+      expect(contextPayload.type).toBe("sheet")
       expect(contextPayload.context.samples.map((sample: { timeMs: number }) => sample.timeMs)).toEqual([0, 500, 1000])
+      expect(contextResult.stdout).not.toContain("backend")
+      expect(contextResult.stdout).not.toContain("endpoint")
+      expect(contextResult.stdout).not.toContain("handoff")
+      expect(contextResult.stdout).not.toContain("fallback")
       expect(contextElapsedMs).toBeLessThan(10000)
     } finally {
       await rm(projectDir, { recursive: true, force: true })
@@ -554,7 +561,7 @@ describe("Visual Context quality and speed matrix", () => {
     }
   }, 60000)
 
-  timedTest("covers the agent CLI subprocess snapshot and sheet paths, artifact quality, and timing", async () => {
+  timedTest("covers the agent chat CLI snapshot and frame-sheet paths, artifact quality, and timing", async () => {
     const projectDir = await makeProject()
     const service = createVisualContextService()
     const endpoint = await createVisualContextEndpoint({
@@ -584,8 +591,6 @@ describe("Visual Context quality and speed matrix", () => {
         "snapshot",
         "--at",
         "current",
-        "--backend",
-        "engine",
         "--json",
       ], {
         cwd: projectDir,
@@ -597,8 +602,12 @@ describe("Visual Context quality and speed matrix", () => {
       const snapshotPayload = JSON.parse(snapshotStdout)
 
       expect(snapshotPayload.ok).toBe(true)
-      expect(snapshotPayload.backend).toBe("engine")
+      expect(snapshotPayload.type).toBe("snapshot")
       expect(snapshotPayload.snapshot.sample).toEqual({ timeMs: 500, frame: 15 })
+      expect(snapshotStdout).not.toContain("backend")
+      expect(snapshotStdout).not.toContain("endpoint")
+      expect(snapshotStdout).not.toContain("handoff")
+      expect(snapshotStdout).not.toContain("fallback")
       expect(snapshotElapsedMs).toBeLessThan(15000)
       await expectPngQuality({
         path: join(projectDir, snapshotPayload.snapshot.path),
@@ -609,15 +618,13 @@ describe("Visual Context quality and speed matrix", () => {
 
       const startedAt = performance.now()
       const stdout = execFileSync("ripple", [
-        "sheet",
+        "frame-sheet",
         "--range",
         "0s..1s",
         "--samples",
         "3",
         "--columns",
         "3",
-        "--backend",
-        "engine",
         "--json",
       ], {
         cwd: projectDir,
@@ -629,7 +636,11 @@ describe("Visual Context quality and speed matrix", () => {
       const payload = JSON.parse(stdout)
 
       expect(payload.ok).toBe(true)
-      expect(payload.backend).toBe("engine")
+      expect(payload.type).toBe("sheet")
+      expect(stdout).not.toContain("backend")
+      expect(stdout).not.toContain("endpoint")
+      expect(stdout).not.toContain("handoff")
+      expect(stdout).not.toContain("fallback")
       expect(elapsedMs).toBeLessThan(15000)
       expect(existsSync(join(projectDir, payload.sheet.path))).toBe(true)
       expect(existsSync(join(projectDir, payload.sheet.manifestPath))).toBe(true)
@@ -642,7 +653,7 @@ describe("Visual Context quality and speed matrix", () => {
     }
   }, 60000)
 
-  timedTest("covers the agent CLI file handoff when localhost visual endpoints are unreachable", async () => {
+  timedTest("covers the agent CLI prepared visual context when localhost visual endpoints are unreachable", async () => {
     const projectDir = await makeProject()
     try {
       const handoff = await prepareAgentVisualContextHandoff({
@@ -674,11 +685,9 @@ describe("Visual Context quality and speed matrix", () => {
       const snapshotStdout = execFileSync("ripple", [
         "snapshot",
         "--at",
-        "0s",
+        "current",
         "--composition",
         "index.html",
-        "--backend",
-        "engine",
         "--json",
       ], {
         cwd: projectDir,
@@ -690,10 +699,12 @@ describe("Visual Context quality and speed matrix", () => {
       const snapshotPayload = JSON.parse(snapshotStdout)
 
       expect(snapshotPayload.ok).toBe(true)
-      expect(snapshotPayload.backend).toBe("fast-browser")
-      expect(snapshotPayload.fallbackFrom).toBe(null)
+      expect(snapshotPayload.type).toBe("snapshot")
       expect(snapshotPayload.snapshot.sample).toEqual({ timeMs: 0, frame: 0 })
-      expect(snapshotPayload.warnings[0]).toContain("app-prepared visual context handoff")
+      expect(snapshotStdout).not.toContain("backend")
+      expect(snapshotStdout).not.toContain("endpoint")
+      expect(snapshotStdout).not.toContain("handoff")
+      expect(snapshotStdout).not.toContain("fallback")
       expect(snapshotElapsedMs).toBeLessThan(2000)
       await expectPngQuality({
         path: join(projectDir, snapshotPayload.snapshot.path),
@@ -704,15 +715,13 @@ describe("Visual Context quality and speed matrix", () => {
 
       const sheetStartedAt = performance.now()
       const sheetStdout = execFileSync("ripple", [
-        "sheet",
+        "frame-sheet",
         "--range",
         "0s..8s",
         "--samples",
         "8",
         "--columns",
         "4",
-        "--backend",
-        "engine",
         "--json",
       ], {
         cwd: projectDir,
@@ -724,8 +733,11 @@ describe("Visual Context quality and speed matrix", () => {
       const sheetPayload = JSON.parse(sheetStdout)
 
       expect(sheetPayload.ok).toBe(true)
-      expect(sheetPayload.backend).toBe("fast-browser")
-      expect(sheetPayload.fallbackFrom).toBe("visual-context-handoff")
+      expect(sheetPayload.type).toBe("sheet")
+      expect(sheetStdout).not.toContain("backend")
+      expect(sheetStdout).not.toContain("endpoint")
+      expect(sheetStdout).not.toContain("handoff")
+      expect(sheetStdout).not.toContain("fallback")
       expect(sheetElapsedMs).toBeLessThan(2000)
       expect(existsSync(join(projectDir, sheetPayload.sheet.path))).toBe(true)
       expect(existsSync(join(projectDir, sheetPayload.sheet.manifestPath))).toBe(true)

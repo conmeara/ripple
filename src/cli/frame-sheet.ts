@@ -706,9 +706,9 @@ async function assertGeneratedFile(path: string, code: string, message: string):
 
 export function frameSheetHelpText(): string {
   return [
-    "Usage: ripple sheet [options]",
+    "Usage: ripple frame-sheet [options]",
     "",
-    "Generate a project-local contact sheet from HyperFrames frames.",
+    "Generate a project-local frame sheet from HyperFrames frames.",
     "",
     "Options:",
     "  --dir <path>              Project directory (default: current directory)",

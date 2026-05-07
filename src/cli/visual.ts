@@ -27,8 +27,6 @@ const DEFAULT_TIMEOUT_MS = 5000
 const DEFAULT_WIDTH = 1920
 const DEFAULT_HEIGHT = 1080
 
-type VisualSubcommand = "snapshot" | "sheet" | "context"
-
 interface VisualSnapshotArgs {
   dir: string
   json: boolean
@@ -133,12 +131,11 @@ function parseBackend(value: string): VisualContextBackendId {
 
 function visualHelpText(): string {
   return [
-    "Usage: ripple <snapshot|sheet|context> [options]",
+    "Usage: ripple <snapshot|frame-sheet> [options]",
     "",
     "Commands:",
-    "  snapshot    Capture one visual frame at an explicit time",
-    "  sheet       Create a compact frame sheet",
-    "  context     Create a frame sheet plus manifest metadata",
+    "  snapshot       Capture the current frame or one exact visual frame",
+    "  frame-sheet    Create a compact frame sheet across time",
     "",
   ].join("\n")
 }
@@ -157,26 +154,6 @@ function visualSnapshotHelpText(): string {
     "  --fps <fps>              Frame rate for frame-number metadata",
     "  --timeout <ms>           Capture readiness timeout",
     "  --json                   Print JSON",
-    "",
-  ].join("\n")
-}
-
-function visualContextHelpText(): string {
-  return [
-    "Usage: ripple context [options]",
-    "",
-    "Options:",
-    "  --dir <path>              Project directory (default: current directory)",
-    "  --at <times>              Comma-separated timestamps, e.g. 0s,1.5s,3s",
-    "  --range <start..end>      Time range, e.g. 2s..8s",
-    "  --samples <count>         Evenly sample a range (default: 8)",
-    "  --every <duration>        Sample a range every duration, e.g. 1s",
-    "  --every-frames <count>    Sample every N frames; uses --fps or project fps",
-    "  --composition <path>      Project-relative composition HTML",
-    "  --backend <name>          engine, producer-capture, fast-browser, hyperframes-cli, preview",
-    "  --columns <count>         Sheet columns, 1-4 (default: up to 4)",
-    "  --json                    Print machine-readable JSON",
-    "  --help                    Show this help",
     "",
   ].join("\n")
 }
@@ -352,6 +329,21 @@ function visualEndpointFromEnv(env: NodeJS.ProcessEnv): { endpoint: string; toke
   return endpoint && token ? { endpoint: endpoint.replace(/\/+$/, ""), token } : null
 }
 
+function shouldUseCleanVisualContext(env: NodeJS.ProcessEnv): boolean {
+  return env.RIPPLE_AGENT_VISUAL_CONTEXT_MODE?.trim().toLowerCase() === "clean"
+}
+
+async function readFrameSheetManifest(
+  projectDir: string,
+  manifestPath: unknown,
+): Promise<Record<string, any> | null> {
+  if (typeof manifestPath !== "string" || !manifestPath.trim()) return null
+  const manifestRealPath = await realpath(resolve(projectDir, manifestPath)).catch(() => null)
+  if (!manifestRealPath || !isPathInsideDirectory(projectDir, manifestRealPath)) return null
+  const parsed = JSON.parse(await readFile(manifestRealPath, "utf8")) as unknown
+  return isRecord(parsed) ? parsed as Record<string, any> : null
+}
+
 async function visualHandoffFromEnv(input: {
   env: NodeJS.ProcessEnv
   projectDir: string
@@ -418,7 +410,7 @@ async function captureSnapshotFromHandoff(input: {
   if (!isPathInsideDirectory(input.projectDir, sourceRealPath)) {
     throw new VisualCliError("HANDOFF_PATH_ESCAPE", "Visual context handoff snapshot is outside the project.")
   }
-  const destination = join(input.outputDir, "handoff.png")
+  const destination = join(input.outputDir, "current.png")
   await copyFile(sourceRealPath, destination)
   const info = await stat(destination)
   return {
@@ -435,7 +427,7 @@ async function captureSnapshotFromHandoff(input: {
     elapsedMs: 0,
     timings: { handoffMs: 0 },
     warnings: [
-      "Used app-prepared visual context handoff because this agent run cannot rely on localhost capture.",
+      "Used Ripple's prepared app visual context.",
     ],
     cleanupPaths: [],
   }
@@ -446,6 +438,7 @@ async function sheetResultFromHandoff(input: {
   env: NodeJS.ProcessEnv
   projectDir: string
   wantsJson: boolean
+  cleanJson: boolean
 }): Promise<FrameSheetCliResult | null> {
   if (input.args.includes("--help") || input.args.includes("-h")) return null
   const manifest = await visualHandoffFromEnv({
@@ -484,13 +477,20 @@ async function sheetResultFromHandoff(input: {
     },
     elapsedMs: 0,
     warnings: [
-      "Used app-prepared visual context handoff because this agent run cannot rely on localhost capture.",
+      "Used Ripple's prepared app visual context.",
     ],
   }
+  const outputPayload = input.cleanJson
+    ? simplifySheetContextPayload({
+      payload,
+      manifest: await readFrameSheetManifest(input.projectDir, sheet.manifestPath),
+      compositionPath: compositionOption.value ?? manifest.compositionPath ?? null,
+    })
+    : payload
   return {
     exitCode: 0,
     stdout: input.wantsJson
-      ? formatJson(payload)
+      ? formatJson(outputPayload)
       : `Created frame sheet: ${sheet.path}\n`,
     stderr: "",
   }
@@ -687,10 +687,16 @@ async function runVisualSnapshotCommand(
       timings: capture.timings,
       warnings: capture.warnings,
     }
+    const outputPayload = shouldUseCleanVisualContext(env)
+      ? simplifySnapshotContextPayload({
+        payload,
+        compositionPath: parsed.compositionPath,
+      })
+      : payload
 
     return {
       exitCode: 0,
-      stdout: parsed.json ? formatJson(payload) : `Captured snapshot: ${payload.snapshot.path}\n`,
+      stdout: parsed.json ? formatJson(outputPayload) : `Captured snapshot: ${payload.snapshot.path}\n`,
       stderr: "",
     }
   } catch (error) {
@@ -726,6 +732,8 @@ async function runVisualSheetCommand(
 ): Promise<FrameSheetCliResult> {
   const startedAt = performance.now()
   const wantsJson = args.includes("--json") || args.some((arg) => arg.startsWith("--json="))
+  let cleanVisualContext = false
+  let cleanProjectDir: string | null = null
   try {
     const backendOption = extractOption(args, "--backend")
     const compositionOption = extractOption(backendOption.args, "--composition")
@@ -739,12 +747,15 @@ async function runVisualSheetCommand(
         ...process.env,
         ...(options.env ?? {}),
       }, { repoRoot: options.repoRoot })
+      cleanVisualContext = shouldUseCleanVisualContext(env)
+      cleanProjectDir = projectDir
       await assertWorkspaceBoundary({ projectDir, env })
       const handoffResult = await sheetResultFromHandoff({
         args,
         env,
         projectDir,
         wantsJson,
+        cleanJson: cleanVisualContext,
       })
       if (handoffResult) return handoffResult
     }
@@ -793,16 +804,24 @@ async function runVisualSheetCommand(
     if (!wantsJson || result.exitCode !== 0) return result
 
     const payload = JSON.parse(result.stdout)
+    const wrappedPayload = {
+      ok: true,
+      backend: reportedBackend,
+      fallbackFrom: null,
+      sheet: payload.sheet,
+      elapsedMs: Math.round(performance.now() - startedAt),
+      warnings: [],
+    }
+    const outputPayload = cleanVisualContext && cleanProjectDir
+      ? simplifySheetContextPayload({
+        payload: wrappedPayload,
+        manifest: await readFrameSheetManifest(cleanProjectDir, wrappedPayload.sheet?.manifestPath),
+        compositionPath: compositionOption.value ?? null,
+      })
+      : wrappedPayload
     return {
       exitCode: 0,
-      stdout: formatJson({
-        ok: true,
-        backend: reportedBackend,
-        fallbackFrom: null,
-        sheet: payload.sheet,
-        elapsedMs: Math.round(performance.now() - startedAt),
-        warnings: [],
-      }),
+      stdout: formatJson(outputPayload),
       stderr: "",
     }
   } catch (error) {
@@ -821,43 +840,38 @@ async function projectDirFromArgs(args: string[], cwd: string): Promise<string> 
   return assertExistingProjectDir(isAbsolute(dir) ? dir : resolve(cwd, dir))
 }
 
-async function runVisualContextCommand(
-  args: string[],
-  options: VisualCommandOptions = {},
-): Promise<FrameSheetCliResult> {
-  if (args.includes("--help") || args.includes("-h")) {
-    return { exitCode: 0, stdout: visualContextHelpText(), stderr: "" }
-  }
-  const jsonArgs = args.includes("--json") ? args : [...args, "--json"]
-  const sheetResult = await runVisualSheetCommand(jsonArgs, options)
-  if (sheetResult.exitCode !== 0) return sheetResult
-
-  const baseCwd = resolve(options.cwd ?? process.cwd())
-  const projectDir = await projectDirFromArgs(args, baseCwd)
-  const payload = JSON.parse(sheetResult.stdout)
-  const manifestPath = payload.sheet?.manifestPath
-  const manifest = manifestPath
-    ? JSON.parse(await readFile(join(projectDir, manifestPath), "utf8"))
-    : null
-  const compositionOption = extractOption(args, "--composition")
-
+function simplifySnapshotContextPayload(input: {
+  payload: Record<string, any>
+  compositionPath: string | null
+}): Record<string, unknown> {
   return {
-    exitCode: 0,
-    stdout: formatJson({
-      ok: true,
-      backend: payload.backend,
-      fallbackFrom: payload.fallbackFrom ?? null,
-      sheet: payload.sheet,
-      context: {
-        compositionPath: compositionOption.value ?? null,
-        fps: isRecord(manifest) ? manifest.fps ?? null : null,
-        rangeMs: isRecord(manifest) ? manifest.rangeMs ?? null : null,
-        samples: isRecord(manifest) ? manifest.samples ?? [] : [],
-      },
-      elapsedMs: payload.elapsedMs,
-      warnings: payload.warnings ?? [],
-    }),
-    stderr: "",
+    ok: true,
+    type: "snapshot",
+    snapshot: input.payload.snapshot,
+    context: {
+      compositionPath: input.compositionPath,
+      samples: input.payload.snapshot?.sample ? [input.payload.snapshot.sample] : [],
+    },
+    elapsedMs: input.payload.elapsedMs,
+  }
+}
+
+function simplifySheetContextPayload(input: {
+  payload: Record<string, any>
+  manifest: Record<string, any> | null
+  compositionPath: string | null
+}): Record<string, unknown> {
+  return {
+    ok: true,
+    type: "sheet",
+    sheet: input.payload.sheet,
+    context: {
+      compositionPath: input.compositionPath,
+      fps: input.manifest?.fps ?? null,
+      rangeMs: input.manifest?.rangeMs ?? null,
+      samples: input.manifest?.samples ?? [],
+    },
+    elapsedMs: input.payload.elapsedMs,
   }
 }
 
@@ -871,8 +885,9 @@ export async function runVisualCommand(
   }
 
   if (subcommand === "snapshot") return runVisualSnapshotCommand(rest, options)
-  if (subcommand === "sheet") return runVisualSheetCommand(rest, options)
-  if (subcommand === "context") return runVisualContextCommand(rest, options)
+  if (subcommand === "sheet" || subcommand === "frame-sheet") {
+    return runVisualSheetCommand(rest, options)
+  }
 
   const wantsJson = rest.includes("--json") || args.includes("--json")
   const message = `Unknown ripple visual command: ${subcommand}`

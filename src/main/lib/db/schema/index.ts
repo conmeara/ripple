@@ -714,6 +714,7 @@ export const revisions = sqliteTable("revisions", {
       | "running"
       | "updating"
       | "proposed"
+      | "answered"
       | "accepted"
       | "rejected"
       | "superseded"

@@ -131,7 +131,14 @@ export function buildRevisionPrompt(input: {
     input.thread.clipKey ? `- Clip: ${input.thread.clipKey}` : null,
     input.thread.sourceFile ? `- Source file: ${input.thread.sourceFile}` : null,
     "",
-    "Use the comment context to target the change. Edit only this Ripple/HyperFrames project, preserve composition data attributes and registered GSAP timelines, and keep the change focused on the user's comment.",
+    [
+      "Use the comment context to target the requested revision.",
+      "First decide whether the user's comment asks for a visual/content change.",
+      "If it is only a question, QA note, acknowledgement, or observation, do not edit files; answer briefly in product language and say no revision was needed.",
+      "When a revision is requested, edit only this Ripple project, preserve composition data attributes and registered animation timelines, and keep the change focused on the user's comment.",
+      "Use `ripple snapshot --at current --json` when you need the current frame visually, or `ripple frame-sheet --range <start>..<end> --json` when you need to inspect motion across a comment range.",
+      "Do not mention internal paths, worktrees, sandboxing, permissions, local preview ports, endpoints, backends, handoffs, fallbacks, providers, or tool plumbing in the user-facing reply unless the user explicitly asks for debugging details.",
+    ].join(" "),
   ].filter((line): line is string => line !== null)
 
   return [body, ...contextLines].join("\n")
