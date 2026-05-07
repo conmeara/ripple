@@ -19,6 +19,7 @@ import {
   listCommentActivitySummary,
   listCommentThreads,
   refreshRevisionProposal,
+  rejectCommentThread,
   rejectRevision,
   resolveCommentThread,
   restoreCommentThread,
@@ -199,6 +200,10 @@ export const revisionsRouter = router({
       }
       throw new Error("Only resolving comment threads is supported here.")
     }),
+
+  rejectThread: publicProcedure
+    .input(z.object({ threadId: z.string() }))
+    .mutation(({ input }) => rejectCommentThread(input.threadId)),
 
   deleteThread: publicProcedure
     .input(z.object({ threadId: z.string() }))

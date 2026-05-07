@@ -64,6 +64,7 @@ describe("HyperFrames packaged app configuration", () => {
     const coreVersion = pkg.dependencies["@hyperframes/core"]
 
     expect(coreVersion).toMatch(/^\d+\.\d+\.\d+$/)
+    expect(pkg.dependencies["@hyperframes/engine"]).toBe(coreVersion)
     expect(pkg.dependencies["@hyperframes/player"]).toBe(coreVersion)
     expect(pkg.dependencies["@hyperframes/producer"]).toBe(coreVersion)
     expect(pkg.dependencies["@hyperframes/studio"]).toBe(coreVersion)
@@ -74,6 +75,7 @@ describe("HyperFrames packaged app configuration", () => {
     const pkg = readPackageJson()
     const packageNames = [
       "@hyperframes/core",
+      "@hyperframes/engine",
       "@hyperframes/player",
       "@hyperframes/producer",
       "@hyperframes/studio",
@@ -91,6 +93,7 @@ describe("HyperFrames packaged app configuration", () => {
 
     expect(command).toContain("bun test")
     expect(command).toContain("src/main/lib/hyperframes")
+    expect(command).toContain("src/main/lib/visual-context")
     expect(command).toContain("src/main/lib/exports")
     expect(command).toContain("src/renderer/features/renders")
     expect(command).toContain("src/renderer/features/hyperframes")
@@ -132,6 +135,7 @@ describe("HyperFrames packaged app configuration", () => {
 
   test("keeps the official HyperFrames surfaces Ripple wraps available", () => {
     const coreExports = readNodePackageJson("@hyperframes/core").exports
+    const enginePackage = readNodePackageJson("@hyperframes/engine")
     const playerExports = readNodePackageJson("@hyperframes/player").exports
     const producerExports = readNodePackageJson("@hyperframes/producer").exports
     const cliBin = readNodePackageJson("hyperframes").bin
@@ -140,6 +144,11 @@ describe("HyperFrames packaged app configuration", () => {
     expect((coreExports as Record<string, unknown>)["./runtime"]).toBe(
       "./dist/hyperframe.runtime.iife.js",
     )
+
+    expect(enginePackage.main).toBe("./src/index.ts")
+    expect(enginePackage.types).toBe("./src/index.ts")
+    expect(isRecord(enginePackage.exports)).toBe(true)
+    expect((enginePackage.exports as Record<string, unknown>)["."]).toBe("./src/index.ts")
 
     expect(isRecord(playerExports)).toBe(true)
     const playerRoot = (playerExports as Record<string, unknown>)["."]
@@ -179,6 +188,7 @@ describe("HyperFrames packaged app configuration", () => {
     const asarUnpack = new Set(pkg.build.asarUnpack ?? [])
 
     expect(asarUnpack.has("node_modules/@hyperframes/core/**/*")).toBe(true)
+    expect(asarUnpack.has("node_modules/@hyperframes/engine/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/@hyperframes/player/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/@hyperframes/producer/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/@hyperframes/studio/**/*")).toBe(true)

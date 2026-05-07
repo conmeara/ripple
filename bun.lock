@@ -11,6 +11,7 @@
         "@git-diff-view/react": "^0.0.35",
         "@git-diff-view/shiki": "^0.0.36",
         "@hyperframes/core": "0.4.40",
+        "@hyperframes/engine": "0.4.40",
         "@hyperframes/player": "0.4.40",
         "@hyperframes/producer": "0.4.40",
         "@hyperframes/studio": "0.4.40",

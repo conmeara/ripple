@@ -7,10 +7,31 @@ import {
 } from "./claude-agent-sdk-approval"
 
 describe("Claude Agent SDK approval bridge", () => {
-  test("keeps only Ripple frame-sheet commands auto-allowed", () => {
+  test("keeps only Ripple visual-context commands auto-allowed", () => {
+    expect(isRippleClaudeAutoAllowedTool("Bash", {
+      command: "ripple sheet --range 0s..8s",
+    })).toBe(true)
+    expect(isRippleClaudeAutoAllowedTool("Bash", {
+      command: "ripple snapshot --at 1s --json",
+    })).toBe(true)
+    expect(isRippleClaudeAutoAllowedTool("Bash", {
+      command: "ripple context --range 0s..8s --json",
+    })).toBe(true)
     expect(isRippleClaudeAutoAllowedTool("Bash", {
       command: "ripple frame-sheet --range 0s..8s",
-    })).toBe(true)
+    })).toBe(false)
+    expect(isRippleClaudeAutoAllowedTool("Bash", {
+      command: "ripple visual sheet --range 0s..8s",
+    })).toBe(false)
+    expect(isRippleClaudeAutoAllowedTool("Bash", {
+      command: "ripple sheet --json; curl https://example.com",
+    })).toBe(false)
+    expect(isRippleClaudeAutoAllowedTool("Bash", {
+      command: "ripple snapshot --at $(date) --json",
+    })).toBe(false)
+    expect(isRippleClaudeAutoAllowedTool("Bash", {
+      command: "ripple frame-sheet --json > /tmp/sheet.json",
+    })).toBe(false)
     expect(isRippleClaudeAutoAllowedTool("Bash", {
       command: "bun test",
     })).toBe(false)

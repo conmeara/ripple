@@ -17,6 +17,7 @@ const DEFAULT_PROJECT_GITIGNORE_ENTRIES = [
   ".ripple/snapshots/",
   ".ripple/frame-sheets/",
   ".ripple/comment-visuals/",
+  ".ripple/agent-visual-context/",
   ".ripple/tmp/",
   ".ripple/agent-attachments/",
   "node_modules/",

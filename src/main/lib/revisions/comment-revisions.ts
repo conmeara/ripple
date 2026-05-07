@@ -28,6 +28,7 @@ import {
   getDatabase,
   projects,
   revisions,
+  workspaces,
   type Composition,
   type CommentThread,
   type Project,
@@ -223,6 +224,15 @@ function parseStoredDiffSummary(
   }
 }
 
+function parseConversationMessageParts(value: string): unknown[] {
+  try {
+    const parsed = JSON.parse(value || "[]")
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 function fallbackRevisionSummary(summary: RippleRevisionDiffSummary): string {
   if (summary.fileCount === 0) {
     return "Agent finished without project changes."
@@ -240,9 +250,26 @@ function getRevisionDiffSummaryForView(
 ): string | null {
   const summary = parseStoredDiffSummary(revision.diffSummary)
   if (!summary || !revision.conversationId) return revision.diffSummary
+  if (summary.summary?.trim()) return revision.diffSummary
 
+  const messages = revision.agentRunId
+    ? db
+      .select()
+      .from(conversationMessages)
+      .where(and(
+        eq(conversationMessages.conversationId, revision.conversationId),
+        eq(conversationMessages.agentRunId, revision.agentRunId),
+      ))
+      .orderBy(asc(conversationMessages.createdAt))
+      .all()
+    : []
   const assistantSummary = extractAssistantFinalResponseFromMessages(
-    getConversationMessagesJson(revision.conversationId, db),
+    messages.length > 0
+      ? JSON.stringify(messages.map((message) => ({
+        role: message.role,
+        parts: parseConversationMessageParts(message.partsJson),
+      })))
+      : getConversationMessagesJson(revision.conversationId, db),
   )
   if (!assistantSummary) return revision.diffSummary
   return serializeDiffSummary({ ...summary, summary: assistantSummary })
@@ -1007,7 +1034,80 @@ export async function createRevisionForThread(input: {
   return revision
 }
 
-export async function deleteCommentThread(threadId: string): Promise<RippleCommentThreadView> {
+async function cleanupRevisionWorkspaces(input: {
+  db: Db
+  revisions: Revision[]
+  includeAccepted?: boolean
+}): Promise<Map<string, string | null>> {
+  const projectsById = new Map<string, Project>()
+  const cleanedContexts = new Map<string, string | null>()
+
+  for (const revision of input.revisions) {
+    if (!input.includeAccepted && revision.status === "accepted") continue
+    if (!revision.contextPath) continue
+
+    const contextKey = resolve(revision.contextPath)
+    if (cleanedContexts.has(contextKey)) continue
+    cleanedContexts.set(contextKey, null)
+
+    let project = projectsById.get(revision.projectId)
+    if (!project) {
+      project = input.db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, revision.projectId))
+        .get()
+      if (project) projectsById.set(revision.projectId, project)
+    }
+
+    if (!project) {
+      cleanedContexts.set(contextKey, "Project not found.")
+      continue
+    }
+
+    try {
+      await stat(contextKey)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue
+      cleanedContexts.set(
+        contextKey,
+        error instanceof Error ? error.message : "Workspace cleanup failed.",
+      )
+      continue
+    }
+
+    const cleanup = await removeWorktree(
+      resolveRevisionProjectPath(project),
+      contextKey,
+    )
+    cleanedContexts.set(
+      contextKey,
+      cleanup.success ? null : cleanup.error ?? "Cleanup failed.",
+    )
+  }
+
+  return cleanedContexts
+}
+
+function revisionCleanupError(
+  cleanupErrors: Map<string, string | null>,
+  revision: Revision,
+): string | null {
+  return revision.contextPath
+    ? cleanupErrors.get(resolve(revision.contextPath)) ?? null
+    : null
+}
+
+function throwIfThreadHasRunningRevision(revisionsForThread: Revision[]): void {
+  const activeRevision = revisionsForThread.find((revision) =>
+    (RUNNING_REVISION_STATUSES as readonly string[]).includes(revision.status),
+  )
+  if (activeRevision) {
+    throw new Error("Wait for generated changes to finish before deleting this comment.")
+  }
+}
+
+export async function rejectCommentThread(threadId: string): Promise<RippleCommentThreadView> {
   const db = getDatabase()
   const now = dateNow()
   const thread = db
@@ -1021,48 +1121,19 @@ export async function deleteCommentThread(threadId: string): Promise<RippleComme
     .from(revisions)
     .where(eq(revisions.threadId, threadId))
     .all()
-  const activeRevision = threadRevisions.find((revision) =>
-    (RUNNING_REVISION_STATUSES as readonly string[]).includes(revision.status),
-  )
-  if (activeRevision) {
-    throw new Error("Wait for generated changes to finish before deleting this comment.")
-  }
-
-  const projectsById = new Map<string, Project>()
-  const cleanedContexts = new Set<string>()
+  throwIfThreadHasRunningRevision(threadRevisions)
+  const cleanupErrors = await cleanupRevisionWorkspaces({
+    db,
+    revisions: threadRevisions,
+  })
 
   for (const revision of threadRevisions) {
     if (revision.status === "accepted") continue
 
-    let cleanupError: string | null = null
-    if (revision.contextPath && revision.branch) {
-      const contextKey = resolve(revision.contextPath)
-      if (!cleanedContexts.has(contextKey)) {
-        cleanedContexts.add(contextKey)
-        let project = projectsById.get(revision.projectId)
-        if (!project) {
-          project = db
-            .select()
-            .from(projects)
-            .where(eq(projects.id, revision.projectId))
-            .get()
-          if (project) projectsById.set(revision.projectId, project)
-        }
-
-        if (project) {
-          const cleanup = await removeWorktree(
-            resolveRevisionProjectPath(project),
-            revision.contextPath,
-          )
-          cleanupError = cleanup.success ? null : cleanup.error ?? "Cleanup failed."
-        }
-      }
-    }
-
     db.update(revisions)
       .set({
         status: "rejected",
-        errorMessage: cleanupError,
+        errorMessage: revisionCleanupError(cleanupErrors, revision),
         updatedAt: now,
         resolvedAt: now,
       })
@@ -1081,6 +1152,66 @@ export async function deleteCommentThread(threadId: string): Promise<RippleComme
     deletedAt: now,
   })
   return loadThreadView(threadId)
+}
+
+export async function deleteCommentThread(threadId: string): Promise<void> {
+  const db = getDatabase()
+  const thread = db
+    .select()
+    .from(commentThreads)
+    .where(eq(commentThreads.id, threadId))
+    .get()
+  if (!thread) throw new Error("Comment thread not found.")
+
+  const threadRevisions = db
+    .select()
+    .from(revisions)
+    .where(eq(revisions.threadId, threadId))
+    .all()
+  throwIfThreadHasRunningRevision(threadRevisions)
+
+  const cleanupErrors = await cleanupRevisionWorkspaces({
+    db,
+    revisions: threadRevisions,
+    includeAccepted: true,
+  })
+  const cleanupError = [...cleanupErrors.values()].find(Boolean)
+  if (cleanupError) {
+    throw new Error(`Comment was not deleted because cleanup failed: ${cleanupError}`)
+  }
+
+  const revisionIds = threadRevisions.map((revision) => revision.id)
+  const conversationIds = new Set<string>()
+  if (thread.conversationId) conversationIds.add(thread.conversationId)
+  for (const revision of threadRevisions) {
+    if (revision.conversationId) conversationIds.add(revision.conversationId)
+  }
+
+  db.transaction(() => {
+    if (revisionIds.length > 0) {
+      db.delete(workspaces)
+        .where(and(
+          eq(workspaces.kind, "generated_change"),
+          eq(workspaces.targetType, "revision"),
+          inArray(workspaces.targetId, revisionIds),
+        ))
+        .run()
+      db.delete(conversations)
+        .where(inArray(conversations.revisionId, revisionIds))
+        .run()
+    }
+    db.delete(conversations)
+      .where(eq(conversations.commentThreadId, threadId))
+      .run()
+    if (conversationIds.size > 0) {
+      db.delete(conversations)
+        .where(inArray(conversations.id, [...conversationIds]))
+        .run()
+    }
+    db.delete(commentThreads)
+      .where(eq(commentThreads.id, threadId))
+      .run()
+  })
 }
 
 export async function restoreCommentThread(threadId: string): Promise<RippleCommentThreadView> {

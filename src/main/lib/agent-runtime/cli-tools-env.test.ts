@@ -17,6 +17,18 @@ import {
   getRippleAgentToolDirectories,
 } from "./cli-tools-env"
 import { buildInstalledWindowsCliScript } from "../platform/windows"
+import {
+  createVisualContextEndpoint,
+  type VisualCaptureFramesRequest,
+  type VisualContextService,
+  type VisualSnapshotInput,
+} from "../visual-context"
+import { createAgentVisualContextEndpoint } from "./visual-context-endpoint"
+
+const ONE_BY_ONE_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+  "base64",
+)
 
 describe("Ripple agent CLI tool environment", () => {
   test("prepends Ripple, HyperFrames, and app-managed tool directories", () => {
@@ -93,7 +105,7 @@ describe("Ripple agent CLI tool environment", () => {
       chmodSync(appPath, 0o755)
       symlinkSync(wrapperPath, installedPath)
 
-      const output = execFileSync(installedPath, ["frame-sheet", "--help"], {
+      const output = execFileSync(installedPath, ["sheet", "--help"], {
         encoding: "utf8",
       })
 
@@ -101,7 +113,7 @@ describe("Ripple agent CLI tool environment", () => {
       expect(output).toContain(
         join(root, "Contents", "Resources", "app.asar", "out", "main", "ripple-cli.js"),
       )
-      expect(output).toContain("ARGS=frame-sheet --help")
+      expect(output).toContain("ARGS=sheet --help")
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -143,5 +155,217 @@ describe("Ripple agent CLI tool environment", () => {
     expect(env.HYPERFRAMES_NO_UPDATE_CHECK).toBe("1")
     expect(env.HYPERFRAMES_NO_AUTO_INSTALL).toBe("1")
     expect(env.RIPPLE_AGENT_WORKSPACE_ROOT).toBe(resolve("/tmp/ripple-project"))
+  })
+
+  test("adds visual context endpoint variables when the app service is available", () => {
+    const env = buildRippleAgentToolEnvironment({
+      baseEnv: {
+        PATH: "/usr/bin",
+      },
+      repoRoot: "/tmp/ripple-app",
+      workspaceRoot: "/tmp/ripple-project",
+      visualContextEndpoint: "http://127.0.0.1:49152",
+      visualContextToken: "token-test",
+      visualContextManifestPath: "/tmp/ripple-project/.ripple/agent-visual-context/run/manifest.json",
+    })
+
+    expect(env.RIPPLE_VISUAL_CONTEXT_ENDPOINT).toBe("http://127.0.0.1:49152")
+    expect(env.RIPPLE_VISUAL_CONTEXT_TOKEN).toBe("token-test")
+    expect(env.RIPPLE_VISUAL_CONTEXT_MANIFEST).toBe(
+      "/tmp/ripple-project/.ripple/agent-visual-context/run/manifest.json",
+    )
+    expect(env.RIPPLE_AGENT_WORKSPACE_ROOT).toBe(resolve("/tmp/ripple-project"))
+  })
+
+  test("app-managed ripple sheet command uses the injected endpoint", async () => {
+    const repoRoot = process.cwd()
+    const projectDir = mkdtempSync(join(tmpdir(), "ripple-agent-visual-cli-"))
+    let requestedBackend: string | null = null
+    const service: VisualContextService = {
+      warmProject: async () => undefined,
+      captureFrames: async (input: VisualCaptureFramesRequest) => {
+        requestedBackend = input.preferredBackend ?? null
+        const frameDir = join(input.projectPath, ".ripple", "endpoint-sheet-frames")
+        mkdirSync(frameDir, { recursive: true })
+        return {
+          backend: "engine",
+          frames: input.timestampsMs.map((timeMs, index) => {
+            const framePath = join(frameDir, `${index}.png`)
+            writeFileSync(framePath, ONE_BY_ONE_PNG)
+            return {
+              index,
+              timeMs,
+              frame: Math.round((timeMs / 1000) * input.fps),
+              path: framePath,
+              width: input.width,
+              height: input.height,
+              sizeBytes: ONE_BY_ONE_PNG.length,
+            }
+          }),
+          elapsedMs: 5,
+          timings: {},
+          warnings: [],
+          cleanupPaths: [frameDir],
+        }
+      },
+      captureSnapshot: async (_input: VisualSnapshotInput) => {
+        throw new Error("snapshot was not expected")
+      },
+      invalidateProject: async () => undefined,
+      shutdown: async () => undefined,
+    }
+    writeFileSync(join(projectDir, "hyperframes.json"), JSON.stringify({
+      name: "Agent Visual CLI Test",
+      entry: "index.html",
+      fps: 24,
+      width: 1280,
+      height: 720,
+      duration: 2,
+    }))
+    writeFileSync(join(projectDir, "index.html"), "<!doctype html><body></body>")
+
+    const endpoint = await createVisualContextEndpoint({
+      service,
+      workspaceRoot: projectDir,
+      token: "token-test",
+    })
+    try {
+      const env = buildRippleAgentToolEnvironment({
+        baseEnv: process.env,
+        repoRoot,
+        workspaceRoot: projectDir,
+        visualContextEndpoint: endpoint.endpoint,
+        visualContextToken: endpoint.token,
+      })
+      const stdout = execFileSync("ripple", [
+        "sheet",
+        "--range",
+        "0s..1s",
+        "--samples",
+        "2",
+        "--columns",
+        "2",
+        "--backend",
+        "engine",
+        "--json",
+      ], {
+        cwd: projectDir,
+        env,
+        encoding: "utf8",
+        timeout: 10_000,
+      })
+      const payload = JSON.parse(stdout)
+
+      expect(payload.ok).toBe(true)
+      expect(payload.backend).toBe("engine")
+      expect(requestedBackend).toBe("engine")
+      expect(existsSync(join(projectDir, payload.sheet.path))).toBe(true)
+      expect(existsSync(join(projectDir, payload.sheet.manifestPath))).toBe(true)
+    } finally {
+      await endpoint.close()
+      rmSync(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test("app-managed ripple snapshot current command uses the injected preview frame", async () => {
+    const repoRoot = process.cwd()
+    const projectDir = mkdtempSync(join(tmpdir(), "ripple-agent-current-snapshot-"))
+    let snapshotRequest: VisualSnapshotInput | null = null
+    const service: VisualContextService = {
+      warmProject: async () => undefined,
+      captureFrames: async () => {
+        throw new Error("sheet was not expected")
+      },
+      captureSnapshot: async (input: VisualSnapshotInput) => {
+        snapshotRequest = input
+        const framePath = join(String(input.outputDir), "current.png")
+        writeFileSync(framePath, ONE_BY_ONE_PNG)
+        return {
+          backend: "engine",
+          frames: [{
+            index: 0,
+            timeMs: input.timeMs,
+            frame: Math.round((input.timeMs / 1000) * input.fps),
+            path: framePath,
+            width: input.width,
+            height: input.height,
+            sizeBytes: ONE_BY_ONE_PNG.length,
+          }],
+          elapsedMs: 5,
+          timings: {},
+          warnings: [],
+          cleanupPaths: [],
+        }
+      },
+      invalidateProject: async () => undefined,
+      shutdown: async () => undefined,
+    }
+    writeFileSync(join(projectDir, "hyperframes.json"), JSON.stringify({
+      name: "Agent Current Snapshot Test",
+      entry: "index.html",
+      fps: 30,
+      width: 1280,
+      height: 720,
+      duration: 2,
+    }))
+    writeFileSync(join(projectDir, "index.html"), "<!doctype html><body></body>")
+
+    const endpoint = await createAgentVisualContextEndpoint(projectDir, {
+      service,
+      resolveCurrentFrameSnapshot: async () => ({
+        projectPath: projectDir,
+        sourcePath: projectDir,
+        compositionPath: "index.html",
+        timeMs: 733,
+        fps: 30,
+        width: 1280,
+        height: 720,
+      }),
+    })
+    try {
+      if (!endpoint) throw new Error("Expected app visual context endpoint.")
+      const env = buildRippleAgentToolEnvironment({
+        baseEnv: process.env,
+        repoRoot,
+        workspaceRoot: projectDir,
+        visualContextEndpoint: endpoint.endpoint,
+        visualContextToken: endpoint.token,
+      })
+      const stdout = execFileSync("ripple", [
+        "snapshot",
+        "--at",
+        "current",
+        "--backend",
+        "engine",
+        "--json",
+      ], {
+        cwd: projectDir,
+        env,
+        encoding: "utf8",
+        timeout: 10_000,
+      })
+      const payload = JSON.parse(stdout)
+
+      expect(payload.ok).toBe(true)
+      expect(payload.backend).toBe("engine")
+      expect(payload.snapshot.sample).toEqual({
+        timeMs: 733,
+        frame: 22,
+      })
+      expect(snapshotRequest).toEqual(expect.objectContaining({
+        projectPath: projectDir,
+        sourcePath: projectDir,
+        compositionPath: "index.html",
+        timeMs: 733,
+        fps: 30,
+        width: 1280,
+        height: 720,
+        preferredBackend: "engine",
+      }))
+      expect(existsSync(join(projectDir, payload.snapshot.path))).toBe(true)
+    } finally {
+      await endpoint?.close()
+      rmSync(projectDir, { recursive: true, force: true })
+    }
   })
 })

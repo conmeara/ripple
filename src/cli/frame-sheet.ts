@@ -1,6 +1,4 @@
-import { execFile } from "node:child_process"
 import { randomUUID } from "node:crypto"
-import { createServer, type Server } from "node:http"
 import {
   copyFile,
   lstat,
@@ -13,25 +11,33 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises"
-import { delimiter, dirname, isAbsolute, join, relative, resolve } from "node:path"
+import { delimiter, isAbsolute, join, relative, resolve } from "node:path"
 import { setTimeout as delay } from "node:timers/promises"
-import { promisify } from "node:util"
 import { isPathInsideDirectory } from "../shared/path-boundary"
 import {
   buildHyperframesEnvironment,
-  getAppManagedCommandCandidates,
-  pathExists,
-  resolveProducerBrowserPath,
-  resolvePackageJsonPath,
   runHyperframesCommand,
 } from "../main/lib/hyperframes/runtime"
 import type { HyperframesCommandResult } from "../main/lib/hyperframes/types"
+import {
+  DEFAULT_FRAME_SHEET_FPS,
+  VisualContextError,
+  buildVisualProjectEntryUrl,
+  assembleFrameSheetWithFfmpeg,
+  buildFrameSheetManifest,
+  buildFrameSheetSummary,
+  captureFramesWithFastBrowser as captureFramesWithFastBrowserCore,
+  getFrameSheetColumns,
+  resolveVisualProjectFile,
+  resolveFrameSheetTimestamps as resolveCoreFrameSheetTimestamps,
+  withBundledWsFallbacks,
+  type FrameSheetManifest,
+  type FrameSheetSample,
+  type VisualFastBrowserCaptureInput,
+  type VisualProjectFileResolution,
+} from "../main/lib/visual-context"
 
-const execFileAsync = promisify(execFile)
-
-const DEFAULT_FPS = 30
-const DEFAULT_SAMPLES = 8
-const MAX_SAMPLES = 12
+const DEFAULT_FPS = DEFAULT_FRAME_SHEET_FPS
 const DEFAULT_MAX_SHEET_WIDTH = 1440
 const DEFAULT_TIMEOUT_MS = 5000
 const DEFAULT_FAST_CAPTURE_SETTLE_MS = 0
@@ -40,25 +46,7 @@ const LOCK_WAIT_MS = 15 * 1000
 
 type FrameSheetCaptureMode = "fast" | "hyperframes"
 
-export interface FrameSheetSample {
-  index: number
-  timeMs: number
-  frame: number
-  path: string
-}
-
-export interface FrameSheetManifest {
-  version: 1
-  id: string
-  kind: "frame_sheet"
-  projectDir: "."
-  rangeMs: [number, number] | null
-  fps: number
-  columns: number
-  rows: number
-  sheetPath: string
-  samples: FrameSheetSample[]
-}
+export type { FrameSheetManifest, FrameSheetSample }
 
 export interface FrameSheetSuccessJson {
   ok: true
@@ -159,27 +147,8 @@ function formatJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`
 }
 
-function secondsLabel(timeMs: number): string {
-  return `${(timeMs / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}s`
-}
-
 function relativeProjectPath(projectDir: string, path: string): string {
   return relative(projectDir, path).replace(/\\/g, "/")
-}
-
-function normalizeProjectRelativePath(path: string): string {
-  const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "")
-  if (
-    !normalized ||
-    normalized === "." ||
-    normalized === ".." ||
-    isAbsolute(normalized) ||
-    normalized.startsWith("../") ||
-    normalized.split("/").includes("..")
-  ) {
-    throw new FrameSheetCliError("PROJECT_PATH_ESCAPE", "Project file path escapes the project.")
-  }
-  return normalized
 }
 
 function getFlagValue(
@@ -366,109 +335,24 @@ function parseArgs(args: string[]): ParsedFrameSheetArgs {
       index = next.nextIndex
       continue
     }
-    throw new FrameSheetCliError("UNKNOWN_OPTION", `Unknown frame-sheet option: ${arg}`)
+    throw new FrameSheetCliError("UNKNOWN_OPTION", `Unknown sheet option: ${arg}`)
   }
 
   return parsed
-}
-
-function dedupeSorted(times: number[]): number[] {
-  return Array.from(new Set(times.map((time) => Math.round(time)))).sort((a, b) => a - b)
-}
-
-function validateSampleCount(times: number[]): number[] {
-  if (times.length === 0) {
-    throw new FrameSheetCliError("EMPTY_SAMPLES", "Frame sheet needs at least one timestamp.")
-  }
-  if (times.length > MAX_SAMPLES) {
-    throw new FrameSheetCliError("TOO_MANY_SAMPLES", `Frame sheets are capped at ${MAX_SAMPLES} samples.`)
-  }
-  return times
 }
 
 export function resolveFrameSheetTimestamps(args: Pick<
   ParsedFrameSheetArgs,
   "at" | "range" | "samples" | "everyMs" | "everyFrames" | "fps"
 >): { timestampsMs: number[]; rangeMs: [number, number] | null } {
-  if (args.at && args.range) {
-    throw new FrameSheetCliError("CONFLICTING_SAMPLES", "Use either --at or --range, not both.")
-  }
-  if (args.at) {
-    return {
-      timestampsMs: validateSampleCount(dedupeSorted(args.at)),
-      rangeMs: null,
+  try {
+    return resolveCoreFrameSheetTimestamps(args)
+  } catch (error) {
+    if (error instanceof VisualContextError) {
+      throw new FrameSheetCliError(error.code, error.message)
     }
+    throw error
   }
-
-  const range = args.range ?? [0, 8000] as [number, number]
-  const [start, end] = range
-  if (args.everyMs && args.samples) {
-    throw new FrameSheetCliError("CONFLICTING_SAMPLES", "Use either --samples or --every, not both.")
-  }
-  if (args.everyFrames && (args.samples || args.everyMs)) {
-    throw new FrameSheetCliError("CONFLICTING_SAMPLES", "Use --every-frames without --samples or --every.")
-  }
-
-  let timestamps: number[]
-  if (args.everyFrames) {
-    if (!Number.isFinite(args.fps) || args.fps <= 0) {
-      throw new FrameSheetCliError("FPS_REQUIRED", "--every-frames requires a valid --fps value.")
-    }
-    const intervalMs = Math.round((args.everyFrames / args.fps) * 1000)
-    if (intervalMs <= 0) {
-      throw new FrameSheetCliError("INVALID_INTERVAL", "--every-frames produced an empty interval.")
-    }
-    timestamps = timestampsForInterval(start, end, intervalMs)
-  } else if (args.everyMs) {
-    timestamps = timestampsForInterval(start, end, args.everyMs)
-  } else {
-    const samples = args.samples ?? DEFAULT_SAMPLES
-    timestamps = timestampsForSampleCount(start, end, samples)
-  }
-
-  return {
-    timestampsMs: validateSampleCount(dedupeSorted(timestamps)),
-    rangeMs: range,
-  }
-}
-
-function timestampsForSampleCount(start: number, end: number, samples: number): number[] {
-  if (!Number.isInteger(samples) || samples <= 0) {
-    throw new FrameSheetCliError("INVALID_NUMBER", "--samples must be a positive integer.")
-  }
-  if (samples === 1 || start === end) return [start]
-
-  const step = (end - start) / (samples - 1)
-  return Array.from({ length: samples }, (_value, index) =>
-    Math.round(start + step * index),
-  )
-}
-
-function timestampsForInterval(start: number, end: number, intervalMs: number): number[] {
-  if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
-    throw new FrameSheetCliError("INVALID_INTERVAL", "Sample interval must be greater than zero.")
-  }
-
-  const times: number[] = []
-  for (let current = start; current <= end; current += intervalMs) {
-    times.push(Math.round(current))
-    if (times.length > MAX_SAMPLES + 1) break
-  }
-  if (times[times.length - 1] !== end) {
-    times.push(end)
-  }
-  return times
-}
-
-function getColumns(sampleCount: number, requested: number | null): number {
-  if (requested !== null) {
-    if (requested < 1 || requested > 4) {
-      throw new FrameSheetCliError("INVALID_COLUMNS", "--columns must be between 1 and 4.")
-    }
-    return Math.min(requested, sampleCount)
-  }
-  if (sampleCount <= 3) return sampleCount
-  return 4
 }
 
 async function assertExistingProjectDir(dir: string): Promise<string> {
@@ -673,87 +557,13 @@ async function captureFramesWithHyperframes(input: {
   }
 }
 
-function contentTypeForPath(path: string): string {
-  const lower = path.toLowerCase()
-  if (lower.endsWith(".html")) return "text/html; charset=utf-8"
-  if (lower.endsWith(".js")) return "text/javascript; charset=utf-8"
-  if (lower.endsWith(".css")) return "text/css; charset=utf-8"
-  if (lower.endsWith(".json")) return "application/json; charset=utf-8"
-  if (lower.endsWith(".png")) return "image/png"
-  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg"
-  if (lower.endsWith(".webp")) return "image/webp"
-  if (lower.endsWith(".svg")) return "image/svg+xml"
-  if (lower.endsWith(".mp4")) return "video/mp4"
-  if (lower.endsWith(".webm")) return "video/webm"
-  if (lower.endsWith(".mp3")) return "audio/mpeg"
-  if (lower.endsWith(".wav")) return "audio/wav"
-  return "application/octet-stream"
-}
-
-export type ProjectServerFileResolution =
-  | {
-    ok: true
-    path: string
-    contentType: string
-  }
-  | {
-    ok: false
-    status: 403 | 404
-  }
-
-function isDeniedProjectServerPath(path: string): boolean {
-  const parts = path.split("/")
-  if (parts.includes(".git") || parts.includes(".ripple")) return true
-  const base = parts[parts.length - 1]?.toLowerCase() ?? ""
-  if (base === ".env" || base.startsWith(".env.")) return true
-  return base.endsWith(".pem") || base.endsWith(".key") || base.endsWith(".crt")
-}
+export type ProjectServerFileResolution = VisualProjectFileResolution
 
 export async function resolveProjectServerFile(
   projectDir: string,
   projectRelativePath: string,
 ): Promise<ProjectServerFileResolution> {
-  let relativePath: string
-  try {
-    relativePath = normalizeProjectRelativePath(projectRelativePath)
-  } catch (error) {
-    if (error instanceof FrameSheetCliError) return { ok: false, status: 403 }
-    throw error
-  }
-  if (isDeniedProjectServerPath(relativePath)) {
-    return { ok: false, status: 403 }
-  }
-
-  const projectRealPath = await realpath(projectDir)
-  const candidatePath = resolve(projectRealPath, relativePath)
-  if (!isPathInsideDirectory(projectRealPath, candidatePath)) {
-    return { ok: false, status: 403 }
-  }
-
-  let candidateRealPath: string
-  try {
-    candidateRealPath = await realpath(candidatePath)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return { ok: false, status: 404 }
-    }
-    throw error
-  }
-
-  if (!isPathInsideDirectory(projectRealPath, candidateRealPath)) {
-    return { ok: false, status: 403 }
-  }
-
-  const info = await stat(candidateRealPath)
-  if (!info.isFile()) {
-    return { ok: false, status: 404 }
-  }
-
-  return {
-    ok: true,
-    path: candidateRealPath,
-    contentType: contentTypeForPath(candidateRealPath),
-  }
+  return resolveVisualProjectFile(projectDir, projectRelativePath)
 }
 
 async function readProjectTextFile(projectDir: string, projectRelativePath: string): Promise<string | null> {
@@ -765,402 +575,27 @@ async function readProjectTextFile(projectDir: string, projectRelativePath: stri
   return readFile(resolved.path, "utf8")
 }
 
-async function readProjectMetadata(projectDir: string): Promise<{
-  entry: string
-  width: number
-  height: number
-}> {
-  let entry = "index.html"
-  let width = 1920
-  let height = 1080
-
-  try {
-    const metadataJson = await readProjectTextFile(projectDir, "hyperframes.json")
-    const parsed = metadataJson ? JSON.parse(metadataJson) : null
-    if (isRecord(parsed)) {
-      if (typeof parsed.entry === "string" && parsed.entry.trim()) {
-        entry = normalizeProjectRelativePath(parsed.entry.trim())
-      }
-      if (typeof parsed.width === "number" && Number.isFinite(parsed.width) && parsed.width > 0) {
-        width = Math.round(parsed.width)
-      }
-      if (typeof parsed.height === "number" && Number.isFinite(parsed.height) && parsed.height > 0) {
-        height = Math.round(parsed.height)
-      }
-    }
-  } catch (error) {
-    if (error instanceof FrameSheetCliError) throw error
-    // Fall back to the HyperFrames defaults.
-  }
-
-  try {
-    const html = await readProjectTextFile(projectDir, entry)
-    if (!html) return { entry, width, height }
-    const widthMatch = /\bdata-width=["'](\d+(?:\.\d+)?)["']/.exec(html)
-    const heightMatch = /\bdata-height=["'](\d+(?:\.\d+)?)["']/.exec(html)
-    const htmlWidth = widthMatch ? Number(widthMatch[1]) : NaN
-    const htmlHeight = heightMatch ? Number(heightMatch[1]) : NaN
-    if (Number.isFinite(htmlWidth) && htmlWidth > 0) width = Math.round(htmlWidth)
-    if (Number.isFinite(htmlHeight) && htmlHeight > 0) height = Math.round(htmlHeight)
-  } catch (error) {
-    if (error instanceof FrameSheetCliError) throw error
-    // The later browser load will report the missing file with more context.
-  }
-
-  return { entry, width, height }
-}
-
-function closeServer(server: Server): Promise<void> {
-  return new Promise((resolveClose) => {
-    server.close(() => resolveClose())
-  })
-}
-
 export function buildProjectServerEntryUrl(port: number, entry: string): string {
-  const normalizedEntry = normalizeProjectRelativePath(entry)
-  const encodedEntry = normalizedEntry
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/")
-  return `http://127.0.0.1:${port}/${encodedEntry}`
-}
-
-async function resolveGsapRuntimePath(repoRoot?: string): Promise<string | null> {
-  const candidates = [
-    repoRoot ? resolve(repoRoot, "node_modules", "gsap", "dist", "gsap.min.js") : null,
-    (() => {
-      const packageJsonPath = resolvePackageJsonPath("gsap")
-      return packageJsonPath ? resolve(dirname(packageJsonPath), "dist", "gsap.min.js") : null
-    })(),
-  ].filter((path): path is string => Boolean(path))
-
-  for (const candidate of candidates) {
-    if (await pathExists(candidate)) return candidate
-  }
-  return null
-}
-
-async function serveProject(projectDir: string, entry: string, repoRoot?: string): Promise<{
-  server: Server
-  url: string
-}> {
-  const projectRealPath = await realpath(projectDir)
-  const gsapPath = await resolveGsapRuntimePath(repoRoot)
-  let allowedHost: string | null = null
-  const server = createServer(async (request, response) => {
-    try {
-      if (allowedHost && request.headers.host !== allowedHost) {
-        response.writeHead(403)
-        response.end("Forbidden")
-        return
-      }
-      if (request.method !== "GET" && request.method !== "HEAD") {
-        response.writeHead(405)
-        response.end("Method not allowed")
-        return
-      }
-      const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1")
-      if (requestUrl.pathname === "/__ripple_vendor/gsap.min.js") {
-        if (!gsapPath) {
-          response.writeHead(404)
-          response.end("Not found")
-          return
-        }
-        const file = await readFile(gsapPath)
-        response.writeHead(200, { "content-type": "text/javascript; charset=utf-8" })
-        response.end(request.method === "HEAD" ? undefined : file)
-        return
-      }
-      const requestPath = requestUrl.pathname === "/"
-        ? entry
-        : decodeURIComponent(requestUrl.pathname)
-      const resolved = await resolveProjectServerFile(projectRealPath, requestPath)
-      if (!resolved.ok) {
-        response.writeHead(resolved.status)
-        response.end(resolved.status === 403 ? "Forbidden" : "Not found")
-        return
-      }
-      response.writeHead(200, { "content-type": resolved.contentType })
-      if (request.method === "HEAD") {
-        response.end()
-        return
-      }
-      const file = await readFile(resolved.path)
-      if (gsapPath && resolved.contentType.startsWith("text/html")) {
-        response.end(String(file).replace(
-          /https:\/\/cdn\.jsdelivr\.net\/npm\/gsap@[^"']+\/dist\/gsap\.min\.js/g,
-          "/__ripple_vendor/gsap.min.js",
-        ))
-        return
-      }
-      response.end(file)
-    } catch (error) {
-      const code = error instanceof URIError || error instanceof FrameSheetCliError
-        ? 403
-        : (error as NodeJS.ErrnoException).code === "ENOENT"
-        ? 404
-        : 500
-      response.writeHead(code)
-      response.end(code === 403 ? "Forbidden" : code === 404 ? "Not found" : "Server error")
-    }
-  })
-
-  const port = await new Promise<number>((resolvePort, rejectPort) => {
-    server.on("error", rejectPort)
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address()
-      if (typeof address === "object" && address?.port) {
-        resolvePort(address.port)
-      } else {
-        rejectPort(new Error("Failed to bind local capture server."))
-      }
-    })
-  })
-  allowedHost = `127.0.0.1:${port}`
-
-  return {
-    server,
-    url: buildProjectServerEntryUrl(port, entry),
-  }
-}
-
-function withBundledWsFallbacks(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return {
-    ...env,
-    WS_NO_BUFFER_UTIL: env.WS_NO_BUFFER_UTIL ?? "1",
-    WS_NO_UTF_8_VALIDATE: env.WS_NO_UTF_8_VALIDATE ?? "1",
-  }
-}
-
-function applyBundledWsFallbacksToProcess(): () => void {
-  const previousBufferUtil = process.env.WS_NO_BUFFER_UTIL
-  const previousUtf8Validate = process.env.WS_NO_UTF_8_VALIDATE
-
-  process.env.WS_NO_BUFFER_UTIL = previousBufferUtil ?? "1"
-  process.env.WS_NO_UTF_8_VALIDATE = previousUtf8Validate ?? "1"
-
-  return () => {
-    if (previousBufferUtil === undefined) {
-      delete process.env.WS_NO_BUFFER_UTIL
-    } else {
-      process.env.WS_NO_BUFFER_UTIL = previousBufferUtil
-    }
-    if (previousUtf8Validate === undefined) {
-      delete process.env.WS_NO_UTF_8_VALIDATE
-    } else {
-      process.env.WS_NO_UTF_8_VALIDATE = previousUtf8Validate
-    }
-  }
-}
-
-async function loadCapturePage(input: {
-  page: any
-  url: string
-  timeoutMs: number
-}): Promise<void> {
-  await input.page.goto(input.url, {
-    waitUntil: "domcontentloaded",
-    timeout: Math.max(5_000, input.timeoutMs),
-  })
-  await input.page.waitForFunction(
-    () => {
-      const win = window as any
-      return Boolean(
-        win.__playerReady ||
-        win.__player ||
-        win.__timelines ||
-        document.querySelector("[data-composition-id]"),
-      )
-    },
-    { timeout: Math.max(1_000, input.timeoutMs) },
-  )
-}
-
-function isAllowedCaptureRequestUrl(url: string, allowedOrigin: string): boolean {
   try {
-    const parsed = new URL(url)
-    return parsed.origin === allowedOrigin ||
-      parsed.protocol === "data:" ||
-      parsed.protocol === "blob:" ||
-      parsed.protocol === "about:"
-  } catch {
-    return false
-  }
-}
-
-async function restrictCapturePageRequests(input: {
-  page: any
-  allowedOrigin: string
-}): Promise<void> {
-  await input.page.setRequestInterception(true)
-  input.page.on("request", (request: any) => {
-    if (typeof request.isInterceptResolutionHandled === "function" && request.isInterceptResolutionHandled()) {
-      return
-    }
-    if (isAllowedCaptureRequestUrl(request.url(), input.allowedOrigin)) {
-      void request.continue().catch(() => undefined)
-      return
-    }
-    void request.abort().catch(() => undefined)
-  })
-}
-
-export async function captureFramesWithFastBrowser(input: {
-  projectDir: string
-  timestampsMs: number[]
-  timeoutMs: number
-  columns: number
-  maxSheetWidth: number
-  settleMs: number
-  env: NodeJS.ProcessEnv
-  repoRoot?: string
-}): Promise<FrameSheetCaptureResult> {
-  const browserPath = resolveProducerBrowserPath(input.repoRoot)
-  if (!browserPath) {
-    throw new FrameSheetCliError(
-      "FAST_BROWSER_MISSING",
-      "Ripple could not find an app-managed browser for fast frame capture.",
-    )
-  }
-
-  const metadata = await readProjectMetadata(input.projectDir)
-  const cellWidth = Math.max(160, Math.floor(input.maxSheetWidth / input.columns))
-  const cellHeight = Math.max(90, Math.round(cellWidth * (metadata.height / metadata.width)))
-  const captureDir = join(
-    input.projectDir,
-    ".ripple",
-    "frame-sheets",
-    `.fast-capture-${randomUUID().replace(/-/g, "").slice(0, 12)}`,
-  )
-  await mkdir(captureDir, { recursive: true })
-
-  let server: Server | null = null
-  let browser: any = null
-  const restoreWsFallbacks = applyBundledWsFallbacksToProcess()
-  try {
-    const puppeteer = await import("puppeteer-core")
-    browser = await puppeteer.default.launch({
-      headless: true,
-      executablePath: browserPath,
-      args: [
-        "--no-sandbox",
-        "--disable-gpu",
-        "--disable-dev-shm-usage",
-        "--enable-webgl",
-        "--use-gl=angle",
-        "--use-angle=swiftshader",
-      ],
-      env: withBundledWsFallbacks(input.env),
-    })
-
-    const page = await browser.newPage()
-    await page.setViewport({
-      width: cellWidth,
-      height: cellHeight,
-      deviceScaleFactor: 1,
-    })
-    const served = await serveProject(input.projectDir, metadata.entry, input.repoRoot)
-    server = served.server
-    await restrictCapturePageRequests({
-      page,
-      allowedOrigin: new URL(served.url).origin,
-    })
-    await loadCapturePage({
-      page,
-      url: served.url,
-      timeoutMs: input.timeoutMs,
-    })
-    await page.evaluate((dimensions: {
-      sourceWidth: number
-      sourceHeight: number
-      targetWidth: number
-      targetHeight: number
-    }) => {
-      const { sourceWidth, sourceHeight, targetWidth, targetHeight } = dimensions
-      const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight)
-      document.documentElement.style.width = `${targetWidth}px`
-      document.documentElement.style.height = `${targetHeight}px`
-      document.documentElement.style.overflow = "hidden"
-      document.body.style.width = `${sourceWidth}px`
-      document.body.style.height = `${sourceHeight}px`
-      document.body.style.overflow = "hidden"
-      document.body.style.transformOrigin = "0 0"
-      document.body.style.transform = `scale(${scale})`
-      const root = document.querySelector<HTMLElement>("[data-composition-id][data-width][data-height]")
-      if (root) {
-        root.style.width = `${sourceWidth}px`
-        root.style.height = `${sourceHeight}px`
-        if (!root.style.position) root.style.position = "relative"
-        root.style.overflow = "hidden"
-      }
-    }, {
-      sourceWidth: metadata.width,
-      sourceHeight: metadata.height,
-      targetWidth: cellWidth,
-      targetHeight: cellHeight,
-    })
-
-    const framePaths: string[] = []
-    for (const [index, timeMs] of input.timestampsMs.entries()) {
-      const seconds = timeMs / 1000
-      await page.evaluate((time: number) => {
-        const win = window as any
-        if (win.__player?.seek) {
-          win.__player.seek(time)
-          return
-        }
-        const timelines = win.__timelines
-        if (!timelines) return
-        for (const key of Object.keys(timelines)) {
-          const timeline = timelines[key]
-          if (!timeline) continue
-          if (typeof timeline.pause === "function") timeline.pause()
-          if (typeof timeline.totalTime === "function") {
-            timeline.totalTime(time, false)
-          } else if (typeof timeline.seek === "function") {
-            timeline.seek(time, false)
-          }
-        }
-      }, seconds)
-      await page.evaluate(() => new Promise<void>((resolveFrame) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolveFrame()))
-      }))
-      if (input.settleMs > 0) {
-        await delay(input.settleMs)
-      }
-      const framePath = join(captureDir, `${String(index).padStart(3, "0")}.png`)
-      await page.screenshot({
-        path: framePath,
-        type: "png",
-        clip: {
-          x: 0,
-          y: 0,
-          width: cellWidth,
-          height: cellHeight,
-        },
-      })
-      framePaths.push(framePath)
-    }
-
-    return {
-      framePaths,
-      cleanupPaths: [captureDir],
-    }
+    return buildVisualProjectEntryUrl(port, entry)
   } catch (error) {
-    await rm(captureDir, { recursive: true, force: true }).catch(() => undefined)
-    if (error instanceof FrameSheetCliError) throw error
-    throw new FrameSheetCliError(
-      "FAST_CAPTURE_FAILED",
-      error instanceof Error ? `Fast frame capture failed: ${error.message}` : "Fast frame capture failed.",
-    )
-  } finally {
-    if (browser) {
-      await browser.close().catch(() => undefined)
+    if (error instanceof Error) {
+      throw new FrameSheetCliError("PROJECT_PATH_ESCAPE", "Project file path escapes the project.")
     }
-    if (server) {
-      await closeServer(server).catch(() => undefined)
+    throw error
+  }
+}
+
+export async function captureFramesWithFastBrowser(
+  input: VisualFastBrowserCaptureInput,
+): Promise<FrameSheetCaptureResult> {
+  try {
+    return await captureFramesWithFastBrowserCore(input)
+  } catch (error) {
+    if (error instanceof VisualContextError) {
+      throw new FrameSheetCliError(error.code, error.message)
     }
-    restoreWsFallbacks()
+    throw error
   }
 }
 
@@ -1198,47 +633,14 @@ async function assembleSheetWithFfmpeg(input: {
   maxSheetWidth: number
   env: NodeJS.ProcessEnv
 }): Promise<void> {
-  const cellWidth = Math.max(120, Math.floor(input.maxSheetWidth / input.columns))
-  const ffmpegCandidates = [
-    ...getAppManagedCommandCandidates("ffmpeg"),
-    "ffmpeg",
-  ]
-  const filter = [
-    `scale=${cellWidth}:-2:force_original_aspect_ratio=decrease`,
-    `tile=${input.columns}x${input.rows}`,
-  ].join(",")
-  const args = [
-    "-y",
-    "-framerate",
-    "1",
-    "-i",
-    join(input.framesDir, "%03d.png"),
-    "-frames:v",
-    "1",
-    "-vf",
-    filter,
-    input.outputPath,
-  ]
-
-  let lastError: unknown
-  for (const candidate of ffmpegCandidates) {
-    try {
-      await execFileAsync(candidate, args, {
-        env: input.env,
-        timeout: 30_000,
-      })
-      return
-    } catch (error) {
-      lastError = error
+  try {
+    await assembleFrameSheetWithFfmpeg(input)
+  } catch (error) {
+    if (error instanceof VisualContextError) {
+      throw new FrameSheetCliError(error.code, error.message)
     }
+    throw error
   }
-
-  throw new FrameSheetCliError(
-    "FFMPEG_TILE_FAILED",
-    lastError instanceof Error
-      ? `FFmpeg could not assemble the frame sheet: ${lastError.message}`
-      : "FFmpeg could not assemble the frame sheet.",
-  )
 }
 
 async function copyCapturedFrames(input: {
@@ -1273,19 +675,6 @@ async function cleanupSnapshotIntermediates(paths: string[]): Promise<void> {
   }
 }
 
-function frameForTime(timeMs: number, fps: number): number {
-  return Math.round((timeMs / 1000) * fps)
-}
-
-function buildSummary(timestampsMs: number[]): string {
-  const first = timestampsMs[0]
-  const last = timestampsMs[timestampsMs.length - 1]
-  if (timestampsMs.length === 1) {
-    return `Frame sheet with 1 sample at ${secondsLabel(first)}.`
-  }
-  return `Frame sheet with ${timestampsMs.length} samples from ${secondsLabel(first)} to ${secondsLabel(last)}.`
-}
-
 async function readProjectFps(projectDir: string): Promise<number | null> {
   try {
     const parsed = JSON.parse(await readFile(join(projectDir, "hyperframes.json"), "utf8"))
@@ -1317,7 +706,7 @@ async function assertGeneratedFile(path: string, code: string, message: string):
 
 export function frameSheetHelpText(): string {
   return [
-    "Usage: ripple frame-sheet [options]",
+    "Usage: ripple sheet [options]",
     "",
     "Generate a project-local contact sheet from HyperFrames frames.",
     "",
@@ -1350,7 +739,7 @@ function successText(success: FrameSheetSuccessJson): string {
 }
 
 function jsonError(error: unknown): FrameSheetErrorJson {
-  if (error instanceof FrameSheetCliError) {
+  if (error instanceof FrameSheetCliError || error instanceof VisualContextError) {
     return {
       ok: false,
       error: {
@@ -1396,7 +785,7 @@ export async function runFrameSheetCommand(
       ...parsed,
       fps,
     })
-    const columns = getColumns(timestampsMs.length, parsed.columns)
+    const columns = getFrameSheetColumns(timestampsMs.length, parsed.columns)
     const rows = Math.ceil(timestampsMs.length / columns)
     const now = options.now ?? Date.now
     const frameSheetsRoot = await prepareFrameSheetRoot(projectDir)
@@ -1435,7 +824,7 @@ export async function runFrameSheetCommand(
         )
       }
 
-      const copiedFrames = await copyCapturedFrames({
+      await copyCapturedFrames({
         projectDir,
         framePaths: capture.framePaths,
         framesDir,
@@ -1452,23 +841,15 @@ export async function runFrameSheetCommand(
       await assertGeneratedFile(sheetPath, "EMPTY_SHEET", "FFmpeg produced an empty frame sheet.")
 
       const finalRelativeRoot = relativeProjectPath(projectDir, finalDir)
-      const manifest: FrameSheetManifest = {
-        version: 1,
+      const manifest = buildFrameSheetManifest({
         id,
-        kind: "frame_sheet",
-        projectDir: ".",
         rangeMs,
         fps,
         columns,
         rows,
-        sheetPath: `${finalRelativeRoot}/sheet.png`,
-        samples: copiedFrames.map((_path, index) => ({
-          index,
-          timeMs: timestampsMs[index],
-          frame: frameForTime(timestampsMs[index], fps),
-          path: `${finalRelativeRoot}/frames/${String(index).padStart(3, "0")}.png`,
-        })),
-      }
+        finalRelativeRoot,
+        timestampsMs,
+      })
       await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8")
       await rename(tempDir, finalDir)
       await assertGeneratedFile(finalSheetPath, "EMPTY_SHEET", "FFmpeg produced an empty frame sheet.")
@@ -1481,7 +862,7 @@ export async function runFrameSheetCommand(
           path: manifest.sheetPath,
           manifestPath: relativeProjectPath(projectDir, finalManifestPath),
           sampleCount: timestampsMs.length,
-          summary: buildSummary(timestampsMs),
+          summary: buildFrameSheetSummary(timestampsMs),
         },
       }
 

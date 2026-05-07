@@ -32,7 +32,7 @@ function revision(
 }
 
 describe("comment filter helpers", () => {
-  test("keeps deleted comments out of preview and reply flows", () => {
+  test("keeps rejected comments out of preview and reply flows", () => {
     const proposed = revision("proposed")
 
     expect(canPreviewRevisionChanges(proposed)).toBe(true)

@@ -49,6 +49,7 @@ describe("Ripple project Git setup", () => {
       expect(gitignore).toContain(".ripple/agent-attachments/")
       expect(gitignore).toContain(".ripple/frame-sheets/")
       expect(gitignore).toContain(".ripple/comment-visuals/")
+      expect(gitignore).toContain(".ripple/agent-visual-context/")
       expect((await git.status()).isClean()).toBe(true)
     } finally {
       await rm(projectPath, { recursive: true, force: true })
@@ -80,6 +81,7 @@ describe("Ripple project Git setup", () => {
       expect(gitignore).toContain("custom-output/")
       expect(gitignore).toContain(".ripple/frame-sheets/")
       expect(gitignore).toContain(".ripple/comment-visuals/")
+      expect(gitignore).toContain(".ripple/agent-visual-context/")
     } finally {
       await rm(projectPath, { recursive: true, force: true })
     }

@@ -1,10 +1,17 @@
 import { describe, expect, test } from "bun:test"
 import {
   applyRippleShellShortcut,
+  clampRippleReviewPaneWidth,
   defaultRippleShellState,
+  getRippleCenterReviewLayout,
   getRippleReviewContentKey,
+  getRippleReviewPaneWidthBounds,
   getRippleRightPaneContentKind,
   isRippleUtilityMode,
+  RIPPLE_CENTER_REVIEW_DIVIDER_WIDTH,
+  RIPPLE_REVIEW_PANE_DEFAULT_WIDTH,
+  RIPPLE_REVIEW_PANE_MAX_WIDTH,
+  RIPPLE_REVIEW_PANE_MIN_WIDTH,
   RIPPLE_UTILITY_MODES,
   resolveRippleShellState,
   setRippleRightPaneMode,
@@ -158,6 +165,75 @@ describe("Ripple shell layout state", () => {
       centerStageOpen: false,
       reviewPaneOpen: true,
       rightPaneMode: "chat",
+    })
+  })
+
+  test("clamps the resizable review pane to leave room for the center stage", () => {
+    expect(clampRippleReviewPaneWidth({ width: 100 })).toBe(
+      RIPPLE_REVIEW_PANE_MIN_WIDTH,
+    )
+    expect(clampRippleReviewPaneWidth({ width: 9999 })).toBe(
+      RIPPLE_REVIEW_PANE_MAX_WIDTH,
+    )
+
+    const bounds = getRippleReviewPaneWidthBounds(1000)
+    expect(bounds).toEqual({
+      min: RIPPLE_REVIEW_PANE_MIN_WIDTH,
+      max: RIPPLE_REVIEW_PANE_MAX_WIDTH,
+    })
+
+    const constrainedBounds = getRippleReviewPaneWidthBounds(760)
+    expect(constrainedBounds.min).toBe(RIPPLE_REVIEW_PANE_MIN_WIDTH)
+    expect(constrainedBounds.max).toBeLessThan(RIPPLE_REVIEW_PANE_MAX_WIDTH)
+    expect(
+      clampRippleReviewPaneWidth({
+        width: RIPPLE_REVIEW_PANE_DEFAULT_WIDTH,
+        containerWidth: 760,
+      }),
+    ).toBe(constrainedBounds.max)
+  })
+
+  test("computes animated center and review widths from panel state", () => {
+    expect(
+      getRippleCenterReviewLayout({
+        containerWidth: 1000,
+        reviewPaneWidth: RIPPLE_REVIEW_PANE_DEFAULT_WIDTH,
+        centerStageOpen: true,
+        reviewPaneOpen: true,
+      }),
+    ).toEqual({
+      centerWidth:
+        1000 -
+        RIPPLE_CENTER_REVIEW_DIVIDER_WIDTH -
+        RIPPLE_REVIEW_PANE_DEFAULT_WIDTH,
+      reviewWidth: RIPPLE_REVIEW_PANE_DEFAULT_WIDTH,
+      dividerWidth: RIPPLE_CENTER_REVIEW_DIVIDER_WIDTH,
+    })
+
+    expect(
+      getRippleCenterReviewLayout({
+        containerWidth: 1000,
+        reviewPaneWidth: RIPPLE_REVIEW_PANE_DEFAULT_WIDTH,
+        centerStageOpen: true,
+        reviewPaneOpen: false,
+      }),
+    ).toEqual({
+      centerWidth: 1000,
+      reviewWidth: 0,
+      dividerWidth: 0,
+    })
+
+    expect(
+      getRippleCenterReviewLayout({
+        containerWidth: 1000,
+        reviewPaneWidth: RIPPLE_REVIEW_PANE_DEFAULT_WIDTH,
+        centerStageOpen: false,
+        reviewPaneOpen: true,
+      }),
+    ).toEqual({
+      centerWidth: 0,
+      reviewWidth: 1000,
+      dividerWidth: 0,
     })
   })
 })

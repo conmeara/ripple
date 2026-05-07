@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useState } from "react"
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import {
   CirclePlay,
@@ -31,10 +31,6 @@ import { useResolvedHotkeyDisplay } from "../../lib/hotkeys"
 import { trpc } from "../../lib/trpc"
 import { cn } from "../../lib/utils"
 import type { RippleTimelineRangeSelection } from "../../../shared/hyperframes-timeline-model"
-import {
-  RIPPLE_TIMELINE_FPS,
-  timelineSecondsToFrame,
-} from "../../../shared/hyperframes-timeline-model"
 import { TrafficLights } from "../agents/components/traffic-light-spacer"
 import {
   hyperframesProjectPaneWidthAtom,
@@ -51,6 +47,7 @@ import { RippleRevisionQueueWorker } from "../comments/RippleRevisionQueueWorker
 import { HyperFramesPreviewPlayer } from "../hyperframes/HyperFramesPreviewPlayer"
 import { HyperFramesProjectPane } from "../hyperframes/HyperFramesProjectPane"
 import { RippleRendersPane } from "../renders/RippleRendersPane"
+import { RippleCenterReviewLayout } from "./RippleCenterReviewLayout"
 import { RippleEmbeddedChatToolbar } from "./RippleEmbeddedChatToolbar"
 import type { RippleConversationTabMeta } from "./RippleActiveConversationTabs"
 import {
@@ -62,11 +59,13 @@ import {
   rippleShellAssetsPanelOpenAtom,
   rippleShellCenterStageOpenAtom,
   rippleShellReviewPaneOpenAtom,
+  rippleShellReviewPaneWidthAtom,
   rippleShellRightPaneModeAtom,
 } from "./ripple-shell-atoms"
 import {
   applyRippleShellShortcut,
   getRippleReviewContentKey,
+  RIPPLE_PANEL_ANIMATION_SECONDS,
   RIPPLE_UTILITY_MODES,
   resolveRippleShellState,
   setRippleRightPaneMode,
@@ -76,22 +75,12 @@ import {
   type RippleShellState,
 } from "./ripple-shell-layout"
 import {
-  normalizeRipplePreviewTime,
-  shouldIgnorePendingRipplePreviewTimeUpdate,
-  shouldKeepStickyRipplePreviewTime,
-} from "./ripple-preview-time"
-import {
+  createInitialRipplePreviewContext,
   getActiveRipplePreviewChatId,
   getActiveRipplePreviewRevisionId,
-  resetRipplePreviewTarget,
-  selectRippleChatDraftPreview,
-  selectRippleCommentPreview,
-  selectRippleMainPreview,
-  selectRippleProjectChatPreview,
-  selectRippleRevisionChatPreview,
-  selectRippleRevisionPreview,
-  type RipplePreviewTarget,
-} from "./ripple-preview-target"
+  resolveRipplePreviewContextForProjectSelection,
+  ripplePreviewContextReducer,
+} from "./ripple-preview-context"
 import {
   addActiveConversationId,
   closeActiveConversationId,
@@ -229,6 +218,9 @@ export function RippleShell({
   const [reviewPaneOpen, setReviewPaneOpen] = useAtom(
     rippleShellReviewPaneOpenAtom,
   )
+  const [reviewPaneWidth, setReviewPaneWidth] = useAtom(
+    rippleShellReviewPaneWidthAtom,
+  )
   const [rightPaneMode, setRightPaneModeAtom] = useAtom(
     rippleShellRightPaneModeAtom,
   )
@@ -238,21 +230,14 @@ export function RippleShell({
   const setSelectedDraftId = useSetAtom(selectedDraftIdAtom)
   const setShowNewChatForm = useSetAtom(showNewChatFormAtom)
   const setChatSourceMode = useSetAtom(chatSourceModeAtom)
-  const [previewTime, setPreviewTime] = useState(0)
-  const [previewFrame, setPreviewFrame] = useState(0)
-  const previewTimeRef = useRef(0)
-  const previewFrameRef = useRef(0)
-  const previewFpsRef = useRef(RIPPLE_TIMELINE_FPS)
-  const pendingPreviewSeekTimeRef = useRef<number | null>(null)
-  const [timelineSelection, setTimelineSelection] =
-    useState<RippleTimelineRangeSelection | null>(null)
-  const [previewTarget, setPreviewTarget] =
-    useState<RipplePreviewTarget>({ kind: "main" })
-  const [previewSeekRequest, setPreviewSeekRequest] = useState<{
-    time: number
-    requestId: number
-  } | null>(null)
-  const [selectedCommentThreadId, setSelectedCommentThreadId] = useState<string | null>(null)
+  const [previewContext, dispatchPreviewContext] = useReducer(
+    ripplePreviewContextReducer,
+    selectedProject,
+    (project) => createInitialRipplePreviewContext({
+      projectId: project.id,
+      compositionId: project.activeCompositionId,
+    }),
+  )
   const [newChatDraftKey, setNewChatDraftKey] = useState(0)
   const [activeConversationIds, setActiveConversationIds] = useState<string[]>(() =>
     loadActiveConversationIds(selectedProject.id),
@@ -338,6 +323,22 @@ export function RippleShell({
     reviewPaneOpen,
     rightPaneMode,
   })
+  const activeCompositionId = selectedProject.activeCompositionId ?? null
+  const resolvedPreviewContext = useMemo(
+    () => resolveRipplePreviewContextForProjectSelection(previewContext, {
+      projectId: selectedProject.id,
+      compositionId: activeCompositionId,
+    }),
+    [activeCompositionId, previewContext, selectedProject.id],
+  )
+  const {
+    target: previewTarget,
+    time: previewTime,
+    frame: previewFrame,
+    seekRequest: previewSeekRequest,
+    timelineSelection,
+    selectedCommentThreadId,
+  } = resolvedPreviewContext
   const activePreviewRevisionId =
     getActiveRipplePreviewRevisionId(previewTarget)
   const activePreviewChatId = getActiveRipplePreviewChatId(previewTarget)
@@ -424,57 +425,45 @@ export function RippleShell({
     selectedProject.id,
   ])
 
-  const requestPreviewSeek = useCallback((time: number) => {
-    const nextTime = normalizeRipplePreviewTime(time)
-    const nextFrame = timelineSecondsToFrame(nextTime, previewFpsRef.current)
-    previewTimeRef.current = nextTime
-    previewFrameRef.current = nextFrame
-    pendingPreviewSeekTimeRef.current = nextTime
-    setPreviewTime(nextTime)
-    setPreviewFrame(nextFrame)
-    setPreviewSeekRequest((current) => ({
-      time: nextTime,
-      requestId: (current?.requestId ?? 0) + 1,
-    }))
-    return nextTime
+  const handlePreviewRevision = useCallback((revisionId: string, time: number) => {
+    dispatchPreviewContext({ type: "preview-revision", revisionId, time })
   }, [])
 
-  const handlePreviewRevision = useCallback((revisionId: string, time: number) => {
-    const transition = selectRippleRevisionPreview({ revisionId, time })
-    requestPreviewSeek(transition.seekTime)
-    setPreviewTarget(transition.target)
-  }, [requestPreviewSeek])
-
   const handleShowPrimaryPreview = useCallback((time?: number | null) => {
-    const transition = selectRippleMainPreview({
-      currentTime: previewTimeRef.current,
-      requestedTime: time,
-    })
-    requestPreviewSeek(transition.seekTime)
-    setPreviewTarget(transition.target)
-    return transition.seekTime
-  }, [requestPreviewSeek])
+    const nextTime =
+      typeof time === "number" && Number.isFinite(time)
+        ? Math.max(0, time)
+        : previewTime
+    dispatchPreviewContext({ type: "show-main", time: nextTime })
+    return nextTime
+  }, [previewTime])
 
   const handlePreviewChatWorktree = useCallback((targetChatId: string) => {
-    const transition = selectRippleChatDraftPreview({
-      chatId: targetChatId,
-      currentTime: previewTimeRef.current,
-    })
-    requestPreviewSeek(transition.seekTime)
-    setPreviewTarget(transition.target)
-  }, [requestPreviewSeek])
+    dispatchPreviewContext({ type: "preview-chat-draft", chatId: targetChatId })
+  }, [])
 
   const handleSelectPreviewComment = useCallback((selection: {
     threadId: string
     time: number
     revisionId?: string | null
   }) => {
-    const transition = selectRippleCommentPreview(selection)
-    setSelectedCommentThreadId(transition.selectedThreadId)
-    requestPreviewSeek(transition.seekTime)
-    setPreviewTarget(transition.target)
+    dispatchPreviewContext({ type: "select-comment-preview", ...selection })
     commitShellState(setRippleRightPaneMode(shellState, "comments"))
-  }, [commitShellState, requestPreviewSeek, shellState])
+  }, [commitShellState, shellState])
+
+  const handleTimelineSelectionChange = useCallback((
+    selection: RippleTimelineRangeSelection | null,
+  ) => {
+    dispatchPreviewContext({ type: "set-timeline-selection", selection })
+  }, [])
+
+  const handleSelectedCommentThreadChange = useCallback((threadId: string | null) => {
+    dispatchPreviewContext(
+      threadId
+        ? { type: "set-selected-comment-thread", threadId }
+        : { type: "clear-comment-preview" },
+    )
+  }, [])
 
   const handleStartNewChat = useCallback(() => {
     void (async () => {
@@ -491,19 +480,13 @@ export function RippleShell({
       setChatSourceMode("local")
       setShowNewChatForm(true)
       setSelectedChatId(null)
-      const transition = selectRippleProjectChatPreview({
-        currentTime: previewTimeRef.current,
-      })
-      requestPreviewSeek(transition.seekTime)
-      setPreviewTarget(transition.target)
-      setSelectedCommentThreadId(null)
+      dispatchPreviewContext({ type: "open-project-chat" })
       setNewChatDraftKey((key) => key + 1)
       commitShellState(setRippleRightPaneMode(shellState, "chat"))
     })()
   }, [
     chatId,
     commitShellState,
-    requestPreviewSeek,
     setChatSourceMode,
     setSelectedChatId,
     setSelectedChatIsRemote,
@@ -519,17 +502,11 @@ export function RippleShell({
     setChatSourceMode("local")
     setShowNewChatForm(false)
     setSelectedChatId(targetChatId)
-    const transition = selectRippleProjectChatPreview({
-      currentTime: previewTimeRef.current,
-    })
-    requestPreviewSeek(transition.seekTime)
-    setPreviewTarget(transition.target)
-    setSelectedCommentThreadId(null)
+    dispatchPreviewContext({ type: "open-project-chat" })
     commitShellState(setRippleRightPaneMode(shellState, "chat"))
   }, [
     commitShellState,
     rememberActiveConversation,
-    requestPreviewSeek,
     setChatSourceMode,
     setSelectedChatId,
     setSelectedChatIsRemote,
@@ -545,7 +522,6 @@ export function RippleShell({
     setChatSourceMode("local")
     setShowNewChatForm(false)
     setSelectedChatId(targetChatId)
-    setSelectedCommentThreadId(null)
     commitShellState(setRippleRightPaneMode(shellState, "chat"))
   }, [
     commitShellState,
@@ -627,15 +603,12 @@ export function RippleShell({
       setChatSourceMode("local")
       setShowNewChatForm(false)
       setSelectedChatId(revisionChatId)
-      const transition = selectRippleRevisionChatPreview({ revisionId, time })
-      requestPreviewSeek(transition.seekTime)
-      setPreviewTarget(transition.target)
+      dispatchPreviewContext({ type: "open-revision-chat", revisionId, time })
       commitShellState(setRippleRightPaneMode(shellState, "chat"))
     })()
   }, [
     commitShellState,
     rememberActiveConversation,
-    requestPreviewSeek,
     revealRevisionChat,
     setChatSourceMode,
     setSelectedChatId,
@@ -670,73 +643,36 @@ export function RippleShell({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [commitShellState, shellState])
 
-  useEffect(() => {
-    const transition = resetRipplePreviewTarget()
-    setPreviewTarget(transition.target)
-    setPreviewSeekRequest(null)
-    setTimelineSelection(null)
-    setSelectedCommentThreadId(null)
-    previewTimeRef.current = transition.seekTime
-    previewFrameRef.current = timelineSecondsToFrame(transition.seekTime, previewFpsRef.current)
-    pendingPreviewSeekTimeRef.current = null
-    setPreviewTime(transition.seekTime)
-    setPreviewFrame(previewFrameRef.current)
-  }, [selectedProject.id, selectedProject.activeCompositionId])
+  useLayoutEffect(() => {
+    if (
+      previewContext.projectId === selectedProject.id &&
+      previewContext.compositionId === activeCompositionId
+    ) {
+      return
+    }
+
+    dispatchPreviewContext({
+      type: "composition-changed",
+      projectId: selectedProject.id,
+      compositionId: activeCompositionId,
+    })
+  }, [
+    activeCompositionId,
+    previewContext.compositionId,
+    previewContext.projectId,
+    selectedProject.id,
+  ])
 
   const handlePreviewTimeChange = useCallback((time: number, context?: {
     frame: number
     fps: number
   }) => {
-    const nextTime = normalizeRipplePreviewTime(time)
-    const nextFps =
-      typeof context?.fps === "number" && Number.isFinite(context.fps) && context.fps > 0
-        ? Math.round(context.fps)
-        : previewFpsRef.current
-    const nextFrame =
-      typeof context?.frame === "number" && Number.isFinite(context.frame)
-        ? Math.max(0, Math.round(context.frame))
-        : timelineSecondsToFrame(nextTime, nextFps)
-    previewFpsRef.current = nextFps
-    const pendingSeekTime = pendingPreviewSeekTimeRef.current
-    if (
-      shouldIgnorePendingRipplePreviewTimeUpdate({
-        pendingSeekTime,
-        incomingTime: nextTime,
-      })
-    ) {
-      return
-    }
-    if (
-      pendingSeekTime !== null &&
-      shouldKeepStickyRipplePreviewTime({
-        currentTime: pendingSeekTime,
-        incomingTime: nextTime,
-      })
-    ) {
-      pendingPreviewSeekTimeRef.current = null
-      previewFrameRef.current = nextFrame
-      setPreviewFrame(nextFrame)
-      return
-    }
-
-    pendingPreviewSeekTimeRef.current = null
-    if (
-      shouldKeepStickyRipplePreviewTime({
-        currentTime: previewTimeRef.current,
-        incomingTime: nextTime,
-      })
-    ) {
-      if (previewFrameRef.current !== nextFrame) {
-        previewFrameRef.current = nextFrame
-        setPreviewFrame(nextFrame)
-      }
-      return
-    }
-
-    previewTimeRef.current = nextTime
-    previewFrameRef.current = nextFrame
-    setPreviewTime(nextTime)
-    setPreviewFrame(nextFrame)
+    dispatchPreviewContext({
+      type: "preview-time-changed",
+      time,
+      frame: context?.frame,
+      fps: context?.fps,
+    })
   }, [])
 
   return (
@@ -868,7 +804,7 @@ export function RippleShell({
           minWidth={240}
           maxWidth={340}
           side="left"
-          animationDuration={0.18}
+          animationDuration={RIPPLE_PANEL_ANIMATION_SECONDS}
           initialWidth={0}
           exitWidth={0}
           disableClickToClose={true}
@@ -883,80 +819,67 @@ export function RippleShell({
           />
         </ResizableSidebar>
 
-        {shellState.centerStageOpen ? (
-          <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-black">
-            <HyperFramesPreviewPlayer
-              projectId={selectedProject.id}
-              compositionId={selectedProject.activeCompositionId}
-              revisionId={activePreviewRevisionId}
-              chatId={activePreviewChatId}
-              selectedCommentThreadId={selectedCommentThreadId}
-              seekToTime={previewSeekRequest?.time ?? null}
-              seekRequestId={previewSeekRequest?.requestId}
-              onPreviewTimeChange={handlePreviewTimeChange}
-              onTimelineSelectionChange={setTimelineSelection}
-              onCommentMarkerSelect={handleSelectPreviewComment}
-            />
-          </main>
-        ) : null}
-
-        <div
-          className={cn(
-            shellState.reviewPaneOpen ? "flex" : "hidden",
-            !shellState.centerStageOpen && "min-w-0 flex-1",
-          )}
-        >
-          <RippleReviewPane
-            mode={shellState.rightPaneMode}
-            onModeChange={handleModeChange}
-            expanded={!shellState.centerStageOpen}
-            projectId={selectedProject.id}
-            compositionId={selectedProject.activeCompositionId}
-            currentTime={previewTime}
-            timelineSelection={timelineSelection}
-            selectedCommentThreadId={selectedCommentThreadId}
-            onSelectedCommentThreadChange={setSelectedCommentThreadId}
-            activePreviewRevisionId={activePreviewRevisionId}
-            onPreviewRevision={handlePreviewRevision}
-            onShowPrimaryPreview={handleShowPrimaryPreview}
-            onOpenRevisionChat={handleOpenRevisionChat}
-          >
-            {shellState.rightPaneMode === "renders" ? (
-              <RippleRendersPane
+        <RippleCenterReviewLayout
+          centerStageOpen={shellState.centerStageOpen}
+          reviewPaneOpen={shellState.reviewPaneOpen}
+          reviewPaneWidth={reviewPaneWidth}
+          onReviewPaneWidthChange={setReviewPaneWidth}
+          center={
+            <main className="flex h-full min-w-0 flex-col overflow-hidden bg-black">
+              <HyperFramesPreviewPlayer
                 projectId={selectedProject.id}
                 compositionId={selectedProject.activeCompositionId}
-                activePreviewRevisionId={activePreviewRevisionId}
-                activePreviewChatId={activePreviewChatId}
+                revisionId={activePreviewRevisionId}
+                chatId={activePreviewChatId}
+                selectedCommentThreadId={selectedCommentThreadId}
+                seekToTime={previewSeekRequest?.time ?? null}
+                seekRequestId={previewSeekRequest?.requestId}
+                onPreviewTimeChange={handlePreviewTimeChange}
+                onTimelineSelectionChange={handleTimelineSelectionChange}
+                onCommentMarkerSelect={handleSelectPreviewComment}
               />
-            ) : chatId ? (
-              <ChatView
-                key={getRippleReviewContentKey(chatId, shellState.rightPaneMode)}
-                chatId={chatId}
-                isSidebarOpen={isSidebarOpen}
-                onToggleSidebar={onToggleSidebar}
-                selectedTeamName={selectedTeamName}
-                selectedTeamImageUrl={selectedTeamImageUrl}
-                hideHeader={true}
-                suppressSecondarySidebars={true}
-                rightPaneMode={shellState.rightPaneMode}
-                onRightPaneModeChange={handleModeChange}
-                onViewPrimaryPreview={handleShowPrimaryPreview}
-                onPreviewChatWorktree={handlePreviewChatWorktree}
-                activePreviewChatId={activePreviewChatId}
-                agentRuntimePreviewContext={agentRuntimePreviewContext}
-                onCreateNewChat={handleStartNewChat}
-                historySubChats={conversationHistoryItems}
-                isHistoryLoading={projectHistoryChats.isLoading}
-                onOpenChatFromHistory={handleOpenProjectChatFromHistory}
-                activeConversationId={chatId}
-                activeConversations={activeConversationItems}
-                onSelectActiveConversation={handleSelectActiveConversation}
-                onCloseActiveConversation={handleCloseActiveConversation}
-              />
-            ) : (
-              <div className="flex h-full min-h-0 flex-col">
-                <RippleEmbeddedChatToolbar
-                  onCreateNew={handleStartNewChat}
+            </main>
+          }
+          review={
+            <RippleReviewPane
+              mode={shellState.rightPaneMode}
+              onModeChange={handleModeChange}
+              expanded={!shellState.centerStageOpen}
+              projectId={selectedProject.id}
+              compositionId={selectedProject.activeCompositionId}
+              currentTime={previewTime}
+              timelineSelection={timelineSelection}
+              selectedCommentThreadId={selectedCommentThreadId}
+              onSelectedCommentThreadChange={handleSelectedCommentThreadChange}
+              activePreviewRevisionId={activePreviewRevisionId}
+              onPreviewRevision={handlePreviewRevision}
+              onShowPrimaryPreview={handleShowPrimaryPreview}
+              onOpenRevisionChat={handleOpenRevisionChat}
+            >
+              {shellState.rightPaneMode === "renders" ? (
+                <RippleRendersPane
+                  projectId={selectedProject.id}
+                  compositionId={selectedProject.activeCompositionId}
+                  activePreviewRevisionId={activePreviewRevisionId}
+                  activePreviewChatId={activePreviewChatId}
+                />
+              ) : chatId ? (
+                <ChatView
+                  key={getRippleReviewContentKey(chatId, shellState.rightPaneMode)}
+                  chatId={chatId}
+                  isSidebarOpen={isSidebarOpen}
+                  onToggleSidebar={onToggleSidebar}
+                  selectedTeamName={selectedTeamName}
+                  selectedTeamImageUrl={selectedTeamImageUrl}
+                  hideHeader={true}
+                  suppressSecondarySidebars={true}
+                  rightPaneMode={shellState.rightPaneMode}
+                  onRightPaneModeChange={handleModeChange}
+                  onViewPrimaryPreview={handleShowPrimaryPreview}
+                  onPreviewChatWorktree={handlePreviewChatWorktree}
+                  activePreviewChatId={activePreviewChatId}
+                  agentRuntimePreviewContext={agentRuntimePreviewContext}
+                  onCreateNewChat={handleStartNewChat}
                   historySubChats={conversationHistoryItems}
                   isHistoryLoading={projectHistoryChats.isLoading}
                   onOpenChatFromHistory={handleOpenProjectChatFromHistory}
@@ -965,17 +888,30 @@ export function RippleShell({
                   onSelectActiveConversation={handleSelectActiveConversation}
                   onCloseActiveConversation={handleCloseActiveConversation}
                 />
-                <div className="min-h-0 flex-1">
-                  <NewChatForm
-                    key={`ripple-new-chat-${selectedProject.id}-${newChatDraftKey}`}
-                    hideHeader={true}
-                    embedded={true}
+              ) : (
+                <div className="flex h-full min-h-0 flex-col">
+                  <RippleEmbeddedChatToolbar
+                    onCreateNew={handleStartNewChat}
+                    historySubChats={conversationHistoryItems}
+                    isHistoryLoading={projectHistoryChats.isLoading}
+                    onOpenChatFromHistory={handleOpenProjectChatFromHistory}
+                    activeConversationId={chatId}
+                    activeConversations={activeConversationItems}
+                    onSelectActiveConversation={handleSelectActiveConversation}
+                    onCloseActiveConversation={handleCloseActiveConversation}
                   />
+                  <div className="min-h-0 flex-1">
+                    <NewChatForm
+                      key={`ripple-new-chat-${selectedProject.id}-${newChatDraftKey}`}
+                      hideHeader={true}
+                      embedded={true}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
-          </RippleReviewPane>
-        </div>
+              )}
+            </RippleReviewPane>
+          }
+        />
       </div>
     </div>
   )

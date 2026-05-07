@@ -117,7 +117,7 @@ test.describe("Ripple release QA workflows", () => {
     await expect(frameIndicator).toHaveText("Frame 1 / 30")
   })
 
-  test("accepts and rejects generated changes through review controls @workflow", async ({
+  test("accepts generated changes and rejects comments through review controls @workflow", async ({
     electronApp,
     page,
     e2e,
@@ -145,11 +145,11 @@ test.describe("Ripple release QA workflows", () => {
       .locator("[data-comment-card='true']")
       .filter({ hasText: seeded.reject.body })
     await expect(rejectCard).toBeVisible({ timeout: 30_000 })
-    await expect(rejectCard.getByRole("button", { name: "Reject changes" })).toBeEnabled()
-    await rejectCard.getByRole("button", { name: "Reject changes" }).click()
+    await expect(rejectCard.getByRole("button", { name: "Reject comment" })).toBeEnabled()
+    await rejectCard.getByRole("button", { name: "Reject comment" }).click()
     await expect
       .poll(() => readRevisionStatus(seeded.dbPath, seeded.reject.revisionId), {
-        message: "expected the rejected generated change to be persisted",
+        message: "expected the rejected comment to discard generated changes",
         timeout: 30_000,
       })
       .toBe("rejected")

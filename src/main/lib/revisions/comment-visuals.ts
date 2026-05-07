@@ -4,12 +4,10 @@ import {
   cp,
   lstat,
   mkdir,
-  readdir,
   readFile,
   realpath,
   rm,
   stat,
-  writeFile,
 } from "node:fs/promises"
 import { basename, dirname, extname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path"
 import {
@@ -24,23 +22,13 @@ import {
   type Composition,
   type Project,
 } from "../db/schema"
-import { runHyperframesCommand } from "../hyperframes/runtime"
-import type { HyperframesCommandResult } from "../hyperframes/types"
+import { createVisualContextService } from "../visual-context"
 import { isPathInsideDirectory } from "../ripple-projects/paths"
-import {
-  captureFramesWithFastBrowser,
-  FrameSheetCliError,
-  runFrameSheetCommand,
-} from "../../../cli/frame-sheet"
+import { runVisualCommand } from "../../../cli/visual"
 import { resolveRevisionProjectPath } from "./revision-acceptance"
 
 type Db = {
   select: (...args: any[]) => any
-}
-
-interface SnapshotFileInfo {
-  mtimeMs: number
-  size: number
 }
 
 export interface CommentVisualCaptureResult {
@@ -54,8 +42,6 @@ export interface CommentVisualAttachmentResolution {
 }
 
 const sourceCaptureLocks = new Map<string, Promise<void>>()
-const FRAME_CAPTURE_HYPERFRAMES_TIMEOUT_MS = 15_000
-const FRAME_CAPTURE_PROCESS_TIMEOUT_MS = 30_000
 const FAST_FRAME_CAPTURE_TIMEOUT_MS = 5_000
 const FAST_FRAME_CAPTURE_MAX_WIDTH = 1920
 
@@ -89,65 +75,6 @@ function assertPathInside(root: string, candidate: string): void {
 
 function projectRelative(projectPath: string, path: string): string {
   return relative(projectPath, path).replace(/\\/g, "/")
-}
-
-async function readProjectEntryFile(projectPath: string): Promise<string> {
-  try {
-    const parsed = JSON.parse(await readFile(join(projectPath, "hyperframes.json"), "utf8"))
-    if (typeof parsed?.entry === "string" && parsed.entry.trim()) {
-      return normalizeRelativeProjectPath(parsed.entry)
-    }
-  } catch {
-    // Fall through to the HyperFrames default entry.
-  }
-  return "index.html"
-}
-
-export async function canCaptureCompositionWithHyperframesSnapshot(input: {
-  projectPath: string
-  composition?: Composition | null
-}): Promise<boolean> {
-  if (!input.composition) return true
-  const entry = await readProjectEntryFile(input.projectPath)
-  const compositionFile = normalizeRelativeProjectPath(input.composition.filePath)
-  return compositionFile === entry
-}
-
-async function listSnapshotFiles(snapshotDir: string): Promise<Map<string, SnapshotFileInfo>> {
-  try {
-    const entries = await readdir(snapshotDir)
-    const files = new Map<string, SnapshotFileInfo>()
-    for (const entry of entries.filter((item) => /\.(png|jpg|jpeg|webp)$/i.test(item))) {
-      const fileStat = await stat(join(snapshotDir, entry))
-      if (!fileStat.isFile()) continue
-      files.set(entry, {
-        mtimeMs: fileStat.mtimeMs,
-        size: fileStat.size,
-      })
-    }
-    return files
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return new Map()
-    throw error
-  }
-}
-
-function changedSnapshotFiles(
-  before: Map<string, SnapshotFileInfo>,
-  after: Map<string, SnapshotFileInfo>,
-): string[] {
-  return Array.from(after.entries())
-    .filter(([fileName, info]) => {
-      const previous = before.get(fileName)
-      return !previous || previous.mtimeMs !== info.mtimeMs || previous.size !== info.size
-    })
-    .map(([fileName]) => fileName)
-    .sort()
-}
-
-function shouldFallbackToHyperframesFrameCapture(error: unknown): boolean {
-  return error instanceof FrameSheetCliError &&
-    (error.code === "FAST_BROWSER_MISSING" || error.code === "FAST_CAPTURE_FAILED")
 }
 
 async function withSourceCaptureMutex<T>(
@@ -252,108 +179,62 @@ async function captureSingleFrame(input: {
   sourcePath: string
   threadId: string
   timeMs: number
+  compositionPath?: string | null
   repoRoot?: string
 }): Promise<CommentVisualCaptureResult> {
-  return withSourceCaptureMutex(input.sourcePath, async () => {
-    try {
-      return await captureSingleFrameFast(input)
-    } catch (error) {
-      if (!shouldFallbackToHyperframesFrameCapture(error)) throw error
-    }
-
-    const snapshotDir = join(input.sourcePath, "snapshots")
-    const before = await listSnapshotFiles(snapshotDir)
-    const atSeconds = (input.timeMs / 1000).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")
-    const command = await runHyperframesCommand([
-      "snapshot",
-      "--at",
-      atSeconds,
-      "--timeout",
-      String(FRAME_CAPTURE_HYPERFRAMES_TIMEOUT_MS),
-      input.sourcePath,
-    ], {
-      cwd: input.sourcePath,
-      repoRoot: input.repoRoot,
-      timeout: FRAME_CAPTURE_PROCESS_TIMEOUT_MS,
-    })
-    if (!command.ok) {
-      throw new Error("HyperFrames could not capture the current frame.")
-    }
-
-    const after = await listSnapshotFiles(snapshotDir)
-    const changed = changedSnapshotFiles(before, after)
-    if (changed.length !== 1) {
-      throw new Error(`HyperFrames captured ${changed.length} frames for a frame comment.`)
-    }
-
-    const sourceFrame = join(snapshotDir, changed[0])
-    const [sourcePathReal, sourceFrameRealPath] = await Promise.all([
-      realpath(input.sourcePath),
-      realpath(sourceFrame),
-    ])
-    if (!isPathInsideDirectory(sourcePathReal, sourceFrameRealPath)) {
-      throw new Error("HyperFrames produced a frame outside the source project.")
-    }
-
-    const visualDir = await prepareCanonicalVisualDir({
-      projectPath: input.projectPath,
-      threadId: input.threadId,
-    })
-    const destination = join(visualDir, "frame.png")
-    await copyFile(sourceFrame, destination)
-    const copied = await stat(destination)
-    if (!copied.isFile() || copied.size <= 0) {
-      throw new Error("HyperFrames produced an empty frame.")
-    }
-    if (!before.has(changed[0])) {
-      await rm(sourceFrame, { force: true }).catch(() => undefined)
-    }
-
-    return {
-      kind: "frame",
-      relativePath: projectRelative(input.projectPath, destination),
-    }
-  })
+  return withSourceCaptureMutex(input.sourcePath, () => captureSingleFrameWithService(input))
 }
 
-async function captureSingleFrameFast(input: {
+async function captureSingleFrameWithService(input: {
   projectPath: string
   sourcePath: string
   threadId: string
   timeMs: number
+  compositionPath?: string | null
   repoRoot?: string
 }): Promise<CommentVisualCaptureResult> {
-  const capture = await captureFramesWithFastBrowser({
-    projectDir: input.sourcePath,
-    timestampsMs: [input.timeMs],
-    timeoutMs: FAST_FRAME_CAPTURE_TIMEOUT_MS,
-    columns: 1,
-    maxSheetWidth: FAST_FRAME_CAPTURE_MAX_WIDTH,
-    settleMs: 0,
-    env: process.env,
-    repoRoot: input.repoRoot,
+  const visualDir = await prepareCanonicalVisualDir({
+    projectPath: input.projectPath,
+    threadId: input.threadId,
   })
+  const service = createVisualContextService()
+  let cleanupPaths: string[] = []
 
   try {
-    if (capture.framePaths.length !== 1) {
-      throw new Error(`Ripple captured ${capture.framePaths.length} frames for a frame comment.`)
+    const capture = await service.captureFrames({
+      projectPath: input.projectPath,
+      sourcePath: input.sourcePath,
+      compositionPath: input.compositionPath,
+      timestampsMs: [input.timeMs],
+      fps: 30,
+      width: FAST_FRAME_CAPTURE_MAX_WIDTH,
+      height: 1080,
+      format: "png",
+      timeoutMs: FAST_FRAME_CAPTURE_TIMEOUT_MS,
+      reason: "comment-frame",
+      outputDir: visualDir,
+      env: process.env,
+      repoRoot: input.repoRoot,
+    })
+    cleanupPaths = capture.cleanupPaths
+    if (capture.frames.length !== 1) {
+      throw new Error(`Ripple captured ${capture.frames.length} frames for a frame comment.`)
     }
 
-    const sourceFrame = capture.framePaths[0]
+    const sourceFrame = capture.frames[0].path
     const [sourcePathReal, sourceFrameRealPath] = await Promise.all([
-      realpath(input.sourcePath),
+      realpath(visualDir),
       realpath(sourceFrame),
     ])
     if (!isPathInsideDirectory(sourcePathReal, sourceFrameRealPath)) {
-      throw new Error("Ripple produced a frame outside the source project.")
+      throw new Error("Ripple produced a frame outside the comment visual directory.")
     }
 
-    const visualDir = await prepareCanonicalVisualDir({
-      projectPath: input.projectPath,
-      threadId: input.threadId,
-    })
     const destination = join(visualDir, "frame.png")
-    await copyFile(sourceFrame, destination)
+    if (sourceFrameRealPath !== await realpath(destination).catch(() => null)) {
+      await copyFile(sourceFrame, destination)
+      await rm(sourceFrame, { force: true }).catch(() => undefined)
+    }
     const copied = await stat(destination)
     if (!copied.isFile() || copied.size <= 0) {
       throw new Error("Ripple produced an empty frame.")
@@ -365,10 +246,11 @@ async function captureSingleFrameFast(input: {
     }
   } finally {
     await Promise.all(
-      (capture.cleanupPaths ?? []).map((path) =>
+      cleanupPaths.map((path) =>
         rm(path, { recursive: true, force: true }).catch(() => undefined),
       ),
     )
+    await service.shutdown()
   }
 }
 
@@ -378,10 +260,12 @@ async function captureRangeSheet(input: {
   threadId: string
   startTimeMs: number
   endTimeMs: number
+  compositionPath?: string | null
   repoRoot?: string
 }): Promise<CommentVisualCaptureResult> {
   return withSourceCaptureMutex(input.sourcePath, async () => {
-    const result = await runFrameSheetCommand([
+    const args = [
+      "sheet",
       "--dir",
       input.sourcePath,
       "--range",
@@ -390,8 +274,15 @@ async function captureRangeSheet(input: {
       "6",
       "--columns",
       "3",
+      "--backend",
+      "engine",
       "--json",
-    ], {
+    ]
+    if (input.compositionPath) {
+      args.push("--composition", input.compositionPath)
+    }
+
+    const result = await runVisualCommand(args, {
       cwd: input.sourcePath,
       env: process.env,
       repoRoot: input.repoRoot,
@@ -450,14 +341,9 @@ export async function captureCommentVisualForAnchor(input: {
     project: input.project,
     sourceRevisionId: input.sourceRevisionId,
   })
-  if (!(await canCaptureCompositionWithHyperframesSnapshot({
-    projectPath: source.canonicalProjectPath,
-    composition: input.composition,
-  }))) {
-    return null
-  }
 
   const anchor = normalizeCommentAnchor(input.anchor)
+  const compositionPath = input.composition?.filePath ?? null
   if (anchor.anchorType === "range" && anchor.endTimeMs !== null && anchor.endTimeMs > anchor.startTimeMs) {
     return captureRangeSheet({
       projectPath: source.canonicalProjectPath,
@@ -465,6 +351,7 @@ export async function captureCommentVisualForAnchor(input: {
       threadId: input.threadId,
       startTimeMs: anchor.startTimeMs,
       endTimeMs: anchor.endTimeMs,
+      compositionPath,
       repoRoot: input.repoRoot,
     })
   }
@@ -474,6 +361,7 @@ export async function captureCommentVisualForAnchor(input: {
     sourcePath: source.sourcePath,
     threadId: input.threadId,
     timeMs: anchor.startTimeMs,
+    compositionPath,
     repoRoot: input.repoRoot,
   })
 }

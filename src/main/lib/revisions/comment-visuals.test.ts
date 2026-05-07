@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test"
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises"
+import { cp, mkdir, mkdtemp, readdir, rm, stat, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
-  canCaptureCompositionWithHyperframesSnapshot,
+  captureCommentVisualForAnchor,
   prepareCanonicalVisualDir,
   resolveCommentVisualAttachmentsForRun,
 } from "./comment-visuals"
+import { prepareRuntimeAttachments } from "../agent-runtime/runtime-attachments"
 
 const ONE_BY_ONE_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
@@ -25,35 +26,149 @@ function fakeDbReturning(thread: any) {
   } as any
 }
 
-describe("comment visual context", () => {
-  test("routes single-frame captures through Ripple fast capture before HyperFrames CLI fallback", async () => {
-    const source = await readFile("src/main/lib/revisions/comment-visuals.ts", "utf8")
+async function copyVisualQaProject(): Promise<{ root: string; projectPath: string }> {
+  const root = await mkdtemp(join(tmpdir(), "ripple-comment-visual-qa-"))
+  const projectPath = join(root, "project")
+  await cp("test/fixtures/hyperframes/visual-capture-qa", projectPath, { recursive: true })
+  await rm(join(projectPath, ".ripple"), { recursive: true, force: true })
+  return { root, projectPath }
+}
 
-    expect(source).toContain("captureSingleFrameFast(input)")
-    expect(source).toContain("captureFramesWithFastBrowser")
-    expect(source).toContain("shouldFallbackToHyperframesFrameCapture")
-    expect(source).toContain('error.code === "FAST_BROWSER_MISSING"')
-    expect(source).toContain('error.code === "FAST_CAPTURE_FAILED"')
-    expect(source).toContain("runHyperframesCommand([")
+async function makeNonEntryProject(): Promise<{ root: string; projectPath: string }> {
+  const root = await mkdtemp(join(tmpdir(), "ripple-comment-visual-non-entry-"))
+  const projectPath = join(root, "project")
+  await mkdir(join(projectPath, "compositions"), { recursive: true })
+  await writeFile(join(projectPath, "hyperframes.json"), JSON.stringify({
+    entry: "index.html",
+    width: 320,
+    height: 180,
+    fps: 30,
+  }))
+  await writeFile(join(projectPath, "index.html"), "<!doctype html><title>Main</title>")
+  await writeFile(join(projectPath, "compositions", "app-showcase.html"), `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <style>
+      html, body { margin: 0; width: 100%; height: 100%; background: #111827; }
+      main { width: 320px; height: 180px; background: #8b5cf6; }
+    </style>
+  </head>
+  <body>
+    <main data-composition-id="app-showcase"></main>
+    <script>
+      window.__hf = {
+        duration: 1,
+        seek: function () {}
+      };
+    </script>
+  </body>
+</html>`)
+  return { root, projectPath }
+}
+
+describe("comment visual context", () => {
+  test("captures frame comments through the Visual Context Service into canonical comment visuals", async () => {
+    const { root, projectPath } = await copyVisualQaProject()
+    try {
+      const result = await captureCommentVisualForAnchor({
+        db: fakeDbReturning(null),
+        project: {
+          id: "project-1",
+          path: projectPath,
+          localPath: projectPath,
+        } as any,
+        composition: { filePath: "index.html" } as any,
+        anchor: {
+          anchorType: "frame",
+          startTime: 0.5,
+          startFrame: 15,
+        },
+        threadId: "thread-engine-frame",
+        repoRoot: process.cwd(),
+      })
+
+      expect(result).toEqual({
+        kind: "frame",
+        relativePath: ".ripple/comment-visuals/thread-engine-frame/frame.png",
+      })
+      if (!result) throw new Error("Expected a captured comment frame.")
+      const captured = await stat(join(projectPath, result.relativePath))
+      expect(captured.isFile()).toBe(true)
+      expect(captured.size).toBeGreaterThan(0)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 
-  test("only claims HyperFrames snapshot correctness for the project entry composition", async () => {
-    const projectPath = await mkdtemp(join(tmpdir(), "ripple-comment-visual-project-"))
+  test("captures range comments as Engine frame sheets in canonical comment visuals", async () => {
+    const { root, projectPath } = await copyVisualQaProject()
     try {
-      await writeFile(join(projectPath, "hyperframes.json"), JSON.stringify({
-        entry: "index.html",
-      }))
-
-      await expect(canCaptureCompositionWithHyperframesSnapshot({
-        projectPath,
+      const result = await captureCommentVisualForAnchor({
+        db: fakeDbReturning(null),
+        project: {
+          id: "project-1",
+          path: projectPath,
+          localPath: projectPath,
+        } as any,
         composition: { filePath: "index.html" } as any,
-      })).resolves.toBe(true)
-      await expect(canCaptureCompositionWithHyperframesSnapshot({
-        projectPath,
-        composition: { filePath: "compositions/lower-third.html" } as any,
-      })).resolves.toBe(false)
+        anchor: {
+          anchorType: "range",
+          startTime: 0,
+          endTime: 1,
+          startFrame: 0,
+          endFrame: 30,
+        },
+        threadId: "thread-engine-range",
+        repoRoot: process.cwd(),
+      })
+
+      expect(result).toEqual({
+        kind: "range_sheet",
+        relativePath: ".ripple/comment-visuals/thread-engine-range/sheet.png",
+      })
+      if (!result) throw new Error("Expected a captured comment frame sheet.")
+      const captured = await stat(join(projectPath, result.relativePath))
+      const manifest = await stat(join(projectPath, ".ripple/comment-visuals/thread-engine-range/manifest.json"))
+      expect(captured.isFile()).toBe(true)
+      expect(captured.size).toBeGreaterThan(0)
+      expect(manifest.isFile()).toBe(true)
+      expect(manifest.size).toBeGreaterThan(0)
     } finally {
-      await rm(projectPath, { recursive: true, force: true })
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test("captures frame comments for external compositions instead of skipping automatic visuals", async () => {
+    const { root, projectPath } = await makeNonEntryProject()
+    try {
+      const result = await captureCommentVisualForAnchor({
+        db: fakeDbReturning(null),
+        project: {
+          id: "project-1",
+          path: projectPath,
+          localPath: projectPath,
+        } as any,
+        composition: { filePath: "compositions/app-showcase.html" } as any,
+        anchor: {
+          anchorType: "frame",
+          startTime: 0.5,
+          startFrame: 15,
+        },
+        threadId: "thread-external-frame",
+        repoRoot: process.cwd(),
+      })
+
+      expect(result).toEqual({
+        kind: "frame",
+        relativePath: ".ripple/comment-visuals/thread-external-frame/frame.png",
+      })
+      if (!result) throw new Error("Expected a captured external composition frame.")
+      const captured = await stat(join(projectPath, result.relativePath))
+      expect(captured.isFile()).toBe(true)
+      expect(captured.size).toBeGreaterThan(100)
+    } finally {
+      await rm(root, { recursive: true, force: true })
     }
   })
 
@@ -80,6 +195,26 @@ describe("comment visual context", () => {
       expect(resolved.attachments[0].filename).toBe("frame.png")
       expect(resolved.promptContext).toContain("current-frame screenshot")
       expect(resolved.promptContext).toContain("frame 8")
+
+      const prepared = await prepareRuntimeAttachments({
+        runId: "run-comment-visual",
+        cwd: projectPath,
+        attachments: resolved.attachments,
+      })
+
+      expect(prepared.imageContentBlocks).toEqual([
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: "image/png",
+            data: ONE_BY_ONE_PNG.toString("base64"),
+          },
+        },
+      ])
+      expect(prepared.promptSuffix).toContain(
+        ".ripple/tmp/agent-attachments/run-comment-visual/frame.png",
+      )
     } finally {
       await rm(projectPath, { recursive: true, force: true })
     }

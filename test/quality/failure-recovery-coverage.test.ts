@@ -37,7 +37,7 @@ describe("Ripple failure recovery coverage", () => {
     expect(exportTests).toContain("marks stale running jobs as interrupted once")
     expect(rendersPane).toContain('job.status === "failed" || job.status === "interrupted"')
     expect(rendersPane).toContain('label="Retry"')
-    expect(updaterTests).toContain("keeps automatic checks opt-in")
+    expect(updaterTests).toContain("enables automatic checks by default")
     expect(updaterTests).toContain("keeps downloaded updates behind the explicit restart action")
     expect(updatesTab).toContain("Update check failed.")
     expect(updatesTab).toContain("Update download failed. Try again when your connection is stable.")

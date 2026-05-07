@@ -8,7 +8,7 @@ import type {
 export const commentFilterLabels: Record<RippleCommentFilter, string> = {
   active: "Comments",
   resolved: "Resolved",
-  deleted: "Deleted",
+  deleted: "Rejected",
   all: "All visible",
 }
 

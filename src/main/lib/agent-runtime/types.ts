@@ -8,6 +8,7 @@ import type {
 } from "../db"
 import type { AgentRuntimeAttachment } from "../../../shared/agent-runtime-attachments"
 import type { AgentRuntimeContextPayload } from "./run-editor-context"
+import type { VisualCurrentFrameSnapshot } from "../visual-context"
 
 export type { AgentRuntimeAttachment } from "../../../shared/agent-runtime-attachments"
 
@@ -112,6 +113,7 @@ export interface AgentProviderRunInput extends AgentRunExecutionContext {
   mode: AgentRunMode
   model: string | null
   attachments?: AgentRuntimeAttachment[]
+  currentFrameSnapshot?: VisualCurrentFrameSnapshot | null
   authConfig?: {
     apiKey?: string
   } | null

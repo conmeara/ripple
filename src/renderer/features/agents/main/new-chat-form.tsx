@@ -1730,6 +1730,7 @@ export function NewChatForm({
                         value={workMode}
                         onChange={setWorkMode}
                         disabled={createChatMutation.isPending}
+                        compact={embedded}
                       />
 
                       <div className="group/model-controls flex items-center gap-0.5">

@@ -37,8 +37,9 @@
     "db:studio": "drizzle-kit studio",
     "ripple": "bun scripts/ripple-cli.ts",
     "templates:motion-previews": "bun scripts/render-hyperframes-template-motion-previews.ts",
+    "benchmark:visual-context": "bun scripts/benchmark-visual-context.ts",
     "test": "bun test",
-    "test:hyperframes": "bun test src/main/lib/hyperframes src/main/lib/exports src/shared/ripple-exports.test.ts src/renderer/features/hyperframes src/renderer/features/renders",
+    "test:hyperframes": "bun test src/main/lib/hyperframes src/main/lib/visual-context src/main/lib/exports src/shared/ripple-exports.test.ts src/renderer/features/hyperframes src/renderer/features/renders",
     "test:quality": "bun test test/quality && node scripts/verify-ripple-quality-platform.mjs",
     "test:ux": "bun test src/renderer/features/onboarding src/renderer/features/templates src/renderer/features/ripple-shell src/renderer/features/hyperframes src/renderer/features/comments src/renderer/features/renders src/renderer/features/sidebar/project-chat-selection.test.ts src/renderer/components/dialogs/settings-tabs/agents-capability-settings.test.ts src/renderer/components/update-banner.test.ts src/shared/ripple-activity.test.ts src/shared/ripple-comments.test.ts src/shared/ripple-conversations.test.ts src/shared/ripple-exports.test.ts",
     "test:agent": "bun test src/main/lib/agent-runtime src/main/lib/conversations src/main/lib/revisions src/renderer/features/agents/lib src/renderer/features/agents/commands src/renderer/features/agents/utils src/shared/ripple-conversations.test.ts src/shared/ripple-comments.test.ts",
@@ -54,7 +55,7 @@
     "test:update:smoke": "node scripts/smoke-packaged-update.mjs",
     "test:closeout": "bun run test:quality && bun run test:ripple && bun run test:hyperframes && bun test && bun run ts:check && bun run test:e2e && git diff --check",
     "test:release": "bun run test:closeout && bun run db:generate && bun run test:export:smoke && bun run package && bun run test:package:smoke",
-    "test:ripple": "bun test src/cli src/main/lib/ripple-projects src/main/lib/hyperframes src/main/lib/exports src/main/lib/revisions src/main/lib/agent-runtime src/main/lib/conversations src/main/lib/git/worktree-config.test.ts src/main/windows/chat-ownership.test.ts src/shared/ripple-activity.test.ts src/shared/ripple-comments.test.ts src/shared/ripple-conversations.test.ts src/shared/ripple-exports.test.ts src/renderer/components/ui/resizable-sidebar.test.ts src/renderer/components/dialogs/settings-tabs/agents-capability-settings.test.ts src/renderer/features/sidebar/project-chat-selection.test.ts src/renderer/features/onboarding src/renderer/features/templates src/renderer/features/hyperframes src/renderer/features/comments src/renderer/features/agents/lib src/renderer/features/agents/commands src/renderer/features/agents/utils src/renderer/features/ripple-shell src/renderer/features/renders",
+    "test:ripple": "bun test src/cli src/main/lib/ripple-projects src/main/lib/hyperframes src/main/lib/visual-context src/main/lib/exports src/main/lib/revisions src/main/lib/agent-runtime src/main/lib/conversations src/main/lib/git/worktree-config.test.ts src/main/windows/chat-ownership.test.ts src/shared/ripple-activity.test.ts src/shared/ripple-comments.test.ts src/shared/ripple-conversations.test.ts src/shared/ripple-exports.test.ts src/renderer/components/ui/resizable-sidebar.test.ts src/renderer/components/dialogs/settings-tabs/agents-capability-settings.test.ts src/renderer/features/sidebar/project-chat-selection.test.ts src/renderer/features/onboarding src/renderer/features/templates src/renderer/features/hyperframes src/renderer/features/comments src/renderer/features/agents/lib src/renderer/features/agents/commands src/renderer/features/agents/utils src/renderer/features/ripple-shell src/renderer/features/renders",
     "ts:check": "tsc --noEmit",
     "postinstall": "node -e \"if(!process.env.VERCEL){require('child_process').execSync('electron-rebuild -f -w better-sqlite3,node-pty',{stdio:'inherit'})}\" && node scripts/patch-electron-dev.mjs"
   },
@@ -66,6 +67,7 @@
     "@git-diff-view/react": "^0.0.35",
     "@git-diff-view/shiki": "^0.0.36",
     "@hyperframes/core": "0.4.40",
+    "@hyperframes/engine": "0.4.40",
     "@hyperframes/player": "0.4.40",
     "@hyperframes/producer": "0.4.40",
     "@hyperframes/studio": "0.4.40",
@@ -279,6 +281,7 @@
       "node_modules/@ffmpeg-installer/**/*",
       "node_modules/@ffprobe-installer/**/*",
       "node_modules/@hyperframes/core/**/*",
+      "node_modules/@hyperframes/engine/**/*",
       "node_modules/@hyperframes/player/**/*",
       "node_modules/@hyperframes/producer/**/*",
       "node_modules/@hyperframes/studio/**/*",
@@ -296,15 +299,13 @@
         {
           "target": "dmg",
           "arch": [
-            "arm64",
-            "x64"
+            "arm64"
           ]
         },
         {
           "target": "zip",
           "arch": [
-            "arm64",
-            "x64"
+            "arm64"
           ]
         }
       ],

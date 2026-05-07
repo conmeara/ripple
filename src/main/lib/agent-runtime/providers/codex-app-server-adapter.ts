@@ -39,6 +39,8 @@ import {
 } from "./codex-app-server-skills"
 import { normalizeCodexModelSelection } from "./codex-model-selection"
 import { buildRippleAgentToolEnvironment } from "../cli-tools-env"
+import { createAgentVisualContextEndpoint } from "../visual-context-endpoint"
+import { prepareAgentVisualContextHandoff } from "../visual-context-handoff"
 import {
   approvalBoundaryWarning,
   assessCodexAppServerApprovalRequest,
@@ -388,10 +390,24 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
     sink: AgentProviderEventSink,
   ): Promise<AgentProviderRunResult> {
     const appManagedApiKey = getAppManagedCodexApiKey(input)
+    const visualContextHandoff = await prepareAgentVisualContextHandoff({
+      runId: input.run.id,
+      currentFrameSnapshot: input.currentFrameSnapshot,
+      repoRoot: getRepoRoot(),
+    }).catch((error) => {
+      console.warn("[codex-app-server] Failed to prepare visual context handoff:", error)
+      return null
+    })
+    const visualContextEndpoint = await createAgentVisualContextEndpoint(input.cwd, {
+      resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
+    })
     const appServerEnv = buildRippleAgentToolEnvironment({
       baseEnv: buildCodexAppServerEnv(appManagedApiKey),
       repoRoot: getRepoRoot(),
       workspaceRoot: input.cwd,
+      visualContextEndpoint: visualContextEndpoint?.endpoint,
+      visualContextToken: visualContextEndpoint?.token,
+      visualContextManifestPath: visualContextHandoff?.manifestPath,
     })
     const client = new CodexAppServerClient(
       getBundledCodexCliPath(),
@@ -905,6 +921,7 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
       }
     } finally {
       activeClients.delete(input.run.id)
+      await visualContextEndpoint?.close()
       await client.stop()
     }
   }

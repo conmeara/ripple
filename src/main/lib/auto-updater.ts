@@ -40,6 +40,7 @@ let automaticFocusChecksRegistered = false
 // Update channel preference file
 const CHANNEL_PREF_FILE = "update-channel.json"
 const AUTO_CHECKS_PREF_FILE = "update-auto-checks.json"
+const DEFAULT_AUTO_UPDATE_CHECKS_ENABLED = true
 
 type UpdateChannel = "latest" | "beta"
 type UpdateCheckSource = "automatic" | "manual"
@@ -134,7 +135,7 @@ export function getAutoUpdateChecksEnabled(): boolean {
   } catch {
     // Ignore read errors, fall back to the default.
   }
-  return false
+  return DEFAULT_AUTO_UPDATE_CHECKS_ENABLED
 }
 
 export function setAutoUpdateChecksEnabled(enabled: boolean): boolean {
@@ -325,8 +326,16 @@ function registerIpcHandlers() {
     return getAutoUpdateChecksEnabled()
   })
 
-  ipcMain.handle("update:set-auto-checks-enabled", (_event, enabled: boolean) => {
-    return setAutoUpdateChecksEnabled(enabled === true)
+  ipcMain.handle("update:set-auto-checks-enabled", async (_event, enabled: boolean) => {
+    const persisted = setAutoUpdateChecksEnabled(enabled === true)
+    if (persisted && app.isPackaged) {
+      try {
+        await checkForUpdates(true, "automatic")
+      } catch (error) {
+        log.error("[AutoUpdater] Post-preference-change check failed:", error)
+      }
+    }
+    return persisted
   })
 }
 

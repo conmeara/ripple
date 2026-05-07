@@ -327,8 +327,57 @@ async function captureFrameWithHyperframesProducer(input: {
   }
 }
 
+async function captureFrameWithHyperframesEngine(input: {
+  projectDir: string
+  timeSeconds: number
+}): Promise<{ path: string; elapsedMs: number }> {
+  if (!appManagedBrowserPath) {
+    throw new Error("Ripple visual capture QA requires an app-managed browser.")
+  }
+
+  const served = await serveStaticProject(input.projectDir)
+  const outputDir = join(input.projectDir, ".ripple", "engine-capture")
+  await mkdir(outputDir, { recursive: true })
+  const startedAt = performance.now()
+
+  try {
+    const importer = new Function("specifier", "return import(specifier)") as (
+      specifier: string,
+    ) => Promise<any>
+    const engine = await importer("@hyperframes/engine")
+    const session = await engine.createCaptureSession(
+      served.url,
+      outputDir,
+      {
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        format: "png",
+      },
+      null,
+      {
+        chromePath: appManagedBrowserPath,
+        forceScreenshot: true,
+      } as any,
+    )
+
+    try {
+      await engine.initializeSession(session)
+      const frame = await engine.captureFrame(session, 0, input.timeSeconds)
+      return {
+        path: frame.path,
+        elapsedMs: performance.now() - startedAt,
+      }
+    } finally {
+      await engine.closeCaptureSession(session)
+    }
+  } finally {
+    await closeServer(served.server)
+  }
+}
+
 describe("Ripple visual capture QA", () => {
-  timedTest("matches HyperFrames producer pixels while keeping CLI snapshot healthy", async () => {
+  timedTest("matches HyperFrames producer and engine pixels while keeping CLI snapshot healthy", async () => {
     if (shouldSkipBrowserQa()) return
 
     const projectDir = await makeQaProject()
@@ -370,6 +419,21 @@ describe("Ripple visual capture QA", () => {
       expect(diff.maxChannelDelta).toBeLessThanOrEqual(3)
       expect(fastElapsedMs).toBeLessThan(7000)
       expect(producerCapture.elapsedMs).toBeLessThan(7000)
+
+      const engineCapture = await captureFrameWithHyperframesEngine({
+        projectDir,
+        timeSeconds: 0.5,
+      })
+      const engineImage = await decodePng(engineCapture.path)
+      expect(engineImage.width).toBe(1920)
+      expect(engineImage.height).toBe(1080)
+      expectRgbClose(rgbAt(engineImage, 24, 24), expectedBackgroundColor(0.5))
+
+      const engineDiff = comparePngPixels(engineImage, producerImage)
+      expect(engineDiff.meanChannelDelta).toBeLessThanOrEqual(0.05)
+      expect(engineDiff.changedPixelRatio).toBeLessThanOrEqual(0.0001)
+      expect(engineDiff.maxChannelDelta).toBeLessThanOrEqual(3)
+      expect(engineCapture.elapsedMs).toBeLessThan(7000)
 
       const cliStartedAt = performance.now()
       const cliResult = await runHyperframesCommand([

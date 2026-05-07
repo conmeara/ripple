@@ -25,7 +25,7 @@ describe("agent run context resolver", () => {
       expect(context.appPolicy).toContain("Ripple app-managed visual-context skill")
       expect(context.appPolicy).toContain("ripple-visual-context")
       expect(context.appPolicy).toContain("Use it proactively after creating or editing visible motion work")
-      expect(context.appPolicy).toContain("ripple frame-sheet --range 0s..8s --samples 8 --columns 4 --settle 0 --json")
+      expect(context.appPolicy).toContain("ripple sheet --range 0s..8s --samples 8 --columns 4 --settle 0 --backend engine --json")
       expect(context.appPolicy).toContain("instead of `npx`, `bunx`, or package installs")
       expect(context.appPolicy).toContain("If local image viewing is unavailable")
       expect(context.projectNotes.fileName).toBe("AGENTS.md")
@@ -58,7 +58,7 @@ describe("agent run context resolver", () => {
         })
 
         expect(context.appPolicy).toContain("ripple-visual-context")
-        expect(context.appPolicy).toContain("frame-sheet helper")
+        expect(context.appPolicy).toContain("Ripple visual context commands")
         expect(context.skillRoots.appManaged.some((root) => root.endsWith(expectations[provider]))).toBe(true)
         expect(context.statusLabels).toContain("Ripple visual context")
       }
@@ -79,7 +79,7 @@ describe("agent run context resolver", () => {
     expect(codexSkill).toContain("description:")
     expect(codexSkill).toContain("Do not run")
     expect(codexSkill).toContain("Do not call `view_image`, `open`, or browser tools")
-    expect(codexSkill).toContain("ripple frame-sheet --range 0s..8s --samples 8 --columns 4 --settle 0 --json")
+    expect(codexSkill).toContain("ripple sheet --range 0s..8s --samples 8 --columns 4 --settle 0 --backend engine --json")
     expect(JSON.parse(claudePlugin).name).toBe("ripple-visual-context")
   })
 })

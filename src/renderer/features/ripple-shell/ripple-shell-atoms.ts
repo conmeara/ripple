@@ -1,5 +1,9 @@
+import { atomWithStorage } from "jotai/utils"
 import { atomWithWindowStorage } from "../../lib/window-storage"
-import type { RippleRightPaneMode } from "./ripple-shell-layout"
+import {
+  RIPPLE_REVIEW_PANE_DEFAULT_WIDTH,
+  type RippleRightPaneMode,
+} from "./ripple-shell-layout"
 
 export const rippleShellAssetsPanelOpenAtom = atomWithWindowStorage<boolean>(
   "ripple-shell:assets-panel-open",
@@ -25,3 +29,10 @@ export const rippleShellRightPaneModeAtom =
     "chat",
     { getOnInit: true },
   )
+
+export const rippleShellReviewPaneWidthAtom = atomWithStorage<number>(
+  "ripple-shell:review-pane-width",
+  RIPPLE_REVIEW_PANE_DEFAULT_WIDTH,
+  undefined,
+  { getOnInit: true },
+)

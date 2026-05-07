@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm"
+import { resolve } from "node:path"
 import {
   commentThreads,
   compositions,
@@ -9,6 +10,7 @@ import {
   type Composition,
   type Project,
 } from "../db/schema"
+import type { VisualCurrentFrameSnapshot } from "../visual-context"
 import type { ResolvedWorkspaceContext } from "./workspace-context"
 
 type Db = any
@@ -216,6 +218,111 @@ function getExportSourceLabel(input: {
     ))
     .get()
   return job ? `${job.sourceLabel} (${job.label})` : null
+}
+
+function getPreviewSourcePath(input: {
+  db: Db
+  resolved: ResolvedWorkspaceContext
+  runtimeContext: AgentRuntimeContextPayload | null
+}): string {
+  const source = input.runtimeContext?.previewSource
+  if (source?.kind === "comment-revision") {
+    const revision = input.db
+      .select()
+      .from(revisions)
+      .where(and(
+        eq(revisions.id, source.revisionId),
+        eq(revisions.projectId, input.resolved.project.id),
+      ))
+      .get()
+    if (revision?.contextPath) return resolve(revision.contextPath)
+  }
+
+  if (source?.kind === "chat-worktree") {
+    if (source.conversationId) {
+      const conversation = input.db
+        .select()
+        .from(conversations)
+        .where(and(
+          eq(conversations.id, source.conversationId),
+          eq(conversations.projectId, input.resolved.project.id),
+        ))
+        .get()
+      if (conversation?.worktreePath) return resolve(conversation.worktreePath)
+    }
+    if (source.chatId) {
+      const chat = input.db
+        .select()
+        .from(chats)
+        .where(and(
+          eq(chats.id, source.chatId),
+          eq(chats.projectId, input.resolved.project.id),
+        ))
+        .get()
+      if (chat?.worktreePath) return resolve(chat.worktreePath)
+    }
+  }
+
+  return resolve(input.resolved.cwd)
+}
+
+function getRuntimePreviewTimeMs(
+  runtimeContext: AgentRuntimeContextPayload | null,
+  fps: number,
+): number | null {
+  if (
+    runtimeContext?.previewTimeSeconds !== null &&
+    runtimeContext?.previewTimeSeconds !== undefined
+  ) {
+    return Math.round(runtimeContext.previewTimeSeconds * 1000)
+  }
+  if (
+    runtimeContext?.previewFrame !== null &&
+    runtimeContext?.previewFrame !== undefined
+  ) {
+    return Math.round((runtimeContext.previewFrame / fps) * 1000)
+  }
+  return null
+}
+
+export function resolveAgentRuntimeCurrentFrameSnapshot(input: {
+  db: Db
+  resolved: ResolvedWorkspaceContext
+  runtimeContext: AgentRuntimeContextPayload | null
+}): VisualCurrentFrameSnapshot | null {
+  const runtimeContext = normalizeAgentRuntimeContextPayload(input.runtimeContext)
+  validateRuntimeContext({
+    db: input.db,
+    projectId: input.resolved.project.id,
+    runtimeContext,
+  })
+  const composition = getTargetComposition({
+    db: input.db,
+    resolved: input.resolved,
+    runtimeContext,
+  })
+  const fps = 30
+  const timeMs = getRuntimePreviewTimeMs(runtimeContext, fps)
+  if (timeMs === null) return null
+
+  return {
+    projectPath: resolve(input.resolved.cwd),
+    sourcePath: getPreviewSourcePath({
+      db: input.db,
+      resolved: input.resolved,
+      runtimeContext,
+    }),
+    compositionPath: composition?.filePath ?? null,
+    sourceRevisionId:
+      runtimeContext?.revisionId ??
+      (runtimeContext?.previewSource?.kind === "comment-revision"
+        ? runtimeContext.previewSource.revisionId
+        : null),
+    timeMs,
+    fps,
+    width: composition?.width,
+    height: composition?.height,
+  }
 }
 
 function assertRuntimeEntityExists(input: {

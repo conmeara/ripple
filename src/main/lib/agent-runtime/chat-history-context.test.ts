@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  filterConversationHistoryMessagesForRun,
   formatConversationHistoryForPrompt,
   shouldIncludeConversationHistory,
 } from "./chat-history-context"
@@ -55,5 +56,50 @@ describe("agent runtime chat history context", () => {
       run: { provider: "claude", runKind: "chat", conversationId: "conversation-1" },
       thread: { providerSessionId: null },
     } as any)).toBe(true)
+  })
+
+  test("bridges generated-change follow-up history without echoing the current reply", () => {
+    expect(shouldIncludeConversationHistory({
+      run: {
+        provider: "codex",
+        runKind: "generated_change",
+        conversationId: "conversation-1",
+      },
+      thread: { providerSessionId: null },
+    } as any)).toBe(true)
+
+    const messages = filterConversationHistoryMessagesForRun({
+      run: {
+        id: "run-2",
+        runKind: "generated_change",
+        revisionId: "revision-2",
+      } as any,
+      messages: [
+        {
+          agentRunId: null,
+          metadataJson: JSON.stringify({
+            source: "ripple-comment",
+            revisionId: "revision-1",
+          }),
+        },
+        {
+          agentRunId: "run-1",
+          metadataJson: JSON.stringify({
+            source: "agent-runtime",
+          }),
+        },
+        {
+          agentRunId: null,
+          metadataJson: JSON.stringify({
+            source: "ripple-comment",
+            revisionId: "revision-2",
+          }),
+        },
+      ] as any,
+    })
+
+    expect(messages).toHaveLength(2)
+    expect(messages[0]?.metadataJson).toContain("revision-1")
+    expect(messages[1]?.agentRunId).toBe("run-1")
   })
 })

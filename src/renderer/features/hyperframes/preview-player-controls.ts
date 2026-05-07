@@ -16,10 +16,42 @@ export const PREVIEW_SETTINGS_CONTROLS = [
 
 export type ZoomValue = (typeof ZOOM_OPTIONS)[number]["value"]
 export type PreviewSettingsControl = (typeof PREVIEW_SETTINGS_CONTROLS)[number]
+export type PreviewPlayerControlDensity = "full" | "balanced" | "compact" | "minimal"
+
+export interface PreviewPlayerControlLayout {
+  density: PreviewPlayerControlDensity
+  showLoopControl: boolean
+  showSpeedControl: boolean
+  showSpeedLabel: boolean
+  showMuteControl: boolean
+  showRestartControl: boolean
+  showFrameStepControls: boolean
+  showCaptionControl: boolean
+  showTimelineControl: boolean
+  showFullscreenControl: boolean
+}
+
+export interface PreviewSeekRequestReadiness {
+  requestedTime: number | null
+  seekRequestId?: number
+  settledSeekRequestId: number | null
+  isReady: boolean
+  isLoadingSource: boolean
+  isPreviewSourceFetching: boolean
+}
+
+export interface PreviewIssuedSeekRequest {
+  issuedSeekRequestId: number | null
+  issuedSeekTime: number | null
+}
 
 const PREVIEW_TIMECODE_FALLBACK_FPS = 30
 const PREVIEW_LAYOUT_FALLBACK_WIDTH = 16
 const PREVIEW_LAYOUT_FALLBACK_HEIGHT = 9
+const PREVIEW_PLAYER_FULL_CONTROLS_WIDTH = 660
+const PREVIEW_PLAYER_BALANCED_CONTROLS_WIDTH = 560
+const PREVIEW_PLAYER_COMPACT_CONTROLS_WIDTH = 430
+export const PREVIEW_SEEK_SETTLE_EPSILON_SECONDS = 0.0015
 
 export interface PreviewPlaybackKeyboardShortcutEvent {
   key?: string
@@ -33,29 +65,26 @@ export interface PreviewPlaybackKeyboardShortcutEvent {
   target?: EventTarget | null
 }
 
-const PREVIEW_SPACEBAR_RESERVED_TARGET_SELECTOR = [
-  "input",
+const PREVIEW_SPACEBAR_TEXT_ENTRY_TARGET_SELECTOR = [
   "textarea",
-  "select",
-  "option",
-  "button",
-  "a[href]",
-  "summary",
   "[contenteditable]:not([contenteditable='false'])",
-  "[role='button']",
-  "[role='checkbox']",
-  "[role='combobox']",
-  "[role='listbox']",
-  "[role='menuitem']",
-  "[role='option']",
-  "[role='radio']",
   "[role='searchbox']",
-  "[role='slider']",
-  "[role='spinbutton']",
-  "[role='switch']",
   "[role='textbox']",
   "[data-preview-spacebar-ignore]",
 ].join(",")
+
+const PREVIEW_SPACEBAR_NON_TEXT_INPUT_TYPES = new Set([
+  "button",
+  "checkbox",
+  "color",
+  "file",
+  "hidden",
+  "image",
+  "radio",
+  "range",
+  "reset",
+  "submit",
+])
 
 export function shouldRenderPreviewCloseControl(
   onClose: (() => void) | null | undefined,
@@ -118,6 +147,100 @@ export function fitPreviewStageSize(input: {
   }
 }
 
+export function getPreviewPlayerControlLayout(width: number): PreviewPlayerControlLayout {
+  const safeWidth = Number.isFinite(width) ? Math.max(0, width) : PREVIEW_PLAYER_FULL_CONTROLS_WIDTH
+
+  if (safeWidth >= PREVIEW_PLAYER_FULL_CONTROLS_WIDTH) {
+    return {
+      density: "full",
+      showLoopControl: true,
+      showSpeedControl: true,
+      showSpeedLabel: true,
+      showMuteControl: true,
+      showRestartControl: true,
+      showFrameStepControls: true,
+      showCaptionControl: true,
+      showTimelineControl: true,
+      showFullscreenControl: true,
+    }
+  }
+
+  if (safeWidth >= PREVIEW_PLAYER_BALANCED_CONTROLS_WIDTH) {
+    return {
+      density: "balanced",
+      showLoopControl: true,
+      showSpeedControl: true,
+      showSpeedLabel: true,
+      showMuteControl: true,
+      showRestartControl: false,
+      showFrameStepControls: false,
+      showCaptionControl: true,
+      showTimelineControl: true,
+      showFullscreenControl: true,
+    }
+  }
+
+  if (safeWidth >= PREVIEW_PLAYER_COMPACT_CONTROLS_WIDTH) {
+    return {
+      density: "compact",
+      showLoopControl: false,
+      showSpeedControl: false,
+      showSpeedLabel: false,
+      showMuteControl: true,
+      showRestartControl: false,
+      showFrameStepControls: false,
+      showCaptionControl: false,
+      showTimelineControl: false,
+      showFullscreenControl: true,
+    }
+  }
+
+  return {
+    density: "minimal",
+    showLoopControl: false,
+    showSpeedControl: false,
+    showSpeedLabel: false,
+    showMuteControl: false,
+    showRestartControl: false,
+    showFrameStepControls: false,
+    showCaptionControl: false,
+    showTimelineControl: false,
+    showFullscreenControl: false,
+  }
+}
+
+function canUsePreviewSeekRequest(input: PreviewSeekRequestReadiness): boolean {
+  return (
+    input.requestedTime !== null &&
+    typeof input.seekRequestId === "number" &&
+    input.settledSeekRequestId !== input.seekRequestId &&
+    input.isReady &&
+    !input.isLoadingSource &&
+    !input.isPreviewSourceFetching
+  )
+}
+
+function previewSeekTimesEqual(a: number | null, b: number | null): boolean {
+  if (a === null || b === null) return false
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false
+  return Math.abs(a - b) <= PREVIEW_SEEK_SETTLE_EPSILON_SECONDS
+}
+
+export function shouldIssuePreviewSeekRequest(
+  input: PreviewSeekRequestReadiness & PreviewIssuedSeekRequest,
+): boolean {
+  if (!canUsePreviewSeekRequest(input)) return false
+  if (input.issuedSeekRequestId !== input.seekRequestId) return true
+  return !previewSeekTimesEqual(input.issuedSeekTime, input.requestedTime)
+}
+
+export function shouldSettlePreviewSeekRequest(
+  input: PreviewSeekRequestReadiness & { currentTime: number },
+): boolean {
+  if (!canUsePreviewSeekRequest(input)) return false
+  return previewSeekTimesEqual(input.currentTime, input.requestedTime)
+}
+
 function getTargetElement(target: EventTarget | null | undefined): Element | null {
   if (!target || typeof target !== "object") return null
 
@@ -135,13 +258,26 @@ function getTargetElement(target: EventTarget | null | undefined): Element | nul
     : null
 }
 
-function isReservedSpacebarTarget(target: EventTarget | null | undefined): boolean {
+function isTextEntrySpacebarTarget(target: EventTarget | null | undefined): boolean {
   const maybeEditable = target as { isContentEditable?: boolean } | null | undefined
   if (maybeEditable?.isContentEditable) return true
 
-  return Boolean(
-    getTargetElement(target)?.closest(PREVIEW_SPACEBAR_RESERVED_TARGET_SELECTOR),
-  )
+  const targetElement = getTargetElement(target)
+  if (!targetElement) return false
+  if (targetElement.closest(PREVIEW_SPACEBAR_TEXT_ENTRY_TARGET_SELECTOR)) return true
+
+  const inputElement = targetElement.closest("input") as
+    | (HTMLInputElement & { getAttribute?: (name: string) => string | null })
+    | null
+  if (!inputElement) return false
+
+  const inputType = (
+    typeof inputElement.type === "string" && inputElement.type.length > 0
+      ? inputElement.type
+      : inputElement.getAttribute?.("type") ?? "text"
+  ).toLowerCase()
+
+  return !PREVIEW_SPACEBAR_NON_TEXT_INPUT_TYPES.has(inputType)
 }
 
 export function shouldTogglePreviewPlaybackForSpacebar(
@@ -149,8 +285,8 @@ export function shouldTogglePreviewPlaybackForSpacebar(
 ): boolean {
   const isSpacebar = event.code === "Space" || event.key === " " || event.key === "Spacebar"
   if (!isSpacebar) return false
-  if (event.defaultPrevented || event.repeat) return false
+  if (event.repeat) return false
   if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false
 
-  return !isReservedSpacebarTarget(event.target)
+  return !isTextEntrySpacebarTarget(event.target)
 }

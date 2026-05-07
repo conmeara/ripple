@@ -40,6 +40,7 @@ import {
 } from "../../../shared/hyperframes-timeline-model"
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -71,8 +72,11 @@ import {
   ZOOM_OPTIONS,
   fitPreviewStageSize,
   formatPreviewTimecode,
+  getPreviewPlayerControlLayout,
   type ZoomValue,
   shouldRenderPreviewCloseControl,
+  shouldIssuePreviewSeekRequest,
+  shouldSettlePreviewSeekRequest,
   shouldTogglePreviewPlaybackForSpacebar,
 } from "./preview-player-controls"
 import { resolvePreviewSeekRatio } from "./preview-scrubber"
@@ -213,6 +217,7 @@ export function HyperFramesPreviewPlayer({
 }: HyperFramesPreviewPlayerProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
+  const controlsRef = useRef<HTMLDivElement | null>(null)
   const timelineRef = useRef<HTMLDivElement | null>(null)
   const timelineProgressRef = useRef<HTMLDivElement | null>(null)
   const timelineHandleRef = useRef<HTMLDivElement | null>(null)
@@ -223,6 +228,7 @@ export function HyperFramesPreviewPlayer({
   const settledDisplayTimeRef = useRef(0)
   const [zoom, setZoom] = useState<ZoomValue>("fit")
   const [previewStageSize, setPreviewStageSize] = useState({ width: 0, height: 0 })
+  const [previewControlWidth, setPreviewControlWidth] = useState<number | null>(null)
   const [isElementFullscreen, setIsElementFullscreen] = useState(false)
   const [isTimelineVisible, setIsTimelineVisible] = useState(true)
   const [isCaptionOverlayVisible, setIsCaptionOverlayVisible] = useState(true)
@@ -237,6 +243,16 @@ export function HyperFramesPreviewPlayer({
   }>({ duration: 0, model: null })
   const [timelineEditModel, setTimelineEditModel] = useState<RippleTimelineModel | null>(null)
   const [settledSeekRequestId, setSettledSeekRequestId] = useState<number | null>(null)
+  const issuedPreviewSeekRef = useRef<{
+    requestId: number
+    time: number
+    canSettle: boolean
+  } | null>(null)
+  const seekSettleFrameRef = useRef<{
+    first: number | null
+    second: number | null
+  }>({ first: null, second: null })
+  const [, setSeekSettleEpoch] = useState(0)
   const sourceRefreshSeekTimeRef = useRef(0)
   const requestedSeekTime =
     typeof seekToTime === "number" && Number.isFinite(seekToTime)
@@ -339,6 +355,20 @@ export function HyperFramesPreviewPlayer({
     source?.width,
     zoom,
   ])
+  const previewControlLayout = useMemo(
+    () => getPreviewPlayerControlLayout(previewControlWidth ?? previewStageSize.width),
+    [previewControlWidth, previewStageSize.width],
+  )
+  const hasHiddenPlaybackControls =
+    !previewControlLayout.showLoopControl ||
+    !previewControlLayout.showSpeedControl ||
+    !previewControlLayout.showMuteControl ||
+    !previewControlLayout.showRestartControl ||
+    !previewControlLayout.showFrameStepControls
+  const hasHiddenViewControls =
+    !previewControlLayout.showCaptionControl ||
+    !previewControlLayout.showTimelineControl ||
+    !previewControlLayout.showFullscreenControl
   const hasPendingPreviewSeek =
     requestedSeekTime !== null &&
     typeof seekRequestId === "number" &&
@@ -540,6 +570,24 @@ export function HyperFramesPreviewPlayer({
     return () => observer.disconnect()
   }, [])
 
+  useLayoutEffect(() => {
+    const controls = controlsRef.current
+    if (!controls) return
+
+    const updateControlWidth = () => {
+      const rect = controls.getBoundingClientRect()
+      setPreviewControlWidth((current) => {
+        const width = Math.max(0, Math.floor(rect.width))
+        return current === width ? current : width
+      })
+    }
+
+    updateControlWidth()
+    const observer = new ResizeObserver(updateControlWidth)
+    observer.observe(controls)
+    return () => observer.disconnect()
+  }, [])
+
   const syncLivePreviewTime = useCallback((time: number) => {
     const liveDuration = durationRef.current
     const liveProgress = liveDuration > 0 ? clamp((time / liveDuration) * 100, 0, 100) : 0
@@ -612,22 +660,99 @@ export function HyperFramesPreviewPlayer({
     syncLivePreviewTime,
   ])
 
+  const cancelSeekSettleFrames = useCallback(() => {
+    const frames = seekSettleFrameRef.current
+    if (frames.first !== null) {
+      window.cancelAnimationFrame(frames.first)
+    }
+    if (frames.second !== null) {
+      window.cancelAnimationFrame(frames.second)
+    }
+    seekSettleFrameRef.current = { first: null, second: null }
+  }, [])
+
+  const scheduleSeekSettleAfterPaint = useCallback((requestId: number) => {
+    cancelSeekSettleFrames()
+    seekSettleFrameRef.current.first = window.requestAnimationFrame(() => {
+      seekSettleFrameRef.current.first = null
+      seekSettleFrameRef.current.second = window.requestAnimationFrame(() => {
+        seekSettleFrameRef.current.second = null
+        const issuedSeek = issuedPreviewSeekRef.current
+        if (issuedSeek?.requestId !== requestId) return
+        issuedSeek.canSettle = true
+        setSeekSettleEpoch((epoch) => epoch + 1)
+      })
+    })
+  }, [cancelSeekSettleFrames])
+
+  useEffect(() => cancelSeekSettleFrames, [cancelSeekSettleFrames])
+
   useLayoutEffect(() => {
     if (requestedSeekTime === null) {
+      cancelSeekSettleFrames()
+      issuedPreviewSeekRef.current = null
       if (settledSeekRequestId !== null) {
         setSettledSeekRequestId(null)
       }
       return
     }
-    if (!isReady || isLoadingSource || isPreviewSourceFetching) {
+
+    const issuedSeek = issuedPreviewSeekRef.current
+    if (!shouldIssuePreviewSeekRequest({
+      requestedTime: requestedSeekTime,
+      seekRequestId,
+      settledSeekRequestId,
+      isReady,
+      isLoadingSource,
+      isPreviewSourceFetching,
+      issuedSeekRequestId: issuedSeek?.requestId ?? null,
+      issuedSeekTime: issuedSeek?.time ?? null,
+    })) {
       return
     }
-    adapter.seek(requestedSeekTime)
+
     if (typeof seekRequestId === "number") {
+      issuedPreviewSeekRef.current = {
+        requestId: seekRequestId,
+        time: requestedSeekTime,
+        canSettle: false,
+      }
+      scheduleSeekSettleAfterPaint(seekRequestId)
+    }
+    adapter.seek(requestedSeekTime)
+  }, [
+    adapter.seek,
+    cancelSeekSettleFrames,
+    isLoadingSource,
+    isPreviewSourceFetching,
+    isReady,
+    requestedSeekTime,
+    scheduleSeekSettleAfterPaint,
+    seekRequestId,
+    settledSeekRequestId,
+  ])
+
+  useLayoutEffect(() => {
+    if (typeof seekRequestId !== "number") return
+    const issuedSeek = issuedPreviewSeekRef.current
+    if (issuedSeek?.requestId !== seekRequestId || !issuedSeek.canSettle) return
+
+    if (shouldSettlePreviewSeekRequest({
+      requestedTime: requestedSeekTime,
+      seekRequestId,
+      settledSeekRequestId,
+      isReady,
+      isLoadingSource,
+      isPreviewSourceFetching,
+      currentTime,
+    })) {
+      cancelSeekSettleFrames()
+      issuedPreviewSeekRef.current = null
       setSettledSeekRequestId(seekRequestId)
     }
   }, [
-    adapter.seek,
+    cancelSeekSettleFrames,
+    currentTime,
     isLoadingSource,
     isPreviewSourceFetching,
     isReady,
@@ -652,14 +777,15 @@ export function HyperFramesPreviewPlayer({
 
       event.preventDefault()
       event.stopPropagation()
+      event.stopImmediatePropagation()
       handleTogglePlayback()
     },
     [handleTogglePlayback, previewControlsReady],
   )
 
   useEffect(() => {
-    window.addEventListener("keydown", handlePreviewSpacebarKeyDown)
-    return () => window.removeEventListener("keydown", handlePreviewSpacebarKeyDown)
+    window.addEventListener("keydown", handlePreviewSpacebarKeyDown, true)
+    return () => window.removeEventListener("keydown", handlePreviewSpacebarKeyDown, true)
   }, [handlePreviewSpacebarKeyDown])
 
   useEffect(() => {
@@ -673,9 +799,9 @@ export function HyperFramesPreviewPlayer({
     }
     if (!iframeWindow) return
 
-    iframeWindow.addEventListener("keydown", handlePreviewSpacebarKeyDown)
+    iframeWindow.addEventListener("keydown", handlePreviewSpacebarKeyDown, true)
     return () => {
-      iframeWindow?.removeEventListener("keydown", handlePreviewSpacebarKeyDown)
+      iframeWindow?.removeEventListener("keydown", handlePreviewSpacebarKeyDown, true)
     }
   }, [handlePreviewSpacebarKeyDown, previewControlsReady, playerRef, source?.sourceUrl])
 
@@ -1090,8 +1216,12 @@ export function HyperFramesPreviewPlayer({
           </div>
         </div>
 
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          <div className="flex min-w-fit items-center gap-1">
+        <div
+          ref={controlsRef}
+          className="mt-1.5 flex min-w-0 items-center gap-1.5"
+          data-preview-control-density={previewControlLayout.density}
+        >
+          <div className="flex shrink-0 items-center gap-1">
             <PlayerIconButton
               label={isPlaying ? "Pause preview" : "Play preview"}
               onClick={handleTogglePlayback}
@@ -1100,86 +1230,96 @@ export function HyperFramesPreviewPlayer({
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
             </PlayerIconButton>
 
-            <PlayerIconButton
-              label={isLooping ? "Loop on" : "Loop off"}
-              active={isLooping}
-              onClick={handleLoopChange}
-              disabled={!previewControlsReady}
-              aria-pressed={isLooping}
-            >
-              <Repeat2 className="h-4 w-4" />
-            </PlayerIconButton>
+            {previewControlLayout.showLoopControl ? (
+              <PlayerIconButton
+                label={isLooping ? "Loop on" : "Loop off"}
+                active={isLooping}
+                onClick={handleLoopChange}
+                disabled={!previewControlsReady}
+                aria-pressed={isLooping}
+              >
+                <Repeat2 className="h-4 w-4" />
+              </PlayerIconButton>
+            ) : null}
 
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex h-7 items-center gap-1 rounded-full px-1.5 text-xs tabular-nums text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70 disabled:pointer-events-none disabled:opacity-40"
-                      disabled={!previewControlsReady}
-                    >
-                      <Gauge className="h-3.5 w-3.5" />
-                      {formatPlaybackSpeed(playbackSpeed)}
-                      <span className="sr-only">Playback speed</span>
-                    </button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="top">Playback speed</TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="start" side="top" sideOffset={10} className="w-32">
-                <DropdownMenuRadioGroup
-                  value={String(playbackSpeed)}
-                  onValueChange={(value) => handleSpeedChange(Number(value))}
-                >
-                  {PLAYBACK_SPEEDS.map((speed) => (
-                    <DropdownMenuRadioItem key={speed} value={String(speed)}>
-                      {formatPlaybackSpeed(speed)}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {previewControlLayout.showSpeedControl ? (
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex h-7 items-center gap-1 rounded-full px-1.5 text-xs tabular-nums text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70 disabled:pointer-events-none disabled:opacity-40"
+                        disabled={!previewControlsReady}
+                      >
+                        <Gauge className="h-3.5 w-3.5" />
+                        {previewControlLayout.showSpeedLabel ? formatPlaybackSpeed(playbackSpeed) : null}
+                        <span className="sr-only">Playback speed</span>
+                      </button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Playback speed</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="start" side="top" sideOffset={10} className="w-32">
+                  <DropdownMenuRadioGroup
+                    value={String(playbackSpeed)}
+                    onValueChange={(value) => handleSpeedChange(Number(value))}
+                  >
+                    {PLAYBACK_SPEEDS.map((speed) => (
+                      <DropdownMenuRadioItem key={speed} value={String(speed)}>
+                        {formatPlaybackSpeed(speed)}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
 
-            <PlayerIconButton
-              label={isMuted ? "Unmute preview" : "Mute preview"}
-              active={isMuted}
-              onClick={handleMuteChange}
-              disabled={!previewControlsReady}
-              aria-pressed={isMuted}
-            >
-              {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </PlayerIconButton>
+            {previewControlLayout.showMuteControl ? (
+              <PlayerIconButton
+                label={isMuted ? "Unmute preview" : "Mute preview"}
+                active={isMuted}
+                onClick={handleMuteChange}
+                disabled={!previewControlsReady}
+                aria-pressed={isMuted}
+              >
+                {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </PlayerIconButton>
+            ) : null}
           </div>
 
-          <div className="mx-auto flex min-w-fit items-center gap-1.5">
-            <PlayerIconButton
-              label="Restart preview"
-              onClick={handleRestart}
-              disabled={!previewControlsReady}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </PlayerIconButton>
-            <PlayerIconButton
-              label="Step back one frame"
-              onClick={() => handleStepFrame(-1)}
-              disabled={!previewControlsReady}
-            >
-              <StepBack className="h-3.5 w-3.5" />
-            </PlayerIconButton>
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
+            {previewControlLayout.showRestartControl ? (
+              <PlayerIconButton
+                label="Restart preview"
+                onClick={handleRestart}
+                disabled={!previewControlsReady}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </PlayerIconButton>
+            ) : null}
+            {previewControlLayout.showFrameStepControls ? (
+              <PlayerIconButton
+                label="Step back one frame"
+                onClick={() => handleStepFrame(-1)}
+                disabled={!previewControlsReady}
+              >
+                <StepBack className="h-3.5 w-3.5" />
+              </PlayerIconButton>
+            ) : null}
             <div
-              className="min-w-[8.75rem] rounded-md bg-muted/40 px-2.5 py-1 text-center shadow-sm ring-1 ring-border/50"
+              className="shrink-0 rounded-md bg-muted/40 px-2.5 py-1.5 text-center shadow-sm ring-1 ring-border/50"
             >
               <div
                 ref={timecodeRef}
-                className="text-sm tabular-nums tracking-normal text-foreground"
+                className="min-w-[7.5rem] text-sm tabular-nums tracking-normal text-foreground"
               >
                 {formatPreviewTimecode(displayTime, displayTimelineModel?.fps ?? PREVIEW_FPS)}
               </div>
               <div
                 ref={frameIndicatorRef}
                 data-testid="ripple-preview-frame-indicator"
-                className="mt-0.5 text-[10px] tabular-nums text-muted-foreground"
+                className="sr-only"
               >
                 {getTimelineFrameIndicator({
                   time: displayTime,
@@ -1188,36 +1328,42 @@ export function HyperFramesPreviewPlayer({
                 }).label}
               </div>
             </div>
-            <PlayerIconButton
-              label="Step forward one frame"
-              onClick={() => handleStepFrame(1)}
-              disabled={!previewControlsReady}
-            >
-              <StepForward className="h-3.5 w-3.5" />
-            </PlayerIconButton>
+            {previewControlLayout.showFrameStepControls ? (
+              <PlayerIconButton
+                label="Step forward one frame"
+                onClick={() => handleStepFrame(1)}
+                disabled={!previewControlsReady}
+              >
+                <StepForward className="h-3.5 w-3.5" />
+              </PlayerIconButton>
+            ) : null}
           </div>
 
-          <div className="ml-auto flex min-w-fit items-center gap-1">
-            <PlayerIconButton
-              label={isCaptionOverlayVisible ? "Hide caption overlays" : "Show caption overlays"}
-              active={isCaptionOverlayVisible}
-              aria-pressed={isCaptionOverlayVisible}
-              onClick={() => setIsCaptionOverlayVisible((visible) => !visible)}
-              disabled={!hasCaptionClips}
-              className={isCaptionOverlayVisible && hasCaptionClips ? "text-primary hover:text-primary" : undefined}
-            >
-              <Captions className="h-4 w-4" />
-            </PlayerIconButton>
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {previewControlLayout.showCaptionControl ? (
+              <PlayerIconButton
+                label={isCaptionOverlayVisible ? "Hide caption overlays" : "Show caption overlays"}
+                active={isCaptionOverlayVisible}
+                aria-pressed={isCaptionOverlayVisible}
+                onClick={() => setIsCaptionOverlayVisible((visible) => !visible)}
+                disabled={!hasCaptionClips}
+                className={isCaptionOverlayVisible && hasCaptionClips ? "text-primary hover:text-primary" : undefined}
+              >
+                <Captions className="h-4 w-4" />
+              </PlayerIconButton>
+            ) : null}
 
-            <PlayerIconButton
-              label={isTimelineVisible ? "Hide timeline" : "Show timeline"}
-              active={isTimelineVisible}
-              aria-pressed={isTimelineVisible}
-              onClick={() => setIsTimelineVisible((visible) => !visible)}
-              className={isTimelineVisible ? "text-primary hover:text-primary" : undefined}
-            >
-              <Rows2 className="h-4 w-4" />
-            </PlayerIconButton>
+            {previewControlLayout.showTimelineControl ? (
+              <PlayerIconButton
+                label={isTimelineVisible ? "Hide timeline" : "Show timeline"}
+                active={isTimelineVisible}
+                aria-pressed={isTimelineVisible}
+                onClick={() => setIsTimelineVisible((visible) => !visible)}
+                className={isTimelineVisible ? "text-primary hover:text-primary" : undefined}
+              >
+                <Rows2 className="h-4 w-4" />
+              </PlayerIconButton>
+            ) : null}
 
             <DropdownMenu>
               <Tooltip>
@@ -1259,6 +1405,109 @@ export function HyperFramesPreviewPlayer({
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>
                 ) : null}
+                {hasHiddenPlaybackControls ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Playback</DropdownMenuLabel>
+                    {!previewControlLayout.showLoopControl ? (
+                      <DropdownMenuCheckboxItem
+                        checked={isLooping}
+                        onCheckedChange={(checked) => adapter.setLooping(checked === true)}
+                        disabled={!previewControlsReady}
+                      >
+                        Loop playback
+                      </DropdownMenuCheckboxItem>
+                    ) : null}
+                    {!previewControlLayout.showSpeedControl ? (
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger disabled={!previewControlsReady}>
+                          <Gauge className="h-4 w-4" />
+                          <span>Speed</span>
+                          <span className="ml-auto text-xs text-muted-foreground">
+                            {formatPlaybackSpeed(playbackSpeed)}
+                          </span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent className="w-32">
+                          <DropdownMenuRadioGroup
+                            value={String(playbackSpeed)}
+                            onValueChange={(value) => handleSpeedChange(Number(value))}
+                          >
+                            {PLAYBACK_SPEEDS.map((speed) => (
+                              <DropdownMenuRadioItem key={speed} value={String(speed)}>
+                                {formatPlaybackSpeed(speed)}
+                              </DropdownMenuRadioItem>
+                            ))}
+                          </DropdownMenuRadioGroup>
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    ) : null}
+                    {!previewControlLayout.showMuteControl ? (
+                      <DropdownMenuCheckboxItem
+                        checked={isMuted}
+                        onCheckedChange={(checked) => adapter.setMuted(checked === true)}
+                        disabled={!previewControlsReady}
+                      >
+                        Mute preview
+                      </DropdownMenuCheckboxItem>
+                    ) : null}
+                    {!previewControlLayout.showRestartControl ? (
+                      <DropdownMenuItem
+                        onSelect={handleRestart}
+                        disabled={!previewControlsReady}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        Restart preview
+                      </DropdownMenuItem>
+                    ) : null}
+                    {!previewControlLayout.showFrameStepControls ? (
+                      <>
+                        <DropdownMenuItem
+                          onSelect={() => handleStepFrame(-1)}
+                          disabled={!previewControlsReady}
+                        >
+                          <StepBack className="h-4 w-4" />
+                          Step back one frame
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => handleStepFrame(1)}
+                          disabled={!previewControlsReady}
+                        >
+                          <StepForward className="h-4 w-4" />
+                          Step forward one frame
+                        </DropdownMenuItem>
+                      </>
+                    ) : null}
+                  </>
+                ) : null}
+                {hasHiddenViewControls ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>View</DropdownMenuLabel>
+                    {!previewControlLayout.showCaptionControl ? (
+                      <DropdownMenuCheckboxItem
+                        checked={isCaptionOverlayVisible}
+                        onCheckedChange={(checked) => setIsCaptionOverlayVisible(checked === true)}
+                        disabled={!hasCaptionClips}
+                      >
+                        Caption overlays
+                      </DropdownMenuCheckboxItem>
+                    ) : null}
+                    {!previewControlLayout.showTimelineControl ? (
+                      <DropdownMenuCheckboxItem
+                        checked={isTimelineVisible}
+                        onCheckedChange={(checked) => setIsTimelineVisible(checked === true)}
+                      >
+                        Timeline
+                      </DropdownMenuCheckboxItem>
+                    ) : null}
+                    {!previewControlLayout.showFullscreenControl ? (
+                      <DropdownMenuItem onSelect={handleToggleFullscreen}>
+                        {isElementFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                        {isElementFullscreen ? "Exit fullscreen" : "Open fullscreen"}
+                      </DropdownMenuItem>
+                    ) : null}
+                  </>
+                ) : null}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={() => void handleOpenStudio()}
@@ -1282,12 +1531,14 @@ export function HyperFramesPreviewPlayer({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <PlayerIconButton
-              label={isElementFullscreen ? "Exit fullscreen" : "Open fullscreen"}
-              onClick={handleToggleFullscreen}
-            >
-              {isElementFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            </PlayerIconButton>
+            {previewControlLayout.showFullscreenControl ? (
+              <PlayerIconButton
+                label={isElementFullscreen ? "Exit fullscreen" : "Open fullscreen"}
+                onClick={handleToggleFullscreen}
+              >
+                {isElementFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </PlayerIconButton>
+            ) : null}
 
             {showCloseControl ? (
               <PlayerIconButton label="Close preview" onClick={onClose}>

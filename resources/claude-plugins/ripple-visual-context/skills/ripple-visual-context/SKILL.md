@@ -27,22 +27,26 @@ or Ripple tooling during a Ripple agent run. Ripple already provides `ripple`,
 - `hyperframes snapshot --frames 5 .` for quick evenly spaced still frames.
 - `hyperframes render .` when the user explicitly needs an exported video.
 
-Use Ripple's frame-sheet helper when you need a compact overview across time:
+Use Ripple's visual commands when you need a compact overview across time,
+one exact still, or a small context bundle:
 
 ```bash
-ripple frame-sheet --range 2s..8s --samples 8 --json
-ripple frame-sheet --range 2s..8s --every 1s --json
-ripple frame-sheet --at 0s,1.5s,3s,4.2s --json
+ripple sheet --range 2s..8s --samples 8 --backend engine --json
+ripple sheet --range 2s..8s --every 1s --backend engine --json
+ripple snapshot --at current --backend engine --json
+ripple snapshot --at 1.25s --backend engine --json
+ripple context --range 2s..8s --backend engine --json
 ```
 
 Ripple puts the bare `ripple` command on the app-managed PATH for Codex and
 Claude runs. Run it from the project directory unless you pass `--dir`.
+Use `--at current` when the user asks what is visible in the app right now.
 
 Default first move for a visual sanity check, after visible edits, or when you
 need to understand motion over time:
 
 ```bash
-ripple frame-sheet --range 0s..8s --samples 8 --columns 4 --settle 0 --json
+ripple sheet --range 0s..8s --samples 8 --columns 4 --settle 0 --backend engine --json
 ```
 
 If the project duration is clearly shorter or longer, adjust the range. In
@@ -53,18 +57,19 @@ viewing. Still generate the sheet and report the sheet path plus any manifest
 details you used. Do not fall back to source-only reasoning unless the CLI
 fails.
 
-`ripple frame-sheet` is optimized for agent review by default: it captures at
+`ripple sheet` is optimized for agent review by default: it captures at
 the final sheet cell size instead of making full-resolution screenshots first.
 The default 4-column, 8-sample sheet is a good first look for Codex and Claude:
 it is about 1440px wide, keeping 16:9 cells just over 200px tall while staying
 below common model image-resize thresholds. Use `--max-sheet-width 960` for
 faster, smaller sheets, or
-`--capture hyperframes` only when you specifically need HyperFrames' own
-snapshot output.
+`--backend producer-capture` only when you specifically need Producer-backed
+correctness validation instead of the default Engine capture path.
 
-The command writes under `.ripple/frame-sheets/<id>/` in the current project.
-Read `manifest.json` to map sheet cells to timestamps and frame numbers. Start
-with small sheets; request more samples only when the task needs more temporal
+Frame sheets write under `.ripple/frame-sheets/<id>/` in the current project.
+Read `manifest.json` to map sheet cells to timestamps and frame numbers.
+Snapshots write under `.ripple/visual-context/snapshots/<id>/`. Start with
+small sheets; request more samples only when the task needs more temporal
 detail.
 
 Do not use generic video extraction for normal HyperFrames composition state.

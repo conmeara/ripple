@@ -70,7 +70,7 @@ export function AppUpdatesTab() {
   const { state, checkForUpdates, downloadUpdate, installUpdate } = useUpdateChecker()
   const setUpdateState = useSetAtom(updateStateAtom)
   const [betaUpdatesEnabled, setBetaUpdatesEnabled] = useAtom(betaUpdatesEnabledAtom)
-  const [autoUpdateChecksEnabled, setAutoUpdateChecksEnabled] = useState(false)
+  const [autoUpdateChecksEnabled, setAutoUpdateChecksEnabled] = useState(true)
   const [autoUpdateChecksSaving, setAutoUpdateChecksSaving] = useState(false)
   const [channelSaving, setChannelSaving] = useState(false)
   const [currentVersion, setCurrentVersion] = useState<string | null>(null)

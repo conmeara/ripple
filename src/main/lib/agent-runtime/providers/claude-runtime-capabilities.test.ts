@@ -55,7 +55,7 @@ describe("Claude runtime capabilities source contract", () => {
     expect(source).not.toContain("AGENTS.md")
   })
 
-  test("auto-allows only the app-managed frame-sheet command for Claude visual context", async () => {
+  test("auto-allows only the app-managed visual-context commands for Claude visual context", async () => {
     const source = await readFile(
       "src/main/lib/agent-runtime/providers/claude-agent-sdk-adapter.ts",
       "utf8",
@@ -65,8 +65,13 @@ describe("Claude runtime capabilities source contract", () => {
     expect(source).toContain("canUseTool")
     expect(source).toContain("onElicitation")
     expect(source).toContain('permissionMode: input.mode === "plan" ? "plan" : "default"')
-    expect(source).toContain("\"Bash(ripple frame-sheet)\"")
-    expect(source).toContain("\"Bash(ripple frame-sheet *)\"")
+    expect(source).toContain("\"Bash(ripple snapshot)\"")
+    expect(source).toContain("\"Bash(ripple sheet)\"")
+    expect(source).toContain("\"Bash(ripple context)\"")
+    expect(source).not.toContain("\"Bash(ripple visual)\"")
+    expect(source).not.toContain("\"Bash(ripple visual *)\"")
+    expect(source).not.toContain("\"Bash(ripple frame-sheet)\"")
+    expect(source).not.toContain("\"Bash(ripple frame-sheet *)\"")
     expect(source).not.toContain('"acceptEdits"')
     expect(source).not.toContain("\"Bash(*)\"")
     expect(source).not.toContain("allowDangerouslySkipPermissions")
@@ -91,7 +96,7 @@ describe("Claude runtime capabilities source contract", () => {
         root.endsWith("resources/claude-plugins/ripple-visual-context/skills")
       )).toBe(true)
       expect(capabilities.systemPrompt?.append).toContain("Use it proactively after creating or editing visible motion work")
-      expect(capabilities.systemPrompt?.append).toContain("ripple frame-sheet --range 0s..8s --samples 8 --columns 4 --settle 0 --json")
+      expect(capabilities.systemPrompt?.append).toContain("ripple sheet --range 0s..8s --samples 8 --columns 4 --settle 0 --backend engine --json")
     } finally {
       await rm(projectPath, { recursive: true, force: true })
     }

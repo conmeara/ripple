@@ -4,7 +4,9 @@ import type {
   AgentProviderApprovalRequestInput,
 } from "../types"
 
-const CLAUDE_AUTO_ALLOWED_FRAME_SHEET = /^ripple\s+frame-sheet(?:\s|$)/
+const CLAUDE_AUTO_ALLOWED_VISUAL_CONTEXT =
+  /^ripple\s+(?:sheet|snapshot|context)(?:\s|$)/
+const SHELL_CONTROL_CHARS = new Set([";", "&", "|", "<", ">", "\n", "\r"])
 
 type ClaudePermissionOptions = {
   signal?: AbortSignal
@@ -50,13 +52,49 @@ function commandFromToolInput(input: Record<string, unknown>): string | null {
   )
 }
 
+function hasShellControlOperator(command: string): boolean {
+  let inSingleQuote = false
+  let inDoubleQuote = false
+  let escaped = false
+
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index]
+    const next = command[index + 1]
+
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === "\\") {
+      escaped = true
+      continue
+    }
+    if (char === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote
+      continue
+    }
+    if (char === "\"" && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote
+      continue
+    }
+    if (!inSingleQuote && char === "`") return true
+    if (!inSingleQuote && char === "$" && next === "(") return true
+    if (!inSingleQuote && !inDoubleQuote && SHELL_CONTROL_CHARS.has(char)) {
+      return true
+    }
+  }
+
+  return false
+}
+
 export function isRippleClaudeAutoAllowedTool(
   toolName: string,
   toolInput: Record<string, unknown>,
 ): boolean {
   if (toolName !== "Bash") return false
   const command = commandFromToolInput(toolInput)
-  return Boolean(command && CLAUDE_AUTO_ALLOWED_FRAME_SHEET.test(command))
+  if (!command || hasShellControlOperator(command)) return false
+  return CLAUDE_AUTO_ALLOWED_VISUAL_CONTEXT.test(command)
 }
 
 function looksNetworkRelated(

@@ -20,6 +20,7 @@ interface BackedUpUntrackedFile {
 const GENERATED_VISUAL_DIFF_PREFIXES = [
   ".ripple/frame-sheets/",
   ".ripple/comment-visuals/",
+  ".ripple/agent-visual-context/",
   ".ripple/tmp/",
   ".ripple/agent-attachments/",
   ".ripple/snapshots/",

@@ -2,8 +2,8 @@ import { useEffect, useCallback, useRef } from "react"
 import { useAtom } from "jotai"
 import { updateStateAtom, type UpdateState } from "../atoms"
 
-// Automatic checks are optional and owned by the main process. This hook only
-// handles update events and exposes user-initiated actions.
+// Automatic checks are owned by the main process. This hook only handles update
+// events and exposes user-initiated actions.
 const DISMISSED_KEY = "update-dismissed"
 const DISMISS_DURATION = 12 * 60 * 60 * 1000 // 12 hours
 

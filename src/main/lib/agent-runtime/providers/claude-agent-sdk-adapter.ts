@@ -18,6 +18,8 @@ import {
   loadClaudeRuntimeCapabilities,
 } from "./claude-runtime-capabilities"
 import { buildRippleAgentToolEnvironment } from "../cli-tools-env"
+import { createAgentVisualContextEndpoint } from "../visual-context-endpoint"
+import { prepareAgentVisualContextHandoff } from "../visual-context-handoff"
 import {
   buildClaudeElicitationApprovalRequest,
   buildClaudeElicitationResult,
@@ -34,8 +36,12 @@ const execFileAsync = promisify(execFile)
 const activeControllers = new Map<string, AbortController>()
 
 export const RIPPLE_CLAUDE_AUTO_ALLOWED_TOOLS = [
-  "Bash(ripple frame-sheet)",
-  "Bash(ripple frame-sheet *)",
+  "Bash(ripple snapshot)",
+  "Bash(ripple snapshot *)",
+  "Bash(ripple sheet)",
+  "Bash(ripple sheet *)",
+  "Bash(ripple context)",
+  "Bash(ripple context *)",
 ] as const
 
 function safeJsonParse(value: string): Record<string, unknown> {
@@ -159,6 +165,7 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
 
     const abortController = new AbortController()
     activeControllers.set(input.run.id, abortController)
+    let visualContextEndpoint: Awaited<ReturnType<typeof createAgentVisualContextEndpoint>> = null
     const binaryPath = getBundledClaudeCodePath()
     let summary: string | null = null
     let providerSessionId: string | null = input.thread.providerSessionId ?? null
@@ -300,6 +307,17 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         })
       }
 
+      const visualContextHandoff = await prepareAgentVisualContextHandoff({
+        runId: input.run.id,
+        currentFrameSnapshot: input.currentFrameSnapshot,
+        repoRoot: getRepoRoot(),
+      }).catch((error) => {
+        console.warn("[claude-agent-sdk] Failed to prepare visual context handoff:", error)
+        return null
+      })
+      visualContextEndpoint = await createAgentVisualContextEndpoint(input.cwd, {
+        resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
+      })
       const env = buildRippleAgentToolEnvironment({
         baseEnv: buildClaudeEnv({
           customEnv: {
@@ -308,6 +326,9 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         }),
         repoRoot: getRepoRoot(),
         workspaceRoot: input.cwd,
+        visualContextEndpoint: visualContextEndpoint?.endpoint,
+        visualContextToken: visualContextEndpoint?.token,
+        visualContextManifestPath: visualContextHandoff?.manifestPath,
       })
       const nativeAttachmentBlocks = [
         ...preparedAttachments.imageContentBlocks,
@@ -820,6 +841,7 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
       }
     } finally {
       activeControllers.delete(input.run.id)
+      await visualContextEndpoint?.close()
     }
   }
 

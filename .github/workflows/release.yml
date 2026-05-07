@@ -142,6 +142,11 @@ jobs:
           else
             printf "Ripple %s\n" "$RIPPLE_RELEASE_VERSION" > build/release-notes.md
           fi
+          {
+            printf "Download Ripple for Apple Silicon Macs with the .dmg file.\n\n"
+            printf "The .zip, .blockmap, and .yml assets support Ripple's automatic updater.\n\n"
+            cat build/release-notes.md
+          } > build/github-release-notes.md
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -161,7 +166,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bunx electron-builder --mac --publish never \
+          bunx electron-builder --mac --arm64 --publish never \
             -c.mac.notarize=true
 
       - name: Verify packaged export browsers
@@ -177,6 +182,10 @@ jobs:
             exit 1
           fi
           for app_path in "${apps[@]}"; do
+            if [[ "$app_path" != *"/mac-arm64/"* ]]; then
+              echo "Unexpected non-Apple-Silicon app bundle: $app_path"
+              exit 1
+            fi
             browser="$app_path/Contents/Resources/browser/chrome-headless-shell"
             if [[ ! -x "$browser" ]]; then
               echo "Packaged export browser missing or not executable: $browser"
@@ -184,17 +193,10 @@ jobs:
             fi
             browser_file="$(file "$browser")"
             echo "$browser_file"
-            if [[ "$app_path" == *"/mac-arm64/"* ]]; then
-              grep -q "arm64" <<< "$browser_file" || {
-                echo "Expected arm64 export browser in $app_path"
-                exit 1
-              }
-            else
-              grep -q "x86_64" <<< "$browser_file" || {
-                echo "Expected x86_64 export browser in $app_path"
-                exit 1
-              }
-            fi
+            grep -q "arm64" <<< "$browser_file" || {
+              echo "Expected arm64 export browser in $app_path"
+              exit 1
+            }
           done
 
       - name: Verify notarized apps
@@ -227,6 +229,12 @@ jobs:
             echo "No electron-updater macOS metadata files were produced."
             exit 1
           fi
+          for metadata_path in "${metadata[@]}"; do
+            if [[ "$metadata_path" == *"-mac-x64.yml" ]]; then
+              echo "Unexpected Intel macOS update metadata: $metadata_path"
+              exit 1
+            fi
+          done
           if [[ "$RIPPLE_RELEASE_VERSION" == *-* ]]; then
             printf "%s\n" "${metadata[@]}" | grep -q "beta-mac" || {
               echo "Beta version did not produce beta macOS metadata."
@@ -260,13 +268,13 @@ jobs:
             -R conmeara/ripple
             --target "$GITHUB_SHA"
             --title "Ripple $RIPPLE_RELEASE_VERSION"
-            --notes-file build/release-notes.md
+            --notes-file build/github-release-notes.md
           )
           edit_args=(
             -R conmeara/ripple
             --target "$GITHUB_SHA"
             --title "Ripple $RIPPLE_RELEASE_VERSION"
-            --notes-file build/release-notes.md
+            --notes-file build/github-release-notes.md
           )
           case "$RIPPLE_RELEASE_TYPE" in
             draft)
@@ -312,7 +320,7 @@ jobs:
       - name: Upload workflow artifact copy
         uses: actions/upload-artifact@v4
         with:
-          name: ripple-macos-${{ inputs.version }}
+          name: ripple-macos-apple-silicon-${{ inputs.version }}
           path: |
             release/*.dmg
             release/*.zip

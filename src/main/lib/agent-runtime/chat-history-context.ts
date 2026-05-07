@@ -48,10 +48,41 @@ export function shouldIncludeConversationHistory(input: {
   run: Pick<AgentRun, "provider" | "runKind" | "conversationId">
   thread: Pick<AgentThread, "providerSessionId">
 }): boolean {
-  if (input.run.runKind !== "chat" || !input.run.conversationId) return false
+  if (
+    input.run.runKind !== "chat" &&
+    input.run.runKind !== "generated_change"
+  ) return false
+  if (!input.run.conversationId) return false
   if (input.run.provider === "codex") return true
   if (input.run.provider === "claude") return !input.thread.providerSessionId
-  return false
+  return true
+}
+
+function parseMetadata(value: string | null | undefined): Record<string, unknown> {
+  if (!value) return {}
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+export function filterConversationHistoryMessagesForRun(input: {
+  messages: Array<Pick<ConversationMessage, "agentRunId" | "metadataJson">>
+  run: Pick<AgentRun, "id" | "runKind" | "revisionId">
+}): Array<Pick<ConversationMessage, "agentRunId" | "metadataJson">> {
+  return input.messages.filter((message) => {
+    if (message.agentRunId === input.run.id) return false
+    if (input.run.runKind !== "generated_change" || !input.run.revisionId) {
+      return true
+    }
+
+    const metadata = parseMetadata(message.metadataJson)
+    return metadata.revisionId !== input.run.revisionId
+  })
 }
 
 export function formatConversationHistoryForPrompt(
@@ -102,7 +133,10 @@ export function buildConversationHistoryContext(input: {
     .where(eq(conversationMessages.conversationId, input.run.conversationId!))
     .orderBy(asc(conversationMessages.createdAt))
     .all() as ConversationMessage[])
-    .filter((message) => message.agentRunId !== input.run.id)
+  const historyRows = filterConversationHistoryMessagesForRun({
+    messages: rows,
+    run: input.run,
+  }) as ConversationMessage[]
 
-  return formatConversationHistoryForPrompt(rows)
+  return formatConversationHistoryForPrompt(historyRows)
 }

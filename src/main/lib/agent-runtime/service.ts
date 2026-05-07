@@ -26,6 +26,7 @@ import {
   appendRuntimeContextToPrompt,
   buildAgentRuntimeContextPrompt,
   parseAgentRuntimeContextPayload,
+  resolveAgentRuntimeCurrentFrameSnapshot,
   serializeAgentRuntimeContextPayload,
 } from "./run-editor-context"
 import {
@@ -721,6 +722,7 @@ export async function executeAgentRun(
     if (mergedAttachments.droppedOptionalAttachments.length > 0) {
       console.warn("[Ripple] Dropped automatic comment visual context because attachment limits were reached.")
     }
+    const runtimeContext = parseAgentRuntimeContextPayload(context.run.runtimeContextJson)
     const providerPrompt = appendRuntimeContextToPrompt({
       prompt: context.run.prompt,
       context: [
@@ -742,7 +744,7 @@ export async function executeAgentRun(
             targetId: context.targetId,
           },
           runtime: {
-            runtimeContext: parseAgentRuntimeContextPayload(context.run.runtimeContextJson),
+            runtimeContext,
             runKind: context.run.runKind,
             commentThreadId: context.run.threadId,
             revisionId: context.run.revisionId,
@@ -760,6 +762,20 @@ export async function executeAgentRun(
       mode: context.run.mode,
       model: context.run.model,
       attachments: mergedAttachments.attachments,
+      currentFrameSnapshot: resolveAgentRuntimeCurrentFrameSnapshot({
+        db,
+        resolved: {
+          workspace: context.workspace,
+          project: context.project,
+          cwd: context.workspace.path,
+          projectPath: context.projectPath,
+          writableRoot: context.writableRoot,
+          kind: context.workspaceKind,
+          targetType: context.targetType,
+          targetId: context.targetId,
+        },
+        runtimeContext,
+      }),
       authConfig: options.authConfig ?? null,
     }, sink)
     if (isCancellationRequested(db, runId)) {

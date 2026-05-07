@@ -27,6 +27,14 @@ export interface RippleShellState {
   rightPaneMode: RippleRightPaneMode
 }
 
+export const RIPPLE_PANEL_ANIMATION_SECONDS = 0.18
+export const RIPPLE_CENTER_REVIEW_DIVIDER_WIDTH = 1
+export const RIPPLE_CENTER_STAGE_MIN_WIDTH = 420
+export const RIPPLE_CENTER_STAGE_COMPACT_MIN_WIDTH = 240
+export const RIPPLE_REVIEW_PANE_MIN_WIDTH = 300
+export const RIPPLE_REVIEW_PANE_MAX_WIDTH = 520
+export const RIPPLE_REVIEW_PANE_DEFAULT_WIDTH = 360
+
 export const RIPPLE_REVIEW_MODES = ["chat", "comments"] as const
 
 export const RIPPLE_UTILITY_MODES = [
@@ -163,5 +171,111 @@ export function applyRippleShellShortcut(
       return setRippleRightPaneMode(state, "chat")
     case "show-comments":
       return setRippleRightPaneMode(state, "comments")
+  }
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (max < min) return max
+  return Math.max(min, Math.min(max, value))
+}
+
+export function getRippleReviewPaneWidthBounds(
+  containerWidth?: number,
+): { min: number; max: number } {
+  if (
+    typeof containerWidth !== "number" ||
+    !Number.isFinite(containerWidth) ||
+    containerWidth <= 0
+  ) {
+    return {
+      min: RIPPLE_REVIEW_PANE_MIN_WIDTH,
+      max: RIPPLE_REVIEW_PANE_MAX_WIDTH,
+    }
+  }
+
+  const availableWidth = Math.max(
+    0,
+    containerWidth - RIPPLE_CENTER_REVIEW_DIVIDER_WIDTH,
+  )
+  if (availableWidth <= 0) return { min: 0, max: 0 }
+
+  const roomyMax = Math.min(
+    RIPPLE_REVIEW_PANE_MAX_WIDTH,
+    availableWidth - RIPPLE_CENTER_STAGE_MIN_WIDTH,
+  )
+  if (roomyMax >= RIPPLE_REVIEW_PANE_MIN_WIDTH) {
+    return {
+      min: RIPPLE_REVIEW_PANE_MIN_WIDTH,
+      max: roomyMax,
+    }
+  }
+
+  const compactCenterMin = Math.min(
+    RIPPLE_CENTER_STAGE_MIN_WIDTH,
+    Math.max(
+      RIPPLE_CENTER_STAGE_COMPACT_MIN_WIDTH,
+      availableWidth * 0.55,
+    ),
+  )
+  const compactMax = Math.max(0, availableWidth - compactCenterMin)
+  const compactMin = Math.min(RIPPLE_REVIEW_PANE_MIN_WIDTH, compactMax)
+
+  return {
+    min: compactMin,
+    max: compactMax,
+  }
+}
+
+export function clampRippleReviewPaneWidth({
+  width,
+  containerWidth,
+}: {
+  width: number
+  containerWidth?: number
+}): number {
+  const bounds = getRippleReviewPaneWidthBounds(containerWidth)
+  return clampNumber(width, bounds.min, bounds.max)
+}
+
+export function getRippleCenterReviewLayout({
+  containerWidth,
+  reviewPaneWidth,
+  centerStageOpen,
+  reviewPaneOpen,
+}: {
+  containerWidth: number
+  reviewPaneWidth: number
+  centerStageOpen: boolean
+  reviewPaneOpen: boolean
+}): {
+  centerWidth: number
+  reviewWidth: number
+  dividerWidth: number
+} {
+  const width = Math.max(0, containerWidth)
+
+  if (!centerStageOpen && !reviewPaneOpen) {
+    return { centerWidth: 0, reviewWidth: 0, dividerWidth: 0 }
+  }
+
+  if (centerStageOpen && !reviewPaneOpen) {
+    return { centerWidth: width, reviewWidth: 0, dividerWidth: 0 }
+  }
+
+  if (!centerStageOpen && reviewPaneOpen) {
+    return { centerWidth: 0, reviewWidth: width, dividerWidth: 0 }
+  }
+
+  const dividerWidth = Math.min(RIPPLE_CENTER_REVIEW_DIVIDER_WIDTH, width)
+  const reviewWidth = clampRippleReviewPaneWidth({
+    width: reviewPaneWidth,
+    containerWidth: width,
+  })
+  const centerWidth = Math.max(0, width - dividerWidth - reviewWidth)
+
+  return {
+    centerWidth,
+    reviewWidth,
+    dividerWidth,
   }
 }

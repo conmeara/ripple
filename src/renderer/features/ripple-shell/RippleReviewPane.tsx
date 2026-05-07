@@ -111,10 +111,8 @@ export function RippleReviewPane({
   return (
     <aside
       className={cn(
-        "flex h-full min-h-0 flex-col overflow-hidden border-l border-border/60 bg-tl-background",
-        expanded
-          ? "w-auto min-w-[340px] max-w-none flex-1"
-          : "w-[clamp(300px,30vw,390px)] min-w-[300px] max-w-[390px]",
+        "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-l border-border/60 bg-tl-background",
+        expanded && "min-w-[340px] flex-1",
       )}
     >
       <div className="flex h-11 shrink-0 items-center px-3">

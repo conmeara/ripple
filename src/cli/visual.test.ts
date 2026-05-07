@@ -1,0 +1,602 @@
+import { describe, expect, test } from "bun:test"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { createVisualContextEndpoint } from "../main/lib/visual-context"
+import type {
+  VisualCaptureFramesRequest,
+  VisualContextService,
+  VisualSnapshotInput,
+} from "../main/lib/visual-context"
+import { runRippleCli } from "./ripple"
+import { runVisualCommand } from "./visual"
+
+const ONE_BY_ONE_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+  "base64",
+)
+
+async function makeProject(): Promise<string> {
+  const projectDir = await mkdtemp(join(tmpdir(), "ripple-visual-cli-project-"))
+  await writeFile(join(projectDir, "hyperframes.json"), JSON.stringify({
+    name: "Visual CLI Test",
+    entry: "index.html",
+    fps: 24,
+    width: 1280,
+    height: 720,
+    duration: 8,
+  }))
+  await writeFile(join(projectDir, "index.html"), "<!doctype html><body></body>")
+  return projectDir
+}
+
+async function writeHandoffManifest(projectDir: string): Promise<string> {
+  const handoffDir = join(projectDir, ".ripple", "agent-visual-context", "run-test")
+  const sheetDir = join(projectDir, ".ripple", "frame-sheets", "fs_handoff")
+  await mkdir(handoffDir, { recursive: true })
+  await mkdir(sheetDir, { recursive: true })
+  await writeFile(join(handoffDir, "snapshot.png"), ONE_BY_ONE_PNG)
+  await writeFile(join(sheetDir, "sheet.png"), ONE_BY_ONE_PNG)
+  await writeFile(join(sheetDir, "manifest.json"), `${JSON.stringify({
+    version: 1,
+    fps: 24,
+    rangeMs: [0, 8000],
+    samples: [
+      { index: 0, timeMs: 0, frame: 0, path: ".ripple/frame-sheets/fs_handoff/frames/000.png" },
+      { index: 1, timeMs: 8000, frame: 192, path: ".ripple/frame-sheets/fs_handoff/frames/001.png" },
+    ],
+  }, null, 2)}\n`)
+  const manifestPath = join(handoffDir, "manifest.json")
+  await writeFile(manifestPath, `${JSON.stringify({
+    version: 1,
+    createdAt: Date.now(),
+    projectPath: projectDir,
+    sourcePath: projectDir,
+    compositionPath: "index.html",
+    snapshot: {
+      path: ".ripple/agent-visual-context/run-test/snapshot.png",
+      timeMs: 0,
+      frame: 0,
+      width: 1280,
+      height: 720,
+      backend: "fast-browser",
+      elapsedMs: 4,
+    },
+    sheet: {
+      id: "fs_handoff",
+      path: ".ripple/frame-sheets/fs_handoff/sheet.png",
+      manifestPath: ".ripple/frame-sheets/fs_handoff/manifest.json",
+      sampleCount: 2,
+      summary: "Frame sheet captured by Ripple.",
+      backend: "fast-browser",
+      elapsedMs: 7,
+    },
+  }, null, 2)}\n`)
+  return manifestPath
+}
+
+describe("ripple visual CLI commands", () => {
+  test("captures an explicit snapshot through the visual service contract", async () => {
+    const projectDir = await makeProject()
+    let capturedRepoRoot: string | null = null
+    try {
+      const result = await runVisualCommand([
+        "snapshot",
+        "--dir",
+        projectDir,
+        "--at",
+        "1.25s",
+        "--json",
+      ], {
+        idFactory: () => "snap_test",
+        repoRoot: "/tmp/ripple-app",
+        captureSnapshot: async (input) => {
+          capturedRepoRoot = input.repoRoot ?? null
+          const framePath = join(input.outputDir, "000.png")
+          await writeFile(framePath, ONE_BY_ONE_PNG)
+          return {
+            backend: "engine",
+            frames: [{
+              index: 0,
+              timeMs: input.timeMs,
+              frame: Math.round((input.timeMs / 1000) * input.fps),
+              path: framePath,
+              width: input.width,
+              height: input.height,
+              sizeBytes: ONE_BY_ONE_PNG.length,
+            }],
+            elapsedMs: 12,
+            timings: { captureMs: 12 },
+            warnings: [],
+            cleanupPaths: [],
+          }
+        },
+      })
+
+      expect(result.exitCode).toBe(0)
+      const payload = JSON.parse(result.stdout)
+      expect(payload.ok).toBe(true)
+      expect(payload.backend).toBe("engine")
+      expect(payload.snapshot.path).toBe(".ripple/visual-context/snapshots/snap_test/000.png")
+      expect(payload.snapshot.sample).toEqual({
+        timeMs: 1250,
+        frame: 30,
+      })
+      expect(payload.snapshot.width).toBe(1280)
+      expect(payload.snapshot.height).toBe(720)
+      expect(capturedRepoRoot).toBe("/tmp/ripple-app")
+    } finally {
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test("delegates snapshots to the app visual context endpoint when provided", async () => {
+    const projectDir = await makeProject()
+    const service: VisualContextService = {
+      warmProject: async () => undefined,
+      captureFrames: async () => {
+        throw new Error("not used")
+      },
+      captureSnapshot: async (input: VisualSnapshotInput) => {
+        const framePath = join(String(input.outputDir), "endpoint.png")
+        await writeFile(framePath, ONE_BY_ONE_PNG)
+        return {
+          backend: "engine",
+          frames: [{
+            index: 0,
+            timeMs: input.timeMs,
+            frame: Math.round((input.timeMs / 1000) * input.fps),
+            path: framePath,
+            width: input.width,
+            height: input.height,
+            sizeBytes: ONE_BY_ONE_PNG.length,
+          }],
+          elapsedMs: 5,
+          timings: {},
+          warnings: [],
+          cleanupPaths: [],
+        }
+      },
+      invalidateProject: async () => undefined,
+      shutdown: async () => undefined,
+    }
+    const handle = await createVisualContextEndpoint({
+      service,
+      workspaceRoot: projectDir,
+      token: "token-test",
+    })
+
+    try {
+      const result = await runVisualCommand([
+        "snapshot",
+        "--dir",
+        projectDir,
+        "--at",
+        "0.5s",
+        "--json",
+      ], {
+        idFactory: () => "snap_endpoint",
+        env: {
+          RIPPLE_VISUAL_CONTEXT_ENDPOINT: handle.endpoint,
+          RIPPLE_VISUAL_CONTEXT_TOKEN: handle.token,
+        },
+      })
+
+      expect(result.exitCode).toBe(0)
+      const payload = JSON.parse(result.stdout)
+      expect(payload.backend).toBe("engine")
+      expect(payload.snapshot.path).toBe(".ripple/visual-context/snapshots/snap_endpoint/endpoint.png")
+      expect(payload.snapshot.sample).toEqual({
+        timeMs: 500,
+        frame: 12,
+      })
+    } finally {
+      await handle.close()
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test("requires an app-backed endpoint for current-frame snapshots", async () => {
+    const result = await runVisualCommand([
+      "snapshot",
+      "--at",
+      "current",
+      "--json",
+    ])
+
+    expect(result.exitCode).toBe(1)
+    expect(JSON.parse(result.stdout).error.code).toBe("CURRENT_FRAME_REQUIRES_APP")
+  })
+
+  test("surfaces endpoint current-frame rejection without standalone fallback", async () => {
+    const projectDir = await makeProject()
+    const handle = await createVisualContextEndpoint({
+      service: {
+        warmProject: async () => undefined,
+        captureFrames: async () => {
+          throw new Error("not used")
+        },
+        captureSnapshot: async () => {
+          throw new Error("not used")
+        },
+        invalidateProject: async () => undefined,
+        shutdown: async () => undefined,
+      },
+      workspaceRoot: projectDir,
+      token: "token-test",
+    })
+    try {
+      const result = await runVisualCommand([
+        "snapshot",
+        "--dir",
+        projectDir,
+        "--at",
+        "current",
+        "--json",
+      ], {
+        env: {
+          RIPPLE_VISUAL_CONTEXT_ENDPOINT: handle.endpoint,
+          RIPPLE_VISUAL_CONTEXT_TOKEN: handle.token,
+        },
+      })
+
+      expect(result.exitCode).toBe(1)
+      expect(JSON.parse(result.stdout).error.code).toBe("CURRENT_FRAME_UNAVAILABLE")
+    } finally {
+      await handle.close()
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test("captures current-frame snapshots through the app visual context endpoint", async () => {
+    const projectDir = await makeProject()
+    const service: VisualContextService = {
+      warmProject: async () => undefined,
+      captureFrames: async () => {
+        throw new Error("not used")
+      },
+      captureSnapshot: async (input: VisualSnapshotInput) => {
+        const framePath = join(String(input.outputDir), "current.png")
+        await writeFile(framePath, ONE_BY_ONE_PNG)
+        return {
+          backend: "engine",
+          frames: [{
+            index: 0,
+            timeMs: input.timeMs,
+            frame: Math.round((input.timeMs / 1000) * input.fps),
+            path: framePath,
+            width: input.width,
+            height: input.height,
+            sizeBytes: ONE_BY_ONE_PNG.length,
+          }],
+          elapsedMs: 5,
+          timings: {},
+          warnings: [],
+          cleanupPaths: [],
+        }
+      },
+      invalidateProject: async () => undefined,
+      shutdown: async () => undefined,
+    }
+    const handle = await createVisualContextEndpoint({
+      service,
+      workspaceRoot: projectDir,
+      token: "token-test",
+      resolveCurrentFrameSnapshot: async () => ({
+        projectPath: projectDir,
+        compositionPath: "index.html",
+        timeMs: 1500,
+        fps: 24,
+        width: 1280,
+        height: 720,
+      }),
+    })
+    try {
+      const result = await runRippleCli([
+        "snapshot",
+        "--dir",
+        projectDir,
+        "--at",
+        "current",
+        "--json",
+      ], {
+        idFactory: () => "snap_current",
+        env: {
+          RIPPLE_VISUAL_CONTEXT_ENDPOINT: handle.endpoint,
+          RIPPLE_VISUAL_CONTEXT_TOKEN: handle.token,
+        },
+      })
+
+      expect(result.exitCode).toBe(0)
+      const payload = JSON.parse(result.stdout)
+      expect(payload.backend).toBe("engine")
+      expect(payload.snapshot.path).toBe(".ripple/visual-context/snapshots/snap_current/current.png")
+      expect(payload.snapshot.sample).toEqual({
+        timeMs: 1500,
+        frame: 36,
+      })
+      expect(payload.snapshot.width).toBe(1280)
+      expect(payload.snapshot.height).toBe(720)
+    } finally {
+      await handle.close()
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test("uses the app-prepared file handoff when the localhost endpoint is unreachable", async () => {
+    const projectDir = await makeProject()
+    try {
+      const handoffManifestPath = await writeHandoffManifest(projectDir)
+      const env = {
+        RIPPLE_VISUAL_CONTEXT_ENDPOINT: "http://127.0.0.1:9",
+        RIPPLE_VISUAL_CONTEXT_TOKEN: "dead-endpoint",
+        RIPPLE_VISUAL_CONTEXT_MANIFEST: handoffManifestPath,
+      }
+
+      const snapshot = await runVisualCommand([
+        "snapshot",
+        "--dir",
+        projectDir,
+        "--at",
+        "0s",
+        "--composition",
+        "index.html",
+        "--backend",
+        "engine",
+        "--json",
+      ], {
+        env,
+        idFactory: () => "snap_handoff",
+      })
+
+      expect(snapshot.exitCode).toBe(0)
+      const snapshotPayload = JSON.parse(snapshot.stdout)
+      expect(snapshotPayload.backend).toBe("fast-browser")
+      expect(snapshotPayload.snapshot.path).toBe(".ripple/visual-context/snapshots/snap_handoff/handoff.png")
+      expect(snapshotPayload.snapshot.sample).toEqual({ timeMs: 0, frame: 0 })
+      expect(snapshotPayload.warnings[0]).toContain("app-prepared visual context handoff")
+
+      const sheet = await runVisualCommand([
+        "sheet",
+        "--dir",
+        projectDir,
+        "--range",
+        "0s..8s",
+        "--samples",
+        "8",
+        "--columns",
+        "4",
+        "--backend",
+        "engine",
+        "--json",
+      ], { env })
+
+      expect(sheet.exitCode).toBe(0)
+      const sheetPayload = JSON.parse(sheet.stdout)
+      expect(sheetPayload.backend).toBe("fast-browser")
+      expect(sheetPayload.fallbackFrom).toBe("visual-context-handoff")
+      expect(sheetPayload.sheet.path).toBe(".ripple/frame-sheets/fs_handoff/sheet.png")
+    } finally {
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test("wraps frame-sheet JSON for the future-facing sheet command", async () => {
+    const projectDir = await makeProject()
+    try {
+      const result = await runVisualCommand([
+        "sheet",
+        "--dir",
+        projectDir,
+        "--at",
+        "0s,1s",
+        "--columns",
+        "2",
+        "--json",
+      ], {
+        idFactory: () => "fs_visual",
+        captureFrames: async ({ timestampsMs }) => {
+          const framePaths: string[] = []
+          for (const [index] of timestampsMs.entries()) {
+            const framePath = join(projectDir, `visual-sheet-${index}.png`)
+            await writeFile(framePath, ONE_BY_ONE_PNG)
+            framePaths.push(framePath)
+          }
+          return { framePaths, cleanupPaths: framePaths }
+        },
+        assembleSheet: async ({ outputPath }) => {
+          await writeFile(outputPath, ONE_BY_ONE_PNG)
+        },
+      })
+
+      expect(result.exitCode).toBe(0)
+      const payload = JSON.parse(result.stdout)
+      expect(payload.ok).toBe(true)
+      expect(payload.backend).toBe("engine")
+      expect(payload.sheet.path).toBe(".ripple/frame-sheets/fs_visual/sheet.png")
+      expect(payload.sheet.manifestPath).toBe(".ripple/frame-sheets/fs_visual/manifest.json")
+      expect(payload.elapsedMs).toBeGreaterThanOrEqual(0)
+    } finally {
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test("returns structured sheet errors before frame-sheet parsing", async () => {
+    const jsonResult = await runVisualCommand([
+      "sheet",
+      "--backend",
+      "bogus",
+      "--json",
+    ])
+
+    expect(jsonResult.exitCode).toBe(1)
+    expect(jsonResult.stderr).toBe("")
+    expect(JSON.parse(jsonResult.stdout).error.code).toBe("INVALID_BACKEND")
+
+    const textResult = await runVisualCommand([
+      "sheet",
+      "--backend",
+    ])
+    expect(textResult.exitCode).toBe(1)
+    expect(textResult.stdout).toBe("")
+    expect(textResult.stderr).toContain("--backend requires a value.")
+  })
+
+  test("delegates sheet frame capture to the app endpoint when provided", async () => {
+    const projectDir = await makeProject()
+    const service: VisualContextService = {
+      warmProject: async () => undefined,
+      captureFrames: async (input: VisualCaptureFramesRequest) => {
+        const frameDir = join(input.projectPath, ".ripple", "endpoint-sheet-frames")
+        await mkdir(frameDir, { recursive: true })
+        const frames = []
+        for (const [index, timeMs] of input.timestampsMs.entries()) {
+          const framePath = join(frameDir, `${index}.png`)
+          await writeFile(framePath, ONE_BY_ONE_PNG)
+          frames.push({
+            index,
+            timeMs,
+            frame: Math.round((timeMs / 1000) * input.fps),
+            path: framePath,
+            width: input.width,
+            height: input.height,
+            sizeBytes: ONE_BY_ONE_PNG.length,
+          })
+        }
+        return {
+          backend: "engine",
+          frames,
+          elapsedMs: 5,
+          timings: {},
+          warnings: [],
+          cleanupPaths: [frameDir],
+        }
+      },
+      captureSnapshot: async () => {
+        throw new Error("not used")
+      },
+      invalidateProject: async () => undefined,
+      shutdown: async () => undefined,
+    }
+    const handle = await createVisualContextEndpoint({
+      service,
+      workspaceRoot: projectDir,
+      token: "token-test",
+    })
+
+    try {
+      const result = await runVisualCommand([
+        "sheet",
+        "--dir",
+        projectDir,
+        "--at",
+        "0s,1s",
+        "--columns",
+        "2",
+        "--json",
+      ], {
+        idFactory: () => "fs_endpoint",
+        env: {
+          RIPPLE_VISUAL_CONTEXT_ENDPOINT: handle.endpoint,
+          RIPPLE_VISUAL_CONTEXT_TOKEN: handle.token,
+        },
+        assembleSheet: async ({ outputPath }) => {
+          await writeFile(outputPath, ONE_BY_ONE_PNG)
+        },
+      })
+
+      expect(result.exitCode).toBe(0)
+      const payload = JSON.parse(result.stdout)
+      expect(payload.backend).toBe("engine")
+      expect(payload.sheet.path).toBe(".ripple/frame-sheets/fs_endpoint/sheet.png")
+    } finally {
+      await handle.close()
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test("returns modest context metadata from the generated frame-sheet manifest", async () => {
+    const projectDir = await makeProject()
+    try {
+      const result = await runVisualCommand([
+        "context",
+        "--dir",
+        projectDir,
+        "--range",
+        "0s..2s",
+        "--samples",
+        "3",
+        "--columns",
+        "3",
+        "--composition",
+        "index.html",
+        "--json",
+      ], {
+        idFactory: () => "fs_context",
+        captureFrames: async ({ timestampsMs }) => {
+          await mkdir(projectDir, { recursive: true })
+          const framePaths: string[] = []
+          for (const [index] of timestampsMs.entries()) {
+            const framePath = join(projectDir, `context-sheet-${index}.png`)
+            await writeFile(framePath, ONE_BY_ONE_PNG)
+            framePaths.push(framePath)
+          }
+          return { framePaths, cleanupPaths: framePaths }
+        },
+        assembleSheet: async ({ outputPath }) => {
+          await writeFile(outputPath, ONE_BY_ONE_PNG)
+        },
+      })
+
+      expect(result.exitCode).toBe(0)
+      const payload = JSON.parse(result.stdout)
+      expect(payload.ok).toBe(true)
+      expect(payload.context.compositionPath).toBe("index.html")
+      expect(payload.context.fps).toBe(24)
+      expect(payload.context.rangeMs).toEqual([0, 2000])
+      expect(payload.context.samples.map((sample: any) => sample.timeMs)).toEqual([
+        0,
+        1000,
+        2000,
+      ])
+      const manifest = JSON.parse(
+        await readFile(join(projectDir, payload.sheet.manifestPath), "utf8"),
+      )
+      expect(manifest.samples).toHaveLength(3)
+    } finally {
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
+  test("is reachable through the top-level ripple command", async () => {
+    const result = await runRippleCli(["--help"])
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain("snapshot")
+    expect(result.stdout).toContain("sheet")
+  })
+
+  test("routes top-level snapshot commands directly", async () => {
+    const result = await runRippleCli(["snapshot", "--help"])
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain("Usage: ripple snapshot")
+  })
+
+  test("routes top-level context help without trying to parse sheet JSON", async () => {
+    const result = await runRippleCli(["context", "--help"])
+
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain("Usage: ripple context")
+  })
+
+  test("rejects legacy grouped visual and frame-sheet commands", async () => {
+    const visualResult = await runRippleCli(["visual", "sheet", "--json"])
+    const frameSheetResult = await runRippleCli(["frame-sheet", "--json"])
+
+    expect(visualResult.exitCode).toBe(1)
+    expect(JSON.parse(visualResult.stdout).error.code).toBe("UNKNOWN_COMMAND")
+    expect(frameSheetResult.exitCode).toBe(1)
+    expect(JSON.parse(frameSheetResult.stdout).error.code).toBe("UNKNOWN_COMMAND")
+  })
+})

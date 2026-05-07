@@ -741,7 +741,7 @@ if (gotTheLock) {
                       type: "info",
                       message: "CLI command installed",
                       detail:
-                        `You can now use '${RIPPLE_IDENTITY.cliCommand} frame-sheet --help' in any terminal.`,
+                        `You can now use '${RIPPLE_IDENTITY.cliCommand} sheet --help' in any terminal.`,
                     })
                     buildMenu()
                   } else {
@@ -1047,7 +1047,7 @@ if (gotTheLock) {
     createMainWindow()
 
     // Register auto-updater IPC in all builds. Packaged automatic checks are
-    // scheduled inside the updater only when the user enables them.
+    // enabled by default and can be turned off in Settings.
     await initAutoUpdater(getAllWindows)
 
     // Warm up MCP cache 3 seconds after startup (background, non-blocking)

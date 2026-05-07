@@ -338,6 +338,12 @@ describe("comment revision summaries", () => {
         "frame",
         "utf8",
       )
+      await mkdir(join(projectPath, ".ripple", "agent-visual-context", "run-1"), { recursive: true })
+      await writeFile(
+        join(projectPath, ".ripple", "agent-visual-context", "run-1", "manifest.json"),
+        "{}",
+        "utf8",
+      )
 
       const patch = await buildRevisionProposalPatch({
         revisionPath: projectPath,
@@ -347,6 +353,7 @@ describe("comment revision summaries", () => {
       expect(patch).toContain("Real change")
       expect(patch).not.toContain("frame-sheets")
       expect(patch).not.toContain("comment-visuals")
+      expect(patch).not.toContain("agent-visual-context")
     } finally {
       await rm(projectPath, { recursive: true, force: true })
     }

@@ -17,8 +17,9 @@ import type {
   DragEvent as ReactDragEvent,
   PointerEvent as ReactPointerEvent,
   ReactNode,
+  UIEvent as ReactUIEvent,
 } from "react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   type RippleTimelineClip,
   type RippleTimelineModel,
@@ -43,6 +44,12 @@ import {
   resolveTimelineResize,
   timelineClipEditCapabilities,
 } from "../../../shared/hyperframes-timeline-editing"
+import {
+  DEFAULT_RIPPLE_TIMELINE_COMFORT_STATE,
+  loadRippleTimelineComfortState,
+  saveRippleTimelineComfortState,
+  type RippleTimelineZoomMode,
+} from "./timeline-comfort-state"
 import {
   Tooltip,
   TooltipContent,
@@ -71,8 +78,6 @@ interface HyperFramesTimelineProps {
     },
   ) => void | Promise<void>
 }
-
-type TimelineZoomMode = "fit" | "manual"
 
 const GUTTER_WIDTH = 32
 const RULER_HEIGHT = 24
@@ -275,14 +280,19 @@ export function HyperFramesTimeline({
 }: HyperFramesTimelineProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const pendingComfortScrollLeftRef = useRef<number | null>(null)
   const playheadRef = useRef<HTMLDivElement | null>(null)
   const frameIndicatorRef = useRef<HTMLDivElement | null>(null)
   const rangeAnchorRef = useRef<number | null>(null)
   const timelineDurationRef = useRef(0)
   const pixelsPerSecondRef = useRef(1)
   const [viewportWidth, setViewportWidth] = useState(0)
-  const [zoomMode, setZoomMode] = useState<TimelineZoomMode>("fit")
-  const [manualZoomPercent, setManualZoomPercent] = useState(125)
+  const [zoomMode, setZoomMode] = useState<RippleTimelineZoomMode>(
+    DEFAULT_RIPPLE_TIMELINE_COMFORT_STATE.zoomMode,
+  )
+  const [manualZoomPercent, setManualZoomPercent] = useState(
+    DEFAULT_RIPPLE_TIMELINE_COMFORT_STATE.manualZoomPercent,
+  )
   const [selectedClipKey, setSelectedClipKey] = useState<string | null>(null)
   const [rangeSelection, setRangeSelection] = useState<RippleTimelineRangeSelection | null>(null)
   const [isRangeSelecting, setIsRangeSelecting] = useState(false)
@@ -297,6 +307,26 @@ export function HyperFramesTimeline({
 
   const modelDuration = model?.durationSeconds ?? null
   const timelineDuration = modelDuration ?? (duration > 0 ? duration : null)
+  const comfortProjectId = model?.projectId ?? null
+  const comfortCompositionId = model?.compositionId ?? null
+  const saveComfortSnapshot = useCallback((next?: Partial<{
+    zoomMode: RippleTimelineZoomMode
+    manualZoomPercent: number
+    scrollLeft: number
+  }>) => {
+    if (!comfortProjectId || !comfortCompositionId) return
+
+    saveRippleTimelineComfortState(comfortProjectId, comfortCompositionId, {
+      zoomMode: next?.zoomMode ?? zoomMode,
+      manualZoomPercent: next?.manualZoomPercent ?? manualZoomPercent,
+      scrollLeft: next?.scrollLeft ?? scrollRef.current?.scrollLeft ?? 0,
+    })
+  }, [
+    comfortCompositionId,
+    comfortProjectId,
+    manualZoomPercent,
+    zoomMode,
+  ])
   const tracks = useMemo(
     () => groupTimelineClipsByTrack(model?.clips ?? []),
     [model?.clips],
@@ -443,6 +473,27 @@ export function HyperFramesTimeline({
     observer.observe(root)
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    if (!comfortProjectId || !comfortCompositionId) return
+
+    const saved = loadRippleTimelineComfortState(
+      comfortProjectId,
+      comfortCompositionId,
+    )
+    setZoomMode(saved.zoomMode)
+    setManualZoomPercent(saved.manualZoomPercent)
+    pendingComfortScrollLeftRef.current = saved.scrollLeft
+  }, [comfortCompositionId, comfortProjectId])
+
+  useLayoutEffect(() => {
+    const scroll = scrollRef.current
+    const pendingScrollLeft = pendingComfortScrollLeftRef.current
+    if (!scroll || pendingScrollLeft === null) return
+
+    scroll.scrollLeft = pendingScrollLeft
+    pendingComfortScrollLeftRef.current = null
+  }, [canvasWidth, comfortCompositionId, comfortProjectId, zoomMode])
 
   useEffect(() => {
     onSelectionChange?.(rangeSelection)
@@ -868,14 +919,34 @@ export function HyperFramesTimeline({
     updateClipEditPreview,
   ])
 
+  const handleFitTimeline = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = 0
+    }
+    setZoomMode("fit")
+    saveComfortSnapshot({ zoomMode: "fit", scrollLeft: 0 })
+  }
+
   const zoomIn = () => {
     setZoomMode("manual")
-    setManualZoomPercent((current) => Math.min(800, Math.round(current * 1.25)))
+    setManualZoomPercent((current) => {
+      const next = Math.min(800, Math.round(current * 1.25))
+      saveComfortSnapshot({ zoomMode: "manual", manualZoomPercent: next })
+      return next
+    })
   }
   const zoomOut = () => {
     setZoomMode("manual")
-    setManualZoomPercent((current) => Math.max(25, Math.round(current * 0.8)))
+    setManualZoomPercent((current) => {
+      const next = Math.max(25, Math.round(current * 0.8))
+      saveComfortSnapshot({ zoomMode: "manual", manualZoomPercent: next })
+      return next
+    })
   }
+
+  const handleTimelineScroll = useCallback((event: ReactUIEvent<HTMLDivElement>) => {
+    saveComfortSnapshot({ scrollLeft: event.currentTarget.scrollLeft })
+  }, [saveComfortSnapshot])
 
   const handleAssetDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
     if (!onAssetDrop || !timelineDuration || !isReady) return
@@ -934,7 +1005,7 @@ export function HyperFramesTimeline({
           <TimelineIconButton
             label="Fit timeline"
             active={zoomMode === "fit"}
-            onClick={() => setZoomMode("fit")}
+            onClick={handleFitTimeline}
             disabled={!timelineDuration}
           >
             <ScanLine className="h-3.5 w-3.5" />
@@ -970,6 +1041,7 @@ export function HyperFramesTimeline({
           onDragOver={handleAssetDragOver}
           onDragLeave={handleAssetDragLeave}
           onDrop={handleAssetDrop}
+          onScroll={handleTimelineScroll}
         >
           <div
             className="relative"

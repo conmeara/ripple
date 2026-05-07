@@ -9,6 +9,9 @@ export interface RippleAgentToolEnvironmentInput {
   baseEnv?: NodeJS.ProcessEnv
   repoRoot?: string
   workspaceRoot: string
+  visualContextEndpoint?: string | null
+  visualContextToken?: string | null
+  visualContextManifestPath?: string | null
 }
 
 function platformArch(): string {
@@ -55,5 +58,16 @@ export function buildRippleAgentToolEnvironment(
     PATH: pathValue,
     Path: process.platform === "win32" ? pathValue : baseEnv.Path,
     RIPPLE_AGENT_WORKSPACE_ROOT: workspaceRoot,
+    ...(input.visualContextEndpoint && input.visualContextToken
+      ? {
+        RIPPLE_VISUAL_CONTEXT_ENDPOINT: input.visualContextEndpoint,
+        RIPPLE_VISUAL_CONTEXT_TOKEN: input.visualContextToken,
+      }
+      : {}),
+    ...(input.visualContextManifestPath
+      ? {
+        RIPPLE_VISUAL_CONTEXT_MANIFEST: input.visualContextManifestPath,
+      }
+      : {}),
   }
 }

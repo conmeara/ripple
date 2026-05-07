@@ -10,6 +10,7 @@ import {
   appendRuntimeContextToPrompt,
   buildAgentRuntimeContextPrompt,
   normalizeAgentRuntimeContextPayload,
+  resolveAgentRuntimeCurrentFrameSnapshot,
 } from "./runtime-context"
 import type { ResolvedWorkspaceContext } from "./workspace-context"
 
@@ -158,6 +159,79 @@ describe("agent runtime live context", () => {
         prompt: "Make the title larger.",
         context,
       })).toContain("Ripple live context:")
+    } finally {
+      sqlite.close()
+    }
+  })
+
+  test("resolves app-managed current-frame snapshots from the live preview context", () => {
+    const { sqlite, db } = createTestDb()
+    try {
+      db.insert(projects)
+        .values({
+          id: "project-1",
+          name: "Launch Promo",
+          path: "/tmp/launch-promo",
+          localPath: "/tmp/launch-promo",
+          activeCompositionId: "composition-1",
+        })
+        .run()
+      db.insert(compositions)
+        .values({
+          id: "composition-1",
+          projectId: "project-1",
+          name: "Main",
+          filePath: "index.html",
+          dataCompositionId: "main",
+          width: 1280,
+          height: 720,
+          kind: "root",
+        })
+        .run()
+      const workspace = db.insert(workspaces)
+        .values({
+          id: "workspace-1",
+          projectId: "project-1",
+          kind: "main",
+          targetType: "project",
+          targetId: "project-1",
+          path: "/tmp/launch-promo",
+          isolationState: "main",
+        })
+        .returning()
+        .get()
+      const project = db.select().from(projects).get()!
+
+      const snapshot = resolveAgentRuntimeCurrentFrameSnapshot({
+        db: db as never,
+        resolved: {
+          workspace,
+          project,
+          cwd: "/tmp/launch-promo",
+          projectPath: "/tmp/launch-promo",
+          writableRoot: "/tmp/launch-promo",
+          kind: "main",
+          targetType: "project",
+          targetId: "project-1",
+        } satisfies ResolvedWorkspaceContext,
+        runtimeContext: {
+          compositionId: "composition-1",
+          previewTimeSeconds: 1.25,
+          previewFrame: 38,
+          previewSource: { kind: "main" },
+        },
+      })
+
+      expect(snapshot).toEqual({
+        projectPath: "/tmp/launch-promo",
+        sourcePath: "/tmp/launch-promo",
+        compositionPath: "index.html",
+        sourceRevisionId: null,
+        timeMs: 1250,
+        fps: 30,
+        width: 1280,
+        height: 720,
+      })
     } finally {
       sqlite.close()
     }

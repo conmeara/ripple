@@ -8,8 +8,8 @@
  * maintainer fallback-provider tests where MAIN_VITE_RIPPLE_UPDATE_URL points
  * at a generic static host.
  *
- * This script generates `latest-mac.yml` (for arm64) and `latest-mac-x64.yml` files
- * that electron-updater uses to check for and download updates.
+ * This script generates the Apple Silicon `latest-mac.yml` file that
+ * electron-updater uses to check for and download updates.
  *
  * Usage:
  *   node scripts/generate-update-manifest.mjs
@@ -79,12 +79,10 @@ function findReleaseFile(patterns, ext = ".zip") {
 }
 
 /**
- * Generate manifest for a specific architecture
+ * Generate Apple Silicon macOS update manifest.
  */
-function generateManifest(arch) {
-  const patterns = arch === "arm64"
-    ? [`Ripple-${version}-arm64`, `${version}-arm64-mac`, `${version}-arm64`]
-    : [`Ripple-${version}-x64`, `${version}-mac`, `${version}-x64`]
+function generateManifest() {
+  const patterns = [`Ripple-${version}-arm64`, `${version}-arm64-mac`, `${version}-arm64`]
   const zipPath = findReleaseFile(patterns, ".zip")
 
   if (!zipPath) {
@@ -113,11 +111,10 @@ function generateManifest(arch) {
   }
 
   // Manifest file names expected by electron-updater:
-  // For stable (latest): latest-mac.yml / latest-mac-x64.yml
-  // For beta: beta-mac.yml / beta-mac-x64.yml
+  // For stable (latest): latest-mac.yml
+  // For beta: beta-mac.yml
   const prefix = channel === "beta" ? "beta" : "latest"
-  const manifestFileName =
-    arch === "arm64" ? `${prefix}-mac.yml` : `${prefix}-mac-x64.yml`
+  const manifestFileName = `${prefix}-mac.yml`
   const manifestPath = join(releaseDir, manifestFileName)
 
   // Convert to YAML format (simple implementation)
@@ -235,11 +232,10 @@ console.log(`Channel: ${channel}`)
 console.log(`Release dir: ${releaseDir}`)
 console.log()
 
-const arm64Manifest = generateManifest("arm64")
-const x64Manifest = generateManifest("x64")
+const arm64Manifest = generateManifest()
 const linuxManifest = generateLinuxManifest()
 
-if (!arm64Manifest && !x64Manifest && !linuxManifest) {
+if (!arm64Manifest && !linuxManifest) {
   console.error("No manifest files were generated!")
   console.error("Make sure you have built the app with: npm run dist")
   process.exit(1)
@@ -255,10 +251,6 @@ console.log(`1. Upload the following files to ${uploadDestination}:`)
 if (arm64Manifest) {
   console.log(`   - ${prefix}-mac.yml`)
   console.log(`   - Ripple ${version} arm64 zip and dmg artifacts`)
-}
-if (x64Manifest) {
-  console.log(`   - ${prefix}-mac-x64.yml`)
-  console.log(`   - Ripple ${version} x64 zip and dmg artifacts`)
 }
 if (linuxManifest) {
   console.log(`   - ${prefix}-linux.yml`)

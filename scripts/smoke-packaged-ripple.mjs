@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process"
-import { existsSync, readdirSync, statSync } from "node:fs"
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 const appPath = process.env.RIPPLE_PACKAGED_APP ||
@@ -33,6 +34,7 @@ const resourcesPath = process.platform === "darwin"
   ? join(appPath, "Contents", "Resources")
   : join(appPath, "resources")
 assertExists(resourcesPath)
+const appAsarUnpackedPath = join(resourcesPath, "app.asar.unpacked")
 
 for (const relative of [
   "app.asar",
@@ -46,6 +48,24 @@ for (const relative of [
 ]) {
   assertExists(join(resourcesPath, relative))
 }
+
+for (const relative of [
+  "node_modules/@hyperframes/engine",
+  "node_modules/@hyperframes/producer",
+  "node_modules/hyperframes",
+]) {
+  assertExists(join(appAsarUnpackedPath, relative))
+}
+
+const packagedEngineIndex = join(
+  appAsarUnpackedPath,
+  "node_modules",
+  "@hyperframes",
+  "engine",
+  "dist",
+  "index.js",
+)
+assertExists(packagedEngineIndex)
 
 const forbiddenSdkPackages = []
 function walk(path) {
@@ -90,6 +110,58 @@ for (const [binary, args] of Object.entries(bins)) {
   assertExists(binaryPath)
   const output = run(binaryPath, args)
   if (!output) fail(`${binary} produced no output`)
+}
+
+const rippleBinaryName = process.platform === "win32" ? "ripple.exe" : "ripple"
+const rippleBinaryPath = join(binPath, rippleBinaryName)
+const rippleVisualHelp = run(rippleBinaryPath, ["visual", "--help"])
+if (!rippleVisualHelp.includes("snapshot") || !rippleVisualHelp.includes("sheet")) {
+  fail("Packaged ripple visual CLI did not expose snapshot and sheet commands.")
+}
+
+const visualProjectDir = mkdtempSync(join(tmpdir(), "ripple-package-visual-"))
+try {
+  writeFileSync(join(visualProjectDir, "hyperframes.json"), JSON.stringify({
+    entry: "index.html",
+    width: 320,
+    height: 180,
+    fps: 30,
+  }))
+  writeFileSync(join(visualProjectDir, "index.html"), `<!doctype html>
+<html>
+  <head>
+    <style>
+      html, body { margin: 0; width: 100%; height: 100%; background: #17324d; }
+      main { width: 320px; height: 180px; background: #2a9d8f; }
+    </style>
+  </head>
+  <body>
+    <main data-composition-id="package-smoke"></main>
+    <script>window.__hf = { duration: 1, seek: function () {} };</script>
+  </body>
+</html>`)
+  const visualSnapshot = run(rippleBinaryPath, [
+    "visual",
+    "snapshot",
+    "--dir",
+    visualProjectDir,
+    "--at",
+    "0.5s",
+    "--backend",
+    "engine",
+    "--width",
+    "320",
+    "--height",
+    "180",
+    "--json",
+  ])
+  const parsedVisualSnapshot = JSON.parse(visualSnapshot)
+  if (!parsedVisualSnapshot.ok || parsedVisualSnapshot.backend !== "engine") {
+    fail(`Packaged ripple visual Engine snapshot failed: ${visualSnapshot}`)
+  }
+  assertExists(join(visualProjectDir, parsedVisualSnapshot.snapshot.path))
+} finally {
+  rmSync(visualProjectDir, { recursive: true, force: true })
 }
 
 const browserCandidates = process.platform === "darwin"

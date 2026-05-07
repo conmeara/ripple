@@ -14,7 +14,6 @@ import {
   type ReactNode,
 } from "react"
 import {
-  Ban,
   Check,
   ChevronDown,
   CircleDot,
@@ -105,7 +104,6 @@ import {
 } from "../agents/lib/models"
 import {
   canPreviewRevisionChanges,
-  canRejectRevisionChanges,
   canRefreshRevisionChanges,
   canReplyToCommentThread,
   commentFilterLabels,
@@ -571,7 +569,6 @@ function CommentComposer({
   timecode,
   isSubmitting,
   modelSelector,
-  visualContextChip,
 }: {
   value: string
   onChange: (value: string) => void
@@ -582,7 +579,6 @@ function CommentComposer({
   timecode?: string
   isSubmitting?: boolean
   modelSelector?: ReactNode
-  visualContextChip?: ReactNode
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const hasContent = value.trim().length > 0 || attachments.length > 0
@@ -639,9 +635,8 @@ function CommentComposer({
             data-testid="ripple-comment-composer-input"
           />
         </div>
-        {attachments.length > 0 || visualContextChip ? (
+        {attachments.length > 0 ? (
           <div className="flex min-w-0 flex-wrap gap-1">
-            {visualContextChip}
             {attachments.map((attachment, index) => (
               <span
                 key={`${attachment.type}-${attachment.filename ?? "attachment"}-${index}`}
@@ -793,19 +788,6 @@ function CommentAgentText({
   )
 }
 
-function EmptyComments() {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-border/60 bg-foreground/5 text-muted-foreground/55">
-        <RippleCommentIcon className="h-8 w-8" />
-      </div>
-      <div className="text-sm font-medium text-muted-foreground">
-        No comments yet
-      </div>
-    </div>
-  )
-}
-
 function RevisionStatusLine({
   revision,
   agentTextResetKey,
@@ -821,11 +803,14 @@ function RevisionStatusLine({
     revision.status === "preparing" ||
     revision.status === "running"
   const label = revisionStatusLabel(revision.status)
-  const resultLine =
+  const canShowSummaryLine = Boolean(summary) && (
     revision.status === "proposed" ||
-    revision.status === "accepted"
-      ? formatRevisionResultLine(summary, { maxLength: null })
-      : label
+    revision.status === "accepted" ||
+    revision.status === "superseded"
+  )
+  const resultLine = canShowSummaryLine
+    ? formatRevisionResultLine(summary, { maxLength: null })
+    : label
   const line = revision.status === "failed"
     ? revision.errorMessage || revisionStatusLabel(revision.status)
     : resultLine
@@ -974,11 +959,11 @@ function CommentCard({
   agentTextResetKey,
   onSelect,
   onReply,
+  onReject,
   onDelete,
   onRestore,
   onRefreshRevision,
   onAcceptRevision,
-  onRejectRevision,
   reviewActionPending,
   onOpenChat,
 }: {
@@ -995,11 +980,11 @@ function CommentCard({
     clientRequestId: string,
     attachments: AgentRuntimeAttachment[],
   ) => void
+  onReject: (threadId: string) => void
   onDelete: (threadId: string) => void
   onRestore: (threadId: string) => void
   onRefreshRevision: (revisionId: string) => void
   onAcceptRevision: (revisionId: string) => void
-  onRejectRevision: (revisionId: string) => void
   reviewActionPending?: boolean
   onOpenChat: (
     conversationId: string,
@@ -1019,9 +1004,6 @@ function CommentCard({
     deleted: isDeleted,
   })
   const canRefreshLatestRevision = canRefreshRevisionChanges(revision, {
-    deleted: isDeleted,
-  })
-  const canRejectLatestRevision = canRejectRevisionChanges(revision, {
     deleted: isDeleted,
   })
   const canReply = canReplyToCommentThread(thread)
@@ -1213,21 +1195,14 @@ function CommentCard({
                   Refresh changes
                 </DropdownMenuItem>
               ) : null}
-              {revision && canRejectLatestRevision ? (
-                <DropdownMenuItem onSelect={() => onRejectRevision(revision.id)}>
-                  <Ban className="mr-2 h-4 w-4" />
-                  Reject changes
-                </DropdownMenuItem>
-              ) : null}
               {deletedFilter ? (
                 <DropdownMenuItem onSelect={() => onRestore(thread.id)}>
                   Restore
                 </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onSelect={() => onDelete(thread.id)}>
-                  Delete
-                </DropdownMenuItem>
-              )}
+              ) : null}
+              <DropdownMenuItem onSelect={() => onDelete(thread.id)}>
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -1241,23 +1216,14 @@ function CommentCard({
             </IconButton>
           ) : (
             <IconButton
-              label="Delete comment"
-              onClick={() => onDelete(thread.id)}
+              label="Reject comment"
+              onClick={() => onReject(thread.id)}
             >
               <X className="h-4 w-4" />
             </IconButton>
           )}
           {revision && !isDeleted ? (
             <>
-              {canRejectLatestRevision ? (
-                <IconButton
-                  label="Reject changes"
-                  disabled={reviewActionPending}
-                  onClick={() => onRejectRevision(revision.id)}
-                >
-                  <Ban className="h-4 w-4" />
-                </IconButton>
-              ) : null}
               <IconButton
                 label={acceptControl?.label ?? "Accept changes"}
                 disabled={(acceptControl?.disabled ?? true) || reviewActionPending}
@@ -1310,7 +1276,6 @@ export function RippleCommentsPane({
   const [draft, setDraft] = useState("")
   const [draftAttachments, setDraftAttachments] = useState<AgentRuntimeAttachment[]>([])
   const [draftRequestId, setDraftRequestId] = useState(createClientRequestId)
-  const [includeVisualContext, setIncludeVisualContext] = useState(true)
   const [localSelectedThreadId, setLocalSelectedThreadId] = useState<string | null>(null)
   const selectedThreadId =
     controlledSelectedThreadId === undefined
@@ -1363,7 +1328,6 @@ export function RippleCommentsPane({
       setDraft("")
       setDraftAttachments([])
       setDraftRequestId(createClientRequestId())
-      setIncludeVisualContext(true)
       await utils.revisions.listThreads.invalidate()
     },
     onError: (error) => toast.error("Comment was not sent", { description: error.message }),
@@ -1375,6 +1339,17 @@ export function RippleCommentsPane({
     },
     onError: (error) => toast.error("Reply was not sent", { description: error.message }),
   })
+  const rejectThread = trpc.revisions.rejectThread.useMutation({
+    onSuccess: async (_, variables) => {
+      if (selectedThreadId === variables.threadId) {
+        setSelectedThreadId(null)
+        onShowPrimaryPreview()
+      }
+      await utils.revisions.listThreads.invalidate()
+      toast.success("Comment rejected")
+    },
+    onError: (error) => toast.error("Comment was not rejected", { description: error.message }),
+  })
   const deleteThread = trpc.revisions.deleteThread.useMutation({
     onSuccess: async (_, variables) => {
       if (selectedThreadId === variables.threadId) {
@@ -1382,6 +1357,7 @@ export function RippleCommentsPane({
         onShowPrimaryPreview()
       }
       await utils.revisions.listThreads.invalidate()
+      toast.success("Comment deleted")
     },
     onError: (error) => toast.error("Comment was not deleted", { description: error.message }),
   })
@@ -1410,37 +1386,11 @@ export function RippleCommentsPane({
     },
     onError: (error) => toast.error("Changes were not accepted", { description: error.message }),
   })
-  const rejectRevision = trpc.revisions.reject.useMutation({
-    onSuccess: async () => {
-      setSelectedThreadId(null)
-      onShowPrimaryPreview()
-      await refreshPreviewSurfaces()
-      toast.success("Changes rejected")
-    },
-    onError: (error) => toast.error("Changes were not rejected", { description: error.message }),
-  })
-
   const threads = threadsQuery.data ?? []
   const anchor = useMemo(
     () => buildAnchorFromTimelineContext({ currentTime, selection }),
     [currentTime, selection],
   )
-  const anchorKey = useMemo(
-    () => JSON.stringify({
-      type: anchor.anchorType,
-      start: anchor.startTime,
-      end: anchor.endTime,
-      frame: anchor.startFrame,
-      endFrame: anchor.endFrame,
-      sourceFile: anchor.sourceFile,
-      elementSelector: anchor.elementSelector,
-      clipKey: anchor.clipKey,
-    }),
-    [anchor],
-  )
-  useEffect(() => {
-    setIncludeVisualContext(true)
-  }, [anchorKey])
   const composerTimecode = formatCommentTimecode(
     Math.round((anchor.startTime ?? 0) * 1000),
     anchor.endTime === null || anchor.endTime === undefined
@@ -1450,11 +1400,11 @@ export function RippleCommentsPane({
   const isMutating =
     createThread.isPending ||
     addReply.isPending ||
+    rejectThread.isPending ||
     deleteThread.isPending ||
     restoreThread.isPending ||
     refreshProposal.isPending ||
-    acceptRevision.isPending ||
-    rejectRevision.isPending
+    acceptRevision.isPending
 
   const handleSend = () => {
     const body = draft.trim() || commentAttachmentFallbackBody(draftAttachments)
@@ -1470,7 +1420,7 @@ export function RippleCommentsPane({
       model: selectedRevisionModel,
       clientRequestId: draftRequestId,
       sourceRevisionId: activePreviewRevisionId,
-      captureVisualContext: includeVisualContext,
+      captureVisualContext: true,
     })
   }
 
@@ -1490,23 +1440,6 @@ export function RippleCommentsPane({
       onShowPrimaryPreview(previewTime)
     }
   }
-
-  const visualContextChip = includeVisualContext ? (
-    <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/60 bg-background/80 px-2 py-1 text-xs text-muted-foreground">
-      <ImageIcon className="h-3.5 w-3.5 shrink-0" />
-      <span className="truncate">
-        {anchor.anchorType === "range" ? "Frame sheet" : "Current frame"}
-      </span>
-      <button
-        type="button"
-        className="ml-1 rounded-sm text-muted-foreground hover:text-foreground"
-        onClick={() => setIncludeVisualContext(false)}
-      >
-        <X className="h-3 w-3" />
-        <span className="sr-only">Remove visual context</span>
-      </button>
-    </span>
-  ) : null
 
   useEffect(() => {
     if (!selectedThreadId || threadsQuery.isLoading) return
@@ -1618,7 +1551,7 @@ export function RippleCommentsPane({
             Loading comments...
           </div>
         ) : threads.length === 0 ? (
-          <EmptyComments />
+          null
         ) : (
           <div className="min-w-0 space-y-3">
             {threads.map((thread, index) => {
@@ -1644,12 +1577,12 @@ export function RippleCommentsPane({
                       clientRequestId,
                     })
                   }
+                  onReject={(threadId) => rejectThread.mutate({ threadId })}
                   onDelete={(threadId) => deleteThread.mutate({ threadId })}
                   onRestore={(threadId) => restoreThread.mutate({ threadId })}
                   onRefreshRevision={(revisionId) => refreshProposal.mutate({ revisionId })}
                   onAcceptRevision={(revisionId) => acceptRevision.mutate({ revisionId })}
-                  onRejectRevision={(revisionId) => rejectRevision.mutate({ revisionId })}
-                  reviewActionPending={acceptRevision.isPending || rejectRevision.isPending}
+                  reviewActionPending={acceptRevision.isPending}
                   onOpenChat={onOpenChat}
                 />
               )
@@ -1658,7 +1591,7 @@ export function RippleCommentsPane({
         )}
       </div>
 
-      <div className="min-w-0 shrink-0 overflow-hidden border-t border-border/60 bg-background/80 p-3">
+      <div className="relative z-10 min-w-0 shrink-0 overflow-hidden px-3 pb-2 shadow-sm shadow-background">
         <CommentComposer
           value={draft}
           onChange={setDraft}
@@ -1669,7 +1602,6 @@ export function RippleCommentsPane({
           timecode={composerTimecode}
           isSubmitting={isMutating}
           modelSelector={modelSelector}
-          visualContextChip={visualContextChip}
         />
       </div>
     </div>

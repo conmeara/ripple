@@ -1,12 +1,14 @@
-import { runFrameSheetCommand } from "./frame-sheet"
 import type { FrameSheetCliResult } from "./frame-sheet"
+import { runVisualCommand, type VisualCommandOptions } from "./visual"
 
 export function rippleHelpText(): string {
   return [
     "Usage: ripple <command> [options]",
     "",
     "Commands:",
-    "  frame-sheet    Generate a project-local contact sheet from HyperFrames frames",
+    "  snapshot       Capture one visual frame at an explicit time",
+    "  sheet          Create a compact frame sheet",
+    "  context        Create a frame sheet plus manifest metadata",
     "",
     "Run ripple <command> --help for command options.",
     "",
@@ -15,14 +17,14 @@ export function rippleHelpText(): string {
 
 export async function runRippleCli(
   args: string[],
-  options: Parameters<typeof runFrameSheetCommand>[1] = {},
+  options: VisualCommandOptions = {},
 ): Promise<FrameSheetCliResult> {
   const [command, ...rest] = args
   if (!command || command === "--help" || command === "-h") {
     return { exitCode: 0, stdout: rippleHelpText(), stderr: "" }
   }
-  if (command === "frame-sheet" || command === "framesheet") {
-    return runFrameSheetCommand(rest, options)
+  if (command === "snapshot" || command === "sheet" || command === "context") {
+    return runVisualCommand([command, ...rest], options)
   }
 
   const wantsJson = rest.includes("--json") || args.includes("--json")

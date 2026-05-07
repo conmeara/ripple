@@ -5,19 +5,33 @@ import {
   ZOOM_OPTIONS,
   fitPreviewStageSize,
   formatPreviewTimecode,
+  getPreviewPlayerControlLayout,
   shouldRenderPreviewCloseControl,
+  shouldIssuePreviewSeekRequest,
+  shouldSettlePreviewSeekRequest,
   shouldTogglePreviewPlaybackForSpacebar,
 } from "./preview-player-controls"
 
-function targetMatchingShortcutSelector(): EventTarget {
+function targetMatchingSelector(selectorFragment: string): EventTarget {
   return {
-    closest: () => ({}),
+    closest: (selector: string) => selector.includes(selectorFragment) ? {} : null,
   } as unknown as EventTarget
 }
 
 function neutralShortcutTarget(): EventTarget {
   return {
     closest: () => null,
+  } as unknown as EventTarget
+}
+
+function inputShortcutTarget(type: string): EventTarget {
+  const inputElement = {
+    type,
+    getAttribute: () => type,
+  }
+
+  return {
+    closest: (selector: string) => selector === "input" ? inputElement : null,
   } as unknown as EventTarget
 }
 
@@ -88,6 +102,157 @@ describe("HyperFrames preview player controls", () => {
     })
   })
 
+  test("progressively hides secondary toolbar controls as the preview pane narrows", () => {
+    expect(getPreviewPlayerControlLayout(720)).toMatchObject({
+      density: "full",
+      showLoopControl: true,
+      showSpeedControl: true,
+      showRestartControl: true,
+      showFrameStepControls: true,
+      showCaptionControl: true,
+      showTimelineControl: true,
+    })
+
+    expect(getPreviewPlayerControlLayout(600)).toMatchObject({
+      density: "balanced",
+      showLoopControl: true,
+      showSpeedControl: true,
+      showRestartControl: false,
+      showFrameStepControls: false,
+      showCaptionControl: true,
+      showTimelineControl: true,
+    })
+
+    expect(getPreviewPlayerControlLayout(500)).toMatchObject({
+      density: "compact",
+      showLoopControl: false,
+      showSpeedControl: false,
+      showMuteControl: true,
+      showCaptionControl: false,
+      showTimelineControl: false,
+      showFullscreenControl: true,
+    })
+
+    expect(getPreviewPlayerControlLayout(360)).toMatchObject({
+      density: "minimal",
+      showMuteControl: false,
+      showFullscreenControl: false,
+    })
+  })
+
+  test("holds preview seek transitions until the player reports the requested time", () => {
+    const baseReadiness = {
+      requestedTime: 4,
+      seekRequestId: 12,
+      settledSeekRequestId: 11,
+      isReady: true,
+      isLoadingSource: false,
+      isPreviewSourceFetching: false,
+    }
+
+    expect(
+      shouldIssuePreviewSeekRequest({
+        ...baseReadiness,
+        issuedSeekRequestId: null,
+        issuedSeekTime: null,
+      }),
+    ).toBe(true)
+    expect(
+      shouldIssuePreviewSeekRequest({
+        ...baseReadiness,
+        issuedSeekRequestId: 12,
+        issuedSeekTime: 4,
+      }),
+    ).toBe(false)
+    expect(
+      shouldSettlePreviewSeekRequest({
+        ...baseReadiness,
+        currentTime: 0,
+      }),
+    ).toBe(false)
+    expect(
+      shouldSettlePreviewSeekRequest({
+        ...baseReadiness,
+        currentTime: 4.001,
+      }),
+    ).toBe(true)
+  })
+
+  test("keeps preview seek handoffs pending through a paint cycle", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",
+      "utf8",
+    )
+
+    expect(source).toContain("scheduleSeekSettleAfterPaint")
+    expect(source).toContain("canSettle: false")
+    expect(source).toContain("!issuedSeek.canSettle")
+    expect(source).toContain("window.requestAnimationFrame(() =>")
+  })
+
+  test("does not seek or settle preview transitions while the source is still loading", () => {
+    const loadingReadiness = {
+      requestedTime: 2,
+      seekRequestId: 15,
+      settledSeekRequestId: 14,
+      isReady: true,
+      isLoadingSource: true,
+      isPreviewSourceFetching: false,
+    }
+
+    expect(
+      shouldIssuePreviewSeekRequest({
+        ...loadingReadiness,
+        issuedSeekRequestId: null,
+        issuedSeekTime: null,
+      }),
+    ).toBe(false)
+    expect(
+      shouldSettlePreviewSeekRequest({
+        ...loadingReadiness,
+        currentTime: 2,
+      }),
+    ).toBe(false)
+  })
+
+  test("keeps the preview time chip to one visible line", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",
+      "utf8",
+    )
+
+    expect(source).toContain('data-testid="ripple-preview-frame-indicator"')
+    expect(source).toContain('className="sr-only"')
+    expect(source).not.toContain("showFrameLabel")
+    expect(source).not.toContain("mt-0.5 text-[10px] tabular-nums text-muted-foreground")
+  })
+
+  test("wires responsive control density into the player toolbar", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",
+      "utf8",
+    )
+
+    expect(source).toContain("getPreviewPlayerControlLayout")
+    expect(source).toContain("data-preview-control-density")
+    expect(source).toContain("hasHiddenPlaybackControls")
+    expect(source).toContain("hasHiddenViewControls")
+    expect(source).toContain("<DropdownMenuLabel>Playback</DropdownMenuLabel>")
+    expect(source).toContain("<DropdownMenuLabel>View</DropdownMenuLabel>")
+    expect(source).not.toContain("mt-1.5 flex flex-wrap items-center gap-1.5")
+  })
+
+  test("captures the preview spacebar shortcut before focused controls consume it", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",
+      "utf8",
+    )
+
+    expect(source).toContain('window.addEventListener("keydown", handlePreviewSpacebarKeyDown, true)')
+    expect(source).toContain('event.stopImmediatePropagation()')
+    expect(source).toContain('iframeWindow.addEventListener("keydown", handlePreviewSpacebarKeyDown, true)')
+  })
+
   test("delays transient preview loading indicators to avoid flicker", () => {
     const source = readFileSync(
       "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",
@@ -128,6 +293,22 @@ describe("HyperFrames preview player controls", () => {
     expect(source).toContain("Math.max(TIMELINE_VIEWPORT_HEIGHT, contentHeight)")
     expect(source).toContain('className="-mx-3 mt-1.5 h-[310px] overflow-hidden bg-background"')
     expect(source).toContain('className="relative h-[274px]"')
+  })
+
+  test("restores timeline scroll position before paint on composition switches", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesTimeline.tsx",
+      "utf8",
+    )
+    const scrollRestoreStart = source.indexOf("useLayoutEffect(() => {\n    const scroll = scrollRef.current")
+    const scrollRestoreEnd = source.indexOf("onSelectionChange?.(rangeSelection)", scrollRestoreStart)
+    const scrollRestoreBlock = source.slice(scrollRestoreStart, scrollRestoreEnd)
+
+    expect(scrollRestoreStart).toBeGreaterThan(-1)
+    expect(scrollRestoreEnd).toBeGreaterThan(scrollRestoreStart)
+    expect(scrollRestoreBlock).toContain("useLayoutEffect(() =>")
+    expect(scrollRestoreBlock).toContain("pendingComfortScrollLeftRef.current")
+    expect(scrollRestoreBlock).toContain("scroll.scrollLeft = pendingScrollLeft")
   })
 
   test("scrubs the extended timeline continuously while preserving shift range selection", () => {
@@ -181,7 +362,7 @@ describe("HyperFrames preview player controls", () => {
     expect(source).not.toContain("data-overlapping-clip")
   })
 
-  test("allows a plain spacebar press to toggle playback on the preview surface", () => {
+  test("allows a plain spacebar press to toggle playback on the preview surface and controls", () => {
     expect(
       shouldTogglePreviewPlaybackForSpacebar({
         key: " ",
@@ -196,14 +377,63 @@ describe("HyperFrames preview player controls", () => {
         target: neutralShortcutTarget(),
       }),
     ).toBe(true)
-  })
 
-  test("does not toggle playback while text or interactive controls own the spacebar", () => {
     expect(
       shouldTogglePreviewPlaybackForSpacebar({
         key: " ",
         code: "Space",
-        target: targetMatchingShortcutSelector(),
+        target: targetMatchingSelector("button"),
+      }),
+    ).toBe(true)
+
+    expect(
+      shouldTogglePreviewPlaybackForSpacebar({
+        key: " ",
+        code: "Space",
+        target: targetMatchingSelector("[role='slider']"),
+      }),
+    ).toBe(true)
+
+    expect(
+      shouldTogglePreviewPlaybackForSpacebar({
+        key: " ",
+        code: "Space",
+        defaultPrevented: true,
+        target: neutralShortcutTarget(),
+      }),
+    ).toBe(true)
+  })
+
+  test("does not toggle playback while text entry owns the spacebar", () => {
+    expect(
+      shouldTogglePreviewPlaybackForSpacebar({
+        key: " ",
+        code: "Space",
+        target: targetMatchingSelector("textarea"),
+      }),
+    ).toBe(false)
+
+    expect(
+      shouldTogglePreviewPlaybackForSpacebar({
+        key: " ",
+        code: "Space",
+        target: inputShortcutTarget("text"),
+      }),
+    ).toBe(false)
+
+    expect(
+      shouldTogglePreviewPlaybackForSpacebar({
+        key: " ",
+        code: "Space",
+        target: inputShortcutTarget("checkbox"),
+      }),
+    ).toBe(true)
+
+    expect(
+      shouldTogglePreviewPlaybackForSpacebar({
+        key: " ",
+        code: "Space",
+        target: targetMatchingSelector("[data-preview-spacebar-ignore]"),
       }),
     ).toBe(false)
 
@@ -216,7 +446,7 @@ describe("HyperFrames preview player controls", () => {
     ).toBe(false)
   })
 
-  test("ignores repeats, modified keys, handled events, and non-space keys", () => {
+  test("ignores repeats, modified keys, and non-space keys", () => {
     expect(
       shouldTogglePreviewPlaybackForSpacebar({
         key: " ",
@@ -231,15 +461,6 @@ describe("HyperFrames preview player controls", () => {
         key: " ",
         code: "Space",
         metaKey: true,
-        target: neutralShortcutTarget(),
-      }),
-    ).toBe(false)
-
-    expect(
-      shouldTogglePreviewPlaybackForSpacebar({
-        key: " ",
-        code: "Space",
-        defaultPrevented: true,
         target: neutralShortcutTarget(),
       }),
     ).toBe(false)

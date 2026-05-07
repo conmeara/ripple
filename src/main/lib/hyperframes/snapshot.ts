@@ -1,16 +1,13 @@
 import { copyFile, mkdir, readdir, readFile, realpath, rm, stat } from "node:fs/promises"
 import { join } from "node:path"
-import {
-  captureFramesWithFastBrowser,
-  FrameSheetCliError,
-} from "../../../cli/frame-sheet"
 import { isPathInsideDirectory } from "../ripple-projects/paths"
+import { createVisualContextService } from "../visual-context"
 import {
   isSupportedSnapshotArtifact,
   resolveHyperframesProjectContext,
   resolveProjectRelativePath,
 } from "./project-context"
-import { buildHyperframesEnvironment, runHyperframesCommand } from "./runtime"
+import { runHyperframesCommand } from "./runtime"
 import type {
   HyperframesCommandResult,
   HyperframesProjectContext,
@@ -20,7 +17,6 @@ import { HyperframesError } from "./types"
 
 const DEFAULT_SNAPSHOT_FRAMES = 5
 const FAST_SNAPSHOT_MAX_WIDTH = 1920
-const FAST_SNAPSHOT_SETTLE_MS = 0
 
 interface SnapshotFileInfo {
   mtimeMs: number
@@ -158,17 +154,12 @@ function fastSnapshotCommandResult(input: {
 }): HyperframesCommandResult {
   return {
     ok: true,
-    stdout: `Captured ${input.paths.length} snapshot(s) with Ripple fast browser capture in ${input.elapsedMs}ms.\n`,
+    stdout: `Captured ${input.paths.length} snapshot(s) with Ripple visual context in ${input.elapsedMs}ms.\n`,
     stderr: "",
   }
 }
 
-function shouldFallbackToHyperframesSnapshot(error: unknown): boolean {
-  return error instanceof FrameSheetCliError &&
-    (error.code === "FAST_BROWSER_MISSING" || error.code === "FAST_CAPTURE_FAILED")
-}
-
-async function captureHyperframesSnapshotFast(input: {
+async function captureHyperframesSnapshotWithService(input: {
   context: HyperframesProjectContext
   frames?: number
   at?: number[]
@@ -187,24 +178,32 @@ async function captureHyperframesSnapshotFast(input: {
   const snapshotDir = resolveProjectRelativePath(input.context, "snapshots")
   await mkdir(snapshotDir, { recursive: true })
 
-  const capture = await captureFramesWithFastBrowser({
-    projectDir: input.context.projectPath,
-    timestampsMs: timestampsSeconds.map((time) => Math.round(time * 1000)),
-    timeoutMs: input.timeout ?? 5000,
-    columns: 1,
-    maxSheetWidth: FAST_SNAPSHOT_MAX_WIDTH,
-    settleMs: FAST_SNAPSHOT_SETTLE_MS,
-    env: buildHyperframesEnvironment(process.env, { repoRoot: input.repoRoot }),
-    repoRoot: input.repoRoot,
+  const service = createVisualContextService({
+    backendOrder: ["fast-browser", "hyperframes-cli"],
   })
+  let captureCleanupPaths: string[] = []
+  const protectedSnapshotPaths = new Set<string>()
 
   try {
-    if (capture.framePaths.length !== timestampsSeconds.length) {
+    const capture = await service.captureFrames({
+      projectPath: input.context.projectPath,
+      timestampsMs: timestampsSeconds.map((time) => Math.round(time * 1000)),
+      fps: 30,
+      width: FAST_SNAPSHOT_MAX_WIDTH,
+      height: 1080,
+      format: "png",
+      timeoutMs: input.timeout ?? 5000,
+      reason: "snapshot",
+      repoRoot: input.repoRoot,
+    })
+    captureCleanupPaths = capture.cleanupPaths
+
+    if (capture.frames.length !== timestampsSeconds.length) {
       throw new HyperframesError(
-        "Ripple fast snapshot captured the wrong number of frames.",
+        "Ripple visual context captured the wrong number of snapshot frames.",
         "SNAPSHOT_SAMPLE_MISMATCH",
         {
-          captured: capture.framePaths.length,
+          captured: capture.frames.length,
           expected: timestampsSeconds.length,
         },
       )
@@ -213,11 +212,12 @@ async function captureHyperframesSnapshotFast(input: {
     const projectRealPath = await realpath(input.context.projectPath)
     const paths: string[] = []
     const explicitAt = Boolean(input.at?.length)
-    for (const [index, sourcePath] of capture.framePaths.entries()) {
+    for (const [index, frame] of capture.frames.entries()) {
+      const sourcePath = frame.path
       const sourceRealPath = await realpath(sourcePath)
       if (!isPathInsideDirectory(projectRealPath, sourceRealPath)) {
         throw new HyperframesError(
-          "Ripple fast snapshot produced a frame outside the project.",
+          "Ripple visual context produced a frame outside the project.",
           "SNAPSHOT_PATH_ESCAPE",
         )
       }
@@ -228,11 +228,15 @@ async function captureHyperframesSnapshotFast(input: {
         explicitAt,
       })
       const destination = join(snapshotDir, filename)
-      await copyFile(sourceRealPath, destination)
+      const destinationRealPath = await realpath(destination).catch(() => null)
+      if (destinationRealPath !== sourceRealPath) {
+        await copyFile(sourceRealPath, destination)
+      }
+      protectedSnapshotPaths.add(await realpath(destination))
       const fileStat = await stat(destination)
       if (!fileStat.isFile() || fileStat.size <= 0) {
         throw new HyperframesError(
-          "Ripple fast snapshot produced an empty frame.",
+          "Ripple visual context produced an empty frame.",
           "SNAPSHOT_EMPTY",
           { relativePath: `snapshots/${filename}` },
         )
@@ -251,10 +255,13 @@ async function captureHyperframesSnapshotFast(input: {
     }
   } finally {
     await Promise.all(
-      (capture.cleanupPaths ?? []).map((path) =>
-        rm(path, { recursive: true, force: true }).catch(() => undefined),
-      ),
+      captureCleanupPaths.map(async (path) => {
+        const cleanupRealPath = await realpath(path).catch(() => null)
+        if (cleanupRealPath && protectedSnapshotPaths.has(cleanupRealPath)) return
+        await rm(path, { recursive: true, force: true }).catch(() => undefined)
+      }),
     )
+    await service.shutdown()
   }
 }
 
@@ -331,16 +338,16 @@ export async function captureHyperframesSnapshot(input: {
 }): Promise<HyperframesSnapshotResult> {
   const context = await resolveHyperframesProjectContext({ projectId: input.projectId })
   try {
-    const fastResult = await captureHyperframesSnapshotFast({
+    const serviceResult = await captureHyperframesSnapshotWithService({
       context,
       frames: input.frames,
       at: input.at,
       timeout: input.timeout,
       repoRoot: input.repoRoot,
     })
-    if (fastResult) return fastResult
+    if (serviceResult) return serviceResult
   } catch (error) {
-    if (!shouldFallbackToHyperframesSnapshot(error)) throw error
+    console.warn("[Ripple] Visual Context Service snapshot failed; falling back to HyperFrames CLI:", error)
   }
 
   return captureHyperframesSnapshotWithCli({
