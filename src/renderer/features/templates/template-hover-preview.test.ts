@@ -54,4 +54,18 @@ describe("template hover previews", () => {
     expect(templates.some((template) => template.id === "warm-grain")).toBe(false)
     expect(templates.every((template) => template.previewPosterPath.endsWith(".png"))).toBe(true)
   })
+
+  test("Logo Outro uses the active Ripple tray mark", async () => {
+    const source = await readFile(
+      join(bundleRoot, "catalog/logo-outro/logo-outro.html"),
+      "utf8",
+    )
+
+    expect(source).toContain('aria-label="Ripple logo"')
+    expect(source).toContain("M197 213L139 280L197 347")
+    expect(source).toContain("M363 213L421 280L363 347")
+    expect(source).toContain('x="262" y="84" width="36" height="392"')
+    expect(source).not.toContain("figma.com")
+    expect(source).not.toContain("#F24E1E")
+  })
 })

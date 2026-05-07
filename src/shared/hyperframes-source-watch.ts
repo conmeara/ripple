@@ -21,6 +21,31 @@ export interface HyperframesSourceWatchEvent {
   subscriptionKey: string
 }
 
+export type HyperframesRuntimePreviewSource =
+  | { kind: "main" }
+  | { kind: "comment-revision"; revisionId: string }
+  | { kind: "chat-worktree"; conversationId?: string | null; chatId?: string | null }
+  | { kind: "export"; exportJobId?: string | null; sourceLabel?: string | null }
+
+export const HYPERFRAMES_RUNTIME_SOURCE_CHANGED_EVENT =
+  "ripple:hyperframes-runtime-source-changed"
+
+export interface HyperframesRuntimeSourceChangeEvent {
+  source: "agent-runtime"
+  projectId?: string | null
+  compositionId?: string | null
+  revisionId?: string | null
+  chatId?: string | null
+  subChatId?: string | null
+  previewSource?: HyperframesRuntimePreviewSource | null
+  changes: HyperframesSourceWatchChange[]
+  timestamp: number
+}
+
+export type HyperframesSourceRefreshEvent =
+  | HyperframesSourceWatchEvent
+  | HyperframesRuntimeSourceChangeEvent
+
 export interface HyperframesSourceWatchSubscriptionInput {
   projectId: string
   revisionId?: string | null

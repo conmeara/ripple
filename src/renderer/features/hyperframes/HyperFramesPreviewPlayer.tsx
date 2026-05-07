@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Repeat2,
   Rows2,
+  RotateCcw,
   Settings,
   StepBack,
   StepForward,
@@ -68,6 +69,7 @@ import {
   PLAYBACK_SPEEDS,
   PREVIEW_SETTINGS_CONTROLS,
   ZOOM_OPTIONS,
+  fitPreviewStageSize,
   formatPreviewTimecode,
   type ZoomValue,
   shouldRenderPreviewCloseControl,
@@ -76,6 +78,7 @@ import {
 import { resolvePreviewSeekRatio } from "./preview-scrubber"
 import { buildHyperframesPlayerFetchUrl } from "./player-source-url"
 import {
+  clearRipplePreviewCoordinator,
   prewarmRipplePreparedPreviewDocument,
   prewarmRipplePreviewPlayer,
 } from "./preview-coordinator"
@@ -209,6 +212,7 @@ export function HyperFramesPreviewPlayer({
   onClose,
 }: HyperFramesPreviewPlayerProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const stageRef = useRef<HTMLDivElement | null>(null)
   const timelineRef = useRef<HTMLDivElement | null>(null)
   const timelineProgressRef = useRef<HTMLDivElement | null>(null)
   const timelineHandleRef = useRef<HTMLDivElement | null>(null)
@@ -218,6 +222,7 @@ export function HyperFramesPreviewPlayer({
   const previewFpsRef = useRef(PREVIEW_FPS)
   const settledDisplayTimeRef = useRef(0)
   const [zoom, setZoom] = useState<ZoomValue>("fit")
+  const [previewStageSize, setPreviewStageSize] = useState({ width: 0, height: 0 })
   const [isElementFullscreen, setIsElementFullscreen] = useState(false)
   const [isTimelineVisible, setIsTimelineVisible] = useState(true)
   const [isCaptionOverlayVisible, setIsCaptionOverlayVisible] = useState(true)
@@ -321,6 +326,19 @@ export function HyperFramesPreviewPlayer({
   })
   const aspectRatio = source ? `${source.width} / ${source.height}` : "16 / 9"
   const scale = zoom === "fit" ? 100 : Number(zoom)
+  const fittedPreviewSize = useMemo(() => fitPreviewStageSize({
+    containerWidth: previewStageSize.width,
+    containerHeight: previewStageSize.height,
+    sourceWidth: source?.width ?? 16,
+    sourceHeight: source?.height ?? 9,
+    zoom,
+  }), [
+    previewStageSize.height,
+    previewStageSize.width,
+    source?.height,
+    source?.width,
+    zoom,
+  ])
   const hasPendingPreviewSeek =
     requestedSeekTime !== null &&
     typeof seekRequestId === "number" &&
@@ -502,6 +520,26 @@ export function HyperFramesPreviewPlayer({
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
   }, [])
 
+  useLayoutEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
+
+    const updateStageSize = () => {
+      const rect = stage.getBoundingClientRect()
+      setPreviewStageSize((current) => {
+        const width = Math.max(0, rect.width)
+        const height = Math.max(0, rect.height)
+        if (current.width === width && current.height === height) return current
+        return { width, height }
+      })
+    }
+
+    updateStageSize()
+    const observer = new ResizeObserver(updateStageSize)
+    observer.observe(stage)
+    return () => observer.disconnect()
+  }, [])
+
   const syncLivePreviewTime = useCallback((time: number) => {
     const liveDuration = durationRef.current
     const liveProgress = liveDuration > 0 ? clamp((time / liveDuration) * 100, 0, 100) : 0
@@ -655,6 +693,7 @@ export function HyperFramesPreviewPlayer({
 
   const handleReload = () => {
     setTimelineEditModel(null)
+    clearRipplePreviewCoordinator()
     adapter.reload({ seekTime: displayTime })
     void timelineQuery.refetch()
   }
@@ -903,7 +942,8 @@ export function HyperFramesPreviewPlayer({
       data-testid="ripple-preview-player"
     >
       <div
-        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-tl-background p-1"
+        ref={stageRef}
+        className="flex min-h-[120px] flex-1 items-center justify-center overflow-hidden bg-tl-background p-1"
         data-testid="ripple-preview-stage"
       >
         <div
@@ -913,7 +953,8 @@ export function HyperFramesPreviewPlayer({
           )}
           style={{
             aspectRatio,
-            width: `${scale}%`,
+            width: fittedPreviewSize ? `${fittedPreviewSize.width}px` : `${scale}%`,
+            height: fittedPreviewSize ? `${fittedPreviewSize.height}px` : undefined,
             maxWidth: zoom === "fit" ? "100%" : "none",
           }}
         >
@@ -1052,7 +1093,7 @@ export function HyperFramesPreviewPlayer({
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <div className="flex min-w-fit items-center gap-1">
             <PlayerIconButton
-              label={isPlaying ? "Pause" : "Play"}
+              label={isPlaying ? "Pause preview" : "Play preview"}
               onClick={handleTogglePlayback}
               disabled={!previewControlsReady}
             >
@@ -1113,14 +1154,14 @@ export function HyperFramesPreviewPlayer({
 
           <div className="mx-auto flex min-w-fit items-center gap-1.5">
             <PlayerIconButton
-              label="Restart"
+              label="Restart preview"
               onClick={handleRestart}
               disabled={!previewControlsReady}
             >
-              <RefreshCw className="h-3.5 w-3.5" />
+              <RotateCcw className="h-3.5 w-3.5" />
             </PlayerIconButton>
             <PlayerIconButton
-              label="Previous frame"
+              label="Step back one frame"
               onClick={() => handleStepFrame(-1)}
               disabled={!previewControlsReady}
             >
@@ -1148,7 +1189,7 @@ export function HyperFramesPreviewPlayer({
               </div>
             </div>
             <PlayerIconButton
-              label="Next frame"
+              label="Step forward one frame"
               onClick={() => handleStepFrame(1)}
               disabled={!previewControlsReady}
             >

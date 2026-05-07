@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs"
 import {
   PREVIEW_SETTINGS_CONTROLS,
   ZOOM_OPTIONS,
+  fitPreviewStageSize,
   formatPreviewTimecode,
   shouldRenderPreviewCloseControl,
   shouldTogglePreviewPlaybackForSpacebar,
@@ -52,6 +53,41 @@ describe("HyperFrames preview player controls", () => {
     expect(formatPreviewTimecode(1.25)).toBe("00:00:01:08")
   })
 
+  test("fits preview media by width or height while preserving source aspect", () => {
+    expect(fitPreviewStageSize({
+      containerWidth: 640,
+      containerHeight: 240,
+      sourceWidth: 1920,
+      sourceHeight: 1080,
+      zoom: "fit",
+    })).toEqual({
+      width: 426.66666666666663,
+      height: 240,
+    })
+
+    expect(fitPreviewStageSize({
+      containerWidth: 320,
+      containerHeight: 800,
+      sourceWidth: 1920,
+      sourceHeight: 1080,
+      zoom: "fit",
+    })).toEqual({
+      width: 320,
+      height: 180,
+    })
+
+    expect(fitPreviewStageSize({
+      containerWidth: 320,
+      containerHeight: 180,
+      sourceWidth: 1920,
+      sourceHeight: 1080,
+      zoom: "150",
+    })).toEqual({
+      width: 480,
+      height: 270,
+    })
+  })
+
   test("delays transient preview loading indicators to avoid flicker", () => {
     const source = readFileSync(
       "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",
@@ -61,9 +97,25 @@ describe("HyperFrames preview player controls", () => {
     expect(source).toContain("PREVIEW_BLOCKING_STATUS_DELAY_MS = 500")
     expect(source).toContain("useDelayedPreviewStatus")
     expect(source).toContain("showDelayedPreparingPreview")
+    expect(source).toContain("fitPreviewStageSize")
+    expect(source).toContain('className="flex min-h-[120px] flex-1')
     expect(source).not.toContain("Updating preview")
     expect(source).toContain("animate-in")
     expect(source).toContain("fade-in-0")
+  })
+
+  test("separates restart and reload transport semantics", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",
+      "utf8",
+    )
+
+    expect(source).toContain('label={isPlaying ? "Pause preview" : "Play preview"}')
+    expect(source).toContain('label="Restart preview"')
+    expect(source).toContain("<RotateCcw")
+    expect(source).toContain("Reload preview")
+    expect(source).toContain("clearRipplePreviewCoordinator()")
+    expect(source).toContain("handleReload")
   })
 
   test("keeps the timeline panel height stable across preview versions", () => {
@@ -76,6 +128,20 @@ describe("HyperFrames preview player controls", () => {
     expect(source).toContain("Math.max(TIMELINE_VIEWPORT_HEIGHT, contentHeight)")
     expect(source).toContain('className="-mx-3 mt-1.5 h-[310px] overflow-hidden bg-background"')
     expect(source).toContain('className="relative h-[274px]"')
+  })
+
+  test("scrubs the extended timeline continuously while preserving shift range selection", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesTimeline.tsx",
+      "utf8",
+    )
+
+    expect(source).toContain("isPlayheadScrubbing")
+    expect(source).toContain("setIsPlayheadScrubbing(true)")
+    expect(source).toContain("if (event.shiftKey)")
+    expect(source).toContain("updateRangeSelection(time, time, null)")
+    expect(source).toContain("if (isPlayheadScrubbing)")
+    expect(source).toContain("if (time !== null) onSeek(time)")
   })
 
   test("keeps clip-edit commits from blocking or reloading the visible preview", () => {
@@ -96,6 +162,23 @@ describe("HyperFrames preview player controls", () => {
       "src/renderer/features/hyperframes/HyperFramesTimeline.tsx",
       "utf8",
     )).toContain("pl-4 pr-3")
+  })
+
+  test("uses Studio-style single-lane track rendering", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesTimeline.tsx",
+      "utf8",
+    )
+
+    expect(source).toContain("const GUTTER_WIDTH = 32")
+    expect(source).toContain("const RULER_HEIGHT = 24")
+    expect(source).toContain("const TRACK_HEIGHT = 72")
+    expect(source).toContain("const CLIP_INSET = 3")
+    expect(source).toContain("const MIN_CLIP_WIDTH = 4")
+    expect(source).toContain("height: TRACK_HEIGHT - CLIP_INSET * 2")
+    expect(source).not.toContain("layoutTimelineTrackClips")
+    expect(source).not.toContain("CLIP_SUBLANE_GAP")
+    expect(source).not.toContain("data-overlapping-clip")
   })
 
   test("allows a plain spacebar press to toggle playback on the preview surface", () => {

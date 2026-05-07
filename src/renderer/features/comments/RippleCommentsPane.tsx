@@ -82,6 +82,7 @@ import { appStore } from "../../lib/jotai-store"
 import { trpc } from "../../lib/trpc"
 import { cn } from "../../lib/utils"
 import { clearRipplePreviewCoordinator } from "../hyperframes/preview-coordinator"
+import { refreshHyperframesSourceQueries } from "../hyperframes/source-refresh-queries"
 import {
   lastSelectedAgentIdAtom,
   lastSelectedCodexModelIdAtom,
@@ -1321,6 +1322,12 @@ export function RippleCommentsPane({
   }, [onSelectedThreadIdChange])
   const commentsListRef = useRef<HTMLDivElement | null>(null)
   const utils = trpc.useUtils()
+  const refreshPreviewSurfaces = useCallback(() =>
+    refreshHyperframesSourceQueries({
+      utils,
+      projectId,
+      clearPreviewCache: clearRipplePreviewCoordinator,
+    }), [projectId, utils])
   const {
     selector: modelSelector,
     selectedRevisionProvider,
@@ -1390,8 +1397,7 @@ export function RippleCommentsPane({
   })
   const refreshProposal = trpc.revisions.refreshProposal.useMutation({
     onSuccess: async () => {
-      clearRipplePreviewCoordinator()
-      await utils.revisions.listThreads.invalidate()
+      await refreshPreviewSurfaces()
     },
     onError: (error) => toast.error("Changes were not refreshed", { description: error.message }),
   })
@@ -1399,13 +1405,7 @@ export function RippleCommentsPane({
     onSuccess: async () => {
       setSelectedThreadId(null)
       onShowPrimaryPreview()
-      clearRipplePreviewCoordinator()
-      await Promise.all([
-        utils.revisions.listThreads.invalidate(),
-        utils.hyperframes.getPlayerSource.invalidate(),
-        utils.hyperframes.getTimelineModel.invalidate(),
-        utils.hyperframes.getProjectBrowserModel.invalidate(),
-      ])
+      await refreshPreviewSurfaces()
       toast.success("Changes accepted")
     },
     onError: (error) => toast.error("Changes were not accepted", { description: error.message }),
@@ -1414,11 +1414,7 @@ export function RippleCommentsPane({
     onSuccess: async () => {
       setSelectedThreadId(null)
       onShowPrimaryPreview()
-      clearRipplePreviewCoordinator()
-      await Promise.all([
-        utils.revisions.listThreads.invalidate(),
-        utils.hyperframes.getPlayerSource.invalidate(),
-      ])
+      await refreshPreviewSurfaces()
       toast.success("Changes rejected")
     },
     onError: (error) => toast.error("Changes were not rejected", { description: error.message }),

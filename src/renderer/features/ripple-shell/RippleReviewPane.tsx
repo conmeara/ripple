@@ -114,7 +114,7 @@ export function RippleReviewPane({
         "flex h-full min-h-0 flex-col overflow-hidden border-l border-border/60 bg-tl-background",
         expanded
           ? "w-auto min-w-[340px] max-w-none flex-1"
-          : "w-[390px] min-w-[340px] max-w-[430px]",
+          : "w-[clamp(300px,30vw,390px)] min-w-[300px] max-w-[390px]",
       )}
     >
       <div className="flex h-11 shrink-0 items-center px-3">

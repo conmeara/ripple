@@ -10,6 +10,7 @@ interface PackageJson {
     asarUnpack?: string[]
     extraResources?: Array<{ from?: string; to?: string; filter?: string[] }>
     mac?: {
+      icon?: string
       extendInfo?: Record<string, string>
     }
   }
@@ -256,5 +257,39 @@ describe("HyperFrames packaged app configuration", () => {
 
     expect(extendInfo.NSCameraUsageDescription).toContain("Ripple")
     expect(extendInfo.NSMicrophoneUsageDescription).toContain("Ripple")
+  })
+
+  test("packages macOS light and dark icon assets", () => {
+    const pkg = readPackageJson()
+    const buildResource = pkg.build.extraResources?.find((resource) => resource.from === "build")
+    const filters = new Set(buildResource?.filter ?? [])
+    const iconComposerDocument = JSON.parse(readFileSync("build/icon.icon/icon.json", "utf-8")) as {
+      groups?: Array<{
+        layers?: Array<{
+          "fill-specializations"?: Array<{ appearance?: string }>
+          "image-name"?: string
+        }>
+      }>
+      "fill-specializations"?: Array<{ appearance?: string }>
+    }
+
+    expect(pkg.build.mac?.icon).toBe("build/icon.icns")
+    expect(filters.has("icon-light.png")).toBe(true)
+    expect(filters.has("icon-dark.png")).toBe(true)
+    expect(filters.has("icon.icon/**/*")).toBe(true)
+    expect(existsSync("build/icon-light.png")).toBe(true)
+    expect(existsSync("build/icon-dark.png")).toBe(true)
+    expect(existsSync("build/icon.icon/Assets/ripple-mark.svg")).toBe(true)
+    expect(
+      iconComposerDocument["fill-specializations"]?.some(
+        (entry) => entry.appearance === "dark",
+      ),
+    ).toBe(true)
+    expect(iconComposerDocument.groups?.[0]?.layers?.[0]?.["image-name"]).toBe("ripple-mark.svg")
+    expect(
+      iconComposerDocument.groups?.[0]?.layers?.[0]?.["fill-specializations"]?.some(
+        (entry) => entry.appearance === "dark",
+      ),
+    ).toBe(true)
   })
 })

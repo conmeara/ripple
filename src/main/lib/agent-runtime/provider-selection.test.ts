@@ -3,7 +3,7 @@ import { inferAgentProviderFromModel } from "./provider-selection"
 
 describe("agent provider selection", () => {
   test("persists Codex explicitly for Codex and GPT model names", () => {
-    expect(inferAgentProviderFromModel("gpt-5.3-codex/high")).toBe("codex")
+    expect(inferAgentProviderFromModel("gpt-5.5/high")).toBe("codex")
     expect(inferAgentProviderFromModel("gpt-5.2")).toBe("codex")
     expect(inferAgentProviderFromModel("o4-mini")).toBe("codex")
   })
@@ -18,4 +18,3 @@ describe("agent provider selection", () => {
     expect(inferAgentProviderFromModel("fake-agent")).toBe("fake")
   })
 })
-

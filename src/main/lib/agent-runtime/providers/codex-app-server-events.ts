@@ -357,6 +357,21 @@ export function normalizeCodexAppServerNotification(
     }]
   }
 
+  if (message.method === "warning") {
+    const messageText = String(params.message ?? "Codex reported a warning.")
+    return [{
+      type: "status",
+      providerType: message.method,
+      providerId: params.threadId ?? providerId,
+      payload: {
+        status: "running",
+        label: messageText,
+        message: messageText,
+        threadId: params.threadId,
+      },
+    }]
+  }
+
   if (message.method === "configWarning") {
     return [{
       type: "status",

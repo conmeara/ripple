@@ -1,4 +1,5 @@
 import { observable } from "@trpc/server/observable"
+import { eq } from "drizzle-orm"
 import { z } from "zod"
 import {
   MAX_AGENT_RUNTIME_ATTACHMENT_BASE64_CHARS,
@@ -11,7 +12,9 @@ import {
   getAgentProviderAuthStatus,
   getAgentRun,
   listAgentRunEvents,
+  respondToAgentRunApproval,
   startAgentRun,
+  subscribeToAllAgentRunEvents,
   subscribeToAgentRunEvents,
 } from "../../agent-runtime/service"
 import { isActiveAgentRunStatus } from "../../agent-runtime/types"
@@ -21,6 +24,11 @@ import {
   getBundledClaudeCodePath,
   getBundledCodexCliPath,
 } from "../../agent-runtime/providers/bundled-binaries"
+import {
+  agentRuns,
+  agentThreads,
+  getDatabase,
+} from "../../db"
 import { publicProcedure, router } from "../index"
 
 const providerSchema = z.enum(["codex", "claude", "fake"])
@@ -56,6 +64,7 @@ const runtimeAttachmentsSchema = z
   })
 
 const runtimeContextSchema = z.object({
+  projectId: z.string().nullable().optional(),
   compositionId: z.string().nullable().optional(),
   previewTimeSeconds: z.number().finite().nonnegative().nullable().optional(),
   previewFrame: z.number().int().nonnegative().nullable().optional(),
@@ -99,6 +108,18 @@ const targetSchema = z.discriminatedUnion("type", [
     revisionId: z.string(),
   }),
 ])
+
+function getGeneratedChangeRunProject(runId: string) {
+  return getDatabase()
+    .select({
+      run: agentRuns,
+      projectId: agentThreads.projectId,
+    })
+    .from(agentRuns)
+    .innerJoin(agentThreads, eq(agentThreads.id, agentRuns.agentThreadId))
+    .where(eq(agentRuns.id, runId))
+    .get() ?? null
+}
 
 export const agentRuntimeRouter = router({
   listConnections: publicProcedure.query(() => listAgentConnections()),
@@ -312,6 +333,31 @@ export const agentRuntimeRouter = router({
       })
     }),
 
+  generatedChangeEvents: publicProcedure
+    .input(z.object({ projectId: z.string() }))
+    .subscription(({ input }) => {
+      return observable<any>((emit) => {
+        const unsubscribe = subscribeToAllAgentRunEvents((event) => {
+          if (event.type !== "file_change") return
+          const runProject = getGeneratedChangeRunProject(event.agentRunId)
+          if (
+            !runProject ||
+            runProject.projectId !== input.projectId ||
+            runProject.run.runKind !== "generated_change"
+          ) {
+            return
+          }
+          emit.next({
+            type: "event",
+            event,
+            run: runProject.run,
+            projectId: runProject.projectId,
+          })
+        })
+        return unsubscribe
+      })
+    }),
+
   executeRun: publicProcedure
     .input(z.object({ runId: z.string() }))
     .mutation(({ input }) => executeAgentRun(input.runId)),
@@ -319,6 +365,20 @@ export const agentRuntimeRouter = router({
   cancelRun: publicProcedure
     .input(z.object({ runId: z.string() }))
     .mutation(({ input }) => cancelAgentRun(input.runId)),
+
+  respondApproval: publicProcedure
+    .input(z.object({
+      approvalId: z.string(),
+      approved: z.boolean(),
+      message: z.string().optional(),
+      response: z.record(z.string(), z.unknown()).optional(),
+    }))
+    .mutation(({ input }) => respondToAgentRunApproval({
+      approvalId: input.approvalId,
+      approved: input.approved,
+      message: input.message ?? null,
+      response: input.response ?? null,
+    })),
 
   getRun: publicProcedure
     .input(z.object({ runId: z.string() }))

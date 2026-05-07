@@ -23,7 +23,7 @@ type IframePlaybackWindow = Window & {
 type PlayerLike = Pick<HyperframesPlayer, "currentTime" | "duration" | "paused"> & {
   iframeElement?: {
     contentWindow?: Window | null
-    contentDocument?: Pick<Document, "querySelector"> | null
+    contentDocument?: Pick<Document, "querySelector" | "querySelectorAll"> | null
   } | null
 }
 
@@ -95,6 +95,20 @@ export function readClipManifest(player: PlayerLike | null): RippleTimelineRunti
     return manifest && Array.isArray(manifest.clips) ? manifest : null
   } catch {
     return null
+  }
+}
+
+export function hasAuthoredTimelineChildren(
+  doc: Pick<Document, "querySelector" | "querySelectorAll"> | null | undefined,
+): boolean {
+  try {
+    if (!doc) return true
+
+    const rootComposition = doc.querySelector("[data-composition-id]")
+    return Array.from(doc.querySelectorAll("[data-start]"))
+      .some((node) => node !== rootComposition)
+  } catch {
+    return true
   }
 }
 

@@ -177,7 +177,7 @@ describe("ripple frame-sheet command", () => {
 
       expect(result.exitCode).toBe(0)
       expect(captureInput.captureMode).toBe("fast")
-      expect(captureInput.settleMs).toBe(50)
+      expect(captureInput.settleMs).toBe(0)
       expect(captureInput.columns).toBe(4)
       expect(captureInput.rows).toBe(2)
       expect(captureInput.maxSheetWidth).toBe(1440)

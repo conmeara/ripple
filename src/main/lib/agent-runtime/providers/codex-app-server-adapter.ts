@@ -1,6 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
 import { app } from "electron"
-import { resolve } from "node:path"
 import { createInterface } from "node:readline"
 import type {
   AgentProviderAdapter,
@@ -10,8 +9,6 @@ import type {
   ProviderAuthStatus,
 } from "../types"
 import { resolveProjectPathFromWorktree } from "../../claude-config"
-import { agentApprovals, getDatabase } from "../../db"
-import { isPathInsideDirectory } from "../../ripple-projects/paths"
 import {
   buildProjectNoteFallbackInstructions,
   resolveAgentRunContext,
@@ -42,6 +39,11 @@ import {
 } from "./codex-app-server-skills"
 import { normalizeCodexModelSelection } from "./codex-model-selection"
 import { buildRippleAgentToolEnvironment } from "../cli-tools-env"
+import {
+  approvalBoundaryWarning,
+  assessCodexAppServerApprovalRequest,
+  buildCodexPermissionApprovalResponse,
+} from "./codex-app-server-approval"
 
 function getRepoRoot(): string | undefined {
   return app.isPackaged ? undefined : app.getAppPath()
@@ -158,36 +160,6 @@ function isLikelySkillInputError(error: unknown): boolean {
   return /\bskill\b/i.test(message)
 }
 
-function recordCodexApproval(input: {
-  runId: string
-  providerRequestId: string
-  kind: "command" | "file_change" | "question"
-  status: "approved" | "denied"
-  prompt: string
-  details: Record<string, unknown>
-  response: Record<string, unknown>
-}): void {
-  getDatabase()
-    .insert(agentApprovals)
-    .values({
-      agentRunId: input.runId,
-      providerRequestId: input.providerRequestId,
-      kind: input.kind === "question" ? "question" : input.kind,
-      status: input.status,
-      prompt: input.prompt,
-      detailsJson: JSON.stringify(input.details),
-      responseJson: JSON.stringify(input.response),
-      resolvedAt: new Date(),
-    })
-    .run()
-}
-
-function isWorkspacePath(value: unknown, cwd: string): boolean {
-  if (typeof value !== "string" || !value.trim()) return false
-  const candidate = resolve(cwd, value)
-  return isPathInsideDirectory(cwd, candidate)
-}
-
 function collectApprovalPaths(value: unknown): string[] {
   if (!value || typeof value !== "object") return []
   if (Array.isArray(value)) {
@@ -214,15 +186,6 @@ function collectApprovalPaths(value: unknown): string[] {
     paths.push(...collectApprovalPaths(nested))
   }
   return paths
-}
-
-function approvalBoundaryError(paths: string[], cwd: string): string | null {
-  for (const candidate of paths) {
-    if (!isWorkspacePath(candidate, cwd)) {
-      return `Approval request references a path outside the Ripple workspace: ${candidate}`
-    }
-  }
-  return null
 }
 
 class CodexAppServerClient {
@@ -293,7 +256,7 @@ class CodexAppServerClient {
 
     await this.request("initialize", {
       clientInfo: {
-        name: "ripple",
+        name: "ripple_desktop",
         title: "Ripple",
         version: app.getVersion(),
       },
@@ -565,104 +528,186 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
         if (message.method === "item/commandExecution/requestApproval") {
           const providerRequestId = String(message.id)
           const cwd = message.params?.cwd
-          const boundaryError = isWorkspacePath(cwd, input.cwd)
-            ? null
-            : `Command approval requested outside the Ripple workspace: ${cwd ?? "unknown cwd"}`
-          const response = boundaryError
-            ? { decision: "deny", reason: boundaryError }
-            : { decision: "acceptForSession" }
-          recordCodexApproval({
-            runId: input.run.id,
+          const assessment = assessCodexAppServerApprovalRequest({
+            params: message.params,
+            workspaceRoot: input.cwd,
+          })
+          const approval = await sink.requestApproval({
             providerRequestId,
-            kind: "command",
-            status: boundaryError ? "denied" : "approved",
+            kind: assessment.requestedNetwork ? "network" : "command",
             prompt: String(message.params?.reason ?? message.params?.command ?? "Command approval"),
             details: {
+              providerName: "Codex",
               command: message.params?.command,
               cwd,
               reason: message.params?.reason,
-              boundaryError,
+              threadId: message.params?.threadId,
+              turnId: message.params?.turnId,
+              itemId: message.params?.itemId,
+              approvalId: message.params?.approvalId,
+              availableDecisions: message.params?.availableDecisions,
+              networkApprovalContext: message.params?.networkApprovalContext,
+              additionalPermissions: message.params?.additionalPermissions,
+              proposedExecpolicyAmendment: message.params?.proposedExecpolicyAmendment,
+              proposedNetworkPolicyAmendments: message.params?.proposedNetworkPolicyAmendments,
+              requestedNetwork: assessment.requestedNetwork,
+              requestedPermissionPaths: assessment.requestedPermissionPaths,
+              unsupportedPermissionReferences: assessment.unsupportedPermissionReferences,
+              approvalWarning: assessment.approvalWarning,
+              canApprove: assessment.canApprove,
             },
-            response,
-          })
-          await sink.emit({
-            type: "approval_request",
             providerType: message.method,
             providerId: providerRequestId,
             payload: {
-              kind: "command",
+              providerName: "Codex",
+              kind: assessment.requestedNetwork ? "network" : "command",
               command: message.params?.command,
               cwd,
               reason: message.params?.reason,
-              decision: response.decision,
-              boundaryError,
+              threadId: message.params?.threadId,
+              turnId: message.params?.turnId,
+              itemId: message.params?.itemId,
+              approvalId: message.params?.approvalId,
+              availableDecisions: message.params?.availableDecisions,
+              networkApprovalContext: message.params?.networkApprovalContext,
+              additionalPermissions: message.params?.additionalPermissions,
+              requestedNetwork: assessment.requestedNetwork,
+              requestedPermissionPaths: assessment.requestedPermissionPaths,
+              decision: "pending",
+              approvalWarning: assessment.approvalWarning,
+              canApprove: assessment.canApprove,
             },
           })
-          if (boundaryError) throw new Error(boundaryError)
-          return response
+          return approval.approved && assessment.canApprove
+            ? assessment.approveResponse
+            : {
+              ...assessment.denyResponse,
+              reason: approval.message ?? "Denied by user.",
+            }
         }
         if (message.method === "item/fileChange/requestApproval") {
           const providerRequestId = String(message.id)
           const paths = collectApprovalPaths(message.params)
-          const boundaryError = approvalBoundaryError(paths, input.cwd)
-          const response = boundaryError
-            ? { decision: "deny", reason: boundaryError }
-            : { decision: "acceptForSession" }
-          recordCodexApproval({
-            runId: input.run.id,
+          const pathApprovalWarning = approvalBoundaryWarning(paths, input.cwd)
+          const assessment = assessCodexAppServerApprovalRequest({
+            params: message.params,
+            workspaceRoot: input.cwd,
+          })
+          const approvalWarning = pathApprovalWarning ?? assessment.approvalWarning
+          const approval = await sink.requestApproval({
             providerRequestId,
             kind: "file_change",
-            status: boundaryError ? "denied" : "approved",
             prompt: "File change approval",
             details: {
+              providerName: "Codex",
+              threadId: message.params?.threadId,
+              turnId: message.params?.turnId,
               itemId: message.params?.itemId,
+              approvalId: message.params?.approvalId,
+              availableDecisions: message.params?.availableDecisions,
               paths,
-              boundaryError,
+              requestedPermissionPaths: assessment.requestedPermissionPaths,
+              approvalWarning,
+              canApprove: assessment.canApprove,
             },
-            response,
-          })
-          await sink.emit({
-            type: "approval_request",
             providerType: message.method,
             providerId: providerRequestId,
             payload: {
+              providerName: "Codex",
               kind: "file_change",
+              threadId: message.params?.threadId,
+              turnId: message.params?.turnId,
               itemId: message.params?.itemId,
+              approvalId: message.params?.approvalId,
               paths,
-              decision: response.decision,
-              boundaryError,
+              requestedPermissionPaths: assessment.requestedPermissionPaths,
+              decision: "pending",
+              approvalWarning,
+              canApprove: assessment.canApprove,
             },
           })
-          if (boundaryError) throw new Error(boundaryError)
-          return response
+          return approval.approved && assessment.canApprove
+            ? assessment.approveResponse
+            : {
+              ...assessment.denyResponse,
+              reason: approval.message ?? "Denied by user.",
+            }
+        }
+        if (message.method === "item/permissions/requestApproval") {
+          const providerRequestId = String(message.id)
+          const assessment = assessCodexAppServerApprovalRequest({
+            params: message.params,
+            workspaceRoot: input.cwd,
+          })
+          const approval = await sink.requestApproval({
+            providerRequestId,
+            kind: assessment.requestedNetwork ? "network" : "file_change",
+            prompt: String(message.params?.reason ?? "Permission approval"),
+            details: {
+              providerName: "Codex",
+              threadId: message.params?.threadId,
+              turnId: message.params?.turnId,
+              itemId: message.params?.itemId,
+              cwd: message.params?.cwd,
+              reason: message.params?.reason,
+              permissions: message.params?.permissions,
+              requestedNetwork: assessment.requestedNetwork,
+              requestedPermissionPaths: assessment.requestedPermissionPaths,
+              unsupportedPermissionReferences: assessment.unsupportedPermissionReferences,
+              approvalWarning: assessment.approvalWarning,
+            },
+            providerType: message.method,
+            providerId: providerRequestId,
+            payload: {
+              providerName: "Codex",
+              kind: assessment.requestedNetwork ? "network" : "permission",
+              threadId: message.params?.threadId,
+              turnId: message.params?.turnId,
+              itemId: message.params?.itemId,
+              cwd: message.params?.cwd,
+              reason: message.params?.reason,
+              permissions: message.params?.permissions,
+              requestedNetwork: assessment.requestedNetwork,
+              requestedPermissionPaths: assessment.requestedPermissionPaths,
+              decision: "pending",
+              approvalWarning: assessment.approvalWarning,
+              canApprove: true,
+            },
+          })
+          return buildCodexPermissionApprovalResponse({
+            params: message.params,
+            approved: approval.approved,
+          })
         }
         if (message.method === "item/tool/requestUserInput") {
           const providerRequestId = String(message.id)
-          const response = { answers: {} }
-          recordCodexApproval({
-            runId: input.run.id,
+          const approval = await sink.requestApproval({
             providerRequestId,
             kind: "question",
-            status: "denied",
-            prompt: "Codex requested user input.",
+            prompt: "Codex asked for input.",
             details: {
+              providerName: "Codex",
+              threadId: message.params?.threadId,
+              turnId: message.params?.turnId,
               itemId: message.params?.itemId,
               questions: message.params?.questions,
             },
-            response,
-          })
-          await sink.emit({
-            type: "approval_request",
             providerType: message.method,
             providerId: providerRequestId,
             payload: {
+              providerName: "Codex",
               kind: "user_input",
+              threadId: message.params?.threadId,
+              turnId: message.params?.turnId,
               itemId: message.params?.itemId,
               questions: message.params?.questions,
-              decision: "empty_answers",
+              decision: "pending",
+              canApprove: true,
             },
           })
-          return response
+          return approval.approved && approval.response
+            ? approval.response
+            : { answers: {} }
         }
         if (message.method === "item/tool/call") {
           const callId = String(message.params?.callId ?? message.id)
@@ -757,9 +802,10 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
         if (cancelled || sink.isCancellationRequested()) throw new CodexRunCancelledError()
         const threadStart = await client.request("thread/start", {
           cwd: input.cwd,
+          serviceName: "ripple_desktop",
           model: modelSelection.model,
           modelProvider: null,
-          approvalPolicy: "on-failure",
+          approvalPolicy: "on-request",
           sandbox: "workspace-write",
           config: null,
           ...threadInstructionParams(),
@@ -781,7 +827,7 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
           threadId,
           input: buildCodexTurnInput(finalPrompt, preparedAttachments, skillInputs),
           cwd: input.cwd,
-          approvalPolicy: "on-failure",
+          approvalPolicy: "on-request",
           sandboxPolicy: {
             type: "workspaceWrite",
             writableRoots: [input.cwd],

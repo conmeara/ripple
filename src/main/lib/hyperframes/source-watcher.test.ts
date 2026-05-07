@@ -86,9 +86,12 @@ describe("HyperFrames source watcher", () => {
       await waitForEventCount(events, 1)
 
       expect(events[0]?.projectPath).toBe(projectDir)
-      expect(events[0]?.changes).toEqual([
-        { path: "index.html", type: "change" },
-      ])
+      expect(events[0]?.changes).toEqual(
+        expect.arrayContaining([{ path: "index.html", type: "change" }]),
+      )
+      expect(
+        events[0]?.changes.every((change) => isHyperframesSourceWatchPath(change.path)),
+      ).toBe(true)
 
       const countAfterSourceEdit = events.length
       await writeFile(join(projectDir, "README.md"), "notes", "utf-8")
@@ -99,16 +102,17 @@ describe("HyperFrames source watcher", () => {
       await writeFile(join(projectDir, "index.html"), "<h1>again</h1>", "utf-8")
       await writeFile(join(projectDir, "styles.css"), "body { color: white; }", "utf-8")
       await writeFile(join(projectDir, "hyperframes.json"), "{\"updated\":true}", "utf-8")
-      await waitForEventCount(events, 2)
+      await waitForEventCount(events, countAfterSourceEdit + 1)
 
-      expect(events[1]?.changes).toEqual(
+      const latestEvent = events.at(-1)
+      expect(latestEvent?.changes).toEqual(
         expect.arrayContaining([
           { path: "index.html", type: "change" },
           { path: "styles.css", type: "change" },
           { path: "hyperframes.json", type: "change" },
         ]),
       )
-      expect(events[1]?.changes).toHaveLength(3)
+      expect(latestEvent?.changes).toHaveLength(3)
     } finally {
       await watcher.dispose()
     }

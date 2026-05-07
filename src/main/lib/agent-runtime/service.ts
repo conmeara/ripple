@@ -4,6 +4,7 @@ import { buildAgentRuntimeAssistantProjection } from "../../../shared/agent-runt
 import { appendOptionalAgentRuntimeAttachments } from "../../../shared/agent-runtime-attachments"
 import {
   agentConnections,
+  agentApprovals,
   agentRunEvents,
   agentRuns,
   agentThreads,
@@ -31,6 +32,8 @@ import {
   isActiveAgentRunStatus,
   type AgentRuntimeAttachment,
   type AgentProviderEventSink,
+  type AgentProviderApprovalDecision,
+  type AgentProviderApprovalRequestInput,
   type AgentRunEventInput,
   type ProviderAuthStatus,
   type StartAgentRunInput,
@@ -41,6 +44,7 @@ import { resolveCommentVisualAttachmentsForRun } from "../revisions/comment-visu
 
 type Db = ReturnType<typeof getDatabase>
 type AgentRunEventListener = (event: AgentRunEvent) => void
+const ALL_AGENT_RUN_EVENTS = "__all_agent_run_events__"
 class AgentRunCancelledError extends Error {
   constructor() {
     super("Run cancelled.")
@@ -50,6 +54,14 @@ class AgentRunCancelledError extends Error {
 
 const agentRunEventBus = new EventEmitter()
 agentRunEventBus.setMaxListeners(0)
+
+const pendingAgentApprovals = new Map<
+  string,
+  {
+    runId: string
+    resolve: (decision: AgentProviderApprovalDecision) => void
+  }
+>()
 
 function activeStatuses() {
   return ["queued", "preparing", "running", "awaiting_approval", "cancelling"] as const
@@ -84,6 +96,7 @@ function insertRunEvent(
     .returning()
     .get()
   agentRunEventBus.emit(runId, inserted)
+  agentRunEventBus.emit(ALL_AGENT_RUN_EVENTS, inserted)
   return inserted
 }
 
@@ -93,6 +106,13 @@ export function subscribeToAgentRunEvents(
 ): () => void {
   agentRunEventBus.on(runId, listener)
   return () => agentRunEventBus.off(runId, listener)
+}
+
+export function subscribeToAllAgentRunEvents(
+  listener: AgentRunEventListener,
+): () => void {
+  agentRunEventBus.on(ALL_AGENT_RUN_EVENTS, listener)
+  return () => agentRunEventBus.off(ALL_AGENT_RUN_EVENTS, listener)
 }
 
 function requireRunContext(db: Db, runId: string) {
@@ -154,6 +174,211 @@ function isCancellationRequested(db: Db, runId: string): boolean {
       run?.status === "cancelling" ||
       run?.status === "cancelled",
   )
+}
+
+async function requestAgentRunApproval(input: {
+  db: Db
+  runId: string
+  request: AgentProviderApprovalRequestInput
+  onEvent?: (event: AgentRunEvent) => void | Promise<void>
+}): Promise<AgentProviderApprovalDecision> {
+  const now = new Date()
+  const approval = input.db
+    .insert(agentApprovals)
+    .values({
+      agentRunId: input.runId,
+      providerRequestId: input.request.providerRequestId,
+      kind: input.request.kind,
+      status: "pending",
+      prompt: input.request.prompt,
+      detailsJson: JSON.stringify(input.request.details ?? {}),
+      responseJson: null,
+      createdAt: now,
+      resolvedAt: null,
+    })
+    .returning()
+    .get()
+
+  input.db
+    .update(agentRuns)
+    .set({
+      status: "awaiting_approval",
+      heartbeatAt: now,
+      updatedAt: now,
+    })
+    .where(eq(agentRuns.id, input.runId))
+    .run()
+
+  const statusEvent = insertRunEvent(input.db, input.runId, {
+    type: "status",
+    payload: {
+      status: "awaiting_approval",
+      approvalId: approval.id,
+    },
+  })
+  await input.onEvent?.(statusEvent)
+
+  const approvalEvent = insertRunEvent(input.db, input.runId, {
+    type: "approval_request",
+    providerType: input.request.providerType ?? null,
+    providerId: input.request.providerId ?? input.request.providerRequestId,
+    payload: {
+      ...(input.request.payload ?? {}),
+      approvalId: approval.id,
+      providerRequestId: input.request.providerRequestId,
+      kind: input.request.kind,
+      prompt: input.request.prompt,
+      details: input.request.details ?? {},
+      status: "pending",
+    },
+  })
+  await input.onEvent?.(approvalEvent)
+
+  return new Promise((resolve) => {
+    pendingAgentApprovals.set(approval.id, {
+      runId: input.runId,
+      resolve,
+    })
+  })
+}
+
+function resolvePendingAgentRunApprovals(input: {
+  db: Db
+  runId: string
+  approved: boolean
+  status: "approved" | "denied" | "cancelled"
+  message?: string | null
+}): void {
+  const pendingIds = Array.from(pendingAgentApprovals.entries())
+    .filter(([, pending]) => pending.runId === input.runId)
+    .map(([approvalId]) => approvalId)
+
+  for (const approvalId of pendingIds) {
+    respondToAgentRunApproval({
+      approvalId,
+      approved: input.approved,
+      message: input.message ?? null,
+      status: input.status,
+      db: input.db,
+    })
+  }
+}
+
+function updateApprovalRequestEventPayload(input: {
+  db: Db
+  runId: string
+  approvalId: string
+  status: "approved" | "denied" | "cancelled"
+  approved: boolean
+  message?: string | null
+  response?: Record<string, unknown> | null
+}): void {
+  const events = input.db
+    .select()
+    .from(agentRunEvents)
+    .where(eq(agentRunEvents.agentRunId, input.runId))
+    .all()
+  for (const event of events) {
+    if (event.type !== "approval_request") continue
+    let payload: Record<string, unknown>
+    try {
+      payload = JSON.parse(event.payloadJson || "{}")
+    } catch {
+      continue
+    }
+    if (payload.approvalId !== input.approvalId) continue
+    input.db
+      .update(agentRunEvents)
+      .set({
+        payloadJson: JSON.stringify({
+          ...payload,
+          status: input.status,
+          approved: input.approved,
+          message: input.message ?? null,
+          response: input.response ?? null,
+        }),
+      })
+      .where(eq(agentRunEvents.id, event.id))
+      .run()
+    return
+  }
+}
+
+export function respondToAgentRunApproval(input: {
+  approvalId: string
+  approved: boolean
+  message?: string | null
+  response?: Record<string, unknown> | null
+  status?: "approved" | "denied" | "cancelled"
+  db?: Db
+}): { ok: boolean; status?: string; reason?: string } {
+  const db = input.db ?? getDatabase()
+  const approval = db
+    .select()
+    .from(agentApprovals)
+    .where(eq(agentApprovals.id, input.approvalId))
+    .get()
+  if (!approval) {
+    return { ok: false, reason: "not_found" }
+  }
+
+  const pending = pendingAgentApprovals.get(input.approvalId)
+  if (!pending) {
+    return {
+      ok: false,
+      reason: approval.status === "pending" ? "not_active" : "not_pending",
+      status: approval.status,
+    }
+  }
+
+  const status = input.status ?? (input.approved ? "approved" : "denied")
+  const now = new Date()
+  const response = {
+    approved: input.approved,
+    message: input.message ?? null,
+    response: input.response ?? null,
+  }
+  db
+    .update(agentApprovals)
+    .set({
+      status,
+      responseJson: JSON.stringify(response),
+      resolvedAt: now,
+    })
+    .where(eq(agentApprovals.id, input.approvalId))
+    .run()
+
+  if (status !== "cancelled") {
+    db
+      .update(agentRuns)
+      .set({
+        status: "running",
+        heartbeatAt: now,
+        updatedAt: now,
+      })
+      .where(eq(agentRuns.id, approval.agentRunId))
+      .run()
+  }
+
+  updateApprovalRequestEventPayload({
+    db,
+    runId: approval.agentRunId,
+    approvalId: input.approvalId,
+    status,
+    approved: input.approved,
+    message: input.message ?? null,
+    response: input.response ?? null,
+  })
+
+  pendingAgentApprovals.delete(input.approvalId)
+  pending?.resolve({
+    approvalId: input.approvalId,
+    approved: input.approved,
+    message: input.message ?? null,
+    response: input.response ?? null,
+  })
+
+  return { ok: true, status }
 }
 
 async function markAgentRunCancelled(input: {
@@ -421,6 +646,18 @@ export async function executeAgentRun(
       await options.onEvent?.(inserted)
       return inserted
     },
+    requestApproval: async (request) => {
+      const decision = await requestAgentRunApproval({
+        db,
+        runId,
+        request,
+        onEvent: options.onEvent,
+      })
+      if (isCancellationRequested(db, runId)) {
+        throw new AgentRunCancelledError()
+      }
+      return decision
+    },
     setProviderIds: async (ids) => {
       const runPatch: Partial<AgentRun> = {}
       const threadPatch: Partial<AgentThread> = {}
@@ -576,6 +813,13 @@ export async function executeAgentRun(
     await options.onEvent?.(completedEvent)
     return completed
   } catch (error) {
+    resolvePendingAgentRunApprovals({
+      db,
+      runId,
+      approved: false,
+      status: "cancelled",
+      message: "Agent run stopped before this approval was answered.",
+    })
     const message = error instanceof Error ? error.message : String(error)
     if (error instanceof AgentRunCancelledError || isCancellationRequested(db, runId)) {
       return markAgentRunCancelled({
@@ -635,6 +879,13 @@ export async function cancelAgentRun(runId: string): Promise<AgentRun> {
   insertRunEvent(db, runId, {
     type: "status",
     payload: { status: "cancelling" },
+  })
+  resolvePendingAgentRunApprovals({
+    db,
+    runId,
+    approved: false,
+    status: "cancelled",
+    message: "Agent run cancelled.",
   })
   await createAgentProviderAdapter(run.provider).cancel?.(runId)
   return markAgentRunCancelled({ db, runId })

@@ -21,6 +21,12 @@ const PREVIEWABLE_REVISION_STATUSES = new Set<RippleRevisionStatus>([
   "accepted",
 ])
 
+const LIVE_PREVIEWABLE_REVISION_STATUSES = new Set<RippleRevisionStatus>([
+  "queued",
+  "running",
+  "updating",
+])
+
 const RESOLVING_REVISION_STATUSES = new Set<RippleRevisionStatus>([
   "queued",
   "preparing",
@@ -48,6 +54,12 @@ export function canPreviewRevisionChanges(
   options: { deleted?: boolean } = {},
 ): boolean {
   if (!revision || options.deleted) return false
+  if (
+    LIVE_PREVIEWABLE_REVISION_STATUSES.has(revision.status) &&
+    revision.previewContextKey
+  ) {
+    return true
+  }
   if (isRevisionResolvingAgainstLatest(revision)) return false
   return PREVIEWABLE_REVISION_STATUSES.has(revision.status)
 }

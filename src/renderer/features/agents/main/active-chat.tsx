@@ -99,6 +99,7 @@ import { TerminalBottomPanelContent, TerminalSidebar } from "../../terminal/term
 import { getTerminalScopeKey } from "../../terminal/utils"
 import { HyperFramesPreviewPlayer } from "../../hyperframes/HyperFramesPreviewPlayer"
 import { clearRipplePreviewCoordinator } from "../../hyperframes/preview-coordinator"
+import { refreshHyperframesSourceQueries } from "../../hyperframes/source-refresh-queries"
 import { RippleEmbeddedChatToolbar } from "../../ripple-shell/RippleEmbeddedChatToolbar"
 import type { RippleConversationTabMeta } from "../../ripple-shell/RippleActiveConversationTabs"
 import { RippleEmbeddedUtilityPane } from "../../ripple-shell/RippleEmbeddedUtilityPane"
@@ -266,14 +267,14 @@ const selectedTeamIdAtom = atom<string | null>(null)
 // import type { PlanType } from "@/lib/config/subscription-plans"
 type PlanType = string
 
-const DEFAULT_CODEX_MODEL = "gpt-5.3-codex/high"
+const DEFAULT_CODEX_MODEL = "gpt-5.5/high"
 
 function getSelectedCodexRuntimeModel(subChatId: string): string {
   const selectedModelId = appStore.get(subChatCodexModelIdAtomFamily(subChatId))
   const selectedThinking = appStore.get(subChatCodexThinkingAtomFamily(subChatId))
   const selectedModel =
     CODEX_MODELS.find((model) => model.id === selectedModelId) ||
-    CODEX_MODELS.find((model) => model.id === "gpt-5.3-codex") ||
+    CODEX_MODELS.find((model) => model.id === "gpt-5.5") ||
     CODEX_MODELS[0]
 
   if (!selectedModel) return DEFAULT_CODEX_MODEL
@@ -456,9 +457,6 @@ const CodexIcon = (props: React.SVGProps<SVGSVGElement>) => (
 const claudeModels = [
   { id: "opus", name: "Opus latest" },
   { id: "sonnet", name: "Sonnet latest" },
-  { id: "haiku", name: "Haiku latest" },
-  { id: "opusplan", name: "Opus Plan latest" },
-  { id: "sonnet[1m]", name: "Sonnet 1M context" },
 ]
 
 // Agent providers
@@ -5877,15 +5875,18 @@ export function ChatView({
   const originalProjectPath = (agentChat as any)?.project?.path as string | undefined
 
   const acceptWorktreeMutation = trpc.chats.acceptWorktree.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Draft accepted", { position: "top-center" })
-      clearRipplePreviewCoordinator()
       trpcUtils.chats.list.invalidate()
       trpcUtils.chats.listArchived.invalidate()
       utils.agents.getAgentChat.invalidate({ chatId })
-      trpcUtils.hyperframes.getPlayerSource.invalidate()
-      trpcUtils.hyperframes.getTimelineModel.invalidate()
-      trpcUtils.hyperframes.getProjectBrowserModel.invalidate()
+      if (selectedProject?.id) {
+        await refreshHyperframesSourceQueries({
+          utils: trpcUtils,
+          projectId: selectedProject.id,
+          clearPreviewCache: clearRipplePreviewCoordinator,
+        })
+      }
       onViewPrimaryPreview?.()
     },
     onError: (error) => {
@@ -5896,14 +5897,18 @@ export function ChatView({
   })
 
   const discardWorktreeMutation = trpc.chats.archive.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Draft discarded", { position: "top-center" })
-      clearRipplePreviewCoordinator()
       trpcUtils.chats.list.invalidate()
       trpcUtils.chats.listArchived.invalidate()
       utils.agents.getAgentChat.invalidate({ chatId })
-      trpcUtils.hyperframes.getPlayerSource.invalidate()
-      trpcUtils.hyperframes.getTimelineModel.invalidate()
+      if (selectedProject?.id) {
+        await refreshHyperframesSourceQueries({
+          utils: trpcUtils,
+          projectId: selectedProject.id,
+          clearPreviewCache: clearRipplePreviewCoordinator,
+        })
+      }
       onViewPrimaryPreview?.()
       void onCreateNewChat?.()
     },
@@ -6855,11 +6860,13 @@ Make sure to preserve all functionality from both branches when resolving confli
 
     return {
       ...previewContext,
+      projectId: previewContext.projectId ?? selectedProject?.id ?? null,
       compositionId: previewContext.compositionId ?? selectedProject?.activeCompositionId ?? null,
       previewSource: previewContext.previewSource ?? fallbackPreviewSource,
     }
   }, [
     selectedProject?.activeCompositionId,
+    selectedProject?.id,
     selectedProject?.path,
     worktreePath,
   ])

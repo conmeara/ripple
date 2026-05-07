@@ -42,36 +42,19 @@
 
         <!-- Logo Container -->
         <div class="logo-container">
-          <svg viewBox="0 0 160 240" width="160" height="240" class="logo-svg">
-            <!-- Replace these paths with your own logo SVG -->
-            <path
-              class="logo-piece logo-tl"
-              d="M 0 40 C 0 17.9 17.9 0 40 0 L 80 0 L 80 80 L 40 80 C 17.9 80 0 62.1 0 40 Z"
-              fill="#F24E1E"
-            />
-            <path
-              class="logo-piece logo-tr"
-              d="M 80 0 L 120 0 C 142.1 0 160 17.9 160 40 C 160 62.1 142.1 80 120 80 L 80 80 L 80 0 Z"
-              fill="#A259FF"
-            />
-            <path
-              class="logo-piece logo-ml"
-              d="M 0 120 C 0 97.9 17.9 80 40 80 L 80 80 L 80 160 L 40 160 C 17.9 160 0 142.1 0 120 Z"
-              fill="#FF7262"
-            />
-            <circle class="logo-piece logo-mr" cx="120" cy="120" r="40" fill="#1ABCFE" />
-            <path
-              class="logo-piece logo-bl"
-              d="M 0 200 C 0 177.9 17.9 160 40 160 L 80 160 L 80 200 C 80 222.1 62.1 240 40 240 C 17.9 240 0 222.1 0 200 Z"
-              fill="#0ACF83"
-            />
+          <svg viewBox="0 0 560 560" width="240" height="240" class="logo-svg" aria-label="Ripple logo">
+            <g stroke="currentColor" stroke-width="31" stroke-linecap="round" stroke-linejoin="round">
+              <path class="logo-piece logo-left" d="M197 213L139 280L197 347" />
+              <path class="logo-piece logo-right" d="M363 213L421 280L363 347" />
+            </g>
+            <rect class="logo-piece logo-playhead" x="262" y="84" width="36" height="392" rx="18" fill="currentColor" />
           </svg>
         </div>
 
         <div class="text-container">
-          <div class="tagline">Nothing great is made alone.</div>
+          <div class="tagline">Make motion feel effortless.</div>
           <div class="url-pill">
-            <span class="url-text">figma.com</span>
+            <span class="url-text">ripple.app</span>
           </div>
         </div>
       </div>
@@ -88,25 +71,33 @@
 
         [data-composition-id="logo-outro"] .logo-container {
           position: absolute;
-          left: 880px;
-          top: 380px;
-          width: 160px;
+          left: 840px;
+          top: 314px;
+          width: 240px;
           height: 240px;
           z-index: 2;
         }
 
+        [data-composition-id="logo-outro"] .logo-svg {
+          color: #f7f7f7;
+          overflow: visible;
+          filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.2))
+            drop-shadow(0 22px 28px rgba(0, 0, 0, 0.35));
+        }
+
         [data-composition-id="logo-outro"] .logo-piece {
+          transform-box: fill-box;
           transform-origin: center center;
           opacity: 0;
         }
 
         [data-composition-id="logo-outro"] .logo-glow {
           position: absolute;
-          left: 760px;
-          top: 300px;
+          left: 750px;
+          top: 230px;
           width: 400px;
           height: 400px;
-          background: radial-gradient(circle, rgba(162, 89, 255, 0.25) 0%, rgba(10, 10, 15, 0) 70%);
+          background: radial-gradient(circle, rgba(255, 255, 255, 0.22) 0%, rgba(10, 10, 15, 0) 70%);
           border-radius: 50%;
           opacity: 0;
           pointer-events: none;
@@ -155,27 +146,35 @@
           const tl = gsap.timeline({ paused: true });
 
           const pieces = {
-            tl: '[data-composition-id="logo-outro"] .logo-tl',
-            tr: '[data-composition-id="logo-outro"] .logo-tr',
-            ml: '[data-composition-id="logo-outro"] .logo-ml',
-            mr: '[data-composition-id="logo-outro"] .logo-mr',
-            bl: '[data-composition-id="logo-outro"] .logo-bl',
+            left: '[data-composition-id="logo-outro"] .logo-left',
+            playhead: '[data-composition-id="logo-outro"] .logo-playhead',
+            right: '[data-composition-id="logo-outro"] .logo-right',
           };
 
-          const pieceArray = [pieces.tl, pieces.tr, pieces.ml, pieces.mr, pieces.bl];
+          const pieceArray = [pieces.left, pieces.playhead, pieces.right];
           const logoGlow = '[data-composition-id="logo-outro"] .logo-glow';
           const tagline = '[data-composition-id="logo-outro"] .tagline';
           const urlPill = '[data-composition-id="logo-outro"] .url-pill';
 
-          // 1. Pieces slide in from the right with ripple stagger
-          pieceArray.forEach((piece, i) => {
-            tl.fromTo(
-              piece,
-              { x: 1920, opacity: 0 },
-              { x: 0, opacity: 1, duration: 1.2, ease: "power4.out" },
-              i * 0.08,
-            );
-          });
+          // 1. The tray mark assembles from the playhead outward.
+          tl.fromTo(
+            pieces.playhead,
+            { y: -220, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.85, ease: "power4.out" },
+            0,
+          );
+          tl.fromTo(
+            pieces.left,
+            { x: -260, opacity: 0 },
+            { x: 0, opacity: 1, duration: 0.9, ease: "power4.out" },
+            0.18,
+          );
+          tl.fromTo(
+            pieces.right,
+            { x: 260, opacity: 0 },
+            { x: 0, opacity: 1, duration: 0.9, ease: "power4.out" },
+            0.26,
+          );
 
           // 2. Expand and close
           const expandTime = 1.2;

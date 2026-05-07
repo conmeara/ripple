@@ -1,10 +1,12 @@
 "use client"
 
 import { useAtomValue } from "jotai"
-import { ListTree, MoreHorizontal } from "lucide-react"
-import { memo, useCallback, useContext, useMemo, useState } from "react"
+import { Check, ListTree, MoreHorizontal, X } from "lucide-react"
+import { memo, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { normalizeCodexToolPart } from "../../../../shared/codex-tool-normalizer"
 
+import { Button } from "../../../components/ui/button"
+import { Input } from "../../../components/ui/input"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +16,7 @@ import {
 import { CollapseIcon, ExpandIcon, PlanIcon } from "../../../components/ui/icons"
 import { TextShimmer } from "../../../components/ui/text-shimmer"
 import { cn } from "../../../lib/utils"
+import { trpcClient } from "../../../lib/trpc"
 import { selectedProjectAtom, showMessageJsonAtom } from "../atoms"
 import { MessageJsonDisplay } from "../ui/message-json-display"
 import { AgentAskUserQuestionTool } from "../ui/agent-ask-user-question-tool"
@@ -268,6 +271,306 @@ function getRuntimeDataLabel(part: any): string | null {
     default:
       return null
   }
+}
+
+function stringifyApprovalValue(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) return value.trim()
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  return null
+}
+
+function approvalSummaryLines(payload: Record<string, any>): Array<{ label: string; value: string }> {
+  const lines: Array<{ label: string; value: string }> = []
+  const reason = stringifyApprovalValue(payload.reason)
+  const toolName = stringifyApprovalValue(payload.toolName)
+  const command = stringifyApprovalValue(payload.command)
+  const cwd = stringifyApprovalValue(payload.cwd)
+  const blockedPath = stringifyApprovalValue(payload.blockedPath)
+  const description = stringifyApprovalValue(payload.description)
+  const serverName = stringifyApprovalValue(payload.serverName)
+  const url = stringifyApprovalValue(payload.url)
+  const networkHost = stringifyApprovalValue(payload.networkApprovalContext?.host)
+  const paths = Array.isArray(payload.paths)
+    ? payload.paths.filter((path: unknown): path is string => typeof path === "string")
+    : []
+  const requestedPaths = Array.isArray(payload.requestedPermissionPaths)
+    ? payload.requestedPermissionPaths.filter((path: unknown): path is string => typeof path === "string")
+    : []
+
+  if (reason) lines.push({ label: "Reason", value: reason })
+  if (description && description !== reason) lines.push({ label: "Details", value: description })
+  if (serverName) lines.push({ label: "Source", value: serverName })
+  if (toolName) lines.push({ label: "Tool", value: toolName })
+  if (command) lines.push({ label: "Command", value: command })
+  if (url) lines.push({ label: "URL", value: url })
+  if (networkHost) lines.push({ label: "Network", value: networkHost })
+  if (blockedPath) lines.push({ label: "Path", value: blockedPath })
+  if (cwd) lines.push({ label: "Folder", value: cwd })
+  if (paths.length > 0) lines.push({ label: "Files", value: paths.slice(0, 3).join(", ") })
+  if (requestedPaths.length > 0) {
+    lines.push({ label: "Access", value: requestedPaths.slice(0, 3).join(", ") })
+  }
+  return lines.slice(0, 5)
+}
+
+function approvalTitle(payload: Record<string, any>): string {
+  const providerName = stringifyApprovalValue(payload.providerName) ?? "Agent"
+  switch (payload.kind) {
+    case "network":
+      return `${providerName} wants network access`
+    case "command":
+      return `${providerName} wants to run a command`
+    case "file_change":
+      return `${providerName} wants to edit files`
+    case "permission":
+      return `${providerName} wants more access`
+    case "user_input":
+      return `${providerName} asked for input`
+    default:
+      return "Agent approval requested"
+  }
+}
+
+type RuntimeApprovalQuestion = {
+  key: string
+  id: string
+  header: string | null
+  question: string
+  isSecret: boolean
+  options: Array<{ label: string; description?: string | null }>
+}
+
+function approvalQuestions(payload: Record<string, any>): RuntimeApprovalQuestion[] {
+  return Array.isArray(payload.questions)
+    ? payload.questions.map((question: any, index: number) => {
+      const questionText =
+        stringifyApprovalValue(question?.question) ||
+        stringifyApprovalValue(question?.header) ||
+        `Question ${index + 1}`
+      const id = stringifyApprovalValue(question?.id) || questionText
+      return {
+        key: id,
+        id,
+        header: stringifyApprovalValue(question?.header),
+        question: questionText,
+        isSecret: question?.isSecret === true,
+        options: Array.isArray(question?.options)
+          ? question.options
+            .map((option: any) => ({
+              label: stringifyApprovalValue(option?.label) ?? "",
+              description: stringifyApprovalValue(option?.description),
+            }))
+            .filter((option: { label: string }) => option.label.length > 0)
+          : [],
+      }
+    })
+    : []
+}
+
+function buildRuntimeQuestionResponse(
+  payload: Record<string, any>,
+  questions: RuntimeApprovalQuestion[],
+  answers: Record<string, string>,
+): Record<string, unknown> {
+  if (payload.providerName === "Codex") {
+    const codexAnswers: Record<string, { answers: string[] }> = {}
+    for (const question of questions) {
+      const answer = answers[question.key]?.trim()
+      if (answer) {
+        codexAnswers[question.id] = { answers: [answer] }
+      }
+    }
+    return { answers: codexAnswers }
+  }
+
+  const flatAnswers: Record<string, string> = {}
+  for (const question of questions) {
+    const answer = answers[question.key]?.trim()
+    if (answer) {
+      flatAnswers[question.question] = answer
+    }
+  }
+  return {
+    questions: payload.questions,
+    answers: flatAnswers,
+  }
+}
+
+function AgentRuntimeApprovalCard({ data }: { data: any }) {
+  const payload = data?.payload && typeof data.payload === "object"
+    ? data.payload as Record<string, any>
+    : {}
+  const approvalId = stringifyApprovalValue(payload.approvalId)
+  const initialStatus = stringifyApprovalValue(payload.status) ?? "pending"
+  const [status, setStatus] = useState(initialStatus)
+  const [submitting, setSubmitting] = useState<"approve" | "deny" | null>(null)
+  const canRespond = Boolean(approvalId && status === "pending" && payload.canApprove !== false)
+  const warning = stringifyApprovalValue(payload.approvalWarning)
+  const lines = approvalSummaryLines(payload)
+  const questions = approvalQuestions(payload)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const isQuestionPrompt = questions.length > 0 && payload.kind === "user_input"
+  const allQuestionsAnswered = questions.every((question) => answers[question.key]?.trim())
+
+  useEffect(() => {
+    setStatus(initialStatus)
+    setAnswers({})
+  }, [approvalId, initialStatus])
+
+  const respond = async (approved: boolean, response?: Record<string, unknown>) => {
+    if (!approvalId || submitting) return
+    setSubmitting(approved ? "approve" : "deny")
+    try {
+      const result = await trpcClient.agentRuntime.respondApproval.mutate({
+        approvalId,
+        approved,
+        message: approved ? undefined : "Denied by user.",
+        response,
+      })
+      if (result.ok) {
+        setStatus(approved ? "approved" : "denied")
+      } else {
+        setStatus("unavailable")
+      }
+    } catch {
+      setStatus("unavailable")
+    } finally {
+      setSubmitting(null)
+    }
+  }
+
+  const statusLabel =
+    status === "pending"
+      ? "Waiting for your approval"
+      : status === "approved"
+        ? isQuestionPrompt ? "Answered" : "Approved"
+        : status === "denied"
+          ? "Denied"
+          : status === "cancelled"
+            ? "Cancelled"
+            : "No longer available"
+
+  return (
+    <div className="mx-2 my-1 rounded-md border border-border bg-muted/25 px-2.5 py-2 text-xs">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-medium text-foreground">{approvalTitle(payload)}</div>
+          <div className="text-muted-foreground">{statusLabel}</div>
+        </div>
+        {canRespond && !isQuestionPrompt && (
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-xs"
+              disabled={Boolean(submitting)}
+              onClick={() => respond(false)}
+            >
+              <X className="mr-1 h-3 w-3" />
+              Deny
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              disabled={Boolean(submitting)}
+              onClick={() => respond(true)}
+            >
+              <Check className="mr-1 h-3 w-3" />
+              Approve
+            </Button>
+          </div>
+        )}
+      </div>
+      {warning && (
+        <div className="mt-2 rounded-sm bg-amber-500/10 px-2 py-1 text-amber-700 dark:text-amber-300">
+          {warning}
+        </div>
+      )}
+      {lines.length > 0 && (
+        <div className="mt-2 grid gap-1 text-muted-foreground">
+          {lines.map((line) => (
+            <div key={line.label} className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2">
+              <span>{line.label}</span>
+              <span className="truncate font-mono text-[11px]">{line.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {canRespond && isQuestionPrompt && (
+        <div className="mt-2 grid gap-2">
+          {questions.map((question) => (
+            <label key={question.key} className="grid gap-1">
+              <span className="text-xs font-medium text-foreground">
+                {question.header ?? question.question}
+              </span>
+              {question.header && question.header !== question.question && (
+                <span className="text-xs text-muted-foreground">{question.question}</span>
+              )}
+              {question.options.length > 0 ? (
+                <select
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus:border-primary"
+                  value={answers[question.key] ?? ""}
+                  onChange={(event) => {
+                    setAnswers((previous) => ({
+                      ...previous,
+                      [question.key]: event.target.value,
+                    }))
+                  }}
+                >
+                  <option value="">Select an answer...</option>
+                  {question.options.map((option) => (
+                    <option key={option.label} value={option.label}>
+                      {option.description
+                        ? `${option.label} - ${option.description}`
+                        : option.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  className="h-8 rounded-md text-xs"
+                  type={question.isSecret ? "password" : "text"}
+                  value={answers[question.key] ?? ""}
+                  onChange={(event) => {
+                    setAnswers((previous) => ({
+                      ...previous,
+                      [question.key]: event.target.value,
+                    }))
+                  }}
+                />
+              )}
+            </label>
+          ))}
+          <div className="flex justify-end gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-xs"
+              disabled={Boolean(submitting)}
+              onClick={() => respond(false)}
+            >
+              Skip
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              disabled={Boolean(submitting) || !allQuestionsAnswered}
+              onClick={() => respond(
+                true,
+                buildRuntimeQuestionResponse(payload, questions, answers),
+              )}
+            >
+              Submit
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 
@@ -723,6 +1026,9 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
     if (part.type === "exploring-group") return null
 
     if (part.type === "data-agent-runtime") {
+      if (part.data?.kind === "approval") {
+        return <AgentRuntimeApprovalCard key={idx} data={part.data} />
+      }
       const label = getRuntimeDataLabel(part)
       if (!label) return null
       return (

@@ -20,7 +20,7 @@ const DEFAULT_CONNECTIONS: Record<
   codex: {
     name: "Codex",
     runtime: "codex_app_server",
-    defaultModel: "gpt-5.3-codex",
+    defaultModel: "gpt-5.5",
     capabilities: {
       streaming: true,
       approvals: true,
@@ -56,6 +56,7 @@ export function ensureDefaultAgentConnection(
   provider: AgentProviderId,
   db: Db = getDatabase(),
 ): AgentConnection {
+  const defaults = DEFAULT_CONNECTIONS[provider]
   const existing = db
     .select()
     .from(agentConnections)
@@ -64,9 +65,24 @@ export function ensureDefaultAgentConnection(
       eq(agentConnections.isDefault, true),
     ))
     .get()
-  if (existing) return existing
+  if (existing) {
+    if (
+      existing.modelSelectionMode === "provider_default" &&
+      existing.defaultModel !== defaults.defaultModel
+    ) {
+      return db
+        .update(agentConnections)
+        .set({
+          defaultModel: defaults.defaultModel,
+          updatedAt: new Date(),
+        })
+        .where(eq(agentConnections.id, existing.id))
+        .returning()
+        .get()
+    }
+    return existing
+  }
 
-  const defaults = DEFAULT_CONNECTIONS[provider]
   const now = new Date()
   return db
     .insert(agentConnections)
@@ -89,4 +105,3 @@ export function ensureDefaultAgentConnection(
 export function listAgentConnections(db: Db = getDatabase()): AgentConnection[] {
   return db.select().from(agentConnections).all()
 }
-

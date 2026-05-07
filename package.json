@@ -239,6 +239,9 @@
         "filter": [
           "icon.ico",
           "icon.png",
+          "icon-light.png",
+          "icon-dark.png",
+          "icon.icon/**/*",
           "trayTemplate.svg",
           "trayTemplate.png",
           "trayTemplate@2x.png",

@@ -18,6 +18,12 @@ import {
   loadClaudeRuntimeCapabilities,
 } from "./claude-runtime-capabilities"
 import { buildRippleAgentToolEnvironment } from "../cli-tools-env"
+import {
+  buildClaudeElicitationApprovalRequest,
+  buildClaudeElicitationResult,
+  buildClaudeToolApprovalRequest,
+  isRippleClaudeAutoAllowedTool,
+} from "./claude-agent-sdk-approval"
 
 function getRepoRoot(): string | undefined {
   return app.isPackaged ? undefined : app.getAppPath()
@@ -324,6 +330,71 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
             }
           })()
         : finalPrompt
+      const canUseTool = async (
+        toolName: string,
+        toolInput: Record<string, unknown>,
+        options: any,
+      ) => {
+        const toolUseID = String(options?.toolUseID ?? `${toolName}-${Date.now()}`)
+        const normalizedInput = asRecord(toolInput) ?? {}
+        if (
+          abortController.signal.aborted ||
+          options?.signal?.aborted ||
+          sink.isCancellationRequested()
+        ) {
+          return {
+            behavior: "deny" as const,
+            message: "Agent run cancelled.",
+            toolUseID,
+            decisionClassification: "user_reject" as const,
+          }
+        }
+        if (isRippleClaudeAutoAllowedTool(toolName, normalizedInput)) {
+          return {
+            behavior: "allow" as const,
+            toolUseID,
+            decisionClassification: "user_temporary" as const,
+          }
+        }
+        const approvalRequest = buildClaudeToolApprovalRequest({
+          toolName,
+          toolInput: normalizedInput,
+          options: {
+            ...options,
+            toolUseID,
+          },
+        })
+        const approval = await sink.requestApproval(approvalRequest)
+        if (approval.approved) {
+          return {
+            behavior: "allow" as const,
+            ...(toolName === "AskUserQuestion" && approval.response
+              ? { updatedInput: approval.response }
+              : {}),
+            toolUseID,
+            decisionClassification: "user_temporary" as const,
+          }
+        }
+        return {
+          behavior: "deny" as const,
+          message: approval.message ?? "Denied by user.",
+          toolUseID,
+          decisionClassification: "user_reject" as const,
+        }
+      }
+      const onElicitation = async (request: any, options: any) => {
+        if (
+          abortController.signal.aborted ||
+          options?.signal?.aborted ||
+          sink.isCancellationRequested()
+        ) {
+          return { action: "cancel" as const }
+        }
+        const approval = await sink.requestApproval(
+          buildClaudeElicitationApprovalRequest(request),
+        )
+        return buildClaudeElicitationResult({ request, approval })
+      }
       const stream = sdk.query({
         prompt: sdkPrompt,
         options: {
@@ -331,10 +402,12 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
           cwd: input.cwd,
           pathToClaudeCodeExecutable: binaryPath,
           systemPrompt: capabilities.systemPrompt,
-          permissionMode: input.mode === "plan" ? "plan" : "acceptEdits",
+          permissionMode: input.mode === "plan" ? "plan" : "default",
           includePartialMessages: true,
           tools: { type: "preset", preset: "claude_code" },
           allowedTools: [...RIPPLE_CLAUDE_AUTO_ALLOWED_TOOLS],
+          canUseTool,
+          onElicitation,
           settingSources: capabilities.settingSources,
           skills: capabilities.skills,
           ...(Object.keys(agentsOption).length > 0 ? { agents: agentsOption } : {}),

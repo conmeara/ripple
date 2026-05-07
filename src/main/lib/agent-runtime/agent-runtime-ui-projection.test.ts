@@ -124,6 +124,34 @@ describe("AgentRuntimeUIProjector", () => {
     ])
   })
 
+  test("projects pending approvals as visible runtime data", () => {
+    const projector = new AgentRuntimeUIProjector()
+
+    expect(projector.project({
+      type: "approval_request",
+      providerId: "approval-1",
+      payload: {
+        approvalId: "approval-1",
+        kind: "network",
+        status: "pending",
+        prompt: "Allow network access?",
+      },
+    })).toEqual([
+      expect.objectContaining({
+        type: "data-agent-runtime",
+        id: "approval-approval-1",
+        data: expect.objectContaining({
+          kind: "approval",
+          label: "Approval needed",
+          payload: expect.objectContaining({
+            approvalId: "approval-1",
+            status: "pending",
+          }),
+        }),
+      }),
+    ])
+  })
+
   test("builds persisted assistant parts with tools, reasoning, and usage metadata", () => {
     const projection = buildAgentRuntimeAssistantProjection({
       fallbackText: "Fallback",

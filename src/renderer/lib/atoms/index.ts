@@ -1,6 +1,7 @@
 import { atom } from "jotai"
 import { atomWithStorage } from "jotai/utils"
 import { desktopViewAtom as _desktopViewAtom } from "../../features/agents/atoms"
+import { DEFAULT_HIDDEN_CODEX_MODEL_IDS } from "../../features/agents/lib/models"
 
 // ============================================
 // RE-EXPORT FROM FEATURES/AGENTS/ATOMS (source of truth)
@@ -818,8 +819,8 @@ export function normalizeCodexApiKey(apiKey: string): string | null {
 // Set of model IDs that are hidden from the model selector dropdown
 // Models are shown by default; only hidden models are stored
 export const hiddenModelsAtom = atomWithStorage<string[]>(
-  "preferences:hidden-models-v4",
-  ["gpt-5.1-codex-max", "gpt-5.1-codex-mini"],
+  "preferences:hidden-models-v5",
+  DEFAULT_HIDDEN_CODEX_MODEL_IDS,
   undefined,
   { getOnInit: true },
 )

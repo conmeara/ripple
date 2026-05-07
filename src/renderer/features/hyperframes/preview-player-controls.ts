@@ -18,6 +18,8 @@ export type ZoomValue = (typeof ZOOM_OPTIONS)[number]["value"]
 export type PreviewSettingsControl = (typeof PREVIEW_SETTINGS_CONTROLS)[number]
 
 const PREVIEW_TIMECODE_FALLBACK_FPS = 30
+const PREVIEW_LAYOUT_FALLBACK_WIDTH = 16
+const PREVIEW_LAYOUT_FALLBACK_HEIGHT = 9
 
 export interface PreviewPlaybackKeyboardShortcutEvent {
   key?: string
@@ -83,6 +85,37 @@ export function formatPreviewTimecode(
   ]
     .map((part) => part.toString().padStart(2, "0"))
     .join(":")
+}
+
+export function fitPreviewStageSize(input: {
+  containerWidth: number
+  containerHeight: number
+  sourceWidth: number
+  sourceHeight: number
+  zoom: ZoomValue
+}): { width: number; height: number } | null {
+  const containerWidth = Number.isFinite(input.containerWidth)
+    ? Math.max(0, input.containerWidth)
+    : 0
+  const containerHeight = Number.isFinite(input.containerHeight)
+    ? Math.max(0, input.containerHeight)
+    : 0
+  if (containerWidth <= 0 || containerHeight <= 0) return null
+
+  const sourceWidth = Number.isFinite(input.sourceWidth) && input.sourceWidth > 0
+    ? input.sourceWidth
+    : PREVIEW_LAYOUT_FALLBACK_WIDTH
+  const sourceHeight = Number.isFinite(input.sourceHeight) && input.sourceHeight > 0
+    ? input.sourceHeight
+    : PREVIEW_LAYOUT_FALLBACK_HEIGHT
+  const fitScale = Math.min(containerWidth / sourceWidth, containerHeight / sourceHeight)
+  const zoomScale = input.zoom === "fit" ? 1 : Number(input.zoom) / 100
+  const scale = Math.max(0.01, fitScale * zoomScale)
+
+  return {
+    width: sourceWidth * scale,
+    height: sourceHeight * scale,
+  }
 }
 
 function getTargetElement(target: EventTarget | null | undefined): Element | null {

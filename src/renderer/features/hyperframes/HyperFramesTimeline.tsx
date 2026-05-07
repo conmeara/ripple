@@ -74,12 +74,12 @@ interface HyperFramesTimelineProps {
 
 type TimelineZoomMode = "fit" | "manual"
 
-const GUTTER_WIDTH = 36
-const RULER_HEIGHT = 28
-const TRACK_HEIGHT = 58
+const GUTTER_WIDTH = 32
+const RULER_HEIGHT = 24
+const TRACK_HEIGHT = 72
 const TRACK_GAP = 0
-const CLIP_INSET = 4
-const MIN_CLIP_WIDTH = 8
+const CLIP_INSET = 3
+const MIN_CLIP_WIDTH = 4
 const CLIP_HANDLE_WIDTH = 18
 const CLIP_MOVE_THRESHOLD = 4
 const CLIP_RESIZE_THRESHOLD = 2
@@ -286,6 +286,7 @@ export function HyperFramesTimeline({
   const [selectedClipKey, setSelectedClipKey] = useState<string | null>(null)
   const [rangeSelection, setRangeSelection] = useState<RippleTimelineRangeSelection | null>(null)
   const [isRangeSelecting, setIsRangeSelecting] = useState(false)
+  const [isPlayheadScrubbing, setIsPlayheadScrubbing] = useState(false)
   const [assetDropPlacement, setAssetDropPlacement] = useState<{
     start: number
     track: number
@@ -688,22 +689,31 @@ export function HyperFramesTimeline({
 
   const handleTimelinePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!timelineDuration || !isReady) return
+    if (event.button !== 0) return
     const time = readPointerTime(event.clientX)
     if (time === null) return
 
     event.currentTarget.setPointerCapture(event.pointerId)
-    onSeek(time)
     setSelectedClipKey(null)
     if (event.shiftKey) {
       rangeAnchorRef.current = time
       setIsRangeSelecting(true)
       updateRangeSelection(time, time, null)
-    } else {
-      setRangeSelection(null)
+      return
     }
+
+    setIsPlayheadScrubbing(true)
+    setRangeSelection(null)
+    onSeek(time)
   }
 
   const handleTimelinePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (isPlayheadScrubbing) {
+      const time = readPointerTime(event.clientX)
+      if (time !== null) onSeek(time)
+      return
+    }
+
     if (!isRangeSelecting || rangeAnchorRef.current === null) return
     const time = readPointerTime(event.clientX)
     if (time === null) return
@@ -722,6 +732,7 @@ export function HyperFramesTimeline({
 
     rangeAnchorRef.current = null
     setIsRangeSelecting(false)
+    setIsPlayheadScrubbing(false)
   }
 
   const handleClipPointerDown = (

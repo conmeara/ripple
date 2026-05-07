@@ -34,7 +34,7 @@ const DEFAULT_SAMPLES = 8
 const MAX_SAMPLES = 12
 const DEFAULT_MAX_SHEET_WIDTH = 1440
 const DEFAULT_TIMEOUT_MS = 5000
-const DEFAULT_FAST_CAPTURE_SETTLE_MS = 50
+const DEFAULT_FAST_CAPTURE_SETTLE_MS = 0
 const LOCK_STALE_MS = 2 * 60 * 1000
 const LOCK_WAIT_MS = 15 * 1000
 
@@ -1005,7 +1005,7 @@ async function restrictCapturePageRequests(input: {
   })
 }
 
-async function captureFramesWithFastBrowser(input: {
+export async function captureFramesWithFastBrowser(input: {
   projectDir: string
   timestampsMs: number[]
   timeoutMs: number
@@ -1147,6 +1147,7 @@ async function captureFramesWithFastBrowser(input: {
       cleanupPaths: [captureDir],
     }
   } catch (error) {
+    await rm(captureDir, { recursive: true, force: true }).catch(() => undefined)
     if (error instanceof FrameSheetCliError) throw error
     throw new FrameSheetCliError(
       "FAST_CAPTURE_FAILED",
@@ -1330,7 +1331,7 @@ export function frameSheetHelpText(): string {
     "  --fps <fps>               FPS for frame math (default: project fps or 30)",
     "  --columns <count>         Sheet columns, 1-4 (default: up to 4)",
     "  --capture <mode>          Capture mode: fast or hyperframes (default: fast)",
-    "  --settle <ms>             Extra wait after each seek in fast mode (default: 50)",
+    "  --settle <ms>             Extra wait after each seek in fast mode (default: 0)",
     "  --timeout <ms>            Browser/runtime initialization timeout (default: 5000)",
     "  --max-sheet-width <px>    Maximum output sheet width (default: 1440)",
     "  --json                    Print machine-readable JSON",

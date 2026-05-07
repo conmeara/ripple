@@ -69,6 +69,30 @@ export interface AgentRunEventInput {
   providerId?: string | null
 }
 
+export type AgentProviderApprovalKind =
+  | "command"
+  | "file_change"
+  | "network"
+  | "tool"
+  | "question"
+
+export interface AgentProviderApprovalRequestInput {
+  providerRequestId: string
+  kind: AgentProviderApprovalKind
+  prompt: string
+  details?: Record<string, unknown>
+  payload?: Record<string, unknown>
+  providerType?: string | null
+  providerId?: string | null
+}
+
+export interface AgentProviderApprovalDecision {
+  approvalId: string
+  approved: boolean
+  message?: string | null
+  response?: Record<string, unknown> | null
+}
+
 export interface AgentRunExecutionContext {
   run: AgentRun
   thread: AgentThread
@@ -103,6 +127,9 @@ export interface AgentProviderRunResult {
 
 export interface AgentProviderEventSink {
   emit(event: AgentRunEventInput): Promise<AgentRunEvent>
+  requestApproval(
+    request: AgentProviderApprovalRequestInput,
+  ): Promise<AgentProviderApprovalDecision>
   setProviderIds(ids: {
     providerThreadId?: string | null
     providerTurnId?: string | null

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { mkdir, mkdtemp, readdir, rm, symlink, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -26,6 +26,17 @@ function fakeDbReturning(thread: any) {
 }
 
 describe("comment visual context", () => {
+  test("routes single-frame captures through Ripple fast capture before HyperFrames CLI fallback", async () => {
+    const source = await readFile("src/main/lib/revisions/comment-visuals.ts", "utf8")
+
+    expect(source).toContain("captureSingleFrameFast(input)")
+    expect(source).toContain("captureFramesWithFastBrowser")
+    expect(source).toContain("shouldFallbackToHyperframesFrameCapture")
+    expect(source).toContain('error.code === "FAST_BROWSER_MISSING"')
+    expect(source).toContain('error.code === "FAST_CAPTURE_FAILED"')
+    expect(source).toContain("runHyperframesCommand([")
+  })
+
   test("only claims HyperFrames snapshot correctness for the project entry composition", async () => {
     const projectPath = await mkdtemp(join(tmpdir(), "ripple-comment-visual-project-"))
     try {

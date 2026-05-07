@@ -253,7 +253,8 @@ export function buildHyperframesEnvironment(
     ...getPackagedNodeModuleDirectories(),
     baseEnv.NODE_PATH,
   ].filter(Boolean).join(delimiter)
-  const producerBrowserPath =
+  const appManagedBrowserPath =
+    baseEnv.HYPERFRAMES_BROWSER_PATH ??
     baseEnv.PRODUCER_HEADLESS_SHELL_PATH ??
     resolveProducerBrowserPath(options.repoRoot ?? process.cwd()) ??
     undefined
@@ -261,7 +262,12 @@ export function buildHyperframesEnvironment(
   return {
     ...baseEnv,
     ...HYPERFRAMES_APP_ENV,
-    ...(producerBrowserPath ? { PRODUCER_HEADLESS_SHELL_PATH: producerBrowserPath } : {}),
+    ...(appManagedBrowserPath
+      ? {
+        HYPERFRAMES_BROWSER_PATH: appManagedBrowserPath,
+        PRODUCER_HEADLESS_SHELL_PATH: appManagedBrowserPath,
+      }
+      : {}),
     PATH: pathValue,
     Path: process.platform === "win32" ? pathValue : baseEnv.Path,
     ...(nodePathValue ? { NODE_PATH: nodePathValue } : {}),

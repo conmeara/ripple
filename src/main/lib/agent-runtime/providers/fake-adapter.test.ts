@@ -11,6 +11,10 @@ describe("FakeAgentAdapter", () => {
         events.push(event)
         return { id: `event-${events.length}` } as any
       },
+      requestApproval: async () => ({
+        approvalId: "approval-1",
+        approved: true,
+      }),
       setProviderIds: async () => {},
       isCancellationRequested: () => false,
     }
@@ -35,4 +39,3 @@ describe("FakeAgentAdapter", () => {
     ])
   })
 })
-

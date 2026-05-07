@@ -11,26 +11,18 @@ import {
 } from "../../../lib/atoms"
 import { appStore } from "../../../lib/jotai-store"
 import { trpcClient } from "../../../lib/trpc"
+import {
+  dispatchRuntimeSourceChange,
+  type AgentRuntimePreviewContext,
+  type RuntimeSourceEvent,
+} from "../../hyperframes/runtime-source-change-events"
 import { buildAgentRuntimeMessageInput } from "./agent-runtime-message-input"
 
 type UIMessageChunk = any
 
 type AgentRuntimeProvider = "codex" | "claude" | "fake"
 
-export type AgentRuntimeChatContext = {
-  compositionId?: string | null
-  previewTimeSeconds?: number | null
-  previewFrame?: number | null
-  previewSource?:
-    | { kind: "main" }
-    | { kind: "comment-revision"; revisionId: string }
-    | { kind: "chat-worktree"; conversationId?: string | null; chatId?: string | null }
-    | { kind: "export"; exportJobId?: string | null; sourceLabel?: string | null }
-    | null
-  commentThreadId?: string | null
-  revisionId?: string | null
-  exportJobId?: string | null
-}
+export type AgentRuntimeChatContext = AgentRuntimePreviewContext
 
 type AgentRuntimeChatTransportConfig = {
   chatId: string
@@ -39,15 +31,6 @@ type AgentRuntimeChatTransportConfig = {
   provider: AgentRuntimeProvider
   model?: string | null
   runtimeContext?: AgentRuntimeChatContext | (() => AgentRuntimeChatContext | null) | null
-}
-
-type RuntimeEvent = {
-  id?: string
-  type?: string
-  providerId?: string | null
-  providerType?: string | null
-  payloadJson?: string | null
-  payload?: Record<string, unknown> | null
 }
 
 function isRecord(value: unknown): value is Record<string, any> {
@@ -182,9 +165,18 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
           sub?.unsubscribe()
         }
 
-        const handleRuntimeEvent = (event: RuntimeEvent) => {
+        const handleRuntimeEvent = (event: RuntimeSourceEvent) => {
           const payload = parseRuntimeEventPayload(event)
           applyRuntimeSessionInfo(payload)
+
+          if (event.type === "file_change") {
+            dispatchRuntimeSourceChange({
+              payload,
+              runtimeContext,
+              chatId: this.config.chatId,
+              subChatId: this.config.subChatId,
+            })
+          }
 
           for (const chunk of projector.project(event)) {
             enqueueProjectedChunk(chunk)

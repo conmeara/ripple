@@ -351,6 +351,7 @@ export function RippleShell({
     return { kind: "main" }
   }, [previewTarget])
   const agentRuntimePreviewContext = useMemo<AgentRuntimeChatContext>(() => ({
+    projectId: selectedProject.id,
     compositionId: selectedProject.activeCompositionId ?? null,
     previewTimeSeconds: previewTime,
     previewFrame,
@@ -362,6 +363,7 @@ export function RippleShell({
     agentRuntimePreviewSource,
     previewFrame,
     previewTime,
+    selectedProject.id,
     selectedCommentThreadId,
     selectedProject.activeCompositionId,
   ])
@@ -863,8 +865,8 @@ export function RippleShell({
           isOpen={shellState.assetsPanelOpen}
           onClose={() => togglePanel("assets")}
           widthAtom={hyperframesProjectPaneWidthAtom}
-          minWidth={260}
-          maxWidth={380}
+          minWidth={240}
+          maxWidth={340}
           side="left"
           animationDuration={0.18}
           initialWidth={0}

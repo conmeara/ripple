@@ -79,6 +79,7 @@ describe("agent runtime live context", () => {
       previewSource: { kind: "chat-worktree", conversationId: "conversation-1" },
       ignoredPath: "/outside",
     })).toEqual({
+      projectId: null,
       compositionId: "composition-1",
       previewTimeSeconds: 0,
       previewFrame: 13,

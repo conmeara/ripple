@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  hasAuthoredTimelineChildren,
   isRuntimeStateMessage,
   isRuntimeTimelineMessage,
   readClipManifest,
@@ -189,5 +190,20 @@ describe("Ripple timeline player adapter core", () => {
         },
       },
     }))).toBeNull()
+  })
+
+  test("detects whether standalone compositions have authored child timeline clips", () => {
+    const root = {}
+    const child = {}
+
+    expect(hasAuthoredTimelineChildren({
+      querySelector: () => root,
+      querySelectorAll: () => [root],
+    } as any)).toBe(false)
+
+    expect(hasAuthoredTimelineChildren({
+      querySelector: () => root,
+      querySelectorAll: () => [root, child],
+    } as any)).toBe(true)
   })
 })

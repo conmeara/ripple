@@ -12,6 +12,7 @@ import {
 function revision(
   status: RippleRevisionView["status"],
   diffSummary: string | null = null,
+  previewContextKey: string | null = "revision-revision-1",
 ): RippleRevisionView {
   return {
     id: "revision-1",
@@ -21,7 +22,7 @@ function revision(
     chatId: "chat-1",
     subChatId: "subchat-1",
     status,
-    previewContextKey: "revision-revision-1",
+    previewContextKey,
     diffSummary,
     errorMessage: null,
     createdAt: null,
@@ -40,13 +41,16 @@ describe("comment filter helpers", () => {
     expect(canReplyToCommentThread({ deletedAt: new Date() })).toBe(false)
   })
 
-  test("treats stale update work as resolving instead of previewable", () => {
+  test("previews live generated-change work once a revision workspace exists", () => {
     const queuedUpdate = revision("queued", JSON.stringify({ fileCount: 1 }))
 
     expect(isRevisionResolvingAgainstLatest(queuedUpdate)).toBe(true)
-    expect(canPreviewRevisionChanges(queuedUpdate)).toBe(false)
-    expect(canPreviewRevisionChanges(revision("queued"))).toBe(false)
-    expect(canPreviewRevisionChanges(revision("running"))).toBe(false)
+    expect(canPreviewRevisionChanges(queuedUpdate)).toBe(true)
+    expect(canPreviewRevisionChanges(revision("queued"))).toBe(true)
+    expect(canPreviewRevisionChanges(revision("running"))).toBe(true)
+    expect(canPreviewRevisionChanges(revision("updating"))).toBe(true)
+    expect(canPreviewRevisionChanges(revision("queued", null, null))).toBe(false)
+    expect(canPreviewRevisionChanges(revision("preparing"))).toBe(false)
     expect(canPreviewRevisionChanges(revision("accepted"))).toBe(true)
     expect(canPreviewRevisionChanges(revision("rejected"))).toBe(false)
   })

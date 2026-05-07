@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Visual Capture QA</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #07111f;
+      }
+
+      [data-composition-id="main"] {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+      }
+
+      .background {
+        position: absolute;
+        inset: 0;
+        background: rgb(var(--qa-bg-r, 24), var(--qa-bg-g, 42), var(--qa-bg-b, 92));
+      }
+
+      .marker {
+        position: absolute;
+        left: 180px;
+        top: 420px;
+        width: 240px;
+        height: 240px;
+        background: rgb(246, 214, 80);
+        transform: translateX(var(--qa-marker-x, 0px));
+      }
+
+      .rail {
+        position: absolute;
+        left: 180px;
+        top: 708px;
+        width: 1560px;
+        height: 18px;
+        background: rgba(255, 255, 255, 0.25);
+      }
+
+      .tick {
+        position: absolute;
+        top: 672px;
+        width: 18px;
+        height: 90px;
+        background: rgb(255, 255, 255);
+      }
+
+      .tick.start {
+        left: 180px;
+      }
+
+      .tick.middle {
+        left: 951px;
+      }
+
+      .tick.end {
+        left: 1722px;
+      }
+    </style>
+  </head>
+  <body>
+    <main
+      data-composition-id="main"
+      data-width="1920"
+      data-height="1080"
+      data-duration="1"
+      data-fps="30"
+    >
+      <div class="background"></div>
+      <div class="marker"></div>
+      <div class="rail"></div>
+      <div class="tick start"></div>
+      <div class="tick middle"></div>
+      <div class="tick end"></div>
+    </main>
+    <script data-hyperframes-preview-runtime="1" src="./runtime-stub.js"></script>
+    <script>
+      (function () {
+        var root = document.querySelector('[data-composition-id="main"]');
+        var duration = 1;
+
+        function clampTime(time) {
+          var numeric = Number(time);
+          if (!Number.isFinite(numeric)) return 0;
+          return Math.max(0, Math.min(duration, numeric));
+        }
+
+        function render(time) {
+          var t = clampTime(time);
+          root.style.setProperty("--qa-bg-r", String(Math.round(24 + 80 * t)));
+          root.style.setProperty("--qa-bg-g", String(Math.round(42 + 60 * t)));
+          root.style.setProperty("--qa-bg-b", String(Math.round(92 + 30 * t)));
+          root.style.setProperty("--qa-marker-x", String(Math.round(1320 * t)) + "px");
+          root.dataset.qaTime = t.toFixed(3);
+        }
+
+        var timeline = {
+          pause: function () {},
+          seek: function (time) {
+            render(time);
+          },
+          totalTime: function (time) {
+            render(time);
+          },
+          duration: function () {
+            return duration;
+          }
+        };
+
+        function installCaptureHooks() {
+          window.__timelines = window.__timelines || {};
+          window.__timelines.main = timeline;
+          window.__player = {
+            duration: duration,
+            seek: function (time) {
+              render(time);
+            },
+            renderSeek: function (time) {
+              render(time);
+            }
+          };
+          window.__hf = {
+            duration: duration,
+            seek: function (time) {
+              render(time);
+            }
+          };
+          window.__playerReady = true;
+        }
+
+        installCaptureHooks();
+        window.setTimeout(installCaptureHooks, 0);
+        window.setTimeout(installCaptureHooks, 100);
+        window.setTimeout(installCaptureHooks, 1000);
+        render(0);
+      })();
+    </script>
+  </body>
+</html>

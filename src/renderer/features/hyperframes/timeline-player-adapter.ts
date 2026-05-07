@@ -18,6 +18,7 @@ import {
 import {
   isRuntimeStateMessage,
   isRuntimeTimelineMessage,
+  hasAuthoredTimelineChildren,
   readClipManifest,
   readLivePlaybackDuration,
   readLivePlaybackPlaying,
@@ -421,6 +422,11 @@ export function useRippleTimelinePlayerAdapter({
   const normalizeRuntimeManifest = useCallback((manifest: RippleTimelineRuntimeManifest) => {
     const context = timelineContextRef.current
     if (!context) return
+
+    if (!hasAuthoredTimelineChildren(playerRef.current?.iframeElement?.contentDocument)) {
+      setTimelineModel(null)
+      return
+    }
 
     const model = normalizeRuntimeTimelineManifest({
       context,

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { readFile } from "node:fs/promises"
 import { buildCodexAppServerEnv } from "./codex-app-server-env"
+import { assessCodexAppServerApprovalRequest } from "./codex-app-server-approval"
 import { buildCodexTurnInput } from "./codex-app-server-input"
 import {
   buildCodexTurnSkillInputs,
@@ -246,6 +247,22 @@ describe("Codex App Server notification normalization", () => {
         payload: expect.objectContaining({ label: "Compacted context" }),
       }),
     ])
+
+    expect(normalizeCodexAppServerNotification({
+      method: "warning",
+      params: { threadId: "thread-1", message: "Using fallback model." },
+    })).toEqual([
+      expect.objectContaining({
+        type: "status",
+        providerType: "warning",
+        providerId: "thread-1",
+        payload: expect.objectContaining({
+          label: "Using fallback model.",
+          message: "Using fallback model.",
+          threadId: "thread-1",
+        }),
+      }),
+    ])
   })
 
   test("extracts provider error details from app-server error notifications", () => {
@@ -277,6 +294,141 @@ describe("Codex App Server notification normalization", () => {
   })
 })
 
+describe("Codex App Server approval policy", () => {
+  const workspaceRoot = "/tmp/ripple-project"
+
+  test("prepares project-local command approvals with protocol-supported decisions", () => {
+    expect(assessCodexAppServerApprovalRequest({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        command: "bun test",
+        availableDecisions: ["accept", "acceptForSession", "decline"],
+      },
+    })).toEqual(expect.objectContaining({
+      canApprove: true,
+      approvalWarning: null,
+      approveResponse: { decision: "acceptForSession" },
+      denyResponse: { decision: "decline", reason: "Denied by user." },
+      requestedNetwork: false,
+      requestedPermissionPaths: [],
+    }))
+
+    expect(assessCodexAppServerApprovalRequest({
+      workspaceRoot,
+      params: {
+        cwd: `${workspaceRoot}/compositions`,
+        command: "bun test",
+        availableDecisions: ["accept", "decline"],
+      },
+    }).approveResponse).toEqual({ decision: "accept" })
+  })
+
+  test("asks before approving command requests for network access", () => {
+    const byNetworkContext = assessCodexAppServerApprovalRequest({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        command: "curl https://example.com",
+        networkApprovalContext: {
+          host: "example.com",
+          protocol: "https",
+        },
+        availableDecisions: ["acceptForSession", "decline"],
+      },
+    })
+
+    expect(byNetworkContext).toEqual(expect.objectContaining({
+      canApprove: true,
+      requestedNetwork: true,
+      approvalWarning: "Network access is outside Ripple's project-local sandbox for this run.",
+      approveResponse: {
+        decision: "acceptForSession",
+      },
+      denyResponse: {
+        decision: "decline",
+        reason: "Denied by user.",
+      },
+    }))
+
+    const byAdditionalPermission = assessCodexAppServerApprovalRequest({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        command: "npm view hyperframes",
+        additionalPermissions: {
+          network: { enabled: true },
+          fileSystem: null,
+        },
+      },
+    })
+
+    expect(byAdditionalPermission.canApprove).toBe(true)
+    expect(byAdditionalPermission.approveResponse.decision).toBe("acceptForSession")
+    expect(byAdditionalPermission.requestedNetwork).toBe(true)
+  })
+
+  test("surfaces filesystem expansions before asking for approval", () => {
+    const outsidePath = assessCodexAppServerApprovalRequest({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        additionalPermissions: {
+          network: null,
+          fileSystem: {
+            read: ["/Users/conmeara/.ssh"],
+            write: null,
+          },
+        },
+      },
+    })
+
+    expect(outsidePath.canApprove).toBe(true)
+    expect(outsidePath.approvalWarning).toBe(
+      "Approval request references a path outside the Ripple workspace: /Users/conmeara/.ssh",
+    )
+    expect(outsidePath.approveResponse).toEqual({ decision: "acceptForSession" })
+    expect(outsidePath.requestedPermissionPaths).toEqual(["/Users/conmeara/.ssh"])
+
+    const specialPath = assessCodexAppServerApprovalRequest({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        permissions: {
+          network: null,
+          fileSystem: {
+            read: null,
+            write: null,
+            entries: [
+              { path: { type: "special", value: "home" }, access: "readOnly" },
+            ],
+          },
+        },
+      },
+    })
+
+    expect(specialPath.canApprove).toBe(true)
+    expect(specialPath.approveResponse.decision).toBe("acceptForSession")
+    expect(specialPath.approvalWarning).toContain("cannot confine to this project")
+  })
+
+  test("surfaces outside-workspace commands before asking for approval", () => {
+    const assessment = assessCodexAppServerApprovalRequest({
+      workspaceRoot,
+      params: {
+        cwd: "/tmp/other-project",
+        command: "bun test",
+      },
+    })
+
+    expect(assessment.canApprove).toBe(true)
+    expect(assessment.approvalWarning).toBe(
+      "Approval requested outside the Ripple workspace: /tmp/other-project",
+    )
+    expect(assessment.approveResponse).toEqual({ decision: "acceptForSession" })
+  })
+})
+
 describe("Codex App Server input", () => {
   test("starts clean Codex threads with app policy, initialized, and native skills/list discovery", async () => {
     const source = await readFile(
@@ -285,11 +437,15 @@ describe("Codex App Server input", () => {
     )
 
     expect(source).toContain('this.notify("initialized")')
+    expect(source).toContain('name: "ripple_desktop"')
+    expect(source).toContain('serviceName: "ripple_desktop"')
     expect(source).toContain("experimentalApi: true")
     expect(source).toContain("let threadId: string | null = null")
     expect(source).toContain("ephemeral: true")
     expect(source).toContain('sessionStartSource: "clear"')
     expect(source).toContain("persistExtendedHistory: false")
+    expect(source).toContain('approvalPolicy: "on-request"')
+    expect(source).not.toContain('approvalPolicy: "on-failure"')
     expect(source).toContain('"skills/list"')
     expect(source).toContain("baseInstructions: projectNoteFallback")
     expect(source).toContain("developerInstructions: runContext.appPolicy")
@@ -391,19 +547,19 @@ describe("Codex App Server input", () => {
 
 describe("Codex App Server model selection", () => {
   test("splits UI model/thinking selections into app-server model and effort", () => {
-    expect(normalizeCodexModelSelection("gpt-5.3-codex/high")).toEqual({
-      model: "gpt-5.3-codex",
+    expect(normalizeCodexModelSelection("gpt-5.5/high")).toEqual({
+      model: "gpt-5.5",
       effort: "high",
     })
-    expect(normalizeCodexModelSelection("gpt-5.2-codex/xhigh")).toEqual({
-      model: "gpt-5.2-codex",
+    expect(normalizeCodexModelSelection("gpt-5.4-mini/xhigh")).toEqual({
+      model: "gpt-5.4-mini",
       effort: "xhigh",
     })
   })
 
   test("leaves provider-native model strings unchanged", () => {
-    expect(normalizeCodexModelSelection("gpt-5.3-codex")).toEqual({
-      model: "gpt-5.3-codex",
+    expect(normalizeCodexModelSelection("gpt-5.5")).toEqual({
+      model: "gpt-5.5",
       effort: null,
     })
     expect(normalizeCodexModelSelection("custom/provider/model")).toEqual({

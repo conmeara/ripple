@@ -20,6 +20,7 @@ export type AgentRuntimePreviewSource =
   | { kind: "export"; exportJobId?: string | null; sourceLabel?: string | null }
 
 export interface AgentRuntimeContextPayload {
+  projectId?: string | null
   compositionId?: string | null
   previewTimeSeconds?: number | null
   previewFrame?: number | null
@@ -54,6 +55,7 @@ export function normalizeAgentRuntimeContextPayload(
   const previewSource = normalizePreviewSource(record.previewSource)
 
   return {
+    projectId: nonEmptyString(record.projectId),
     compositionId: nonEmptyString(record.compositionId),
     previewTimeSeconds: finiteNonNegativeNumber(record.previewTimeSeconds),
     previewFrame: finiteNonNegativeNumber(record.previewFrame) === null

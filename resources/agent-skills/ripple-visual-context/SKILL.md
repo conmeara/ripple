@@ -42,7 +42,7 @@ Default first move for a visual sanity check, after visible edits, or when you
 need to understand motion over time:
 
 ```bash
-ripple frame-sheet --range 0s..8s --samples 8 --columns 4 --json
+ripple frame-sheet --range 0s..8s --samples 8 --columns 4 --settle 0 --json
 ```
 
 If the project duration is clearly shorter or longer, adjust the range. In

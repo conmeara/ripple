@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu, nativeImage, session } from "electron"
+import { app, BrowserWindow, dialog, Menu, nativeImage, nativeTheme, session } from "electron"
 import { existsSync, readFileSync, readlinkSync, unlinkSync } from "fs"
 import { createServer } from "http"
 import { dirname, join } from "path"
@@ -59,6 +59,7 @@ import {
 import { windowManager } from "./windows/window-manager"
 
 import { IS_DEV, AUTH_SERVER_PORT } from "./constants"
+import { getDockIconAssetName } from "./lib/dock-icon"
 import { getBuildAssetPath } from "./lib/packaged-assets"
 import { migrateLegacyUserData } from "./lib/user-data-migration"
 
@@ -122,6 +123,23 @@ export function getBaseUrl(): string | null {
 
 export function getAppUrl(): string {
   return process.env.ELECTRON_RENDERER_URL || getBaseUrl() || "about:blank"
+}
+
+function updateDockIconForAppearance(): void {
+  if (process.platform !== "darwin" || !app.dock) {
+    return
+  }
+
+  const preferredIconPath = getBuildAssetPath(getDockIconAssetName(nativeTheme.shouldUseDarkColors), {
+    isPackaged: app.isPackaged,
+  })
+  const fallbackIconPath = getBuildAssetPath("icon.png", { isPackaged: app.isPackaged })
+  const iconPath = existsSync(preferredIconPath) ? preferredIconPath : fallbackIconPath
+  const dockIcon = nativeImage.createFromPath(iconPath)
+
+  if (!dockIcon.isEmpty()) {
+    app.dock.setIcon(dockIcon)
+  }
 }
 
 // Auth manager singleton (use the one from auth-manager module)
@@ -587,6 +605,8 @@ if (gotTheLock) {
   // App ready
   app.whenReady().then(async () => {
     app.name = IS_DEV ? RIPPLE_IDENTITY.devProductName : RIPPLE_IDENTITY.productName
+    updateDockIconForAppearance()
+    nativeTheme.on("updated", updateDockIconForAppearance)
 
     // Register protocol handler (must be after app is ready)
     initialRegistration = registerProtocol()

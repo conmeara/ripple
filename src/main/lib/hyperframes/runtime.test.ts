@@ -86,13 +86,24 @@ describe("HyperFrames runtime resolution", () => {
     }
   })
 
-  test("passes an app-managed export browser path through to Producer", () => {
+  test("passes an app-managed browser path through to HyperFrames CLI and Producer", () => {
     const env = buildHyperframesEnvironment({
       PATH: "/system/bin",
       PRODUCER_HEADLESS_SHELL_PATH: "/managed/chrome",
     })
 
+    expect(env.HYPERFRAMES_BROWSER_PATH).toBe("/managed/chrome")
     expect(env.PRODUCER_HEADLESS_SHELL_PATH).toBe("/managed/chrome")
+  })
+
+  test("mirrors a caller-supplied HyperFrames browser path into Producer", () => {
+    const env = buildHyperframesEnvironment({
+      HYPERFRAMES_BROWSER_PATH: "/hyperframes/chrome",
+      PATH: "/system/bin",
+    })
+
+    expect(env.HYPERFRAMES_BROWSER_PATH).toBe("/hyperframes/chrome")
+    expect(env.PRODUCER_HEADLESS_SHELL_PATH).toBe("/hyperframes/chrome")
   })
 
   test("includes bundled export browser candidates", () => {
