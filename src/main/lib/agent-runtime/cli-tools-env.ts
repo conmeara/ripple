@@ -12,6 +12,8 @@ export interface RippleAgentToolEnvironmentInput {
   visualContextEndpoint?: string | null
   visualContextToken?: string | null
   visualContextManifestPath?: string | null
+  visualContextBridgeDir?: string | null
+  visualContextBridgeToken?: string | null
 }
 
 function platformArch(): string {
@@ -63,6 +65,12 @@ export function buildRippleAgentToolEnvironment(
       ? {
         RIPPLE_VISUAL_CONTEXT_ENDPOINT: input.visualContextEndpoint,
         RIPPLE_VISUAL_CONTEXT_TOKEN: input.visualContextToken,
+      }
+      : {}),
+    ...(input.visualContextBridgeDir && input.visualContextBridgeToken
+      ? {
+        RIPPLE_VISUAL_CONTEXT_BRIDGE_DIR: input.visualContextBridgeDir,
+        RIPPLE_VISUAL_CONTEXT_BRIDGE_TOKEN: input.visualContextBridgeToken,
       }
       : {}),
     ...(input.visualContextManifestPath

@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react"
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import {
   CirclePlay,
@@ -335,10 +335,16 @@ export function RippleShell({
     target: previewTarget,
     time: previewTime,
     frame: previewFrame,
+    fps: previewFps,
     seekRequest: previewSeekRequest,
     timelineSelection,
     selectedCommentThreadId,
   } = resolvedPreviewContext
+  const latestPreviewClockRef = useRef({
+    time: previewTime,
+    frame: previewFrame,
+    fps: previewFps,
+  })
   const activePreviewRevisionId =
     getActiveRipplePreviewRevisionId(previewTarget)
   const activePreviewChatId = getActiveRipplePreviewChatId(previewTarget)
@@ -351,19 +357,28 @@ export function RippleShell({
     }
     return { kind: "main" }
   }, [previewTarget])
-  const agentRuntimePreviewContext = useMemo<AgentRuntimeChatContext>(() => ({
-    projectId: selectedProject.id,
-    compositionId: selectedProject.activeCompositionId ?? null,
-    previewTimeSeconds: previewTime,
-    previewFrame,
-    previewSource: agentRuntimePreviewSource,
-    commentThreadId: selectedCommentThreadId,
-    revisionId: activePreviewRevisionId,
-  }), [
+  useLayoutEffect(() => {
+    latestPreviewClockRef.current = {
+      time: previewTime,
+      frame: previewFrame,
+      fps: previewFps,
+    }
+  }, [previewFps, previewFrame, previewTime])
+
+  const getAgentRuntimePreviewContext = useCallback((): AgentRuntimeChatContext => {
+    const clock = latestPreviewClockRef.current
+    return {
+      projectId: selectedProject.id,
+      compositionId: selectedProject.activeCompositionId ?? null,
+      previewTimeSeconds: clock.time,
+      previewFrame: clock.frame,
+      previewSource: agentRuntimePreviewSource,
+      commentThreadId: selectedCommentThreadId,
+      revisionId: activePreviewRevisionId,
+    }
+  }, [
     activePreviewRevisionId,
     agentRuntimePreviewSource,
-    previewFrame,
-    previewTime,
     selectedProject.id,
     selectedCommentThreadId,
     selectedProject.activeCompositionId,
@@ -667,6 +682,12 @@ export function RippleShell({
     frame: number
     fps: number
   }) => {
+    const fps = context?.fps ?? latestPreviewClockRef.current.fps
+    latestPreviewClockRef.current = {
+      time,
+      frame: context?.frame ?? Math.round(time * fps),
+      fps,
+    }
     dispatchPreviewContext({
       type: "preview-time-changed",
       time,
@@ -878,7 +899,7 @@ export function RippleShell({
                   onViewPrimaryPreview={handleShowPrimaryPreview}
                   onPreviewChatWorktree={handlePreviewChatWorktree}
                   activePreviewChatId={activePreviewChatId}
-                  agentRuntimePreviewContext={agentRuntimePreviewContext}
+                  agentRuntimePreviewContext={getAgentRuntimePreviewContext}
                   onCreateNewChat={handleStartNewChat}
                   historySubChats={conversationHistoryItems}
                   isHistoryLoading={projectHistoryChats.isLoading}

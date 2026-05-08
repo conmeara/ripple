@@ -30,7 +30,10 @@ async function makeProject(): Promise<string> {
   return projectDir
 }
 
-async function writeHandoffManifest(projectDir: string): Promise<string> {
+async function writeHandoffManifest(
+  projectDir: string,
+  options: { createdAt?: number } = {},
+): Promise<string> {
   const handoffDir = join(projectDir, ".ripple", "agent-visual-context", "run-test")
   const sheetDir = join(projectDir, ".ripple", "frame-sheets", "fs_prepared")
   await mkdir(handoffDir, { recursive: true })
@@ -49,7 +52,7 @@ async function writeHandoffManifest(projectDir: string): Promise<string> {
   const manifestPath = join(handoffDir, "manifest.json")
   await writeFile(manifestPath, `${JSON.stringify({
     version: 1,
-    createdAt: Date.now(),
+    createdAt: options.createdAt ?? Date.now(),
     projectPath: projectDir,
     sourcePath: projectDir,
     compositionPath: "index.html",
@@ -208,6 +211,30 @@ describe("ripple visual CLI commands", () => {
     expect(JSON.parse(result.stdout).error.code).toBe("CURRENT_FRAME_REQUIRES_APP")
   })
 
+  test("does not substitute prepared handoff files for current-frame snapshots", async () => {
+    const projectDir = await makeProject()
+    try {
+      const handoffManifestPath = await writeHandoffManifest(projectDir)
+      const result = await runVisualCommand([
+        "snapshot",
+        "--dir",
+        projectDir,
+        "--at",
+        "current",
+        "--json",
+      ], {
+        env: {
+          RIPPLE_VISUAL_CONTEXT_MANIFEST: handoffManifestPath,
+        },
+      })
+
+      expect(result.exitCode).toBe(1)
+      expect(JSON.parse(result.stdout).error.code).toBe("CURRENT_FRAME_REQUIRES_APP")
+    } finally {
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
   test("surfaces endpoint current-frame rejection without standalone fallback", async () => {
     const projectDir = await makeProject()
     const handle = await createVisualContextEndpoint({
@@ -323,6 +350,78 @@ describe("ripple visual CLI commands", () => {
     }
   })
 
+  test("prefers the live endpoint over prepared handoff files for current-frame snapshots", async () => {
+    const projectDir = await makeProject()
+    const service: VisualContextService = {
+      warmProject: async () => undefined,
+      captureFrames: async () => {
+        throw new Error("not used")
+      },
+      captureSnapshot: async (input: VisualSnapshotInput) => {
+        const framePath = join(String(input.outputDir), "live-current.png")
+        await writeFile(framePath, ONE_BY_ONE_PNG)
+        return {
+          backend: "engine",
+          frames: [{
+            index: 0,
+            timeMs: input.timeMs,
+            frame: Math.round((input.timeMs / 1000) * input.fps),
+            path: framePath,
+            width: input.width,
+            height: input.height,
+            sizeBytes: ONE_BY_ONE_PNG.length,
+          }],
+          elapsedMs: 5,
+          timings: {},
+          warnings: [],
+          cleanupPaths: [],
+        }
+      },
+      invalidateProject: async () => undefined,
+      shutdown: async () => undefined,
+    }
+    const handle = await createVisualContextEndpoint({
+      service,
+      workspaceRoot: projectDir,
+      token: "token-test",
+      resolveCurrentFrameSnapshot: async () => ({
+        projectPath: projectDir,
+        compositionPath: "index.html",
+        timeMs: 2500,
+        fps: 24,
+        width: 1280,
+        height: 720,
+      }),
+    })
+    try {
+      const handoffManifestPath = await writeHandoffManifest(projectDir)
+      const result = await runVisualCommand([
+        "snapshot",
+        "--dir",
+        projectDir,
+        "--at",
+        "current",
+        "--json",
+      ], {
+        env: {
+          RIPPLE_VISUAL_CONTEXT_ENDPOINT: handle.endpoint,
+          RIPPLE_VISUAL_CONTEXT_TOKEN: handle.token,
+          RIPPLE_VISUAL_CONTEXT_MANIFEST: handoffManifestPath,
+        },
+        idFactory: () => "snap_live_current",
+      })
+
+      expect(result.exitCode).toBe(0)
+      const payload = JSON.parse(result.stdout)
+      expect(payload.snapshot.path).toBe(".ripple/visual-context/snapshots/snap_live_current/live-current.png")
+      expect(payload.snapshot.sample).toEqual({ timeMs: 2500, frame: 60 })
+      expect(payload.source.kind).toBe("live-app")
+    } finally {
+      await handle.close()
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
   test("uses the app-prepared file handoff when the localhost endpoint is unreachable", async () => {
     const projectDir = await makeProject()
     try {
@@ -381,6 +480,58 @@ describe("ripple visual CLI commands", () => {
     }
   })
 
+  test("ignores prepared snapshot handoff after source files change", async () => {
+    const projectDir = await makeProject()
+    try {
+      const handoffManifestPath = await writeHandoffManifest(projectDir, {
+        createdAt: Date.now() - 10_000,
+      })
+      const result = await runVisualCommand([
+        "snapshot",
+        "--dir",
+        projectDir,
+        "--at",
+        "0s",
+        "--composition",
+        "index.html",
+        "--json",
+      ], {
+        env: {
+          RIPPLE_VISUAL_CONTEXT_MANIFEST: handoffManifestPath,
+        },
+        idFactory: () => "snap_fresh_after_edit",
+        captureSnapshot: async (input) => {
+          const framePath = join(String(input.outputDir), "fresh.png")
+          await writeFile(framePath, ONE_BY_ONE_PNG)
+          return {
+            backend: "engine",
+            frames: [{
+              index: 0,
+              timeMs: input.timeMs,
+              frame: 0,
+              path: framePath,
+              width: input.width,
+              height: input.height,
+              sizeBytes: ONE_BY_ONE_PNG.length,
+            }],
+            elapsedMs: 4,
+            timings: {},
+            warnings: [],
+            cleanupPaths: [],
+          }
+        },
+      })
+
+      expect(result.exitCode).toBe(0)
+      const payload = JSON.parse(result.stdout)
+      expect(payload.snapshot.path).toBe(".ripple/visual-context/snapshots/snap_fresh_after_edit/fresh.png")
+      expect(payload.source.kind).toBe("standalone-render")
+      expect(payload.warnings).toEqual([])
+    } finally {
+      await rm(projectDir, { recursive: true, force: true })
+    }
+  })
+
   test("cleans direct visual commands inside app-managed agent runs", async () => {
     const projectDir = await makeProject()
     try {
@@ -397,7 +548,7 @@ describe("ripple visual CLI commands", () => {
         "--dir",
         projectDir,
         "--at",
-        "current",
+        "0s",
         "--composition",
         "index.html",
         "--json",
@@ -420,13 +571,17 @@ describe("ripple visual CLI commands", () => {
         },
         context: {
           compositionPath: "index.html",
+          source: {
+            kind: "prepared-context",
+            createdAt: expect.any(Number),
+            preEdit: true,
+          },
           samples: [{ timeMs: 0, frame: 0 }],
         },
         elapsedMs: expect.any(Number),
       })
       expect(snapshot.stdout).not.toContain("backend")
       expect(snapshot.stdout).not.toContain("endpoint")
-      expect(snapshot.stdout).not.toContain("handoff")
       expect(snapshot.stdout).not.toContain("fallback")
 
       const sheet = await runVisualCommand([
@@ -448,10 +603,15 @@ describe("ripple visual CLI commands", () => {
       expect(sheetPayload.type).toBe("sheet")
       expect(sheetPayload.sheet.path).toBe(".ripple/frame-sheets/fs_prepared/sheet.png")
       expect(sheetPayload.context.compositionPath).toBe("index.html")
+      expect(sheetPayload.context.source).toEqual({
+        kind: "prepared-context",
+        createdAt: expect.any(Number),
+        manifestPath: ".ripple/frame-sheets/fs_prepared/manifest.json",
+        preEdit: true,
+      })
       expect(sheetPayload.context.samples).toHaveLength(2)
       expect(sheet.stdout).not.toContain("backend")
       expect(sheet.stdout).not.toContain("endpoint")
-      expect(sheet.stdout).not.toContain("handoff")
       expect(sheet.stdout).not.toContain("fallback")
     } finally {
       await rm(projectDir, { recursive: true, force: true })
@@ -535,6 +695,7 @@ describe("ripple visual CLI commands", () => {
         },
         context: {
           compositionPath: null,
+          source: { kind: "live-app", preEdit: false },
           samples: [{ timeMs: 1500, frame: 36 }],
         },
         elapsedMs: expect.any(Number),

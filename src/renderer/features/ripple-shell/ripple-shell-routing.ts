@@ -3,17 +3,27 @@ export interface RippleShellRouteInput {
   hasSelectedProject: boolean
   hasSelectedChat: boolean
   hasNewChatSurface?: boolean
+  hasWorkspaceBoardView?: boolean
   hasDesktopView: boolean
+}
+
+export function getRippleShellMountKey(input: {
+  chatSourceMode: string
+  projectId: string
+}): string {
+  return `${input.chatSourceMode}-${input.projectId}`
 }
 
 export function shouldRenderRippleShell({
   canUseHyperframesProjectPane,
   hasSelectedProject,
+  hasWorkspaceBoardView = false,
   hasDesktopView,
 }: RippleShellRouteInput): boolean {
   return (
     canUseHyperframesProjectPane &&
     hasSelectedProject &&
+    !hasWorkspaceBoardView &&
     !hasDesktopView
   )
 }

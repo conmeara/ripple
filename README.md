@@ -88,16 +88,6 @@ through typed Electron main-process APIs.
 Anonymous analytics are opt-in and sanitized. See
 [docs/privacy/analytics.md](docs/privacy/analytics.md) for the current policy.
 
-## Status
-
-Ripple is the public v1 release of this motion-design direction. The source is
-Apache-2.0 licensed, and packaged release availability may lag the latest source
-state while signing, update, and platform QA are hardened.
-
-Some inherited 1Code foundations are still visible in advanced/internal areas.
-The primary product direction is Ripple: projects, compositions, preview,
-comments, revisions, and export for motion work.
-
 ## Build From Source
 
 ### Prerequisites

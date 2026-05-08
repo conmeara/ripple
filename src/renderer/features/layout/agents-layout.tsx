@@ -159,12 +159,20 @@ export function AgentsLayout() {
   // When settings view is active, don't control traffic lights here —
   // SettingsSidebar manages its own visibility (always hidden).
   const isSettingsView = desktopView === "settings"
+  const shouldShowKanbanView =
+    isDesktop &&
+    betaKanbanEnabled &&
+    !desktopView &&
+    !selectedChatId &&
+    !selectedDraftId &&
+    !showNewChatForm
   const shouldUseRippleShell =
     shouldRenderRippleShell({
       canUseHyperframesProjectPane: chatSourceMode === "local",
       hasSelectedProject: Boolean(validatedProject?.id),
       hasSelectedChat: Boolean(selectedChatId),
       hasNewChatSurface: Boolean(selectedDraftId || showNewChatForm),
+      hasWorkspaceBoardView: shouldShowKanbanView,
       hasDesktopView: Boolean(desktopView),
     })
   useEffect(() => {
@@ -309,6 +317,9 @@ export function AgentsLayout() {
     setFileSearchDialogOpen,
     toggleChatSearch,
     selectedChatId,
+    selectedDraftId,
+    showNewChatForm,
+    desktopView,
     selectedProject,
     releaseSelectedChat: async (chatId) => {
       await window.desktopApi?.releaseChat?.(chatId)

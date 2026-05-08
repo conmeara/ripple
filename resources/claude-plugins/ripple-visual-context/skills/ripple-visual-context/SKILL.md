@@ -22,6 +22,12 @@ sheet. Use that attached visual context first. Run `ripple snapshot` or
 `ripple frame-sheet` when you need a fresher current frame, a different
 timestamp, more temporal samples, or a different composition.
 
+Prepared visual context is captured when the run starts. Treat prepared
+snapshots and frame sheets as pre-edit context, not final verification after
+you change source. After any visible edit, run a fresh `ripple snapshot --at
+current --json` for the live app frame or a fresh `ripple frame-sheet ...` for
+motion across time before claiming the visual change is done.
+
 Ripple projects are HyperFrames projects. Use the bundled HyperFrames CLI and
 skills for native motion-project structure, linting, inspection, and export
 work:
@@ -33,7 +39,9 @@ or Ripple tooling during a Ripple agent run. Ripple already provides `ripple`,
 
 - `hyperframes compositions .` to list compositions.
 - `hyperframes inspect .` to inspect layout and timing.
-- `hyperframes lint .` to validate composition structure.
+- `hyperframes lint .` to validate composition structure. Do not run
+  browser-backed `hyperframes validate` for routine edits unless the user
+  explicitly asks for that validation.
 - `hyperframes doctor .` to check the local render environment.
 - `hyperframes snapshot --at 1.25,2.5 .` only when you need raw HyperFrames
   stills instead of Ripple's app-aware visual context.
@@ -54,6 +62,8 @@ ripple frame-sheet --range 2s..8s --every 1s --json
 Ripple puts the bare `ripple` command on the app-managed PATH for Codex and
 Claude runs. Run it from the project directory unless you pass `--dir`.
 Use `--at current` when the user asks what is visible in the app right now.
+`--at current` requires live Ripple app visual context; do not substitute
+pre-edit prepared handoff files for the current app frame.
 Use `--composition <path>` when you need a snapshot or sheet for a composition
 other than the active one.
 

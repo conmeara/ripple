@@ -58,7 +58,10 @@ import { AgentPreview } from "./agent-preview"
 import { HyperFramesPreviewPlayer } from "../../hyperframes/HyperFramesPreviewPlayer"
 import { HyperFramesProjectPane } from "../../hyperframes/HyperFramesProjectPane"
 import { RippleShell } from "../../ripple-shell/RippleShell"
-import { shouldRenderRippleShell } from "../../ripple-shell/ripple-shell-routing"
+import {
+  getRippleShellMountKey,
+  shouldRenderRippleShell,
+} from "../../ripple-shell/ripple-shell-routing"
 import { AgentDiffView } from "./agent-diff-view"
 import { TerminalSidebar, terminalSidebarOpenAtomFamily } from "../../terminal"
 import { getTerminalScopeKey } from "../../terminal/utils"
@@ -989,6 +992,7 @@ export function AgentsContent() {
       hasSelectedProject: Boolean(selectedProject?.id),
       hasSelectedChat: Boolean(selectedChatId),
       hasNewChatSurface: Boolean(selectedDraftId || showNewChatForm),
+      hasWorkspaceBoardView: shouldShowKanbanView,
       hasDesktopView: Boolean(desktopView),
     })
   const canShowPreview = canShowHyperframesPreview || canShowSandboxPreview
@@ -1210,7 +1214,10 @@ export function AgentsContent() {
             <InboxView />
           ) : shouldUseRippleShell && selectedProject ? (
             <RippleShell
-              key={`${chatSourceMode}-${selectedChatId ?? "new"}`}
+              key={getRippleShellMountKey({
+                chatSourceMode,
+                projectId: selectedProject.id,
+              })}
               selectedProject={selectedProject}
               chatId={selectedChatId}
               isSidebarOpen={sidebarOpen}

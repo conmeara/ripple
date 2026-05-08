@@ -19,6 +19,7 @@ import {
 } from "./claude-runtime-capabilities"
 import { buildRippleAgentToolEnvironment } from "../cli-tools-env"
 import { createAgentVisualContextEndpoint } from "../visual-context-endpoint"
+import { createAgentVisualContextFileBridge } from "../visual-context-file-bridge"
 import { prepareAgentVisualContextHandoff } from "../visual-context-handoff"
 import {
   buildClaudeElicitationApprovalRequest,
@@ -164,6 +165,7 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
     const abortController = new AbortController()
     activeControllers.set(input.run.id, abortController)
     let visualContextEndpoint: Awaited<ReturnType<typeof createAgentVisualContextEndpoint>> = null
+    let visualContextBridge: Awaited<ReturnType<typeof createAgentVisualContextFileBridge>> = null
     const binaryPath = getBundledClaudeCodePath()
     let summary: string | null = null
     let providerSessionId: string | null = input.thread.providerSessionId ?? null
@@ -316,6 +318,10 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
       visualContextEndpoint = await createAgentVisualContextEndpoint(input.cwd, {
         resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
       })
+      visualContextBridge = await createAgentVisualContextFileBridge(input.cwd, {
+        runId: input.run.id,
+        resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
+      })
       const env = buildRippleAgentToolEnvironment({
         baseEnv: buildClaudeEnv({
           customEnv: {
@@ -326,12 +332,18 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         workspaceRoot: input.cwd,
         visualContextEndpoint: visualContextEndpoint?.endpoint,
         visualContextToken: visualContextEndpoint?.token,
+        visualContextBridgeDir: visualContextBridge?.requestDir,
+        visualContextBridgeToken: visualContextBridge?.token,
         visualContextManifestPath: visualContextHandoff?.manifestPath,
       })
       const nativeAttachmentBlocks = [
         ...preparedAttachments.imageContentBlocks,
         ...preparedAttachments.documentContentBlocks,
       ]
+      const finalPromptWithVisualContext = [
+        finalPrompt,
+        visualContextHandoff?.promptContext,
+      ].filter(Boolean).join("\n\n")
       const sdkPrompt = nativeAttachmentBlocks.length > 0
         ? (async function* () {
             yield {
@@ -340,15 +352,15 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
                 role: "user" as const,
                 content: [
                   ...nativeAttachmentBlocks,
-                  ...(finalPrompt.trim()
-                    ? [{ type: "text" as const, text: finalPrompt }]
+                  ...(finalPromptWithVisualContext.trim()
+                    ? [{ type: "text" as const, text: finalPromptWithVisualContext }]
                     : []),
                 ],
               },
               parent_tool_use_id: null,
             }
           })()
-        : finalPrompt
+        : finalPromptWithVisualContext
       const canUseTool = async (
         toolName: string,
         toolInput: Record<string, unknown>,
@@ -839,6 +851,7 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
       }
     } finally {
       activeControllers.delete(input.run.id)
+      await visualContextBridge?.close()
       await visualContextEndpoint?.close()
     }
   }

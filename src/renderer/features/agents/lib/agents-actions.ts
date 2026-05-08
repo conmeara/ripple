@@ -31,6 +31,9 @@ export interface AgentActionContext {
 
   // Data
   selectedChatId?: string | null
+  selectedDraftId?: string | null
+  showNewChatForm?: boolean
+  desktopView?: DesktopView
   selectedProject?: SelectedProject
   releaseSelectedChat?: (id: string) => Promise<void>
 }
@@ -53,6 +56,20 @@ export interface AgentActionDefinition {
   hotkey?: string | string[]
   handler: AgentActionHandler
   isAvailable?: (context: AgentActionContext) => boolean
+}
+
+export function isWorkspaceBoardViewOpen(input: {
+  selectedChatId?: string | null
+  selectedDraftId?: string | null
+  showNewChatForm?: boolean
+  desktopView?: DesktopView
+}): boolean {
+  return (
+    !input.desktopView &&
+    !input.selectedChatId &&
+    !input.selectedDraftId &&
+    input.showNewChatForm === false
+  )
 }
 
 // ============================================================================
@@ -137,14 +154,16 @@ const toggleChatSearchAction: AgentActionDefinition = {
 const openKanbanAction: AgentActionDefinition = {
   id: "open-kanban",
   label: "Open Kanban board",
-  description: "Open the Kanban board view",
+  description: "Open or close the Kanban board view",
   category: "view",
   hotkey: "cmd+shift+k",
   handler: async (context) => {
-    // Clear selected chat, draft, and new form state to show Kanban view
+    const shouldCloseBoard = isWorkspaceBoardViewOpen(context)
+
+    // Toggle the board by reusing the normal empty-state form as the closed surface.
     context.setSelectedChatId?.(null)
     context.setSelectedDraftId?.(null)
-    context.setShowNewChatForm?.(false)
+    context.setShowNewChatForm?.(shouldCloseBoard)
     // Clear automations/inbox view
     context.setDesktopView?.(null)
     return { success: true }

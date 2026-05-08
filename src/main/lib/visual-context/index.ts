@@ -7,6 +7,12 @@ export {
   type VisualContextEndpointHandle,
   type VisualContextEndpointOptions,
 } from "./endpoint"
+export {
+  createVisualContextFileBridge,
+  VISUAL_CONTEXT_FILE_BRIDGE_VERSION,
+  type VisualContextFileBridgeHandle,
+  type VisualContextFileBridgeOptions,
+} from "./file-bridge"
 export { VisualContextError } from "./errors"
 export {
   captureFramesWithFastBrowser,

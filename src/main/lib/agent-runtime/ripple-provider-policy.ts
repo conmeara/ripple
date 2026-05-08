@@ -10,7 +10,7 @@ Use provider-native skills, tools, and MCP servers when available. Prefer the bu
 
 For local composition edits, inspect the active project files and Ripple runtime context before using broad search. Do not use web search, browser lookup, or image-view tools for ordinary local edits unless the user asks for external information or Ripple has supplied a visual artifact that must be inspected.
 
-For simple literal changes such as text, color, timing, or spacing, make the smallest safe source edit and verify it directly. If Ripple visual context is unavailable, do not repeatedly retry or escalate; fall back to source and HyperFrames validation and report that visual context was unavailable.
+For simple literal changes such as text, color, timing, or spacing, make the smallest safe source edit and verify it directly. Use \`hyperframes lint .\` for project structure checks; do not run browser-backed \`hyperframes validate\` for routine edits unless the user specifically asks for that validation. If Ripple visual context is unavailable, do not repeatedly retry or escalate; fall back to source and lint results and report that visual context was unavailable.
 
 Treat runtime context supplied by Ripple as the source of truth for the active composition, frame/time, comment anchor, revision workspace, preview source, and export target. Do not write this transient state into AGENTS.md, CLAUDE.md, or other durable project notes.
 

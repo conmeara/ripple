@@ -117,6 +117,9 @@ export interface AgentsHotkeysManagerConfig {
   setFileSearchDialogOpen?: (open: boolean) => void
   toggleChatSearch?: () => void
   selectedChatId?: string | null
+  selectedDraftId?: string | null
+  showNewChatForm?: boolean
+  desktopView?: import("../atoms").DesktopView
   selectedProject?: SelectedProject
   releaseSelectedChat?: (id: string) => Promise<void>
   customHotkeysConfig?: CustomHotkeysConfig
@@ -155,6 +158,9 @@ export function useAgentsHotkeys(
       setFileSearchDialogOpen: config.setFileSearchDialogOpen,
       toggleChatSearch: config.toggleChatSearch,
       selectedChatId: config.selectedChatId,
+      selectedDraftId: config.selectedDraftId,
+      showNewChatForm: config.showNewChatForm,
+      desktopView: config.desktopView,
       selectedProject: config.selectedProject,
       releaseSelectedChat: config.releaseSelectedChat,
     }),
@@ -170,6 +176,9 @@ export function useAgentsHotkeys(
       config.setFileSearchDialogOpen,
       config.toggleChatSearch,
       config.selectedChatId,
+      config.selectedDraftId,
+      config.showNewChatForm,
+      config.desktopView,
       config.selectedProject,
       config.releaseSelectedChat,
     ],

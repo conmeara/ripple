@@ -68,4 +68,74 @@ describe("agent actions", () => {
 
     expect(releaseCount).toBe(0)
   })
+
+  test("opens the Kanban board from another surface", async () => {
+    const calls: string[] = []
+
+    const result = await executeAgentAction(
+      "open-kanban",
+      {
+        selectedChatId: "chat-1",
+        selectedDraftId: "draft-1",
+        showNewChatForm: true,
+        desktopView: "inbox",
+        setSelectedChatId: (id) => {
+          calls.push(`chat:${id ?? "null"}`)
+        },
+        setSelectedDraftId: (id) => {
+          calls.push(`draft:${id ?? "null"}`)
+        },
+        setShowNewChatForm: (show) => {
+          calls.push(`form:${String(show)}`)
+        },
+        setDesktopView: (view) => {
+          calls.push(`view:${view ?? "null"}`)
+        },
+      },
+      "hotkey",
+    )
+
+    expect(result).toEqual({ success: true })
+    expect(calls).toEqual([
+      "chat:null",
+      "draft:null",
+      "form:false",
+      "view:null",
+    ])
+  })
+
+  test("closes the Kanban board when it is already open", async () => {
+    const calls: string[] = []
+
+    const result = await executeAgentAction(
+      "open-kanban",
+      {
+        selectedChatId: null,
+        selectedDraftId: null,
+        showNewChatForm: false,
+        desktopView: null,
+        setSelectedChatId: (id) => {
+          calls.push(`chat:${id ?? "null"}`)
+        },
+        setSelectedDraftId: (id) => {
+          calls.push(`draft:${id ?? "null"}`)
+        },
+        setShowNewChatForm: (show) => {
+          calls.push(`form:${String(show)}`)
+        },
+        setDesktopView: (view) => {
+          calls.push(`view:${view ?? "null"}`)
+        },
+      },
+      "ui_button",
+    )
+
+    expect(result).toEqual({ success: true })
+    expect(calls).toEqual([
+      "chat:null",
+      "draft:null",
+      "form:true",
+      "view:null",
+    ])
+  })
 })

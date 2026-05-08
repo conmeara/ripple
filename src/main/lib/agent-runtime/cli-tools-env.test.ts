@@ -19,11 +19,11 @@ import {
 import { buildInstalledWindowsCliScript } from "../platform/windows"
 import {
   createVisualContextEndpoint,
+  createVisualContextFileBridge,
   type VisualCaptureFramesRequest,
   type VisualContextService,
   type VisualSnapshotInput,
 } from "../visual-context"
-import { createAgentVisualContextEndpoint } from "./visual-context-endpoint"
 
 const ONE_BY_ONE_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
@@ -167,11 +167,17 @@ describe("Ripple agent CLI tool environment", () => {
       workspaceRoot: "/tmp/ripple-project",
       visualContextEndpoint: "http://127.0.0.1:49152",
       visualContextToken: "token-test",
+      visualContextBridgeDir: "/tmp/ripple-project/.ripple/agent-visual-context/run/requests",
+      visualContextBridgeToken: "bridge-token-test",
       visualContextManifestPath: "/tmp/ripple-project/.ripple/agent-visual-context/run/manifest.json",
     })
 
     expect(env.RIPPLE_VISUAL_CONTEXT_ENDPOINT).toBe("http://127.0.0.1:49152")
     expect(env.RIPPLE_VISUAL_CONTEXT_TOKEN).toBe("token-test")
+    expect(env.RIPPLE_VISUAL_CONTEXT_BRIDGE_DIR).toBe(
+      "/tmp/ripple-project/.ripple/agent-visual-context/run/requests",
+    )
+    expect(env.RIPPLE_VISUAL_CONTEXT_BRIDGE_TOKEN).toBe("bridge-token-test")
     expect(env.RIPPLE_VISUAL_CONTEXT_MANIFEST).toBe(
       "/tmp/ripple-project/.ripple/agent-visual-context/run/manifest.json",
     )
@@ -271,7 +277,7 @@ describe("Ripple agent CLI tool environment", () => {
     }
   })
 
-  test("app-managed ripple snapshot current command uses the injected preview frame", async () => {
+  test("app-managed ripple snapshot current command uses the injected file bridge preview frame", async () => {
     const repoRoot = process.cwd()
     const projectDir = mkdtempSync(join(tmpdir(), "ripple-agent-current-snapshot-"))
     let snapshotRequest: VisualSnapshotInput | null = null
@@ -314,8 +320,10 @@ describe("Ripple agent CLI tool environment", () => {
     }))
     writeFileSync(join(projectDir, "index.html"), "<!doctype html><body></body>")
 
-    const endpoint = await createAgentVisualContextEndpoint(projectDir, {
+    const bridge = await createVisualContextFileBridge({
       service,
+      workspaceRoot: projectDir,
+      requestDir: join(projectDir, ".ripple", "agent-visual-context", "run-current", "requests"),
       resolveCurrentFrameSnapshot: async () => ({
         projectPath: projectDir,
         sourcePath: projectDir,
@@ -327,13 +335,12 @@ describe("Ripple agent CLI tool environment", () => {
       }),
     })
     try {
-      if (!endpoint) throw new Error("Expected app visual context endpoint.")
       const env = buildRippleAgentToolEnvironment({
         baseEnv: process.env,
         repoRoot,
         workspaceRoot: projectDir,
-        visualContextEndpoint: endpoint.endpoint,
-        visualContextToken: endpoint.token,
+        visualContextBridgeDir: bridge.requestDir,
+        visualContextBridgeToken: bridge.token,
       })
       const stdout = execFileSync("ripple", [
         "snapshot",
@@ -370,7 +377,7 @@ describe("Ripple agent CLI tool environment", () => {
       expect(stdout).not.toContain("fallback")
       expect(existsSync(join(projectDir, payload.snapshot.path))).toBe(true)
     } finally {
-      await endpoint?.close()
+      await bridge.close()
       rmSync(projectDir, { recursive: true, force: true })
     }
   })

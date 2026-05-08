@@ -15,6 +15,7 @@ import { isPathInsideDirectory } from "../ripple-projects/paths"
 
 export interface AgentVisualContextHandoff {
   manifestPath: string
+  promptContext: string
 }
 
 function projectRelative(projectPath: string, path: string): string {
@@ -193,5 +194,22 @@ export async function prepareAgentVisualContextHandoff(input: {
   const manifestPath = join(handoffDir, "manifest.json")
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8")
   await stat(manifestPath)
-  return { manifestPath }
+  const promptLines = [
+    "Ripple prepared visual context:",
+    snapshot
+      ? `- Current-frame snapshot captured at run start: ${snapshot.path} (frame ${snapshot.frame}, ${(snapshot.timeMs / 1000).toFixed(3)}s).`
+      : null,
+    sheet
+      ? `- Timeline frame sheet captured at run start: ${sheet.path} (${sheet.summary})`
+      : null,
+    sheet
+      ? `- Frame sheet manifest: ${sheet.manifestPath}`
+      : null,
+    "- Treat these prepared artifacts as pre-edit context. After changing source, verify with a fresh `ripple snapshot --at current --json` for the visible app frame or a fresh `ripple frame-sheet --range ... --json` for motion over time.",
+  ].filter((line): line is string => Boolean(line))
+
+  return {
+    manifestPath,
+    promptContext: promptLines.join("\n"),
+  }
 }

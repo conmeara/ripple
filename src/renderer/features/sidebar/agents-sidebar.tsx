@@ -53,6 +53,7 @@ const AuthDialog = (_props: { open?: boolean; onOpenChange?: (open: boolean) => 
 import { AgentsRenameSubChatDialog } from "../agents/components/agents-rename-subchat-dialog"
 import { OpenLocallyDialog } from "../agents/components/open-locally-dialog"
 import { useAutoImport } from "../agents/hooks/use-auto-import"
+import { isWorkspaceBoardViewOpen } from "../agents/lib/agents-actions"
 import { ConfirmArchiveDialog } from "../../components/confirm-archive-dialog"
 import { trpc } from "../../lib/trpc"
 import { toast } from "sonner"
@@ -1079,24 +1080,40 @@ const ArchiveButton = memo(forwardRef<HTMLButtonElement, React.ButtonHTMLAttribu
   }
 ))
 
-// Isolated Kanban Button - clears selection to show Kanban view
+// Isolated Kanban Button - toggles the workspace board surface
 const KanbanButton = memo(function KanbanButton() {
   const kanbanEnabled = useAtomValue(betaKanbanEnabledAtom)
+  const selectedChatId = useAtomValue(selectedAgentChatIdAtom)
+  const selectedDraftId = useAtomValue(selectedDraftIdAtom)
+  const showNewChatForm = useAtomValue(showNewChatFormAtom)
+  const desktopView = useAtomValue(desktopViewAtom)
   const setSelectedChatId = useSetAtom(selectedAgentChatIdAtom)
   const setSelectedDraftId = useSetAtom(selectedDraftIdAtom)
   const setShowNewChatForm = useSetAtom(showNewChatFormAtom)
   const setDesktopView = useSetAtom(desktopViewAtom)
+  const isKanbanOpen = isWorkspaceBoardViewOpen({
+    selectedChatId,
+    selectedDraftId,
+    showNewChatForm,
+    desktopView,
+  })
 
   // Resolved hotkey for tooltip (respects custom bindings)
   const openKanbanHotkey = useResolvedHotkeyDisplay("open-kanban")
 
   const handleClick = useCallback(() => {
-    // Clear selected chat, draft, and new form state to show Kanban view
+    // Toggle the board by reusing the normal empty-state form as the closed surface.
     setSelectedChatId(null)
     setSelectedDraftId(null)
-    setShowNewChatForm(false)
+    setShowNewChatForm(isKanbanOpen)
     setDesktopView(null) // Clear automations/inbox view
-  }, [setSelectedChatId, setSelectedDraftId, setShowNewChatForm, setDesktopView])
+  }, [
+    isKanbanOpen,
+    setSelectedChatId,
+    setSelectedDraftId,
+    setShowNewChatForm,
+    setDesktopView,
+  ])
 
   // Hide button if feature is disabled
   if (!kanbanEnabled) return null
@@ -1107,13 +1124,18 @@ const KanbanButton = memo(function KanbanButton() {
         <button
           type="button"
           onClick={handleClick}
-          className="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70"
+          aria-label={isKanbanOpen ? "Close Kanban view" : "Open Kanban view"}
+          aria-pressed={isKanbanOpen}
+          className={cn(
+            "flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.97] outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70",
+            isKanbanOpen && "bg-muted/60 text-foreground",
+          )}
         >
           <Columns3 className="h-4 w-4" />
         </button>
       </TooltipTrigger>
       <TooltipContent>
-        Kanban View
+        {isKanbanOpen ? "Close Kanban View" : "Kanban View"}
         {openKanbanHotkey && <Kbd>{openKanbanHotkey}</Kbd>}
       </TooltipContent>
     </Tooltip>

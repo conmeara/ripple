@@ -40,6 +40,7 @@ import {
 import { normalizeCodexModelSelection } from "./codex-model-selection"
 import { buildRippleAgentToolEnvironment } from "../cli-tools-env"
 import { createAgentVisualContextEndpoint } from "../visual-context-endpoint"
+import { createAgentVisualContextFileBridge } from "../visual-context-file-bridge"
 import { prepareAgentVisualContextHandoff } from "../visual-context-handoff"
 import {
   approvalBoundaryWarning,
@@ -406,12 +407,18 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
     const visualContextEndpoint = await createAgentVisualContextEndpoint(input.cwd, {
       resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
     })
+    const visualContextBridge = await createAgentVisualContextFileBridge(input.cwd, {
+      runId: input.run.id,
+      resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
+    })
     const appServerEnv = buildRippleAgentToolEnvironment({
       baseEnv: buildCodexAppServerEnv(appManagedApiKey),
       repoRoot: getRepoRoot(),
       workspaceRoot: input.cwd,
       visualContextEndpoint: visualContextEndpoint?.endpoint,
       visualContextToken: visualContextEndpoint?.token,
+      visualContextBridgeDir: visualContextBridge?.requestDir,
+      visualContextBridgeToken: visualContextBridge?.token,
       visualContextManifestPath: visualContextHandoff?.manifestPath,
     })
     const client = new CodexAppServerClient(
@@ -434,7 +441,11 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
     let threadId: string | null = null
     let turnId: string | null = null
     const modelSelection = normalizeCodexModelSelection(input.model)
-    const promptContext = prepareAgentRuntimePrompt(input.prompt)
+    const promptWithVisualContext = [
+      input.prompt,
+      visualContextHandoff?.promptContext,
+    ].filter(Boolean).join("\n\n")
+    const promptContext = prepareAgentRuntimePrompt(promptWithVisualContext)
     const preparedAttachments = await prepareRuntimeAttachments({
       runId: input.run.id,
       cwd: input.cwd,
@@ -933,6 +944,7 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
       }
     } finally {
       activeClients.delete(input.run.id)
+      await visualContextBridge?.close()
       await visualContextEndpoint?.close()
       await client.stop()
     }

@@ -1,11 +1,13 @@
-import { copyFile, mkdir, lstat, readFile, realpath, stat } from "node:fs/promises"
+import { copyFile, mkdir, lstat, readFile, realpath, rename, stat, writeFile } from "node:fs/promises"
 import { isAbsolute, join, relative, resolve } from "node:path"
 import { randomUUID } from "node:crypto"
+import { setTimeout as delay } from "node:timers/promises"
 import { isPathInsideDirectory } from "../shared/path-boundary"
 import {
   RIPPLE_VISUAL_CONTEXT_HANDOFF_VERSION,
   type RippleVisualContextHandoffManifest,
 } from "../shared/visual-context-handoff"
+import { VISUAL_CONTEXT_FILE_BRIDGE_VERSION } from "../main/lib/visual-context"
 import {
   buildHyperframesEnvironment,
 } from "../main/lib/hyperframes/runtime"
@@ -329,6 +331,12 @@ function visualEndpointFromEnv(env: NodeJS.ProcessEnv): { endpoint: string; toke
   return endpoint && token ? { endpoint: endpoint.replace(/\/+$/, ""), token } : null
 }
 
+function visualFileBridgeFromEnv(env: NodeJS.ProcessEnv): { requestDir: string; token: string } | null {
+  const requestDir = env.RIPPLE_VISUAL_CONTEXT_BRIDGE_DIR?.trim()
+  const token = env.RIPPLE_VISUAL_CONTEXT_BRIDGE_TOKEN?.trim()
+  return requestDir && token ? { requestDir, token } : null
+}
+
 function shouldUseCleanVisualContext(env: NodeJS.ProcessEnv): boolean {
   return env.RIPPLE_AGENT_VISUAL_CONTEXT_MODE?.trim().toLowerCase() === "clean"
 }
@@ -376,9 +384,36 @@ function handoffTimeMatches(input: {
   snapshotTimeMs: number
   fps: number
 }): boolean {
-  if (input.requestedAt === "current") return true
+  if (input.requestedAt === "current") return false
   const frameDurationMs = 1000 / Math.max(1, input.fps)
   return Math.abs(input.requestedAt - input.snapshotTimeMs) <= frameDurationMs
+}
+
+async function handoffSourceIsFresh(input: {
+  manifest: RippleVisualContextHandoffManifest
+  projectDir: string
+}): Promise<boolean> {
+  const createdAt = Number(input.manifest.createdAt)
+  if (!Number.isFinite(createdAt) || createdAt <= 0) return false
+
+  const candidates = new Set<string>()
+  if (input.manifest.compositionPath) {
+    candidates.add(resolve(input.projectDir, input.manifest.compositionPath))
+  }
+  if (input.manifest.sourcePath) {
+    const sourcePath = resolve(input.manifest.sourcePath)
+    if (sourcePath !== input.projectDir) candidates.add(sourcePath)
+  }
+  if (candidates.size === 0) return true
+
+  for (const candidate of candidates) {
+    const realPath = await realpath(candidate).catch(() => null)
+    if (!realPath || !isPathInsideDirectory(input.projectDir, realPath)) return false
+    const info = await stat(realPath).catch(() => null)
+    if (!info) return false
+    if (info.mtimeMs > createdAt) return false
+  }
+  return true
 }
 
 async function captureSnapshotFromHandoff(input: {
@@ -391,6 +426,12 @@ async function captureSnapshotFromHandoff(input: {
 }): Promise<VisualCaptureFramesResult | null> {
   const snapshot = input.manifest.snapshot
   if (!snapshot) return null
+  if (!await handoffSourceIsFresh({
+    manifest: input.manifest,
+    projectDir: input.projectDir,
+  })) {
+    return null
+  }
   if (!handoffCompositionMatches({
     requestedCompositionPath: input.compositionPath,
     handoffCompositionPath: input.manifest.compositionPath,
@@ -447,6 +488,9 @@ async function sheetResultFromHandoff(input: {
   })
   const sheet = manifest?.sheet
   if (!manifest || !sheet) return null
+  if (!await handoffSourceIsFresh({ manifest, projectDir: input.projectDir })) {
+    return null
+  }
   const compositionOption = extractOption(input.args, "--composition")
   if (!handoffCompositionMatches({
     requestedCompositionPath: compositionOption.value,
@@ -468,6 +512,12 @@ async function sheetResultFromHandoff(input: {
     ok: true,
     backend: sheet.backend,
     fallbackFrom: "visual-context-handoff",
+    source: {
+      kind: "prepared-context",
+      createdAt: manifest.createdAt,
+      manifestPath: relativeProjectPath(input.projectDir, resolve(input.projectDir, sheet.manifestPath)),
+      preEdit: true,
+    },
     sheet: {
       id: sheet.id,
       path: sheet.path,
@@ -520,6 +570,65 @@ async function requestVisualEndpointFrames(input: {
     path: "/capture-frames",
     body: input.body,
   })
+}
+
+async function requestVisualFileBridgeCapture(input: {
+  requestDir: string
+  token: string
+  kind: "snapshot" | "capture-frames"
+  body: Record<string, unknown>
+}): Promise<VisualCaptureFramesResult> {
+  await mkdir(input.requestDir, { recursive: true })
+  const id = randomUUID().replace(/-/g, "")
+  const requestPath = join(input.requestDir, `${id}.request.json`)
+  const tempRequestPath = join(input.requestDir, `${id}.request.tmp`)
+  const responsePath = join(input.requestDir, `${id}.response.json`)
+  await writeFile(tempRequestPath, formatJson({
+    version: VISUAL_CONTEXT_FILE_BRIDGE_VERSION,
+    token: input.token,
+    kind: input.kind,
+    body: input.body,
+  }), "utf8")
+  await rename(tempRequestPath, requestPath)
+
+  const requestedTimeoutMs = typeof input.body.timeoutMs === "number" && Number.isFinite(input.body.timeoutMs)
+    ? input.body.timeoutMs
+    : DEFAULT_TIMEOUT_MS
+  const bridgeDeadlineMs = Math.max(45_000, requestedTimeoutMs * 4 + 15_000)
+  const deadline = Date.now() + bridgeDeadlineMs
+  let lastReadError: unknown = null
+  while (Date.now() < deadline) {
+    try {
+      const response = JSON.parse(await readFile(responsePath, "utf8")) as {
+        ok?: boolean
+        result?: VisualCaptureFramesResult
+        error?: { code?: string; message?: string }
+      }
+      if (response.ok && response.result) return response.result
+      throw new VisualCliError(
+        response.error?.code ?? "VISUAL_CONTEXT_BRIDGE_FAILED",
+        response.error?.message ?? "Ripple visual context bridge failed.",
+      )
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        lastReadError = error
+        if (error instanceof SyntaxError) {
+          await delay(25)
+          continue
+        }
+        throw error
+      }
+      lastReadError = error
+    }
+    await delay(25)
+  }
+
+  throw new VisualCliError(
+    "VISUAL_CONTEXT_BRIDGE_TIMEOUT",
+    lastReadError instanceof Error && lastReadError.name !== "Error"
+      ? `Timed out waiting ${Math.round(bridgeDeadlineMs / 1000)}s for Ripple visual context bridge: ${lastReadError.message}`
+      : `Timed out waiting ${Math.round(bridgeDeadlineMs / 1000)}s for Ripple visual context bridge.`,
+  )
 }
 
 async function requestVisualEndpointCapture(input: {
@@ -614,7 +723,19 @@ async function runVisualSnapshotCommand(
     const id = `snap_${(options.idFactory?.() ?? randomUUID().replace(/-/g, "").slice(0, 12)).replace(/^snap_/, "")}`
     const outputDir = await prepareSnapshotOutputDir(projectDir, id)
     const startedAt = performance.now()
-    const handoff = await visualHandoffFromEnv({ env, projectDir })
+    const bridge = options.captureSnapshot ? null : visualFileBridgeFromEnv(env)
+    const endpoint = options.captureSnapshot || bridge ? null : visualEndpointFromEnv(env)
+    const appCapture = bridge ?? endpoint
+    const explicitTimeMs = parsed.at === "current" ? null : parsed.at
+    if (explicitTimeMs === null && !appCapture) {
+      throw new VisualCliError(
+        "CURRENT_FRAME_REQUIRES_APP",
+        "--at current requires Ripple app visual context. Use an explicit timestamp outside the app.",
+      )
+    }
+    const handoff = explicitTimeMs === null
+      ? null
+      : await visualHandoffFromEnv({ env, projectDir })
     const handoffCapture = handoff
       ? await captureSnapshotFromHandoff({
         manifest: handoff,
@@ -625,21 +746,80 @@ async function runVisualSnapshotCommand(
         fps,
       })
       : null
-    const endpoint = options.captureSnapshot ? null : visualEndpointFromEnv(env)
-    const explicitTimeMs = parsed.at === "current" ? null : parsed.at
-    if (explicitTimeMs === null && !handoffCapture && !endpoint) {
-      throw new VisualCliError(
-        "CURRENT_FRAME_REQUIRES_APP",
-        "--at current requires the Ripple app visual context endpoint. Use an explicit timestamp outside the app.",
-      )
-    }
-    const capture = handoffCapture ?? (endpoint
-      ? await requestVisualEndpointSnapshot({
+    const snapshotSource = explicitTimeMs === null
+      ? { kind: "live-app", preEdit: false }
+      : handoffCapture
+        ? {
+        kind: "prepared-context",
+        createdAt: handoff?.createdAt ?? null,
+        preEdit: true,
+      }
+        : appCapture
+          ? { kind: "app-render", preEdit: false }
+          : { kind: "standalone-render", preEdit: false }
+    const capture = explicitTimeMs === null
+      ? bridge
+        ? await requestVisualFileBridgeCapture({
+          ...bridge,
+          kind: "snapshot",
+          body: {
+            projectPath: projectDir,
+            compositionPath: parsed.compositionPath,
+            at: "current",
+            fps,
+            width,
+            height,
+            format: "png",
+            timeoutMs: parsed.timeoutMs,
+            reason: "snapshot",
+            preferredBackend: parsed.backend ?? undefined,
+            repoRoot: options.repoRoot,
+            outputDir,
+          },
+        })
+        : await requestVisualEndpointSnapshot({
+          ...endpoint!,
+          body: {
+            projectPath: projectDir,
+            compositionPath: parsed.compositionPath,
+            at: "current",
+            fps,
+            width,
+            height,
+            format: "png",
+            timeoutMs: parsed.timeoutMs,
+            reason: "snapshot",
+            preferredBackend: parsed.backend ?? undefined,
+            repoRoot: options.repoRoot,
+            outputDir,
+          },
+        })
+      : handoffCapture ?? (bridge
+        ? await requestVisualFileBridgeCapture({
+        ...bridge,
+        kind: "snapshot",
+        body: {
+          projectPath: projectDir,
+          compositionPath: parsed.compositionPath,
+          timeMs: parsed.at,
+          fps,
+          width,
+          height,
+          format: "png",
+          timeoutMs: parsed.timeoutMs,
+          reason: "snapshot",
+          preferredBackend: parsed.backend ?? undefined,
+          repoRoot: options.repoRoot,
+          outputDir,
+        },
+      })
+      : endpoint
+        ? await requestVisualEndpointSnapshot({
         ...endpoint,
         body: {
           projectPath: projectDir,
           compositionPath: parsed.compositionPath,
-          ...(parsed.at === "current" ? { at: "current" } : { timeMs: parsed.at }),
+          timeMs: parsed.at,
           fps,
           width,
           height,
@@ -673,6 +853,7 @@ async function runVisualSnapshotCommand(
       ok: true,
       backend: capture.backend,
       fallbackFrom: capture.fallbackFrom ?? null,
+      source: snapshotSource,
       snapshot: {
         id,
         path: relativeProjectPath(projectDir, frame.path),
@@ -766,10 +947,11 @@ async function runVisualSheetCommand(
       ...options,
       captureFrames: shouldUseServiceCapture
         ? async (input): Promise<FrameSheetCaptureResult> => {
-          const service = createVisualContextService()
+          let service: ReturnType<typeof createVisualContextService> | null = null
           try {
             const metadata = await readVisualProjectMetadata(input.projectDir)
-            const endpoint = visualEndpointFromEnv(input.env)
+            const bridge = visualFileBridgeFromEnv(input.env)
+            const endpoint = bridge ? null : visualEndpointFromEnv(input.env)
             const requestBody = {
               projectPath: input.projectDir,
               compositionPath: compositionOption.value,
@@ -783,19 +965,25 @@ async function runVisualSheetCommand(
               preferredBackend: backend ?? "engine",
               repoRoot: options.repoRoot,
             }
-            const capture = endpoint
+            const capture = bridge
+              ? await requestVisualFileBridgeCapture({
+                ...bridge,
+                kind: "capture-frames",
+                body: requestBody,
+              })
+              : endpoint
               ? await requestVisualEndpointFrames({
                 ...endpoint,
                 body: requestBody,
               })
-              : await service.captureFrames(requestBody)
+              : await (service = createVisualContextService()).captureFrames(requestBody)
             reportedBackend = capture.backend
             return {
               framePaths: capture.frames.map((frame) => frame.path),
               cleanupPaths: capture.cleanupPaths,
             }
           } finally {
-            await service.shutdown()
+            await service?.shutdown()
           }
         }
         : options.captureFrames,
@@ -808,6 +996,18 @@ async function runVisualSheetCommand(
       ok: true,
       backend: reportedBackend,
       fallbackFrom: null,
+      source: {
+        kind: visualFileBridgeFromEnv(buildHyperframesEnvironment({
+          ...process.env,
+          ...(options.env ?? {}),
+        }, { repoRoot: options.repoRoot })) || visualEndpointFromEnv(buildHyperframesEnvironment({
+          ...process.env,
+          ...(options.env ?? {}),
+        }, { repoRoot: options.repoRoot }))
+          ? "app-render"
+          : "standalone-render",
+        preEdit: false,
+      },
       sheet: payload.sheet,
       elapsedMs: Math.round(performance.now() - startedAt),
       warnings: [],
@@ -850,6 +1050,7 @@ function simplifySnapshotContextPayload(input: {
     snapshot: input.payload.snapshot,
     context: {
       compositionPath: input.compositionPath,
+      source: input.payload.source ?? null,
       samples: input.payload.snapshot?.sample ? [input.payload.snapshot.sample] : [],
     },
     elapsedMs: input.payload.elapsedMs,
@@ -867,6 +1068,7 @@ function simplifySheetContextPayload(input: {
     sheet: input.payload.sheet,
     context: {
       compositionPath: input.compositionPath,
+      source: input.payload.source ?? null,
       fps: input.manifest?.fps ?? null,
       rangeMs: input.manifest?.rangeMs ?? null,
       samples: input.manifest?.samples ?? [],

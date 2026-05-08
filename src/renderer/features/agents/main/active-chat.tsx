@@ -259,6 +259,12 @@ import { generateCommitToPrMessage, generatePrMessage, generateReviewMessage } f
 import { resolveChatWorkMode } from "../utils/work-mode"
 import { ChatInputArea } from "./chat-input-area"
 import { IsolatedMessagesSection } from "./isolated-messages-section"
+
+type AgentRuntimePreviewContextInput =
+  | AgentRuntimeChatContext
+  | (() => AgentRuntimeChatContext | null)
+  | null
+
 const clearSubChatSelectionAtom = atom(null, () => {})
 const isSubChatMultiSelectModeAtom = atom(false)
 const selectedSubChatIdsAtom = atom(new Set<string>())
@@ -5054,7 +5060,7 @@ export function ChatView({
   activeConversations?: RippleConversationTabMeta[]
   onSelectActiveConversation?: (conversationId: string) => void
   onCloseActiveConversation?: (conversationId: string) => void
-  agentRuntimePreviewContext?: AgentRuntimeChatContext | null
+  agentRuntimePreviewContext?: AgentRuntimePreviewContextInput
 }) {
   const [selectedTeamId] = useAtom(selectedTeamIdAtom)
 
@@ -5090,12 +5096,21 @@ export function ChatView({
   const [selectedFilePath, setSelectedFilePath] = useAtom(selectedDiffFilePathAtom)
   const setFilteredDiffFiles = useSetAtom(filteredDiffFilesAtom)
   const { notifyAgentComplete } = useDesktopNotifications()
-  const agentRuntimePreviewContextRef = useRef<AgentRuntimeChatContext | null>(
+  const agentRuntimePreviewContextInputRef = useRef<AgentRuntimePreviewContextInput>(
     agentRuntimePreviewContext ?? null,
+  )
+  const agentRuntimePreviewContextRef = useRef<AgentRuntimeChatContext | null>(
+    typeof agentRuntimePreviewContext === "function"
+      ? agentRuntimePreviewContext()
+      : agentRuntimePreviewContext ?? null,
   )
 
   useEffect(() => {
-    agentRuntimePreviewContextRef.current = agentRuntimePreviewContext ?? null
+    agentRuntimePreviewContextInputRef.current = agentRuntimePreviewContext ?? null
+    agentRuntimePreviewContextRef.current =
+      typeof agentRuntimePreviewContext === "function"
+        ? agentRuntimePreviewContext()
+        : agentRuntimePreviewContext ?? null
   }, [agentRuntimePreviewContext])
 
   // Check if any chat has unseen changes
@@ -6852,7 +6867,15 @@ Make sure to preserve all functionality from both branches when resolving confli
   }, [])
 
   const buildAgentRuntimeContext = useCallback((conversationId: string): AgentRuntimeChatContext => {
-    const previewContext = agentRuntimePreviewContextRef.current ?? {}
+    const livePreviewContextInput = agentRuntimePreviewContextInputRef.current
+    const resolvedPreviewContext =
+      typeof livePreviewContextInput === "function"
+        ? livePreviewContextInput()
+        : livePreviewContextInput
+    if (resolvedPreviewContext) {
+      agentRuntimePreviewContextRef.current = resolvedPreviewContext
+    }
+    const previewContext = resolvedPreviewContext ?? agentRuntimePreviewContextRef.current ?? {}
     const fallbackPreviewSource =
       worktreePath && selectedProject?.path && worktreePath !== selectedProject.path
         ? { kind: "chat-worktree" as const, conversationId }
