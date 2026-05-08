@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { execFileSync } from "node:child_process"
+import { execFile, execFileSync } from "node:child_process"
 import {
   chmodSync,
   existsSync,
@@ -29,6 +29,30 @@ const ONE_BY_ONE_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
   "base64",
 )
+
+function execRipple(
+  args: string[],
+  options: {
+    cwd: string
+    env: NodeJS.ProcessEnv
+  },
+): Promise<string> {
+  return new Promise((resolvePromise, reject) => {
+    execFile("ripple", args, {
+      cwd: options.cwd,
+      env: options.env,
+      encoding: "utf8",
+      timeout: 15_000,
+    }, (error, stdout, stderr) => {
+      if (error) {
+        if (stderr) error.message = `${error.message}\n${stderr}`
+        reject(error)
+        return
+      }
+      resolvePromise(stdout)
+    })
+  })
+}
 
 describe("Ripple agent CLI tool environment", () => {
   test("prepends Ripple, HyperFrames, and app-managed tool directories", () => {
@@ -273,7 +297,7 @@ describe("Ripple agent CLI tool environment", () => {
         visualContextEndpoint: endpoint.endpoint,
         visualContextToken: endpoint.token,
       })
-      const stdout = execFileSync("ripple", [
+      const stdout = await execRipple([
         "frame-sheet",
         "--range",
         "0s..1s",
@@ -285,8 +309,6 @@ describe("Ripple agent CLI tool environment", () => {
       ], {
         cwd: projectDir,
         env,
-        encoding: "utf8",
-        timeout: 10_000,
       })
       const payload = JSON.parse(stdout)
 
@@ -370,7 +392,7 @@ describe("Ripple agent CLI tool environment", () => {
         visualContextBridgeDir: bridge.requestDir,
         visualContextBridgeToken: bridge.token,
       })
-      const stdout = execFileSync("ripple", [
+      const stdout = await execRipple([
         "snapshot",
         "--at",
         "current",
@@ -378,8 +400,6 @@ describe("Ripple agent CLI tool environment", () => {
       ], {
         cwd: projectDir,
         env,
-        encoding: "utf8",
-        timeout: 10_000,
       })
       const payload = JSON.parse(stdout)
 
