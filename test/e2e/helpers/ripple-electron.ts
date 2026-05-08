@@ -65,6 +65,7 @@ export const test = base.extend<RippleFixtures>({
     const launchTarget = resolveElectronLaunchTarget(e2e.repoRoot)
     const homeOverride = process.env.RIPPLE_E2E_LIVE_AGENT_HOME?.trim()
     const homeDir = homeOverride || e2e.homeDir
+    const stagedBrowserPath = resolveStagedBrowserPath(e2e.repoRoot)
 
     const app = await electron.launch({
       executablePath: launchTarget.executablePath,
@@ -81,6 +82,12 @@ export const test = base.extend<RippleFixtures>({
         RIPPLE_E2E: "1",
         RIPPLE_E2E_HOME_DIR: e2e.homeDir,
         RIPPLE_E2E_USER_DATA_DIR: join(e2e.tempRoot, "userData"),
+        ...(stagedBrowserPath
+          ? {
+            HYPERFRAMES_BROWSER_PATH: stagedBrowserPath,
+            PRODUCER_HEADLESS_SHELL_PATH: stagedBrowserPath,
+          }
+          : {}),
       },
     })
 
@@ -271,6 +278,32 @@ function resolveElectronLaunchTarget(repoRoot: string): {
     args: [appMain],
     cwd: repoRoot,
   }
+}
+
+function resolveStagedBrowserPath(repoRoot: string): string | null {
+  const base = join(repoRoot, "resources", "browser", `${process.platform}-${process.arch}`)
+  const candidates = process.platform === "darwin"
+    ? [
+      join(base, "chrome-headless-shell"),
+      join(
+        base,
+        "Google Chrome for Testing.app",
+        "Contents",
+        "MacOS",
+        "Google Chrome for Testing",
+      ),
+    ]
+    : process.platform === "win32"
+      ? [
+        join(base, "chrome-headless-shell.exe"),
+        join(base, "chrome.exe"),
+      ]
+      : [
+        join(base, "chrome-headless-shell"),
+        join(base, "chrome"),
+      ]
+
+  return candidates.find((candidate) => existsSync(candidate)) ?? null
 }
 
 function findProjectDir(homeDir: string, projectName: string): string | null {

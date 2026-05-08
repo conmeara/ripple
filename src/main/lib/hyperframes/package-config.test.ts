@@ -235,6 +235,10 @@ describe("HyperFrames packaged app configuration", () => {
 
     expect(pkg.scripts["browser:stage"]).toBe("node scripts/stage-export-browser.mjs")
     expect(pkg.scripts["package:stage"]).toContain("bun run browser:stage")
+    expect(pkg.scripts["test:e2e"]).toContain("bun run browser:stage")
+    expect(pkg.scripts["test:e2e:update"]).toContain("bun run browser:stage")
+    expect(pkg.scripts["test:e2e:headed"]).toContain("bun run browser:stage")
+    expect(pkg.scripts["test:visual"]).toContain("bun run browser:stage")
     for (const scriptName of [
       "package",
       "package:mac",
