@@ -87,11 +87,19 @@ describe("Ripple agent CLI tool environment", () => {
       `${process.platform}-${process.arch}`,
       process.platform === "win32" ? "ripple.cmd" : "ripple",
     )
+    const packagedHyperframesPath = join(
+      process.cwd(),
+      "resources",
+      "bin",
+      `${process.platform}-${process.arch}`,
+      process.platform === "win32" ? "hyperframes.cmd" : "hyperframes",
+    )
     expect(existsSync(posixCliPath)).toBe(true)
     expect(existsSync(windowsCliPath)).toBe(true)
     expect(existsSync(packageBinPath)).toBe(true)
     expect(existsSync(localNodeBinPath)).toBe(process.platform !== "win32")
     expect(existsSync(packagedBinPath)).toBe(true)
+    expect(existsSync(packagedHyperframesPath)).toBe(process.platform !== "win32")
 
     const script = readFileSync(posixCliPath, "utf8")
     expect(script).toContain("scripts/ripple-cli.ts")

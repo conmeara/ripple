@@ -223,6 +223,7 @@ describe("HyperFrames packaged app configuration", () => {
     expect(existsSync("resources/cli/hyperframes")).toBe(true)
     expect(existsSync("bin/ripple.js")).toBe(true)
     expect(existsSync(`resources/bin/${process.platform}-${process.arch}/${process.platform === "win32" ? "ripple.cmd" : "ripple"}`)).toBe(true)
+    expect(existsSync(`resources/bin/${process.platform}-${process.arch}/${process.platform === "win32" ? "hyperframes.cmd" : "hyperframes"}`)).toBe(process.platform !== "win32")
     expect(qualityWorkflow).toContain("bun run package")
     expect(qualityWorkflow).toContain("GH_TOKEN: ${{ github.token }}")
     expect(qualityWorkflow).toContain("GITHUB_TOKEN: ${{ github.token }}")

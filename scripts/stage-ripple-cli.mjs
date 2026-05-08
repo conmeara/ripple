@@ -54,12 +54,19 @@ async function stagePackagedBinWrappers() {
 
   for (const dirName of new Set([...platformDirs, platformArch()])) {
     const isWindows = dirName.startsWith("win32-")
-    const source = join(resourcesCliDir, isWindows ? "ripple.cmd" : "ripple")
-    if (!existsSync(source)) continue
-    const destination = join(resourcesBinRoot, dirName, isWindows ? "ripple.cmd" : "ripple")
-    await mkdir(dirname(destination), { recursive: true })
-    await copyFile(source, destination)
-    if (!isWindows) await chmod(destination, 0o755)
+    const wrappers = [
+      { sourceName: isWindows ? "ripple.cmd" : "ripple", destinationName: isWindows ? "ripple.cmd" : "ripple" },
+      { sourceName: isWindows ? "hyperframes.cmd" : "hyperframes", destinationName: isWindows ? "hyperframes.cmd" : "hyperframes" },
+    ]
+
+    for (const wrapper of wrappers) {
+      const source = join(resourcesCliDir, wrapper.sourceName)
+      if (!existsSync(source)) continue
+      const destination = join(resourcesBinRoot, dirName, wrapper.destinationName)
+      await mkdir(dirname(destination), { recursive: true })
+      await copyFile(source, destination)
+      if (!isWindows) await chmod(destination, 0o755)
+    }
   }
 }
 
