@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { execFileSync } from "node:child_process"
+import { execFile } from "node:child_process"
 import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { existsSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -23,6 +23,30 @@ const timedTest = test as unknown as (
   fn: () => unknown | Promise<unknown>,
   timeout: number,
 ) => void
+
+function execRipple(
+  args: string[],
+  options: {
+    cwd: string
+    env: NodeJS.ProcessEnv
+  },
+): Promise<string> {
+  return new Promise((resolvePromise, reject) => {
+    execFile("ripple", args, {
+      cwd: options.cwd,
+      env: options.env,
+      encoding: "utf8",
+      timeout: CLI_CAPTURE_MAX_MS,
+    }, (error, stdout, stderr) => {
+      if (error) {
+        if (stderr) error.message = `${error.message}\n${stderr}`
+        reject(error)
+        return
+      }
+      resolvePromise(stdout)
+    })
+  })
+}
 
 interface DecodedPng {
   width: number
@@ -589,7 +613,7 @@ describe("Visual Context quality and speed matrix", () => {
         visualContextToken: endpoint.token,
       })
       const snapshotStartedAt = performance.now()
-      const snapshotStdout = execFileSync("ripple", [
+      const snapshotStdout = await execRipple([
         "snapshot",
         "--at",
         "current",
@@ -597,8 +621,6 @@ describe("Visual Context quality and speed matrix", () => {
       ], {
         cwd: projectDir,
         env,
-        encoding: "utf8",
-        timeout: CLI_CAPTURE_MAX_MS,
       })
       const snapshotElapsedMs = performance.now() - snapshotStartedAt
       const snapshotPayload = JSON.parse(snapshotStdout)
@@ -619,7 +641,7 @@ describe("Visual Context quality and speed matrix", () => {
       })
 
       const startedAt = performance.now()
-      const stdout = execFileSync("ripple", [
+      const stdout = await execRipple([
         "frame-sheet",
         "--range",
         "0s..1s",
@@ -631,8 +653,6 @@ describe("Visual Context quality and speed matrix", () => {
       ], {
         cwd: projectDir,
         env,
-        encoding: "utf8",
-        timeout: CLI_CAPTURE_MAX_MS,
       })
       const elapsedMs = performance.now() - startedAt
       const payload = JSON.parse(stdout)
@@ -701,7 +721,7 @@ describe("Visual Context quality and speed matrix", () => {
       env.RIPPLE_VISUAL_CONTEXT_MANIFEST = handoff.manifestPath
 
       const snapshotStartedAt = performance.now()
-      const snapshotStdout = execFileSync("ripple", [
+      const snapshotStdout = await execRipple([
         "snapshot",
         "--at",
         "current",
@@ -711,8 +731,6 @@ describe("Visual Context quality and speed matrix", () => {
       ], {
         cwd: projectDir,
         env,
-        encoding: "utf8",
-        timeout: CLI_CAPTURE_MAX_MS,
       })
       const snapshotElapsedMs = performance.now() - snapshotStartedAt
       const snapshotPayload = JSON.parse(snapshotStdout)
@@ -733,7 +751,7 @@ describe("Visual Context quality and speed matrix", () => {
       })
 
       const sheetStartedAt = performance.now()
-      const sheetStdout = execFileSync("ripple", [
+      const sheetStdout = await execRipple([
         "frame-sheet",
         "--range",
         "0s..8s",
@@ -745,8 +763,6 @@ describe("Visual Context quality and speed matrix", () => {
       ], {
         cwd: projectDir,
         env,
-        encoding: "utf8",
-        timeout: CLI_CAPTURE_MAX_MS,
       })
       const sheetElapsedMs = performance.now() - sheetStartedAt
       const sheetPayload = JSON.parse(sheetStdout)
