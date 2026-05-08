@@ -1452,7 +1452,7 @@ export function RippleCommentsPane({
       model: selectedRevisionModel,
       clientRequestId: draftRequestId,
       sourceRevisionId: activePreviewRevisionId,
-      captureVisualContext: false,
+      captureVisualContext: true,
     })
   }
 

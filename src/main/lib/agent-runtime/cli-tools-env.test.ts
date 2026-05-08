@@ -119,6 +119,10 @@ describe("Ripple agent CLI tool environment", () => {
     expect(packageJson.scripts?.postinstall).toContain("scripts/stage-ripple-cli.mjs")
     expect(packageJson.scripts?.["package:stage"]).toContain("bun run ripple:stage-cli")
     expect(packageJson.build?.extraResources).toContainEqual(expect.objectContaining({
+      from: "resources/bin/${platform}-${arch}",
+      to: "bin",
+    }))
+    expect(packageJson.build?.extraResources).not.toContainEqual(expect.objectContaining({
       from: "resources/cli",
       to: "bin",
     }))

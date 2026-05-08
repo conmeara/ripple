@@ -215,7 +215,7 @@ describe("HyperFrames packaged app configuration", () => {
       from: "resources/bin/${platform}-${arch}",
       to: "bin",
     }))
-    expect(pkg.build.extraResources).toContainEqual(expect.objectContaining({
+    expect(pkg.build.extraResources).not.toContainEqual(expect.objectContaining({
       from: "resources/cli",
       to: "bin",
     }))

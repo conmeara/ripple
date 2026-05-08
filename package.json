@@ -222,13 +222,6 @@
         ]
       },
       {
-        "from": "resources/cli",
-        "to": "bin",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
         "from": "resources/bin/VERSION",
         "to": "bin/VERSION"
       },
