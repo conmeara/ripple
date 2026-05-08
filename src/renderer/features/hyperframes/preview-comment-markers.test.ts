@@ -132,6 +132,23 @@ describe("preview comment markers", () => {
         compositionId: "composition-1",
         chatId: null,
         subChatId: null,
+        status: "needs_update",
+        previewContextKey: null,
+        diffSummary: null,
+        errorMessage: null,
+        createdAt: null,
+        updatedAt: null,
+        resolvedAt: null,
+      }],
+    }))).toBe("needs-input")
+    expect(previewCommentMarkerTone(thread({
+      revisions: [{
+        id: "revision-1",
+        threadId: "thread-1",
+        projectId: "project-1",
+        compositionId: "composition-1",
+        chatId: null,
+        subChatId: null,
         status: "answered",
         previewContextKey: null,
         diffSummary: null,

@@ -49,6 +49,7 @@ describe("comment filter helpers", () => {
     expect(canPreviewRevisionChanges(revision("queued"))).toBe(true)
     expect(canPreviewRevisionChanges(revision("running"))).toBe(true)
     expect(canPreviewRevisionChanges(revision("updating"))).toBe(true)
+    expect(canPreviewRevisionChanges(revision("needs_update"))).toBe(true)
     expect(canPreviewRevisionChanges(revision("queued", null, null))).toBe(false)
     expect(canPreviewRevisionChanges(revision("preparing"))).toBe(false)
     expect(canPreviewRevisionChanges(revision("accepted"))).toBe(true)
@@ -59,6 +60,7 @@ describe("comment filter helpers", () => {
   test("detects active generated changes for view refresh polling", () => {
     expect(hasActiveRevisionChanges({ revisions: [revision("running")] })).toBe(true)
     expect(hasActiveRevisionChanges({ revisions: [revision("updating")] })).toBe(true)
+    expect(hasActiveRevisionChanges({ revisions: [revision("needs_update")] })).toBe(false)
     expect(hasActiveRevisionChanges({ revisions: [revision("proposed")] })).toBe(false)
   })
 
@@ -68,7 +70,14 @@ describe("comment filter helpers", () => {
     expect(canRejectRevisionChanges(revision("answered"))).toBe(false)
     expect(canRejectRevisionChanges(revision("accepted"))).toBe(false)
     expect(canRejectRevisionChanges(revision("rejected"))).toBe(false)
+    expect(canRejectRevisionChanges(revision("needs_update"))).toBe(false)
     expect(canRejectRevisionChanges(revision("running"))).toBe(false)
     expect(canRejectRevisionChanges(null)).toBe(false)
+  })
+
+  test("allows refresh but not rejection when a proposal needs Main updates", () => {
+    expect(canRefreshRevisionChanges(revision("needs_update"))).toBe(true)
+    expect(canRefreshRevisionChanges(revision("needs_update"), { deleted: true })).toBe(false)
+    expect(canRejectRevisionChanges(revision("needs_update"))).toBe(false)
   })
 })

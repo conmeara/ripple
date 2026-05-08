@@ -1,7 +1,9 @@
 import { eq } from "drizzle-orm"
 import {
+  commentThreads,
   getDatabase,
   revisions,
+  type CommentThread,
   type Revision,
 } from "../db"
 import {
@@ -14,6 +16,7 @@ import {
 import { compactOneLineSummary } from "../revisions/comment-summary"
 import { executeAgentRun, startAgentRun } from "./service"
 import { inferAgentProviderFromModel } from "./provider-selection"
+import { buildGeneratedChangeRuntimeContext } from "./generated-change-runtime-context"
 import type { AgentProviderId, AgentRunStatus, AgentRuntimeAttachment } from "./types"
 
 export interface GeneratedChangeSchedulerResult {
@@ -173,6 +176,14 @@ function loadRevision(revisionId: string): Revision {
   return revision
 }
 
+function loadCommentThread(threadId: string): CommentThread | null {
+  return getDatabase()
+    .select()
+    .from(commentThreads)
+    .where(eq(commentThreads.id, threadId))
+    .get() ?? null
+}
+
 function resolveRunIntent(job: RevisionQueueRun): {
   prompt: string
   provider: AgentProviderId
@@ -214,6 +225,10 @@ export async function processGeneratedChangeQueue(input: {
 
   const job = queue.job
   const intent = resolveRunIntent(job)
+  const runtimeContext = buildGeneratedChangeRuntimeContext({
+    job,
+    thread: loadCommentThread(job.threadId),
+  })
 
   try {
     const started = startAgentRun({
@@ -229,6 +244,7 @@ export async function processGeneratedChangeQueue(input: {
       subChatId: job.subChatId,
       commentThreadId: job.threadId,
       revisionId: job.revisionId,
+      runtimeContext,
     })
 
     const run = await executeAgentRun(started.run.id, {

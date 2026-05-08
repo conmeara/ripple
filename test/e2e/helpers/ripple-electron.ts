@@ -63,6 +63,8 @@ export const test = base.extend<RippleFixtures>({
 
   electronApp: async ({ e2e }, use, testInfo) => {
     const launchTarget = resolveElectronLaunchTarget(e2e.repoRoot)
+    const homeOverride = process.env.RIPPLE_E2E_LIVE_AGENT_HOME?.trim()
+    const homeDir = homeOverride || e2e.homeDir
 
     const app = await electron.launch({
       executablePath: launchTarget.executablePath,
@@ -70,10 +72,10 @@ export const test = base.extend<RippleFixtures>({
       cwd: launchTarget.cwd,
       env: {
         ...process.env,
-        HOME: e2e.homeDir,
-        XDG_CONFIG_HOME: join(e2e.homeDir, ".config"),
-        XDG_CACHE_HOME: join(e2e.homeDir, ".cache"),
-        XDG_DATA_HOME: join(e2e.homeDir, ".local", "share"),
+        HOME: homeDir,
+        XDG_CONFIG_HOME: homeOverride ? (process.env.XDG_CONFIG_HOME ?? join(homeDir, ".config")) : join(e2e.homeDir, ".config"),
+        XDG_CACHE_HOME: homeOverride ? (process.env.XDG_CACHE_HOME ?? join(homeDir, ".cache")) : join(e2e.homeDir, ".cache"),
+        XDG_DATA_HOME: homeOverride ? (process.env.XDG_DATA_HOME ?? join(homeDir, ".local", "share")) : join(e2e.homeDir, ".local", "share"),
         ELECTRON_RENDERER_URL: "",
         ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
         RIPPLE_E2E: "1",

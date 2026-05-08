@@ -41,7 +41,7 @@ export function getRippleRevisionActivityState(
   if (!status) return null
   if (WORKING_REVISION_STATUSES.has(status)) return "working"
   if (status === "proposed") return "ready"
-  if (status === "failed") return "needsAttention"
+  if (status === "failed" || status === "needs_update") return "needsAttention"
   return null
 }
 

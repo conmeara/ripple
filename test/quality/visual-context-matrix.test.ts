@@ -7,6 +7,7 @@ import { join, resolve } from "node:path"
 import { inflateSync } from "node:zlib"
 import {
   createVisualContextEndpoint,
+  createVisualContextFileBridge,
   createVisualContextService,
 } from "../../src/main/lib/visual-context"
 import { buildRippleAgentToolEnvironment } from "../../src/main/lib/agent-runtime/cli-tools-env"
@@ -653,8 +654,23 @@ describe("Visual Context quality and speed matrix", () => {
     }
   }, 60000)
 
-  timedTest("covers the agent CLI prepared visual context when localhost visual endpoints are unreachable", async () => {
+  timedTest("covers app-owned bridge visual checks without stale handoff fallback", async () => {
     const projectDir = await makeProject()
+    const service = createVisualContextService()
+    const bridge = await createVisualContextFileBridge({
+      service,
+      workspaceRoot: projectDir,
+      requestDir: join(projectDir, ".ripple", "agent-visual-context", "matrix-bridge", "requests"),
+      resolveCurrentFrameSnapshot: async () => ({
+        projectPath: projectDir,
+        sourcePath: projectDir,
+        compositionPath: "index.html",
+        timeMs: 500,
+        fps: 30,
+        width: 1920,
+        height: 1080,
+      }),
+    })
     try {
       const handoff = await prepareAgentVisualContextHandoff({
         runId: "matrix-handoff",
@@ -678,8 +694,10 @@ describe("Visual Context quality and speed matrix", () => {
         workspaceRoot: projectDir,
         visualContextEndpoint: "http://127.0.0.1:9",
         visualContextToken: "dead-endpoint",
-        visualContextManifestPath: handoff.manifestPath,
+        visualContextBridgeDir: bridge.requestDir,
+        visualContextBridgeToken: bridge.token,
       })
+      env.RIPPLE_VISUAL_CONTEXT_MANIFEST = handoff.manifestPath
 
       const snapshotStartedAt = performance.now()
       const snapshotStdout = execFileSync("ripple", [
@@ -700,17 +718,17 @@ describe("Visual Context quality and speed matrix", () => {
 
       expect(snapshotPayload.ok).toBe(true)
       expect(snapshotPayload.type).toBe("snapshot")
-      expect(snapshotPayload.snapshot.sample).toEqual({ timeMs: 0, frame: 0 })
+      expect(snapshotPayload.snapshot.sample).toEqual({ timeMs: 500, frame: 15 })
       expect(snapshotStdout).not.toContain("backend")
       expect(snapshotStdout).not.toContain("endpoint")
       expect(snapshotStdout).not.toContain("handoff")
       expect(snapshotStdout).not.toContain("fallback")
-      expect(snapshotElapsedMs).toBeLessThan(2000)
+      expect(snapshotElapsedMs).toBeLessThan(15000)
       await expectPngQuality({
         path: join(projectDir, snapshotPayload.snapshot.path),
         width: 1920,
         height: 1080,
-        expectedTimeSeconds: 0,
+        expectedTimeSeconds: 0.5,
       })
 
       const sheetStartedAt = performance.now()
@@ -738,10 +756,12 @@ describe("Visual Context quality and speed matrix", () => {
       expect(sheetStdout).not.toContain("endpoint")
       expect(sheetStdout).not.toContain("handoff")
       expect(sheetStdout).not.toContain("fallback")
-      expect(sheetElapsedMs).toBeLessThan(2000)
+      expect(sheetElapsedMs).toBeLessThan(15000)
       expect(existsSync(join(projectDir, sheetPayload.sheet.path))).toBe(true)
       expect(existsSync(join(projectDir, sheetPayload.sheet.manifestPath))).toBe(true)
     } finally {
+      await bridge.close()
+      await service.shutdown()
       await rm(projectDir, { recursive: true, force: true })
     }
   }, 60000)

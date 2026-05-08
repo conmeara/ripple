@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { delimiter, dirname, join, resolve } from "node:path"
 import {
   HYPERFRAMES_APP_ENV,
@@ -11,7 +12,6 @@ export interface RippleAgentToolEnvironmentInput {
   workspaceRoot: string
   visualContextEndpoint?: string | null
   visualContextToken?: string | null
-  visualContextManifestPath?: string | null
   visualContextBridgeDir?: string | null
   visualContextBridgeToken?: string | null
 }
@@ -29,15 +29,28 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
 }
 
+function normalizeRepoRoot(repoRoot?: string): string | undefined {
+  if (!repoRoot) return undefined
+  const candidates = uniqueStrings([
+    repoRoot,
+    join(repoRoot, "..", ".."),
+  ]).map((candidate) => resolve(candidate))
+  return candidates.find((candidate) =>
+    existsSync(join(candidate, "package.json")) &&
+    existsSync(join(candidate, "resources", "cli", process.platform === "win32" ? "ripple.cmd" : "ripple"))
+  ) ?? resolve(repoRoot)
+}
+
 export function getRippleAgentToolDirectories(repoRoot?: string): string[] {
+  const normalizedRepoRoot = normalizeRepoRoot(repoRoot)
   const hyperframesBinScript = getPackageBinScript("hyperframes", "hyperframes")
   return uniqueStrings([
-    repoRoot ? join(repoRoot, "resources", "cli") : null,
-    repoRoot ? join(repoRoot, "resources", "bin", platformArch()) : null,
     maybeResourcesBinDir(),
-    repoRoot ? join(repoRoot, "node_modules", ".bin") : null,
+    normalizedRepoRoot ? join(normalizedRepoRoot, "node_modules", ".bin") : null,
+    normalizedRepoRoot ? join(normalizedRepoRoot, "resources", "bin", platformArch()) : null,
+    normalizedRepoRoot ? join(normalizedRepoRoot, "resources", "cli") : null,
     hyperframesBinScript ? dirname(hyperframesBinScript) : null,
-    repoRoot ? join(repoRoot, "scripts") : null,
+    normalizedRepoRoot ? join(normalizedRepoRoot, "scripts") : null,
     ...getAppManagedBinaryDirectories(),
   ])
 }
@@ -71,11 +84,6 @@ export function buildRippleAgentToolEnvironment(
       ? {
         RIPPLE_VISUAL_CONTEXT_BRIDGE_DIR: input.visualContextBridgeDir,
         RIPPLE_VISUAL_CONTEXT_BRIDGE_TOKEN: input.visualContextBridgeToken,
-      }
-      : {}),
-    ...(input.visualContextManifestPath
-      ? {
-        RIPPLE_VISUAL_CONTEXT_MANIFEST: input.visualContextManifestPath,
       }
       : {}),
   }

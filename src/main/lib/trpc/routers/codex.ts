@@ -237,20 +237,28 @@ function resolveCodexAcpBinaryPath(): string {
 
 function resolveBundledCodexCliPath(): string {
   const binaryName = process.platform === "win32" ? "codex.exe" : "codex"
-  const resourcesDir = app.isPackaged
-    ? join(process.resourcesPath, "bin")
-    : join(
+  const candidatePaths = app.isPackaged
+    ? [join(process.resourcesPath, "bin", binaryName)]
+    : Array.from(new Set([
         app.getAppPath(),
-        "resources",
-        "bin",
-        `${process.platform}-${process.arch}`,
+        process.cwd(),
+        join(app.getAppPath(), "..", ".."),
+      ])).map((root) =>
+        join(
+          root,
+          "resources",
+          "bin",
+          `${process.platform}-${process.arch}`,
+          binaryName,
+        )
       )
 
-  const binaryPath = join(resourcesDir, binaryName)
-  if (existsSync(binaryPath)) {
-    return binaryPath
+  const existingPath = candidatePaths.find((candidate) => existsSync(candidate))
+  if (existingPath) {
+    return existingPath
   }
 
+  const binaryPath = candidatePaths[0]
   const hint = app.isPackaged
     ? "Binary is missing from bundled resources."
     : "Run `bun run codex:download` to download it for local dev."

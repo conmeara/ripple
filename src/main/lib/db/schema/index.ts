@@ -713,6 +713,7 @@ export const revisions = sqliteTable("revisions", {
       | "preparing"
       | "running"
       | "updating"
+      | "needs_update"
       | "proposed"
       | "answered"
       | "accepted"

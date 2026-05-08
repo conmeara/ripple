@@ -60,7 +60,7 @@ test.describe("Ripple release QA workflows", () => {
 
     await page.getByTestId("ripple-shell").getByRole("button", { name: "Comments" }).click()
     await expect(page.getByTestId("ripple-comments-pane")).toBeVisible()
-    await expect(page.getByText("Current frame")).toBeVisible()
+    await expect(page.getByTestId("ripple-comment-composer-input")).toBeVisible()
 
     const commentText = "Use this frame as the visual reference."
     await page.getByTestId("ripple-comment-composer-input").fill(commentText)
@@ -92,7 +92,7 @@ test.describe("Ripple release QA workflows", () => {
     const frameIndicator = page.getByTestId("ripple-preview-frame-indicator")
     await expect(timeline).toHaveAttribute("aria-valuemax", "1")
 
-    await page.getByRole("button", { name: "Next frame" }).click()
+    await timeline.press("ArrowRight")
     await expect(frameIndicator).toHaveText("Frame 1 / 30")
 
     await page.getByRole("button", { name: "Preview settings" }).click()

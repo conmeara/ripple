@@ -50,6 +50,7 @@ const WORKING_REVISION_STATUSES = new Set<RippleRevisionStatus>([
 
 const PREVIEWABLE_REVISION_STATUSES = new Set<RippleRevisionStatus>([
   "proposed",
+  "needs_update",
   "accepted",
 ])
 
@@ -77,7 +78,7 @@ export function previewCommentMarkerTone(
     return "in-progress"
   }
 
-  if (revision?.status === "failed") {
+  if (revision?.status === "failed" || revision?.status === "needs_update") {
     return "needs-input"
   }
 

@@ -4,6 +4,7 @@ import { join } from "node:path"
 
 interface PackageJson {
   dependencies: Record<string, string>
+  bin?: Record<string, string>
   scripts: Record<string, string>
   build: {
     files?: string[]
@@ -208,6 +209,8 @@ describe("HyperFrames packaged app configuration", () => {
     expect(pkg.scripts["bin:stage"]).toContain("bun run claude:download")
     expect(pkg.scripts["bin:stage"]).toContain("bun run codex:download")
     expect(pkg.scripts["package:stage"]).toContain("bun run bin:stage")
+    expect(pkg.scripts["package:stage"]).toContain("bun run ripple:stage-cli")
+    expect(pkg.bin?.ripple).toBe("bin/ripple.js")
     expect(pkg.build.extraResources).toContainEqual(expect.objectContaining({
       from: "resources/bin/${platform}-${arch}",
       to: "bin",
@@ -218,6 +221,8 @@ describe("HyperFrames packaged app configuration", () => {
     }))
     expect(existsSync("resources/cli/ripple")).toBe(true)
     expect(existsSync("resources/cli/hyperframes")).toBe(true)
+    expect(existsSync("bin/ripple.js")).toBe(true)
+    expect(existsSync(`resources/bin/${process.platform}-${process.arch}/${process.platform === "win32" ? "ripple.cmd" : "ripple"}`)).toBe(true)
     expect(qualityWorkflow).toContain("bun run package")
     expect(qualityWorkflow).toContain("GH_TOKEN: ${{ github.token }}")
     expect(qualityWorkflow).toContain("GITHUB_TOKEN: ${{ github.token }}")

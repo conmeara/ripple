@@ -30,7 +30,11 @@ import {
   normalizeCodexAppServerNotification,
   type JsonRpcMessage,
 } from "./codex-app-server-events"
-import { buildCodexAppServerEnv } from "./codex-app-server-env"
+import {
+  buildCodexAppServerArgs,
+  buildCodexAppServerEnv,
+  buildCodexShellEnvironmentPolicyConfig,
+} from "./codex-app-server-env"
 import { buildCodexTurnInput, type CodexUserInput } from "./codex-app-server-input"
 import {
   buildCodexTurnSkillInputs,
@@ -41,7 +45,10 @@ import { normalizeCodexModelSelection } from "./codex-model-selection"
 import { buildRippleAgentToolEnvironment } from "../cli-tools-env"
 import { createAgentVisualContextEndpoint } from "../visual-context-endpoint"
 import { createAgentVisualContextFileBridge } from "../visual-context-file-bridge"
-import { prepareAgentVisualContextHandoff } from "../visual-context-handoff"
+import {
+  prepareAgentVisualContextHandoff,
+  shouldPrepareAgentVisualContextHandoff,
+} from "../visual-context-handoff"
 import {
   approvalBoundaryWarning,
   assessCodexAppServerApprovalRequest,
@@ -58,9 +65,12 @@ const activeClients = new Map<string, {
   cancel: () => void
 }>()
 
-const APP_MANAGED_CODEX_THREAD_CONFIG = {
-  suppress_unstable_features_warning: true,
-} as const
+function buildAppManagedCodexThreadConfig(env: NodeJS.ProcessEnv): Record<string, unknown> {
+  return {
+    suppress_unstable_features_warning: true,
+    shell_environment_policy: buildCodexShellEnvironmentPolicyConfig(env),
+  }
+}
 
 class CodexRunCancelledError extends Error {
   constructor() {
@@ -212,11 +222,12 @@ class CodexAppServerClient {
   constructor(
     private readonly binaryPath: string,
     private readonly env: NodeJS.ProcessEnv = buildCodexAppServerEnv(),
+    private readonly args: string[] = ["app-server"],
   ) {}
 
   async start(): Promise<void> {
     if (this.child) return
-    this.child = spawn(this.binaryPath, ["app-server"], {
+    this.child = spawn(this.binaryPath, this.args, {
       stdio: ["pipe", "pipe", "pipe"],
       env: this.env,
     })
@@ -396,34 +407,50 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
     sink: AgentProviderEventSink,
   ): Promise<AgentProviderRunResult> {
     const appManagedApiKey = getAppManagedCodexApiKey(input)
-    const visualContextHandoff = await prepareAgentVisualContextHandoff({
-      runId: input.run.id,
-      currentFrameSnapshot: input.currentFrameSnapshot,
-      repoRoot: getRepoRoot(),
-    }).catch((error) => {
-      console.warn("[codex-app-server] Failed to prepare visual context handoff:", error)
-      return null
-    })
-    const visualContextEndpoint = await createAgentVisualContextEndpoint(input.cwd, {
-      resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
-    })
-    const visualContextBridge = await createAgentVisualContextFileBridge(input.cwd, {
-      runId: input.run.id,
-      resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
-    })
+    const repoRoot = getRepoRoot()
+    const visualContextHandoffPromise = input.currentFrameSnapshot && shouldPrepareAgentVisualContextHandoff()
+      ? (async () => {
+        await sink.emit({
+          type: "status",
+          providerType: "ripple:visual-context",
+          providerId: `${input.run.id}:visual-context`,
+          payload: {
+            status: "running",
+            label: "Preparing preview context",
+          },
+        })
+        return prepareAgentVisualContextHandoff({
+          runId: input.run.id,
+          currentFrameSnapshot: input.currentFrameSnapshot,
+          repoRoot,
+        })
+      })().catch((error) => {
+        console.warn("[codex-app-server] Failed to prepare visual context handoff:", error)
+        return null
+      })
+      : Promise.resolve(null)
+    const [visualContextEndpoint, visualContextBridge] = await Promise.all([
+      createAgentVisualContextEndpoint(input.cwd, {
+        resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
+      }),
+      createAgentVisualContextFileBridge(input.cwd, {
+        runId: input.run.id,
+        resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
+      }),
+    ])
     const appServerEnv = buildRippleAgentToolEnvironment({
       baseEnv: buildCodexAppServerEnv(appManagedApiKey),
-      repoRoot: getRepoRoot(),
+      repoRoot,
       workspaceRoot: input.cwd,
       visualContextEndpoint: visualContextEndpoint?.endpoint,
       visualContextToken: visualContextEndpoint?.token,
       visualContextBridgeDir: visualContextBridge?.requestDir,
       visualContextBridgeToken: visualContextBridge?.token,
-      visualContextManifestPath: visualContextHandoff?.manifestPath,
     })
     const client = new CodexAppServerClient(
       getBundledCodexCliPath(),
       appServerEnv,
+      buildCodexAppServerArgs(appServerEnv),
     )
     let cancelled = false
     let rejectRunPromise: ((error: Error) => void) | null = null
@@ -441,20 +468,6 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
     let threadId: string | null = null
     let turnId: string | null = null
     const modelSelection = normalizeCodexModelSelection(input.model)
-    const promptWithVisualContext = [
-      input.prompt,
-      visualContextHandoff?.promptContext,
-    ].filter(Boolean).join("\n\n")
-    const promptContext = prepareAgentRuntimePrompt(promptWithVisualContext)
-    const preparedAttachments = await prepareRuntimeAttachments({
-      runId: input.run.id,
-      cwd: input.cwd,
-      attachments: input.attachments,
-    })
-    const finalPrompt = [
-      promptContext.prompt,
-      preparedAttachments.promptSuffix,
-    ].filter(Boolean).join("\n\n")
 
     try {
       await client.start()
@@ -493,6 +506,25 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
         codexSkillsError = error instanceof Error ? error.message : String(error)
         console.warn("[codex-app-server] Failed to resolve Codex skills:", error)
       }
+
+      const preparedAttachmentsPromise = prepareRuntimeAttachments({
+        runId: input.run.id,
+        cwd: input.cwd,
+        attachments: input.attachments,
+      })
+      const [visualContextHandoff, preparedAttachments] = await Promise.all([
+        visualContextHandoffPromise,
+        preparedAttachmentsPromise,
+      ])
+      const promptWithVisualContext = [
+        input.prompt,
+        visualContextHandoff?.promptContext,
+      ].filter(Boolean).join("\n\n")
+      const promptContext = prepareAgentRuntimePrompt(promptWithVisualContext)
+      const finalPrompt = [
+        promptContext.prompt,
+        preparedAttachments.promptSuffix,
+      ].filter(Boolean).join("\n\n")
 
       const codexSessionInit = buildCodexMcpSessionInit(codexMcpSnapshot)
       const codexSkillNames = codexSkills
@@ -846,7 +878,7 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
           modelProvider: null,
           approvalPolicy: "on-request",
           sandbox: "workspace-write",
-          config: APP_MANAGED_CODEX_THREAD_CONFIG,
+          config: buildAppManagedCodexThreadConfig(appServerEnv),
           ...threadInstructionParams(),
           personality: null,
           ephemeral: true,

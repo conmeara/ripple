@@ -1,12 +1,8 @@
-import { copyFile, mkdir, lstat, readFile, realpath, rename, stat, writeFile } from "node:fs/promises"
+import { mkdir, lstat, readFile, realpath, rename, stat, writeFile } from "node:fs/promises"
 import { isAbsolute, join, relative, resolve } from "node:path"
 import { randomUUID } from "node:crypto"
 import { setTimeout as delay } from "node:timers/promises"
 import { isPathInsideDirectory } from "../shared/path-boundary"
-import {
-  RIPPLE_VISUAL_CONTEXT_HANDOFF_VERSION,
-  type RippleVisualContextHandoffManifest,
-} from "../shared/visual-context-handoff"
 import { VISUAL_CONTEXT_FILE_BRIDGE_VERSION } from "../main/lib/visual-context"
 import {
   buildHyperframesEnvironment,
@@ -352,200 +348,6 @@ async function readFrameSheetManifest(
   return isRecord(parsed) ? parsed as Record<string, any> : null
 }
 
-async function visualHandoffFromEnv(input: {
-  env: NodeJS.ProcessEnv
-  projectDir: string
-}): Promise<RippleVisualContextHandoffManifest | null> {
-  const manifestPath = input.env.RIPPLE_VISUAL_CONTEXT_MANIFEST?.trim()
-  if (!manifestPath) return null
-  const manifestRealPath = await realpath(resolve(manifestPath)).catch(() => null)
-  if (!manifestRealPath || !isPathInsideDirectory(input.projectDir, manifestRealPath)) return null
-
-  const parsed = JSON.parse(await readFile(manifestRealPath, "utf8")) as unknown
-  if (!isRecord(parsed) || parsed.version !== RIPPLE_VISUAL_CONTEXT_HANDOFF_VERSION) return null
-  const projectPath = typeof parsed.projectPath === "string" ? parsed.projectPath : null
-  if (!projectPath) return null
-  const handoffProjectRealPath = await realpath(resolve(projectPath)).catch(() => null)
-  if (handoffProjectRealPath !== input.projectDir) return null
-  return parsed as unknown as RippleVisualContextHandoffManifest
-}
-
-function handoffCompositionMatches(input: {
-  requestedCompositionPath: string | null
-  handoffCompositionPath: string | null
-}): boolean {
-  return !input.requestedCompositionPath ||
-    !input.handoffCompositionPath ||
-    input.requestedCompositionPath === input.handoffCompositionPath
-}
-
-function handoffTimeMatches(input: {
-  requestedAt: number | "current"
-  snapshotTimeMs: number
-  fps: number
-}): boolean {
-  if (input.requestedAt === "current") return false
-  const frameDurationMs = 1000 / Math.max(1, input.fps)
-  return Math.abs(input.requestedAt - input.snapshotTimeMs) <= frameDurationMs
-}
-
-async function handoffSourceIsFresh(input: {
-  manifest: RippleVisualContextHandoffManifest
-  projectDir: string
-}): Promise<boolean> {
-  const createdAt = Number(input.manifest.createdAt)
-  if (!Number.isFinite(createdAt) || createdAt <= 0) return false
-
-  const candidates = new Set<string>()
-  if (input.manifest.compositionPath) {
-    candidates.add(resolve(input.projectDir, input.manifest.compositionPath))
-  }
-  if (input.manifest.sourcePath) {
-    const sourcePath = resolve(input.manifest.sourcePath)
-    if (sourcePath !== input.projectDir) candidates.add(sourcePath)
-  }
-  if (candidates.size === 0) return true
-
-  for (const candidate of candidates) {
-    const realPath = await realpath(candidate).catch(() => null)
-    if (!realPath || !isPathInsideDirectory(input.projectDir, realPath)) return false
-    const info = await stat(realPath).catch(() => null)
-    if (!info) return false
-    if (info.mtimeMs > createdAt) return false
-  }
-  return true
-}
-
-async function captureSnapshotFromHandoff(input: {
-  manifest: RippleVisualContextHandoffManifest
-  projectDir: string
-  outputDir: string
-  at: number | "current"
-  compositionPath: string | null
-  fps: number
-}): Promise<VisualCaptureFramesResult | null> {
-  const snapshot = input.manifest.snapshot
-  if (!snapshot) return null
-  if (!await handoffSourceIsFresh({
-    manifest: input.manifest,
-    projectDir: input.projectDir,
-  })) {
-    return null
-  }
-  if (!handoffCompositionMatches({
-    requestedCompositionPath: input.compositionPath,
-    handoffCompositionPath: input.manifest.compositionPath,
-  })) {
-    return null
-  }
-  if (!handoffTimeMatches({
-    requestedAt: input.at,
-    snapshotTimeMs: snapshot.timeMs,
-    fps: input.fps,
-  })) {
-    return null
-  }
-
-  const sourcePath = resolve(input.projectDir, snapshot.path)
-  const sourceRealPath = await realpath(sourcePath)
-  if (!isPathInsideDirectory(input.projectDir, sourceRealPath)) {
-    throw new VisualCliError("HANDOFF_PATH_ESCAPE", "Visual context handoff snapshot is outside the project.")
-  }
-  const destination = join(input.outputDir, "current.png")
-  await copyFile(sourceRealPath, destination)
-  const info = await stat(destination)
-  return {
-    backend: snapshot.backend as VisualContextBackendId,
-    frames: [{
-      index: 0,
-      timeMs: snapshot.timeMs,
-      frame: snapshot.frame,
-      path: destination,
-      width: snapshot.width,
-      height: snapshot.height,
-      sizeBytes: info.size,
-    }],
-    elapsedMs: 0,
-    timings: { handoffMs: 0 },
-    warnings: [
-      "Used Ripple's prepared app visual context.",
-    ],
-    cleanupPaths: [],
-  }
-}
-
-async function sheetResultFromHandoff(input: {
-  args: string[]
-  env: NodeJS.ProcessEnv
-  projectDir: string
-  wantsJson: boolean
-  cleanJson: boolean
-}): Promise<FrameSheetCliResult | null> {
-  if (input.args.includes("--help") || input.args.includes("-h")) return null
-  const manifest = await visualHandoffFromEnv({
-    env: input.env,
-    projectDir: input.projectDir,
-  })
-  const sheet = manifest?.sheet
-  if (!manifest || !sheet) return null
-  if (!await handoffSourceIsFresh({ manifest, projectDir: input.projectDir })) {
-    return null
-  }
-  const compositionOption = extractOption(input.args, "--composition")
-  if (!handoffCompositionMatches({
-    requestedCompositionPath: compositionOption.value,
-    handoffCompositionPath: manifest.compositionPath,
-  })) {
-    return null
-  }
-  const [sheetRealPath, manifestRealPath] = await Promise.all([
-    realpath(resolve(input.projectDir, sheet.path)),
-    realpath(resolve(input.projectDir, sheet.manifestPath)),
-  ])
-  if (
-    !isPathInsideDirectory(input.projectDir, sheetRealPath) ||
-    !isPathInsideDirectory(input.projectDir, manifestRealPath)
-  ) {
-    throw new VisualCliError("HANDOFF_PATH_ESCAPE", "Visual context handoff sheet is outside the project.")
-  }
-  const payload = {
-    ok: true,
-    backend: sheet.backend,
-    fallbackFrom: "visual-context-handoff",
-    source: {
-      kind: "prepared-context",
-      createdAt: manifest.createdAt,
-      manifestPath: relativeProjectPath(input.projectDir, resolve(input.projectDir, sheet.manifestPath)),
-      preEdit: true,
-    },
-    sheet: {
-      id: sheet.id,
-      path: sheet.path,
-      manifestPath: sheet.manifestPath,
-      sampleCount: sheet.sampleCount,
-      summary: sheet.summary,
-    },
-    elapsedMs: 0,
-    warnings: [
-      "Used Ripple's prepared app visual context.",
-    ],
-  }
-  const outputPayload = input.cleanJson
-    ? simplifySheetContextPayload({
-      payload,
-      manifest: await readFrameSheetManifest(input.projectDir, sheet.manifestPath),
-      compositionPath: compositionOption.value ?? manifest.compositionPath ?? null,
-    })
-    : payload
-  return {
-    exitCode: 0,
-    stdout: input.wantsJson
-      ? formatJson(outputPayload)
-      : `Created frame sheet: ${sheet.path}\n`,
-    stderr: "",
-  }
-}
-
 async function requestVisualEndpointSnapshot(input: {
   endpoint: string
   token: string
@@ -733,30 +535,11 @@ async function runVisualSnapshotCommand(
         "--at current requires Ripple app visual context. Use an explicit timestamp outside the app.",
       )
     }
-    const handoff = explicitTimeMs === null
-      ? null
-      : await visualHandoffFromEnv({ env, projectDir })
-    const handoffCapture = handoff
-      ? await captureSnapshotFromHandoff({
-        manifest: handoff,
-        projectDir,
-        outputDir,
-        at: parsed.at,
-        compositionPath: parsed.compositionPath,
-        fps,
-      })
-      : null
     const snapshotSource = explicitTimeMs === null
       ? { kind: "live-app", preEdit: false }
-      : handoffCapture
-        ? {
-        kind: "prepared-context",
-        createdAt: handoff?.createdAt ?? null,
-        preEdit: true,
-      }
-        : appCapture
-          ? { kind: "app-render", preEdit: false }
-          : { kind: "standalone-render", preEdit: false }
+      : appCapture
+        ? { kind: "app-render", preEdit: false }
+        : { kind: "standalone-render", preEdit: false }
     const capture = explicitTimeMs === null
       ? bridge
         ? await requestVisualFileBridgeCapture({
@@ -794,7 +577,7 @@ async function runVisualSnapshotCommand(
             outputDir,
           },
         })
-      : handoffCapture ?? (bridge
+      : bridge
         ? await requestVisualFileBridgeCapture({
         ...bridge,
         kind: "snapshot",
@@ -843,7 +626,6 @@ async function runVisualSnapshotCommand(
         outputDir,
         repoRoot: options.repoRoot,
       })
-    )
     const frame = capture.frames[0]
     if (!frame) {
       throw new VisualCliError("SNAPSHOT_MISSING", "Visual snapshot did not return a frame.")
@@ -931,14 +713,6 @@ async function runVisualSheetCommand(
       cleanVisualContext = shouldUseCleanVisualContext(env)
       cleanProjectDir = projectDir
       await assertWorkspaceBoundary({ projectDir, env })
-      const handoffResult = await sheetResultFromHandoff({
-        args,
-        env,
-        projectDir,
-        wantsJson,
-        cleanJson: cleanVisualContext,
-      })
-      if (handoffResult) return handoffResult
     }
 
     const shouldUseServiceCapture = !options.captureFrames

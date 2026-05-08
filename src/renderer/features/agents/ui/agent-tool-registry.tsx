@@ -35,6 +35,42 @@ export interface ToolMeta {
   variant: ToolVariant
 }
 
+const PLANNING_LABELS = [
+  "Crafting...",
+  "Whirring...",
+  "Imagining...",
+  "Cooking...",
+  "Sussing...",
+  "Unravelling...",
+  "Creating...",
+  "Spinning...",
+  "Computing...",
+  "Synthesizing...",
+  "Manifesting...",
+]
+
+function hashString(value: string): number {
+  let hash = 2166136261
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function getStablePlanningLabel(part: any): string {
+  const seed =
+    part?.planningSessionId ??
+    part?.sessionId ??
+    part?.subChatId ??
+    part?.chatId ??
+    part?.messageId ??
+    part?.id ??
+    "planning"
+
+  return PLANNING_LABELS[hashString(String(seed)) % PLANNING_LABELS.length]
+}
+
 export function getToolStatus(part: any, chatStatus?: string) {
   const basePending =
     part.preliminary === true ||
@@ -291,22 +327,7 @@ export const AgentToolRegistry: Record<string, ToolMeta> = {
   // Planning indicator - shown when streaming starts but no content yet
   "tool-planning": {
     icon: PlanningIcon,
-    title: () => {
-      const messages = [
-        "Crafting...",
-        "Whirring...",
-        "Imagining...",
-        "Cooking...",
-        "Sussing...",
-        "Unravelling...",
-        "Creating...",
-        "Spinning...",
-        "Computing...",
-        "Synthesizing...",
-        "Manifesting...",
-      ]
-      return messages[Math.floor(Math.random() * messages.length)]
-    },
+    title: getStablePlanningLabel,
     variant: "simple",
   },
 

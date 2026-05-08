@@ -1135,7 +1135,9 @@ export const SimpleIsolatedGroup = memo(function SimpleIsolatedGroup({
         <div className="mt-4">
           <ToolCallComponent
             icon={toolRegistry["tool-planning"]?.icon}
-            title={toolRegistry["tool-planning"]?.title({}) || "Planning..."}
+            title={toolRegistry["tool-planning"]?.title({
+              planningSessionId: `${subChatId}:${userMsgId}`,
+            }) || "Planning..."}
             isPending={true}
             isError={false}
           />

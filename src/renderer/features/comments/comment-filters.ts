@@ -18,6 +18,7 @@ export function shouldShowRestoreAction(filter: RippleCommentFilter): boolean {
 
 const PREVIEWABLE_REVISION_STATUSES = new Set<RippleRevisionStatus>([
   "proposed",
+  "needs_update",
   "accepted",
 ])
 
@@ -79,7 +80,7 @@ export function canRefreshRevisionChanges(
   return Boolean(
     revision &&
       !options.deleted &&
-      revision.status === "proposed",
+      (revision.status === "proposed" || revision.status === "needs_update"),
   )
 }
 

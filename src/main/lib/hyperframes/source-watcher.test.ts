@@ -93,6 +93,9 @@ describe("HyperFrames source watcher", () => {
         events[0]?.changes.every((change) => isHyperframesSourceWatchPath(change.path)),
       ).toBe(true)
 
+      // macOS file watchers can report a second notification for a single write.
+      // Let the source edit settle before measuring ignored-file changes.
+      await sleep(200)
       const countAfterSourceEdit = events.length
       await writeFile(join(projectDir, "README.md"), "notes", "utf-8")
       await writeFile(join(projectDir, "assets", "poster.png"), "not really png", "utf-8")

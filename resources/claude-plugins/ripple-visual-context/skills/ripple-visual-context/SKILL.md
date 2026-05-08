@@ -64,6 +64,8 @@ Claude runs. Run it from the project directory unless you pass `--dir`.
 Use `--at current` when the user asks what is visible in the app right now.
 `--at current` requires live Ripple app visual context; do not substitute
 pre-edit prepared handoff files for the current app frame.
+Fresh frame sheets must also come from `ripple frame-sheet`; do not use
+run-start prepared sheets as post-edit verification.
 Use `--composition <path>` when you need a snapshot or sheet for a composition
 other than the active one.
 

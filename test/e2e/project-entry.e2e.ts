@@ -44,10 +44,10 @@ test.describe("Ripple fresh launch and project workflow", () => {
     await expect(previewTime).toBeVisible()
     await expect(previewTime).toHaveAttribute("aria-disabled", "false", { timeout: 45_000 })
 
-    const playButton = page.getByRole("button", { name: "Play", exact: true })
+    const playButton = page.getByRole("button", { name: "Play preview", exact: true })
     await expect(playButton).toBeEnabled()
     await playButton.click()
-    const pauseButton = page.getByRole("button", { name: "Pause", exact: true })
+    const pauseButton = page.getByRole("button", { name: "Pause preview", exact: true })
     await expect(pauseButton).toBeVisible()
     await pauseButton.click()
 

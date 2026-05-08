@@ -820,6 +820,7 @@ function RevisionStatusLine({
   const label = revisionStatusLabel(revision.status)
   const canShowSummaryLine = Boolean(summary) && (
     revision.status === "proposed" ||
+    revision.status === "needs_update" ||
     revision.status === "accepted" ||
     revision.status === "superseded"
   )
@@ -871,6 +872,8 @@ function revisionStatusLabel(status: RippleRevisionStatus): string {
       return "Agent is working"
     case "updating":
       return "Updating"
+    case "needs_update":
+      return "Refresh needed"
     case "proposed":
       return "Changes ready"
     case "answered":
@@ -899,7 +902,7 @@ function commentStatusVisual(
     return { label: "Working", className: "bg-blue-500" }
   }
 
-  if (revision?.status === "failed") {
+  if (revision?.status === "failed" || revision?.status === "needs_update") {
     return { label: "Needs attention", className: "bg-amber-500" }
   }
 
@@ -938,6 +941,8 @@ function revisionAcceptControl(revision: RippleRevisionView, options: {
       return { label: "Accept changes", disabled: false, busy: false }
     case "answered":
       return { label: "No changes needed", disabled: true, busy: false }
+    case "needs_update":
+      return { label: "Refresh needed", disabled: true, busy: false }
     case "updating":
       return {
         label: "Updating",
@@ -1397,6 +1402,12 @@ export function RippleCommentsPane({
     },
     onError: (error) => toast.error("Changes were not refreshed", { description: error.message }),
   })
+  const updateStaleProposal = trpc.revisions.updateStaleProposal.useMutation({
+    onSuccess: async () => {
+      await utils.revisions.listThreads.invalidate()
+    },
+    onError: (error) => toast.error("Changes were not refreshed", { description: error.message }),
+  })
   const acceptRevision = trpc.revisions.accept.useMutation({
     onSuccess: async () => {
       setSelectedThreadId(null)
@@ -1424,6 +1435,7 @@ export function RippleCommentsPane({
     deleteThread.isPending ||
     restoreThread.isPending ||
     refreshProposal.isPending ||
+    updateStaleProposal.isPending ||
     acceptRevision.isPending
 
   const handleSend = () => {
@@ -1440,7 +1452,7 @@ export function RippleCommentsPane({
       model: selectedRevisionModel,
       clientRequestId: draftRequestId,
       sourceRevisionId: activePreviewRevisionId,
-      captureVisualContext: true,
+      captureVisualContext: false,
     })
   }
 
@@ -1600,7 +1612,13 @@ export function RippleCommentsPane({
                   onReject={(threadId) => rejectThread.mutate({ threadId })}
                   onDelete={(threadId) => deleteThread.mutate({ threadId })}
                   onRestore={(threadId) => restoreThread.mutate({ threadId })}
-                  onRefreshRevision={(revisionId) => refreshProposal.mutate({ revisionId })}
+                  onRefreshRevision={(revisionId) => {
+                    if (revision?.status === "needs_update") {
+                      updateStaleProposal.mutate({ revisionId })
+                    } else {
+                      refreshProposal.mutate({ revisionId })
+                    }
+                  }}
                   onAcceptRevision={(revisionId) => acceptRevision.mutate({ revisionId })}
                   reviewActionPending={acceptRevision.isPending}
                   onOpenChat={onOpenChat}

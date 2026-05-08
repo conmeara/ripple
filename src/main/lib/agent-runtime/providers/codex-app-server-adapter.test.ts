@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { readFile } from "node:fs/promises"
-import { buildCodexAppServerEnv } from "./codex-app-server-env"
+import {
+  buildCodexAppServerArgs,
+  buildCodexAppServerEnv,
+  buildCodexShellEnvironmentPolicyConfig,
+} from "./codex-app-server-env"
 import {
   assessCodexAppServerApprovalRequest,
   isCodexAppServerAutoApprovedVisualCommand,
@@ -520,6 +524,24 @@ describe("Codex App Server input", () => {
     expect(source).toContain("buildCodexTurnSkillInputs")
   })
 
+  test("keeps preview-context capture off the default Codex startup path", async () => {
+    const source = await readFile(
+      "src/main/lib/agent-runtime/providers/codex-app-server-adapter.ts",
+      "utf8",
+    )
+
+    const handoffPromiseIndex = source.indexOf("const visualContextHandoffPromise")
+    const optInIndex = source.indexOf("shouldPrepareAgentVisualContextHandoff()", handoffPromiseIndex)
+    const clientStartIndex = source.indexOf("await client.start()", handoffPromiseIndex)
+    const handoffAwaitIndex = source.indexOf("visualContextHandoffPromise,", clientStartIndex)
+
+    expect(handoffPromiseIndex).toBeGreaterThan(-1)
+    expect(optInIndex).toBeGreaterThan(handoffPromiseIndex)
+    expect(clientStartIndex).toBeGreaterThan(handoffPromiseIndex)
+    expect(handoffAwaitIndex).toBeGreaterThan(clientStartIndex)
+    expect(source).toContain('label: "Preparing preview context"')
+  })
+
   test("passes supported image attachments and typed skills as native inputs", () => {
     expect(buildCodexTurnInput("Use these.", {
       promptSuffix: "",
@@ -648,5 +670,54 @@ describe("Codex App Server environment", () => {
     expect(env.CODEX_APP_SERVER_CLIENT).toBe("ripple-desktop/phase-13")
     expect(env.CODEX_API_KEY).toBe("sk-test-ripple")
     expect(env.OPENAI_API_KEY).toBe("sk-test-ripple")
+  })
+
+  test("lets Codex shell commands inherit only app-managed visual CLI variables", () => {
+    const appManagedEnv = {
+      PATH: "/app/cli:/usr/bin",
+      RIPPLE_VISUAL_CONTEXT_ENDPOINT: "http://127.0.0.1:4000",
+      RIPPLE_VISUAL_CONTEXT_TOKEN: "visual-token",
+      OPENAI_API_KEY: "sk-test",
+      CODEX_API_KEY: "sk-test",
+      ANTHROPIC_API_KEY: "anthropic-test",
+    }
+    const args = buildCodexAppServerArgs(appManagedEnv)
+    const policyConfig = buildCodexShellEnvironmentPolicyConfig(appManagedEnv)
+    const serialized = args.join("\n")
+
+    expect(args[0]).toBe("app-server")
+    expect(policyConfig.inherit).toBe("all")
+    expect(policyConfig.ignore_default_excludes).toBe(true)
+    expect(policyConfig.experimental_use_profile).toBe(false)
+    expect(policyConfig.include_only).toEqual(expect.arrayContaining([
+      "PATH",
+      "RIPPLE_VISUAL_CONTEXT_ENDPOINT",
+      "RIPPLE_VISUAL_CONTEXT_TOKEN",
+      "HYPERFRAMES_BROWSER_PATH",
+    ]))
+    expect(policyConfig.set).toEqual(expect.objectContaining({
+      PATH: "/app/cli:/usr/bin",
+      RIPPLE_VISUAL_CONTEXT_ENDPOINT: "http://127.0.0.1:4000",
+      RIPPLE_VISUAL_CONTEXT_TOKEN: "visual-token",
+    }))
+    expect(serialized).toContain("shell_environment_policy.inherit=all")
+    expect(serialized).toContain("shell_environment_policy.include_only=")
+    expect(serialized).toContain("shell_environment_policy.ignore_default_excludes=true")
+    expect(serialized).toContain("shell_environment_policy.experimental_use_profile=false")
+    expect(serialized).toContain("shell_environment_policy.set.PATH=")
+    expect(serialized).toContain("/app/cli:/usr/bin")
+    expect(serialized).toContain("RIPPLE_VISUAL_CONTEXT_ENDPOINT")
+    expect(serialized).toContain("RIPPLE_VISUAL_CONTEXT_TOKEN")
+    expect(serialized).toContain("HYPERFRAMES_BROWSER_PATH")
+    expect(serialized).toContain("PATH")
+    expect(serialized).not.toContain("OPENAI_API_KEY")
+    expect(serialized).not.toContain("CODEX_API_KEY")
+    expect(serialized).not.toContain("ANTHROPIC_API_KEY")
+    expect(policyConfig.include_only).not.toContain("OPENAI_API_KEY")
+    expect(policyConfig.include_only).not.toContain("CODEX_API_KEY")
+    expect(policyConfig.include_only).not.toContain("ANTHROPIC_API_KEY")
+    expect(policyConfig.set).not.toHaveProperty("OPENAI_API_KEY")
+    expect(policyConfig.set).not.toHaveProperty("CODEX_API_KEY")
+    expect(policyConfig.set).not.toHaveProperty("ANTHROPIC_API_KEY")
   })
 })

@@ -62,19 +62,13 @@ import {
 } from "./revision-acceptance"
 import { acceptIsolatedWorkspace } from "./isolated-workspace-acceptance"
 import { captureCommentVisualForAnchor } from "./comment-visuals"
+import { shouldCaptureCommentVisualContext } from "./comment-visual-policy"
+import { markStaleProjectRevisionsUpdating } from "./revision-staleness"
+import { canReuseRevisionAsFollowUpBase } from "./revision-follow-up-policy"
 
 type Db = ReturnType<typeof getDatabase>
 
 const RUNNING_REVISION_STATUSES = ["queued", "preparing", "running", "updating"] as const
-const REUSABLE_FOLLOW_UP_STATUSES = [
-  "queued",
-  "preparing",
-  "running",
-  "updating",
-  "proposed",
-  "answered",
-  "failed",
-] as const
 
 export interface CreateCommentThreadInput {
   projectId: string
@@ -580,7 +574,10 @@ export async function createCommentThread(
   const threadId = createId()
   const messageId = createId()
   let automaticVisualPath: string | null = null
-  if (input.captureVisualContext !== false && !anchor.screenshotPath) {
+  if (shouldCaptureCommentVisualContext({
+    captureVisualContext: input.captureVisualContext,
+    screenshotPath: anchor.screenshotPath,
+  })) {
     try {
       const visual = await captureCommentVisualForAnchor({
         db,
@@ -777,7 +774,7 @@ export async function createRevisionForThread(input: {
     baseRevision.threadId === thread.id &&
     baseRevision.projectId === project.id &&
     baseRevision.contextPath &&
-    (REUSABLE_FOLLOW_UP_STATUSES as readonly string[]).includes(baseRevision.status)
+    canReuseRevisionAsFollowUpBase(baseRevision.status)
       ? baseRevision
       : null
 
@@ -1281,42 +1278,34 @@ export async function refreshRevisionProposal(id: string): Promise<RippleComment
   return loadThreadView(revision.threadId)
 }
 
-function markStaleProjectRevisionsUpdating(input: {
-  db: Db
-  projectId: string
-  currentCommit: string
-  acceptedRevisionId: string
-}): void {
-  const now = dateNow()
-  const staleRevisions = input.db
-    .select()
-    .from(revisions)
-    .where(and(
-      eq(revisions.projectId, input.projectId),
-      eq(revisions.status, "proposed"),
-    ))
-    .all()
-    .filter((revision) =>
-      revision.id !== input.acceptedRevisionId &&
-      Boolean(revision.baseProjectCommit) &&
-      revision.baseProjectCommit !== input.currentCommit,
-    )
-
-  for (const revision of staleRevisions) {
-    input.db.update(revisions)
-      .set({
-        status: "updating",
-        errorMessage: null,
-        updatedAt: now,
-      })
-      .where(eq(revisions.id, revision.id))
-      .run()
-  }
-}
-
 export async function updateStaleRevisionProposal(id: string): Promise<RippleCommentThreadView> {
   const db = getDatabase()
   const { revision, project } = requireRevision(id)
+  if (revision.status === "needs_update") {
+    const now = dateNow()
+    db.update(revisions)
+      .set({
+        status: "queued",
+        errorMessage: null,
+        prompt: "Pull and Resolve from Main",
+        updatedAt: now,
+      })
+      .where(eq(revisions.id, id))
+      .run()
+    if (revision.conversationId) {
+      appendConversationMessage({
+        db,
+        conversationId: revision.conversationId,
+        role: "system",
+        body: "Refreshing these changes against Main.",
+        metadata: {
+          source: "ripple-revision-refresh",
+          revisionId: revision.id,
+        },
+      })
+    }
+    return loadThreadView(revision.threadId)
+  }
   if (revision.status !== "updating") {
     return loadThreadView(revision.threadId)
   }
@@ -1357,27 +1346,15 @@ export async function updateStaleRevisionProposal(id: string): Promise<RippleCom
     const now = dateNow()
     db.update(revisions)
       .set({
-        status: "queued",
+        status: "needs_update",
         baseProjectCommit: refresh.currentCommit,
         diffSummary: serializeDiffSummary(summary),
-        errorMessage: null,
-        prompt: "Pull and Resolve from Main",
+        errorMessage: compactOneLineSummary(refresh.error) ||
+          "These changes need to be refreshed against Main.",
         updatedAt: now,
       })
       .where(eq(revisions.id, id))
       .run()
-    if (revision.conversationId) {
-      appendConversationMessage({
-        db,
-        conversationId: revision.conversationId,
-        role: "system",
-        body: "Updating these changes against Main.",
-        metadata: {
-          source: "ripple-revision-refresh",
-          revisionId: revision.id,
-        },
-      })
-    }
   } catch (error) {
     db.update(revisions)
       .set({

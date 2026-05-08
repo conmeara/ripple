@@ -20,7 +20,10 @@ import {
 import { buildRippleAgentToolEnvironment } from "../cli-tools-env"
 import { createAgentVisualContextEndpoint } from "../visual-context-endpoint"
 import { createAgentVisualContextFileBridge } from "../visual-context-file-bridge"
-import { prepareAgentVisualContextHandoff } from "../visual-context-handoff"
+import {
+  prepareAgentVisualContextHandoff,
+  shouldPrepareAgentVisualContextHandoff,
+} from "../visual-context-handoff"
 import {
   buildClaudeElicitationApprovalRequest,
   buildClaudeElicitationResult,
@@ -307,14 +310,16 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         })
       }
 
-      const visualContextHandoff = await prepareAgentVisualContextHandoff({
-        runId: input.run.id,
-        currentFrameSnapshot: input.currentFrameSnapshot,
-        repoRoot: getRepoRoot(),
-      }).catch((error) => {
-        console.warn("[claude-agent-sdk] Failed to prepare visual context handoff:", error)
-        return null
-      })
+      const visualContextHandoff = shouldPrepareAgentVisualContextHandoff()
+        ? await prepareAgentVisualContextHandoff({
+          runId: input.run.id,
+          currentFrameSnapshot: input.currentFrameSnapshot,
+          repoRoot: getRepoRoot(),
+        }).catch((error) => {
+          console.warn("[claude-agent-sdk] Failed to prepare visual context handoff:", error)
+          return null
+        })
+        : null
       visualContextEndpoint = await createAgentVisualContextEndpoint(input.cwd, {
         resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
       })
@@ -334,7 +339,6 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         visualContextToken: visualContextEndpoint?.token,
         visualContextBridgeDir: visualContextBridge?.requestDir,
         visualContextBridgeToken: visualContextBridge?.token,
-        visualContextManifestPath: visualContextHandoff?.manifestPath,
       })
       const nativeAttachmentBlocks = [
         ...preparedAttachments.imageContentBlocks,

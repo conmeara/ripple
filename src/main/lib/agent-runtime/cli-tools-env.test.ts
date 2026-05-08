@@ -35,17 +35,39 @@ describe("Ripple agent CLI tool environment", () => {
     const repoRoot = "/tmp/ripple-app"
     const dirs = getRippleAgentToolDirectories(repoRoot)
 
-    expect(dirs[0]).toBe(join(repoRoot, "resources", "cli"))
+    expect(dirs[0]).toBe(join(repoRoot, "node_modules", ".bin"))
     expect(dirs).toContain(join(repoRoot, "resources", "bin", `${process.platform}-${process.arch}`))
-    expect(dirs).toContain(join(repoRoot, "node_modules", ".bin"))
+    expect(dirs).toContain(join(repoRoot, "resources", "cli"))
     expect(dirs).toContain(join(repoRoot, "scripts"))
   })
 
-  test("keeps the documented ripple command in the tracked app CLI resources", () => {
+  test("normalizes Electron dev app paths back to the repo root for bare ripple", () => {
+    const repoRoot = process.cwd()
+    const dirs = getRippleAgentToolDirectories(join(repoRoot, "out", "main"))
+
+    expect(dirs).toContain(join(repoRoot, "node_modules", ".bin"))
+    expect(dirs).toContain(join(repoRoot, "resources", "bin", `${process.platform}-${process.arch}`))
+    expect(dirs).toContain(join(repoRoot, "resources", "cli"))
+    expect(dirs).not.toContain(join(repoRoot, "out", "main", "resources", "cli"))
+  })
+
+  test("keeps the documented ripple command as a first-class package and app binary", () => {
     const posixCliPath = join(process.cwd(), "resources", "cli", "ripple")
     const windowsCliPath = join(process.cwd(), "resources", "cli", "ripple.cmd")
+    const packageBinPath = join(process.cwd(), "bin", "ripple.js")
+    const localNodeBinPath = join(process.cwd(), "node_modules", ".bin", "ripple")
+    const packagedBinPath = join(
+      process.cwd(),
+      "resources",
+      "bin",
+      `${process.platform}-${process.arch}`,
+      process.platform === "win32" ? "ripple.cmd" : "ripple",
+    )
     expect(existsSync(posixCliPath)).toBe(true)
     expect(existsSync(windowsCliPath)).toBe(true)
+    expect(existsSync(packageBinPath)).toBe(true)
+    expect(existsSync(localNodeBinPath)).toBe(process.platform !== "win32")
+    expect(existsSync(packagedBinPath)).toBe(true)
 
     const script = readFileSync(posixCliPath, "utf8")
     expect(script).toContain("scripts/ripple-cli.ts")
@@ -60,9 +82,18 @@ describe("Ripple agent CLI tool environment", () => {
     expect(windowsScript).toContain("ripple-cli.js")
     expect(windowsScript).toContain('if exist "%APP_EXECUTABLE%" if exist "%APP_ASAR%"')
 
+    const packageBinScript = readFileSync(packageBinPath, "utf8")
+    expect(packageBinScript).toContain('"out", "main", "ripple-cli.js"')
+    expect(packageBinScript).toContain('"scripts", "ripple-cli.ts"')
+
     const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
+      bin?: Record<string, string>
+      scripts?: Record<string, string>
       build?: { extraResources?: Array<{ from?: string; to?: string }> }
     }
+    expect(packageJson.bin?.ripple).toBe("bin/ripple.js")
+    expect(packageJson.scripts?.postinstall).toContain("scripts/stage-ripple-cli.mjs")
+    expect(packageJson.scripts?.["package:stage"]).toContain("bun run ripple:stage-cli")
     expect(packageJson.build?.extraResources).toContainEqual(expect.objectContaining({
       from: "resources/cli",
       to: "bin",
@@ -146,9 +177,9 @@ describe("Ripple agent CLI tool environment", () => {
     })
     const pathParts = env.PATH?.split(delimiter) ?? []
 
-    expect(pathParts[0]).toBe(join("/tmp/ripple-app", "resources", "cli"))
+    expect(pathParts[0]).toBe(join("/tmp/ripple-app", "node_modules", ".bin"))
     expect(pathParts).toContain(join("/tmp/ripple-app", "resources", "bin", `${process.platform}-${process.arch}`))
-    expect(pathParts).toContain(join("/tmp/ripple-app", "node_modules", ".bin"))
+    expect(pathParts).toContain(join("/tmp/ripple-app", "resources", "cli"))
     expect(pathParts).toContain("/usr/bin")
     expect(env.CODEX_API_KEY).toBe("sk-test")
     expect(env.HYPERFRAMES_NO_TELEMETRY).toBe("1")
@@ -169,7 +200,6 @@ describe("Ripple agent CLI tool environment", () => {
       visualContextToken: "token-test",
       visualContextBridgeDir: "/tmp/ripple-project/.ripple/agent-visual-context/run/requests",
       visualContextBridgeToken: "bridge-token-test",
-      visualContextManifestPath: "/tmp/ripple-project/.ripple/agent-visual-context/run/manifest.json",
     })
 
     expect(env.RIPPLE_VISUAL_CONTEXT_ENDPOINT).toBe("http://127.0.0.1:49152")
@@ -178,9 +208,7 @@ describe("Ripple agent CLI tool environment", () => {
       "/tmp/ripple-project/.ripple/agent-visual-context/run/requests",
     )
     expect(env.RIPPLE_VISUAL_CONTEXT_BRIDGE_TOKEN).toBe("bridge-token-test")
-    expect(env.RIPPLE_VISUAL_CONTEXT_MANIFEST).toBe(
-      "/tmp/ripple-project/.ripple/agent-visual-context/run/manifest.json",
-    )
+    expect(env.RIPPLE_VISUAL_CONTEXT_MANIFEST).toBeUndefined()
     expect(env.RIPPLE_AGENT_WORKSPACE_ROOT).toBe(resolve("/tmp/ripple-project"))
     expect(env.RIPPLE_AGENT_VISUAL_CONTEXT_MODE).toBe("clean")
   })

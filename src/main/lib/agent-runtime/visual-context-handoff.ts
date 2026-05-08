@@ -18,6 +18,12 @@ export interface AgentVisualContextHandoff {
   promptContext: string
 }
 
+export function shouldPrepareAgentVisualContextHandoff(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return env.RIPPLE_EAGER_AGENT_VISUAL_CONTEXT === "1"
+}
+
 function projectRelative(projectPath: string, path: string): string {
   return relative(projectPath, path).replace(/\\/g, "/")
 }
@@ -205,7 +211,7 @@ export async function prepareAgentVisualContextHandoff(input: {
     sheet
       ? `- Frame sheet manifest: ${sheet.manifestPath}`
       : null,
-    "- Treat these prepared artifacts as pre-edit context. After changing source, verify with a fresh `ripple snapshot --at current --json` for the visible app frame or a fresh `ripple frame-sheet --range ... --json` for motion over time.",
+    "- Treat these prepared artifacts as pre-edit context only. Fresh visual checks never reuse these files; after changing source, verify with `ripple snapshot --at current --json` for the visible app frame or `ripple frame-sheet --range ... --json` for motion over time.",
   ].filter((line): line is string => Boolean(line))
 
   return {

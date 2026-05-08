@@ -1298,7 +1298,9 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
         {shouldShowPlanning && (
           <AgentToolCall
             icon={AgentToolRegistry["tool-planning"].icon}
-            title={AgentToolRegistry["tool-planning"].title({})}
+            title={AgentToolRegistry["tool-planning"].title({
+              planningSessionId: `${subChatId}:${message?.id ?? "pending"}`,
+            })}
             isPending={true}
             isError={false}
           />

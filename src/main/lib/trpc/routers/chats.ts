@@ -35,6 +35,8 @@ import { checkInternetConnection, checkOllamaStatus } from "../../ollama"
 import { terminalManager } from "../../terminal/manager"
 import { getLocalChatReusePaths } from "../../ripple-projects/chat-reuse"
 import { acceptIsolatedWorkspace } from "../../revisions/isolated-workspace-acceptance"
+import { markStaleProjectRevisionsUpdating } from "../../revisions/revision-staleness"
+import { scheduleGeneratedChangeQueue } from "../../agent-runtime/generated-change-scheduler"
 import { windowManager } from "../../../windows/window-manager"
 import { publicProcedure, router } from "../index"
 
@@ -825,6 +827,15 @@ export const chatsRouter = router({
         })
         .where(eq(conversations.id, input.id))
         .run()
+
+      if (acceptance.acceptedProjectCommit) {
+        markStaleProjectRevisionsUpdating({
+          db,
+          projectId: chat.projectId,
+          currentCommit: acceptance.acceptedProjectCommit,
+        })
+        scheduleGeneratedChangeQueue({ projectId: chat.projectId })
+      }
 
       gitCache.invalidateStatus(projectPath)
       gitCache.invalidateParsedDiff(projectPath)

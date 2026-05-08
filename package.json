@@ -1,19 +1,23 @@
 {
   "name": "ripple",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "private": true,
   "description": "Ripple - local-first motion graphics with AI agents",
   "author": {
     "name": "Ripple"
   },
   "main": "out/main/index.js",
+  "bin": {
+    "ripple": "bin/ripple.js"
+  },
   "scripts": {
     "dev": "node scripts/patch-electron-dev.mjs && electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "browser:stage": "node scripts/stage-export-browser.mjs",
+    "ripple:stage-cli": "node scripts/stage-ripple-cli.mjs",
     "bin:stage": "bun run claude:download && bun run codex:download",
-    "package:stage": "bun run bin:stage && bun run browser:stage",
+    "package:stage": "bun run bin:stage && bun run browser:stage && bun run ripple:stage-cli",
     "package": "bun run package:stage && electron-builder --dir",
     "package:mac": "bun run package:stage && electron-builder --mac",
     "package:win": "bun run package:stage && electron-builder --win",
@@ -57,7 +61,7 @@
     "test:release": "bun run test:closeout && bun run db:generate && bun run test:export:smoke && bun run package && bun run test:package:smoke",
     "test:ripple": "bun test src/cli src/main/lib/ripple-projects src/main/lib/hyperframes src/main/lib/visual-context src/main/lib/exports src/main/lib/revisions src/main/lib/agent-runtime src/main/lib/conversations src/main/lib/git/worktree-config.test.ts src/main/windows/chat-ownership.test.ts src/shared/ripple-activity.test.ts src/shared/ripple-comments.test.ts src/shared/ripple-conversations.test.ts src/shared/ripple-exports.test.ts src/renderer/components/ui/resizable-sidebar.test.ts src/renderer/components/dialogs/settings-tabs/agents-capability-settings.test.ts src/renderer/features/sidebar/project-chat-selection.test.ts src/renderer/features/onboarding src/renderer/features/templates src/renderer/features/hyperframes src/renderer/features/comments src/renderer/features/agents/lib src/renderer/features/agents/commands src/renderer/features/agents/utils src/renderer/features/ripple-shell src/renderer/features/renders",
     "ts:check": "tsc --noEmit",
-    "postinstall": "node -e \"if(!process.env.VERCEL){require('child_process').execSync('electron-rebuild -f -w better-sqlite3,node-pty',{stdio:'inherit'})}\" && node scripts/patch-electron-dev.mjs"
+    "postinstall": "node -e \"if(!process.env.VERCEL){require('child_process').execSync('electron-rebuild -f -w better-sqlite3,node-pty',{stdio:'inherit'})}\" && node scripts/patch-electron-dev.mjs && node scripts/stage-ripple-cli.mjs"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.14",

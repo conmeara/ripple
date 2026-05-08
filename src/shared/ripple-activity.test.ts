@@ -12,6 +12,7 @@ describe("Ripple activity summaries", () => {
     expect(getRippleRevisionActivityState("running")).toBe("working")
     expect(getRippleRevisionActivityState("proposed")).toBe("ready")
     expect(getRippleRevisionActivityState("failed")).toBe("needsAttention")
+    expect(getRippleRevisionActivityState("needs_update")).toBe("needsAttention")
     expect(getRippleRevisionActivityState("answered")).toBeNull()
     expect(getRippleRevisionActivityState("accepted")).toBeNull()
     expect(getRippleRevisionActivityState("rejected")).toBeNull()

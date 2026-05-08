@@ -29,6 +29,7 @@ const WORKTREE_REQUIRED_STATUSES = [
   "preparing",
   "running",
   "updating",
+  "needs_update",
   "proposed",
   "answered",
 ] as const
