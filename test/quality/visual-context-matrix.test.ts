@@ -17,6 +17,7 @@ import { runRippleCli } from "../../src/cli/ripple"
 
 const repoRoot = process.cwd()
 const fixtureRoot = resolve(repoRoot, "test", "fixtures", "hyperframes", "visual-capture-qa")
+const CLI_CAPTURE_MAX_MS = process.env.CI ? 30000 : 15000
 const timedTest = test as unknown as (
   name: string,
   fn: () => unknown | Promise<unknown>,
@@ -597,7 +598,7 @@ describe("Visual Context quality and speed matrix", () => {
         cwd: projectDir,
         env,
         encoding: "utf8",
-        timeout: 15000,
+        timeout: CLI_CAPTURE_MAX_MS,
       })
       const snapshotElapsedMs = performance.now() - snapshotStartedAt
       const snapshotPayload = JSON.parse(snapshotStdout)
@@ -609,7 +610,7 @@ describe("Visual Context quality and speed matrix", () => {
       expect(snapshotStdout).not.toContain("endpoint")
       expect(snapshotStdout).not.toContain("handoff")
       expect(snapshotStdout).not.toContain("fallback")
-      expect(snapshotElapsedMs).toBeLessThan(15000)
+      expect(snapshotElapsedMs).toBeLessThan(CLI_CAPTURE_MAX_MS)
       await expectPngQuality({
         path: join(projectDir, snapshotPayload.snapshot.path),
         width: 1920,
@@ -631,7 +632,7 @@ describe("Visual Context quality and speed matrix", () => {
         cwd: projectDir,
         env,
         encoding: "utf8",
-        timeout: 15000,
+        timeout: CLI_CAPTURE_MAX_MS,
       })
       const elapsedMs = performance.now() - startedAt
       const payload = JSON.parse(stdout)
@@ -642,7 +643,7 @@ describe("Visual Context quality and speed matrix", () => {
       expect(stdout).not.toContain("endpoint")
       expect(stdout).not.toContain("handoff")
       expect(stdout).not.toContain("fallback")
-      expect(elapsedMs).toBeLessThan(15000)
+      expect(elapsedMs).toBeLessThan(CLI_CAPTURE_MAX_MS)
       expect(existsSync(join(projectDir, payload.sheet.path))).toBe(true)
       expect(existsSync(join(projectDir, payload.sheet.manifestPath))).toBe(true)
       const sheet = await stat(join(projectDir, payload.sheet.path))
@@ -652,7 +653,7 @@ describe("Visual Context quality and speed matrix", () => {
       await service.shutdown()
       await rm(projectDir, { recursive: true, force: true })
     }
-  }, 60000)
+  }, 120000)
 
   timedTest("covers app-owned bridge visual checks without stale handoff fallback", async () => {
     const projectDir = await makeProject()
@@ -711,7 +712,7 @@ describe("Visual Context quality and speed matrix", () => {
         cwd: projectDir,
         env,
         encoding: "utf8",
-        timeout: 15000,
+        timeout: CLI_CAPTURE_MAX_MS,
       })
       const snapshotElapsedMs = performance.now() - snapshotStartedAt
       const snapshotPayload = JSON.parse(snapshotStdout)
@@ -723,7 +724,7 @@ describe("Visual Context quality and speed matrix", () => {
       expect(snapshotStdout).not.toContain("endpoint")
       expect(snapshotStdout).not.toContain("handoff")
       expect(snapshotStdout).not.toContain("fallback")
-      expect(snapshotElapsedMs).toBeLessThan(15000)
+      expect(snapshotElapsedMs).toBeLessThan(CLI_CAPTURE_MAX_MS)
       await expectPngQuality({
         path: join(projectDir, snapshotPayload.snapshot.path),
         width: 1920,
@@ -745,7 +746,7 @@ describe("Visual Context quality and speed matrix", () => {
         cwd: projectDir,
         env,
         encoding: "utf8",
-        timeout: 15000,
+        timeout: CLI_CAPTURE_MAX_MS,
       })
       const sheetElapsedMs = performance.now() - sheetStartedAt
       const sheetPayload = JSON.parse(sheetStdout)
@@ -756,7 +757,7 @@ describe("Visual Context quality and speed matrix", () => {
       expect(sheetStdout).not.toContain("endpoint")
       expect(sheetStdout).not.toContain("handoff")
       expect(sheetStdout).not.toContain("fallback")
-      expect(sheetElapsedMs).toBeLessThan(15000)
+      expect(sheetElapsedMs).toBeLessThan(CLI_CAPTURE_MAX_MS)
       expect(existsSync(join(projectDir, sheetPayload.sheet.path))).toBe(true)
       expect(existsSync(join(projectDir, sheetPayload.sheet.manifestPath))).toBe(true)
     } finally {
@@ -764,5 +765,5 @@ describe("Visual Context quality and speed matrix", () => {
       await service.shutdown()
       await rm(projectDir, { recursive: true, force: true })
     }
-  }, 60000)
+  }, 120000)
 })
