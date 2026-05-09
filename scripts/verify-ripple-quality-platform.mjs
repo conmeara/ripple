@@ -1,50 +1,43 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, statSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 
 const repoRoot = process.cwd()
-const matrixPath = "docs/testing/ux-workflow-coverage.md"
-const closeoutPath = "docs/testing/agent-closeout.md"
-const releaseChecklistPath = "docs/release/v1-release-checklist.md"
+const specsDir = "docs/specs"
 const packageJsonPath = "package.json"
 
-const requiredWorkflowIds = [
-  "BOOT-01",
-  "BOOT-02",
-  "PROJECT-01",
-  "PROJECT-02",
-  "PROJECT-03",
-  "PROJECT-04",
-  "PREVIEW-01",
-  "PREVIEW-02",
-  "PREVIEW-03",
-  "TIMELINE-01",
-  "TIMELINE-02",
-  "ASSET-01",
-  "COMMENTS-01",
-  "COMMENTS-02",
-  "REVISIONS-01",
-  "REVISIONS-02",
-  "CHAT-01",
-  "CHAT-02",
-  "AGENT-01",
-  "AGENT-02",
-  "AGENT-03",
-  "VISUAL-01",
-  "EXPORT-01",
-  "EXPORT-02",
-  "EXPORT-03",
-  "ANALYTICS-01",
-  "ANALYTICS-02",
-  "UPDATES-01",
-  "UPDATES-02",
-  "PACKAGE-01",
-  "PACKAGE-02",
-  "FAILURE-01",
-  "LAYOUT-01",
-  "SECURITY-01",
-  "DB-01",
-  "QUALITY-01",
+const requiredSpecFiles = [
+  "Active Conversations.md",
+  "Advanced Utilities.md",
+  "Agent Connections.md",
+  "Agent Context and Skills.md",
+  "Analytics and Privacy.md",
+  "App Identity and Release Readiness.md",
+  "App Updates.md",
+  "Assets.md",
+  "Automations and Inbox.md",
+  "Chats.md",
+  "Comments.md",
+  "Compositions.md",
+  "Exports.md",
+  "Failure Recovery.md",
+  "Local First Launch.md",
+  "Local Project Safety.md",
+  "Message Rollback.md",
+  "Offline Mode.md",
+  "Onboarding.md",
+  "Preview.md",
+  "Project Description.md",
+  "Project Entry.md",
+  "Project Management.md",
+  "Revisions.md",
+  "Settings.md",
+  "Shell Layout.md",
+  "Spec Index.md",
+  "Templates.md",
+  "Timeline.md",
+  "Visual Context.md",
+  "Voice Input.md",
 ]
 
 const requiredScripts = [
@@ -56,6 +49,7 @@ const requiredScripts = [
   "test:export",
   "test:export:smoke",
   "test:e2e",
+  "test:e2e:packaged",
   "test:e2e:update",
   "test:visual",
   "test:live",
@@ -94,9 +88,26 @@ function read(path) {
   return readFileSync(join(repoRoot, path), "utf8")
 }
 
-mustExist(matrixPath)
-mustExist(closeoutPath)
-mustExist(releaseChecklistPath)
+function walk(path) {
+  const fullPath = join(repoRoot, path)
+  if (!existsSync(fullPath)) return []
+  const entries = readdirSync(fullPath, { withFileTypes: true })
+  const paths = []
+
+  for (const entry of entries) {
+    const child = join(path, entry.name)
+    if (child === "node_modules" || child.startsWith("node_modules/")) continue
+    if (entry.isDirectory()) {
+      paths.push(...walk(child))
+    } else if (entry.isFile()) {
+      paths.push(child)
+    }
+  }
+
+  return paths
+}
+
+mustExist(specsDir)
 mustExist("scripts/smoke-packaged-ripple.mjs")
 mustExist("scripts/smoke-packaged-update.mjs")
 mustExist("scripts/smoke-ripple-export-formats.ts")
@@ -117,74 +128,75 @@ for (const scriptName of requiredScripts) {
   }
 }
 
-const matrix = read(matrixPath)
-const rows = new Map()
+const specs = existsSync(join(repoRoot, specsDir))
+  ? readdirSync(join(repoRoot, specsDir)).filter((file) => file.endsWith(".md"))
+  : []
+const specSet = new Set(specs)
+const specTexts = new Map(specs.map((file) => [file, read(join(specsDir, file))]))
+const specText = [...specTexts.values()].join("\n")
 
-for (const line of matrix.split(/\r?\n/)) {
-  if (!line.startsWith("| ")) continue
-  const columns = line.split("|").slice(1, -1).map((column) => column.trim())
-  if (columns.length < 7) continue
-  const [id, workflow, acceptance, evidence, command, releaseGate, status] = columns
-  if (!/^[A-Z]+-\d{2}$/.test(id)) continue
-  rows.set(id, { id, workflow, acceptance, evidence, command, releaseGate, status })
-}
-
-for (const id of requiredWorkflowIds) {
-  if (!rows.has(id)) {
-    fail(`Workflow matrix is missing ${id}`)
+for (const file of requiredSpecFiles) {
+  if (!specSet.has(file)) {
+    fail(`Missing required spec: ${join(specsDir, file)}`)
   }
 }
 
-for (const row of rows.values()) {
-  const combined = Object.values(row).join(" ")
-  if (/\b(TBD|TODO|none)\b/i.test(combined)) {
-    fail(`${row.id} contains an unfinished placeholder`)
+for (const [file, text] of specTexts) {
+  if (!text.includes("Screenshot")) {
+    fail(`${join(specsDir, file)} is missing a screenshot placeholder`)
   }
-  if (!/Automated|Release-gated/.test(row.status)) {
-    fail(`${row.id} has unsupported status: ${row.status}`)
+  if (!text.includes("## Test Coverage")) {
+    fail(`${join(specsDir, file)} is missing a Test Coverage section`)
   }
-  if (row.status.includes("Release-gated") && !row.releaseGate.includes(releaseChecklistPath)) {
-    fail(`${row.id} is release-gated but does not reference ${releaseChecklistPath}`)
+  if (/docs\/testing|docs\/release/.test(text)) {
+    fail(`${join(specsDir, file)} references retired testing/release docs`)
   }
+  if (/(^|\n)\s*(TBD|TODO|none)\s*($|\n)/i.test(text)) {
+    fail(`${join(specsDir, file)} contains an unfinished placeholder`)
+  }
+}
 
-  const evidencePaths = [...row.evidence.matchAll(/`([^`]+)`/g)]
-    .map((match) => match[1])
-    .filter((value) => !value.startsWith("bun ") && !value.startsWith("RIPPLE_"))
-
-  if (row.status.includes("Automated") && evidencePaths.length === 0) {
-    fail(`${row.id} is automated but has no evidence paths`)
+const index = specTexts.get("Spec Index.md") || ""
+for (const file of requiredSpecFiles.filter((file) => file !== "Spec Index.md")) {
+  const title = file.replace(/\.md$/, "")
+  if (!index.includes(`[[${title}]]`)) {
+    fail(`Spec Index does not link ${title}`)
   }
+}
 
-  for (const evidencePath of evidencePaths) {
-    if (!isFileOrDirectory(evidencePath)) {
-      fail(`${row.id} references missing evidence path: ${evidencePath}`)
+const linkedSpecs = [...specText.matchAll(/\[\[([^\]#|]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g)]
+  .map((match) => `${match[1]}.md`)
+for (const linkedSpec of linkedSpecs) {
+  if (!specSet.has(linkedSpec)) {
+    fail(`Spec link points to missing page: ${linkedSpec}`)
+  }
+}
+
+const docsText = [
+  ...walk(specsDir).filter((path) => path.endsWith(".md")),
+  ...walk("docs/z_archive").filter((path) => path.endsWith(".md")),
+]
+  .map((path) => read(path))
+  .join("\n")
+
+const testFiles = walk(".")
+  .filter((path) => /\.(test\.(ts|tsx)|e2e\.ts)$/.test(path))
+  .filter((path) => !path.startsWith("node_modules/"))
+
+for (const testFile of testFiles) {
+  let mapped = docsText.includes(testFile)
+  if (!mapped) {
+    const parts = testFile.split("/")
+    for (let index = parts.length - 1; index > 0; index--) {
+      if (docsText.includes(parts.slice(0, index).join("/"))) {
+        mapped = true
+        break
+      }
     }
   }
 
-  const scriptMatches = [...row.command.matchAll(/bun run ([a-zA-Z0-9:_-]+)/g)]
-  for (const match of scriptMatches) {
-    const scriptName = match[1]
-    if (!packageJson.scripts?.[scriptName]) {
-      fail(`${row.id} references missing package script: ${scriptName}`)
-    }
-  }
-}
-
-const closeout = read(closeoutPath)
-for (const area of [
-  "Project creation",
-  "Templates",
-  "Preview",
-  "Comments",
-  "Revisions",
-  "Provider runtime",
-  "Exports",
-  "Analytics",
-  "App updates",
-  "Packaging",
-]) {
-  if (!closeout.includes(area)) {
-    fail(`agent closeout protocol is missing area: ${area}`)
+  if (!mapped) {
+    fail(`Local test is not mapped in specs/archive docs: ${testFile}`)
   }
 }
 
@@ -192,4 +204,4 @@ if (process.exitCode) {
   process.exit()
 }
 
-console.log(`[quality-platform] verified ${rows.size} workflow rows and ${requiredScripts.length} package scripts`)
+console.log(`[quality-platform] verified ${specs.length} spec files, ${testFiles.length} local tests, and ${requiredScripts.length} package scripts`)

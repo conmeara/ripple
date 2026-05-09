@@ -1,0 +1,29 @@
+{
+  "pdfExportSettings": {
+    "pageSize": "Letter",
+    "landscape": false,
+    "margin": "0",
+    "downscalePercent": 100
+  },
+  "strictLineBreaks": false,
+  "showInlineTitle": true,
+  "alwaysUpdateLinks": true,
+  "attachmentFolderPath": "docs/attachments",
+  "userIgnoreFilters": [
+    ".git/",
+    ".codex/",
+    ".playwright-mcp/",
+    ".ripple/",
+    ".secrets/",
+    "node_modules/",
+    "build/",
+    "out/",
+    "release/",
+    "test-results/",
+    "playwright-report/",
+    "/^.*\\.(?!(md|markdown|txt|MD|MARKDOWN|TXT)$)[^/.]+$/"
+  ],
+  "promptDelete": false,
+  "newFileLocation": "folder",
+  "newFileFolderPath": "docs"
+}

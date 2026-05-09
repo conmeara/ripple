@@ -26,10 +26,6 @@ Use Bun unless a task explicitly requires another tool. Key commands:
 
 Use strict TypeScript (`tsconfig.json`) and React's automatic JSX runtime. Prefer existing Electron, tRPC, Drizzle, React Query, Zustand/Jotai, Radix, and Tailwind patterns. Keep filesystem, process, preview, render, export, and source-write work in the main process behind typed APIs; renderer code should not launch privileged commands or trust arbitrary absolute paths. Use `PascalCase.tsx` for components, `kebab-case.ts` for utilities/services, and `kebab-case.html` for HyperFrames templates. There is no dedicated lint script; use `bun run ts:check`, focused tests, and `git diff --check`.
 
-## ExecPlans
-
-When writing complex features or significant refactors, use an ExecPlan (as described in plans/PLANS.md) from design to implementation.
-
 ## Testing Guidelines
 
 Add targeted coverage beside the code you change, then choose broader suites by impact: `test:ripple` for product regressions, `test:agent` for provider/runtime work, `test:hyperframes` or `test:export` for motion/export changes, and Playwright E2E for user workflows.
