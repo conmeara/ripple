@@ -228,17 +228,6 @@ function parseConversationMessageParts(value: string): unknown[] {
   }
 }
 
-function fallbackRevisionSummary(summary: RippleRevisionDiffSummary): string {
-  if (summary.fileCount === 0) {
-    return "Agent finished without project changes."
-  }
-  const fileLabel = summary.fileCount === 1 ? "file" : "files"
-  if (summary.additions || summary.deletions) {
-    return `Updated ${summary.fileCount} ${fileLabel}, +${summary.additions}/-${summary.deletions}.`
-  }
-  return `Updated ${summary.fileCount} ${fileLabel}.`
-}
-
 function getRevisionDiffSummaryForView(
   db: ReturnType<typeof getDatabase>,
   revision: Revision,
@@ -667,6 +656,9 @@ export async function addCommentReply(
   if (thread.deletedAt) {
     throw new Error("Restore this comment before replying.")
   }
+  if (thread.status === "resolved") {
+    throw new Error("Accepted comments are locked as history.")
+  }
   const project = getProject(db, thread.projectId)
   const body = assertBody(input.body)
   assertAttachments(input.attachments)
@@ -748,6 +740,9 @@ export async function createRevisionForThread(input: {
   if (!thread) throw new Error("Comment thread not found.")
   if (thread.deletedAt) {
     throw new Error("Restore this comment before creating changes.")
+  }
+  if (thread.status === "resolved") {
+    throw new Error("Accepted comments are locked as history.")
   }
   assertAttachments(input.attachments)
   const project = input.project ?? getProject(db, thread.projectId)
@@ -1106,6 +1101,18 @@ function throwIfThreadHasRunningRevision(revisionsForThread: Revision[]): void {
   }
 }
 
+function throwIfAcceptedThreadHistory(
+  thread: CommentThread,
+  revisionsForThread: Revision[],
+): void {
+  if (
+    thread.status === "resolved" ||
+    revisionsForThread.some((revision) => revision.status === "accepted")
+  ) {
+    throw new Error("Accepted comments are locked as history.")
+  }
+}
+
 export async function rejectCommentThread(threadId: string): Promise<RippleCommentThreadView> {
   const db = getDatabase()
   const now = dateNow()
@@ -1120,6 +1127,7 @@ export async function rejectCommentThread(threadId: string): Promise<RippleComme
     .from(revisions)
     .where(eq(revisions.threadId, threadId))
     .all()
+  throwIfAcceptedThreadHistory(thread, threadRevisions)
   throwIfThreadHasRunningRevision(threadRevisions)
   const cleanupErrors = await cleanupRevisionWorkspaces({
     db,
@@ -1167,6 +1175,7 @@ export async function deleteCommentThread(threadId: string): Promise<void> {
     .from(revisions)
     .where(eq(revisions.threadId, threadId))
     .all()
+  throwIfAcceptedThreadHistory(thread, threadRevisions)
   throwIfThreadHasRunningRevision(threadRevisions)
 
   const cleanupErrors = await cleanupRevisionWorkspaces({
@@ -1420,13 +1429,14 @@ export async function completeRevisionBackgroundRun(id: string): Promise<RippleC
     baseProjectCommit: revision.baseProjectCommit,
   })
   const summary = diffSummaryFromPatch(diff)
-  summary.summary =
-    extractAssistantFinalResponseFromMessages(
-      revision.conversationId
-        ? getConversationMessagesJson(revision.conversationId, db)
-        : null,
-    ) ||
-    fallbackRevisionSummary(summary)
+  const assistantSummary = extractAssistantFinalResponseFromMessages(
+    revision.conversationId
+      ? getConversationMessagesJson(revision.conversationId, db)
+      : null,
+  )
+  if (assistantSummary) {
+    summary.summary = assistantSummary
+  }
 
   const completedRevision = db.update(revisions)
     .set({

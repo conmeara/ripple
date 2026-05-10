@@ -36,7 +36,7 @@ describe("comment formatting", () => {
     expect(parseRevisionDiffSummary("nope")).toBeNull()
   })
 
-  test("formats compact revision result lines", () => {
+  test("formats compact revision result lines from agent responses only", () => {
     expect(
       formatRevisionResultLine({
         fileCount: 1,
@@ -53,7 +53,15 @@ describe("comment formatting", () => {
         deletions: 0,
         files: ["index.html", "style.css"],
       }),
-    ).toBe("Updated 2 files, +10/-0.")
+    ).toBeNull()
+    expect(
+      formatRevisionResultLine({
+        fileCount: 0,
+        additions: 0,
+        deletions: 0,
+        files: [],
+      }),
+    ).toBeNull()
   })
 
   test("compacts generated-change summaries for comment cards", () => {

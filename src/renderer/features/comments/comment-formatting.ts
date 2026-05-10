@@ -65,19 +65,12 @@ export function compactCommentLine(
 export function formatRevisionResultLine(
   summary: RippleRevisionDiffSummary | null,
   options: { maxLength?: number | null } = {},
-): string {
+): string | null {
   if (summary?.summary) {
     const maxLength = Object.prototype.hasOwnProperty.call(options, "maxLength")
       ? options.maxLength ?? null
       : 160
     return compactCommentLine(summary.summary, maxLength)
   }
-  if (!summary || summary.fileCount === 0) {
-    return "Agent finished without project changes."
-  }
-  const fileLabel = summary.fileCount === 1 ? "file" : "files"
-  if (summary.additions || summary.deletions) {
-    return `Updated ${summary.fileCount} ${fileLabel}, +${summary.additions}/-${summary.deletions}.`
-  }
-  return `Updated ${summary.fileCount} ${fileLabel}.`
+  return null
 }

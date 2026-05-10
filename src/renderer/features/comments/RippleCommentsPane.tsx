@@ -825,7 +825,7 @@ function RevisionStatusLine({
     revision.status === "superseded"
   )
   const resultLine = canShowSummaryLine
-    ? formatRevisionResultLine(summary, { maxLength: null })
+    ? formatRevisionResultLine(summary, { maxLength: null }) ?? label
     : label
   const line = revision.status === "failed"
     ? revision.errorMessage || revisionStatusLabel(revision.status)
@@ -971,7 +971,7 @@ function revisionAcceptControl(revision: RippleRevisionView, options: {
     case "superseded":
       return { label: "Changes updated", disabled: true, busy: false }
     case "failed":
-      return { label: "Open in Chat to continue", disabled: true, busy: false }
+      return { label: "Refresh needed", disabled: true, busy: false }
   }
 }
 
@@ -1008,7 +1008,10 @@ function CommentCard({
   onReject: (threadId: string) => void
   onDelete: (threadId: string) => void
   onRestore: (threadId: string) => void
-  onRefreshRevision: (revisionId: string) => void
+  onRefreshRevision: (
+    revision: RippleRevisionView,
+    thread: RippleCommentThreadView,
+  ) => void
   onAcceptRevision: (revisionId: string) => void
   reviewActionPending?: boolean
   onOpenChat: (
@@ -1021,6 +1024,7 @@ function CommentCard({
   const [reply, setReply] = useState("")
   const [replyAttachments, setReplyAttachments] = useState<AgentRuntimeAttachment[]>([])
   const revision = latestRevision(thread)
+  const isAcceptedThread = thread.status === "resolved" || revision?.status === "accepted"
   const firstMessage = thread.messages.find((message) => message.role === "user")
   const replies = thread.messages.filter((message) => message.id !== firstMessage?.id)
   const isDeleted = deletedFilter || isDeletedCommentThread(thread)
@@ -1031,7 +1035,7 @@ function CommentCard({
   const canRefreshLatestRevision = canRefreshRevisionChanges(revision, {
     deleted: isDeleted,
   })
-  const canReply = canReplyToCommentThread(thread)
+  const canReply = canReplyToCommentThread(thread) && !isAcceptedThread
   const revisionByMessageId = useMemo(() => {
     const revisionsById = new Map(
       thread.revisions.map((item) => [item.id, item] as const),
@@ -1098,14 +1102,16 @@ function CommentCard({
           <span className="shrink-0 text-xs font-semibold text-muted-foreground">
             #{index + 1}
           </span>
-          <span
-            className={cn("h-2 w-2 shrink-0 rounded-full", statusVisual.className)}
-            title={statusVisual.label}
-          />
-          <span className="sr-only">{statusVisual.label}</span>
-          {thread.status === "resolved" ? (
+          {!isAcceptedThread ? (
+            <span
+              className={cn("h-2 w-2 shrink-0 rounded-full", statusVisual.className)}
+              title={statusVisual.label}
+            />
+          ) : null}
+          <span className="sr-only">{isAcceptedThread ? "Accepted" : statusVisual.label}</span>
+          {isAcceptedThread ? (
             <span className="rounded-full border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground">
-              Resolved
+              Accepted
             </span>
           ) : null}
           <div className="ml-auto">
@@ -1215,7 +1221,7 @@ function CommentCard({
                 </DropdownMenuItem>
               ) : null}
               {revision && canRefreshLatestRevision ? (
-                <DropdownMenuItem onSelect={() => onRefreshRevision(revision.id)}>
+                <DropdownMenuItem onSelect={() => onRefreshRevision(revision, thread)}>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Refresh changes
                 </DropdownMenuItem>
@@ -1225,9 +1231,11 @@ function CommentCard({
                   Restore
                 </DropdownMenuItem>
               ) : null}
-              <DropdownMenuItem onSelect={() => onDelete(thread.id)}>
-                Delete
-              </DropdownMenuItem>
+              {!isAcceptedThread ? (
+                <DropdownMenuItem onSelect={() => onDelete(thread.id)}>
+                  Delete
+                </DropdownMenuItem>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -1239,15 +1247,15 @@ function CommentCard({
             >
               <RefreshCw className="h-4 w-4" />
             </IconButton>
-          ) : (
+          ) : !isAcceptedThread ? (
             <IconButton
               label="Reject comment"
               onClick={() => onReject(thread.id)}
             >
               <X className="h-4 w-4" />
             </IconButton>
-          )}
-          {revision && !isDeleted ? (
+          ) : null}
+          {revision && !isDeleted && !isAcceptedThread ? (
             <>
               <IconButton
                 label={acceptControl?.label ?? "Accept changes"}
@@ -1408,6 +1416,13 @@ export function RippleCommentsPane({
     },
     onError: (error) => toast.error("Changes were not refreshed", { description: error.message }),
   })
+  const restartFailedRevision = trpc.revisions.createFromThread.useMutation({
+    onSuccess: async () => {
+      await utils.revisions.listThreads.invalidate()
+      toast.success("Agent run restarted")
+    },
+    onError: (error) => toast.error("Agent run was not restarted", { description: error.message }),
+  })
   const acceptRevision = trpc.revisions.accept.useMutation({
     onSuccess: async () => {
       setSelectedThreadId(null)
@@ -1436,6 +1451,7 @@ export function RippleCommentsPane({
     restoreThread.isPending ||
     refreshProposal.isPending ||
     updateStaleProposal.isPending ||
+    restartFailedRevision.isPending ||
     acceptRevision.isPending
 
   const handleSend = () => {
@@ -1612,9 +1628,24 @@ export function RippleCommentsPane({
                   onReject={(threadId) => rejectThread.mutate({ threadId })}
                   onDelete={(threadId) => deleteThread.mutate({ threadId })}
                   onRestore={(threadId) => restoreThread.mutate({ threadId })}
-                  onRefreshRevision={(revisionId) => {
-                    if (revision?.status === "needs_update") {
+                  onRefreshRevision={(targetRevision, thread) => {
+                    const revisionId = targetRevision.id
+                    if (targetRevision.status === "needs_update") {
                       updateStaleProposal.mutate({ revisionId })
+                    } else if (targetRevision.status === "failed") {
+                      const promptMessage =
+                        thread.messages.find((message) =>
+                          message.role === "user" &&
+                          message.revisionId === targetRevision.id
+                        ) ??
+                        thread.messages.find((message) => message.role === "user")
+                      restartFailedRevision.mutate({
+                        threadId: thread.id,
+                        body: promptMessage?.body ?? "Try again.",
+                        baseRevisionId: targetRevision.id,
+                        agentProvider: selectedRevisionProvider,
+                        model: selectedRevisionModel,
+                      })
                     } else {
                       refreshProposal.mutate({ revisionId })
                     }

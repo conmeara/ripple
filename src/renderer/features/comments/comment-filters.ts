@@ -7,7 +7,7 @@ import type {
 
 export const commentFilterLabels: Record<RippleCommentFilter, string> = {
   active: "Comments",
-  resolved: "Resolved",
+  resolved: "Accepted",
   deleted: "Rejected",
   all: "All visible",
 }
@@ -24,6 +24,7 @@ const PREVIEWABLE_REVISION_STATUSES = new Set<RippleRevisionStatus>([
 
 const LIVE_PREVIEWABLE_REVISION_STATUSES = new Set<RippleRevisionStatus>([
   "queued",
+  "preparing",
   "running",
   "updating",
 ])
@@ -80,7 +81,11 @@ export function canRefreshRevisionChanges(
   return Boolean(
     revision &&
       !options.deleted &&
-      (revision.status === "proposed" || revision.status === "needs_update"),
+      (
+        revision.status === "proposed" ||
+        revision.status === "needs_update" ||
+        revision.status === "failed"
+      ),
   )
 }
 

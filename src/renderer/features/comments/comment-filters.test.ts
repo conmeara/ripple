@@ -5,6 +5,7 @@ import {
   canRejectRevisionChanges,
   canRefreshRevisionChanges,
   canReplyToCommentThread,
+  commentFilterLabels,
   hasActiveRevisionChanges,
   isRevisionResolvingAgainstLatest,
 } from "./comment-filters"
@@ -32,6 +33,10 @@ function revision(
 }
 
 describe("comment filter helpers", () => {
+  test("labels resolved comment threads as accepted in the UI", () => {
+    expect(commentFilterLabels.resolved).toBe("Accepted")
+  })
+
   test("keeps rejected comments out of preview and reply flows", () => {
     const proposed = revision("proposed")
 
@@ -49,9 +54,10 @@ describe("comment filter helpers", () => {
     expect(canPreviewRevisionChanges(revision("queued"))).toBe(true)
     expect(canPreviewRevisionChanges(revision("running"))).toBe(true)
     expect(canPreviewRevisionChanges(revision("updating"))).toBe(true)
+    expect(canPreviewRevisionChanges(revision("preparing"))).toBe(true)
     expect(canPreviewRevisionChanges(revision("needs_update"))).toBe(true)
     expect(canPreviewRevisionChanges(revision("queued", null, null))).toBe(false)
-    expect(canPreviewRevisionChanges(revision("preparing"))).toBe(false)
+    expect(canPreviewRevisionChanges(revision("preparing", null, null))).toBe(false)
     expect(canPreviewRevisionChanges(revision("accepted"))).toBe(true)
     expect(canPreviewRevisionChanges(revision("answered"))).toBe(false)
     expect(canPreviewRevisionChanges(revision("rejected"))).toBe(false)
@@ -71,13 +77,16 @@ describe("comment filter helpers", () => {
     expect(canRejectRevisionChanges(revision("accepted"))).toBe(false)
     expect(canRejectRevisionChanges(revision("rejected"))).toBe(false)
     expect(canRejectRevisionChanges(revision("needs_update"))).toBe(false)
+    expect(canRejectRevisionChanges(revision("failed"))).toBe(false)
     expect(canRejectRevisionChanges(revision("running"))).toBe(false)
     expect(canRejectRevisionChanges(null)).toBe(false)
   })
 
-  test("allows refresh but not rejection when a proposal needs Main updates", () => {
+  test("allows refresh but not rejection when a proposal needs updates or restart", () => {
     expect(canRefreshRevisionChanges(revision("needs_update"))).toBe(true)
+    expect(canRefreshRevisionChanges(revision("failed"))).toBe(true)
     expect(canRefreshRevisionChanges(revision("needs_update"), { deleted: true })).toBe(false)
+    expect(canRefreshRevisionChanges(revision("failed"), { deleted: true })).toBe(false)
     expect(canRejectRevisionChanges(revision("needs_update"))).toBe(false)
   })
 })
