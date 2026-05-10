@@ -32,6 +32,7 @@ export type AgentRunStatus =
 
 export type AgentRunEventType =
   | "status"
+  | "activity"
   | "assistant_text_delta"
   | "assistant_message"
   | "reasoning"
@@ -46,6 +47,24 @@ export type AgentRunEventType =
 export type AgentRunKind = "chat" | "generated_change"
 export type AgentRunMode = "plan" | "agent"
 export type WorkspaceKind = "main" | "chat_worktree" | "generated_change"
+
+export type AgentRunActivityKind =
+  | "thinking"
+  | "preparing"
+  | "reviewing"
+  | "checking"
+  | "editing"
+  | "searching"
+  | "reading"
+  | "tooling"
+  | "writing"
+  | "waiting"
+
+export interface AgentRunActivityPayload {
+  kind: AgentRunActivityKind
+  label: string
+  source?: string
+}
 
 export type AgentWorkspaceTarget =
   | { type: "project"; projectId: string }

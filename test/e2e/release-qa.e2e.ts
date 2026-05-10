@@ -117,7 +117,7 @@ test.describe("Ripple release QA workflows", () => {
     await expect(frameIndicator).toHaveText("Frame 1 / 30")
   })
 
-  test("accepts generated changes and rejects comments through review controls @workflow", async ({
+  test("accepts generated changes and deletes comments through review controls @workflow", async ({
     electronApp,
     page,
     e2e,
@@ -145,15 +145,17 @@ test.describe("Ripple release QA workflows", () => {
       .locator("[data-comment-card='true']")
       .filter({ hasText: seeded.reject.body })
     await expect(rejectCard).toBeVisible({ timeout: 30_000 })
-    await expect(rejectCard.getByRole("button", { name: "Reject comment" })).toBeEnabled()
-    await rejectCard.getByRole("button", { name: "Reject comment" }).click()
+    await expect(rejectCard.getByRole("button", { name: "Delete comment" })).toBeEnabled()
+    await rejectCard.getByRole("button", { name: "Delete comment" }).click()
     await expect
-      .poll(() => readRevisionStatus(seeded.dbPath, seeded.reject.revisionId), {
-        message: "expected the rejected comment to discard generated changes",
+      .poll(() => readThreadDeletedAtForRevision(seeded.dbPath, seeded.reject.revisionId), {
+        message: "expected the deleted comment to be soft-deleted",
         timeout: 30_000,
       })
-      .toBe("rejected")
-    await expect.poll(() => existsSync(seeded.reject.worktreePath)).toBe(false)
+      .not.toBeNull()
+    await expect.poll(() => readRevisionStatus(seeded.dbPath, seeded.reject.revisionId))
+      .toBe("proposed")
+    await expect.poll(() => existsSync(seeded.reject.worktreePath)).toBe(true)
 
     const acceptCard = page
       .locator("[data-comment-card='true']")
@@ -574,6 +576,24 @@ async function readRevisionStatus(
   const stdout = await sqliteOutput(
     dbPath,
     `select status from revisions where id = ${sqlString(revisionId)} limit 1;`,
+  )
+  return lastSqliteLine(stdout) || null
+}
+
+async function readThreadDeletedAtForRevision(
+  dbPath: string,
+  revisionId: string,
+): Promise<string | null> {
+  if (!existsSync(dbPath)) return null
+  const stdout = await sqliteOutput(
+    dbPath,
+    `
+      select ct.deleted_at
+      from comment_threads ct
+      join revisions r on r.thread_id = ct.id
+      where r.id = ${sqlString(revisionId)}
+      limit 1;
+    `,
   )
   return lastSqliteLine(stdout) || null
 }

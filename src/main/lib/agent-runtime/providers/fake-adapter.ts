@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import type {
   AgentProviderAdapter,
   AgentProviderEventSink,
@@ -45,6 +47,13 @@ export class FakeAgentAdapter implements AgentProviderAdapter {
 
     const summary =
       "Ripple prepared this generated change through the main-process agent runtime."
+    if (process.env.RIPPLE_E2E === "1") {
+      await writeFile(
+        join(input.cwd, "ripple-fake-agent-change.txt"),
+        `${summary}\n\n${input.prompt}\n`,
+        "utf8",
+      )
+    }
     await sink.emit({
       type: "assistant_message",
       payload: { text: summary },
@@ -58,4 +67,3 @@ export class FakeAgentAdapter implements AgentProviderAdapter {
     }
   }
 }
-

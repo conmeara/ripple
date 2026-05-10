@@ -17,12 +17,13 @@ import { resolveRevisionProjectPath } from "./revision-acceptance"
 import {
   completeRevisionBackgroundRun,
   failRevisionBackgroundRun,
+  MAIN_CONFLICT_RESOLUTION_PROMPT,
   updateStaleRevisionProposal,
 } from "./comment-revisions"
 
 type Db = ReturnType<typeof getDatabase>
 
-const RUNNABLE_REVISION_STATUSES = ["queued"] as const
+const RUNNABLE_REVISION_STATUSES = ["queued", "updating"] as const
 const RECOVERABLE_STARTUP_STATUSES = ["preparing", "running"] as const
 const WORKTREE_REQUIRED_STATUSES = [
   "queued",
@@ -149,6 +150,13 @@ function listRunnableRevisionCandidates(
     .where(and(...conditions))
     .orderBy(asc(revisions.updatedAt), asc(revisions.createdAt))
     .all()
+    .filter(({ revision }) =>
+      revision.status === "queued" ||
+      (
+        revision.status === "updating" &&
+        revision.prompt === MAIN_CONFLICT_RESOLUTION_PROMPT
+      ),
+    )
 }
 
 function claimRevisionCandidate(
@@ -164,7 +172,7 @@ function claimRevisionCandidate(
     })
     .where(and(
       eq(revisions.id, candidate.revision.id),
-      eq(revisions.status, "queued"),
+      eq(revisions.status, candidate.revision.status),
     ))
     .returning()
     .get()
@@ -201,8 +209,12 @@ export async function processQueuedRevisionUpdates(input: {
 
 export async function claimNextRevisionRun(input: {
   projectId?: string | null
+} = {}, options: {
+  processUpdates?: boolean
 } = {}): Promise<RevisionQueueProcessResult> {
-  const updated = await processQueuedRevisionUpdates(input)
+  const updated = options.processUpdates === false
+    ? 0
+    : await processQueuedRevisionUpdates(input)
   const db = getDatabase()
   const candidates = listRunnableRevisionCandidates(db, input)
 

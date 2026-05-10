@@ -2,6 +2,7 @@ import { execFile } from "node:child_process"
 import { app } from "electron"
 import { promisify } from "node:util"
 import type {
+  AgentRunActivityKind,
   AgentProviderAdapter,
   AgentProviderEventSink,
   AgentProviderRunInput,
@@ -30,6 +31,12 @@ import {
   buildClaudeToolApprovalRequest,
   isRippleClaudeAutoAllowedTool,
 } from "./claude-agent-sdk-approval"
+import {
+  buildAgentRunActivityEvent,
+  buildProviderSummaryActivityEvent,
+} from "../activity"
+
+const CLAUDE_ACTIVITY_SOURCE = "claude_agent_sdk"
 
 function getRepoRoot(): string | undefined {
   return app.isPackaged ? undefined : app.getAppPath()
@@ -191,6 +198,20 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
     const getToolCallId = (toolUseId: string, parentToolUseId?: string | null) =>
       toolUseKey(toolUseId, parentToolUseId)
 
+    const emitActivity = async (payload: {
+      eventType?: string | null
+      providerType?: string | null
+      providerId?: string | null
+      payload?: Record<string, unknown> | null
+      kind?: AgentRunActivityKind | null
+      label?: unknown
+    }) => {
+      await sink.emit(buildAgentRunActivityEvent({
+        ...payload,
+        source: CLAUDE_ACTIVITY_SOURCE,
+      }))
+    }
+
     const emitToolStart = async (payload: {
       providerType: string
       providerId?: string | null
@@ -207,6 +228,18 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
       startedToolCallIds.add(toolCallId)
       await sink.emit({
         type: "tool_start",
+        providerType: payload.providerType,
+        providerId: payload.providerId ?? toolCallId,
+        payload: {
+          toolCallId,
+          toolName: payload.toolName,
+          input: payload.input,
+          inputStreaming: payload.inputStreaming,
+          title: payload.title,
+        },
+      })
+      await emitActivity({
+        eventType: "tool_start",
         providerType: payload.providerType,
         providerId: payload.providerId ?? toolCallId,
         payload: {
@@ -238,6 +271,17 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
           inputAvailable: true,
         },
       })
+      await emitActivity({
+        eventType: "tool_update",
+        providerType: payload.providerType,
+        providerId: payload.providerId ?? payload.toolCallId,
+        payload: {
+          toolCallId: payload.toolCallId,
+          toolName: payload.toolName,
+          input: payload.input,
+          inputAvailable: true,
+        },
+      })
     }
 
     const emitToolEnd = async (payload: {
@@ -253,6 +297,18 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
       completedToolCallIds.add(payload.toolCallId)
       await sink.emit({
         type: "tool_end",
+        providerType: payload.providerType,
+        providerId: payload.providerId ?? payload.toolCallId,
+        payload: {
+          toolCallId: payload.toolCallId,
+          toolName: payload.toolName,
+          output: payload.output,
+          error: payload.error,
+          status: payload.status,
+        },
+      })
+      await emitActivity({
+        eventType: "tool_end",
         providerType: payload.providerType,
         providerId: payload.providerId ?? payload.toolCallId,
         payload: {
@@ -507,6 +563,13 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
               providerId: messageAny.uuid,
               payload: { delta },
             })
+            await emitActivity({
+              eventType: "assistant_text_delta",
+              providerType: event.type,
+              providerId: messageAny.uuid,
+              payload: { delta },
+              kind: "writing",
+            })
           } else if (event?.type === "content_block_delta" && event.delta?.type === "thinking_delta") {
             const delta = String(event.delta.thinking ?? "")
             if (delta) {
@@ -517,21 +580,35 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
                 providerId: active?.kind === "thinking" ? active.id : messageAny.uuid,
                 payload: { delta },
               })
+              await emitActivity({
+                eventType: "reasoning",
+                providerType: event.type,
+                providerId: active?.kind === "thinking" ? active.id : messageAny.uuid,
+                payload: { delta },
+                kind: "thinking",
+              })
             }
           } else if (event?.type === "content_block_delta" && event.delta?.type === "input_json_delta") {
             const active = activeStreamBlocks.get(blockKey(messageAny, event))
             const partial = String(event.delta.partial_json ?? "")
             if (active?.kind === "tool" && partial) {
               active.inputJson += partial
+              const payload = {
+                toolCallId: active.toolCallId,
+                toolName: active.toolName,
+                inputTextDelta: partial,
+              }
               await sink.emit({
                 type: "tool_update",
                 providerType: event.type,
                 providerId: active.toolCallId,
-                payload: {
-                  toolCallId: active.toolCallId,
-                  toolName: active.toolName,
-                  inputTextDelta: partial,
-                },
+                payload,
+              })
+              await emitActivity({
+                eventType: "tool_update",
+                providerType: event.type,
+                providerId: active.toolCallId,
+                payload,
               })
             }
           } else if (event?.type === "content_block_stop") {
@@ -576,18 +653,27 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         if (messageAny.type === "system" && messageAny.subtype === "status") {
           if (messageAny.status === "compacting") {
             compactToolCallId = `compact-${messageAny.uuid ?? messageAny.session_id ?? input.run.id}`
+            const payload = {
+              toolCallId: compactToolCallId,
+              toolName: "Compact",
+              status: "compacting",
+              input: {
+                permissionMode: messageAny.permissionMode,
+              },
+            }
             await sink.emit({
               type: "tool_start",
               providerType: "system:status",
               providerId: compactToolCallId,
-              payload: {
-                toolCallId: compactToolCallId,
-                toolName: "Compact",
-                status: "compacting",
-                input: {
-                  permissionMode: messageAny.permissionMode,
-                },
-              },
+              payload,
+            })
+            await emitActivity({
+              eventType: "tool_start",
+              providerType: "system:status",
+              providerId: compactToolCallId,
+              payload,
+              kind: "preparing",
+              label: "Preparing context",
             })
           }
           continue
@@ -608,15 +694,23 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         }
 
         if (messageAny.type === "system" && messageAny.subtype === "files_persisted") {
+          const payload = {
+            files: messageAny.files,
+            failed: messageAny.failed,
+            processedAt: messageAny.processed_at,
+          }
           await sink.emit({
             type: "file_change",
             providerType: "system:files_persisted",
             providerId: messageAny.uuid,
-            payload: {
-              files: messageAny.files,
-              failed: messageAny.failed,
-              processedAt: messageAny.processed_at,
-            },
+            payload,
+          })
+          await emitActivity({
+            eventType: "file_change",
+            providerType: "system:files_persisted",
+            providerId: messageAny.uuid,
+            payload,
+            kind: "editing",
           })
           continue
         }
@@ -629,23 +723,32 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
             messageAny.subtype === "hook_response"
           )
         ) {
+          const label =
+            messageAny.subtype === "hook_started"
+              ? `Running ${messageAny.hook_name ?? "hook"}`
+              : messageAny.subtype === "hook_response"
+                ? `${messageAny.hook_name ?? "Hook"} ${messageAny.outcome ?? "completed"}`
+                : `${messageAny.hook_name ?? "Hook"} running`
+          const payload = {
+            status: "running",
+            label,
+            output: messageAny.output,
+            stdout: messageAny.stdout,
+            stderr: messageAny.stderr,
+            exitCode: messageAny.exit_code,
+          }
           await sink.emit({
             type: "status",
             providerType: `system:${messageAny.subtype}`,
             providerId: messageAny.uuid ?? messageAny.hook_id,
-            payload: {
-              status: "running",
-              label:
-                messageAny.subtype === "hook_started"
-                  ? `Running ${messageAny.hook_name ?? "hook"}`
-                  : messageAny.subtype === "hook_response"
-                    ? `${messageAny.hook_name ?? "Hook"} ${messageAny.outcome ?? "completed"}`
-                    : `${messageAny.hook_name ?? "Hook"} running`,
-              output: messageAny.output,
-              stdout: messageAny.stdout,
-              stderr: messageAny.stderr,
-              exitCode: messageAny.exit_code,
-            },
+            payload,
+          })
+          await emitActivity({
+            eventType: "status",
+            providerType: `system:${messageAny.subtype}`,
+            providerId: messageAny.uuid ?? messageAny.hook_id,
+            payload,
+            kind: "checking",
           })
           continue
         }
@@ -691,31 +794,48 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
           )
           const toolName = String(messageAny.tool_name ?? toolNamesByKey.get(toolCallId) ?? "AgentTool")
           toolNamesByKey.set(toolCallId, toolName)
+          const payload = {
+            toolCallId,
+            toolName,
+            elapsedTimeSeconds: messageAny.elapsed_time_seconds,
+            message: `${toolName} is still running`,
+          }
           await sink.emit({
             type: "tool_update",
             providerType: "tool_progress",
             providerId: toolCallId,
-            payload: {
-              toolCallId,
-              toolName,
-              elapsedTimeSeconds: messageAny.elapsed_time_seconds,
-              message: `${toolName} is still running`,
-            },
+            payload,
+          })
+          await emitActivity({
+            eventType: "tool_update",
+            providerType: "tool_progress",
+            providerId: toolCallId,
+            payload,
           })
           continue
         }
 
         if (messageAny.type === "tool_use_summary") {
+          const payload = {
+            status: "running",
+            label: messageAny.summary,
+            precedingToolUseIds: messageAny.preceding_tool_use_ids,
+          }
           await sink.emit({
             type: "status",
             providerType: "tool_use_summary",
             providerId: messageAny.uuid,
-            payload: {
-              status: "running",
-              label: messageAny.summary,
-              precedingToolUseIds: messageAny.preceding_tool_use_ids,
-            },
+            payload,
           })
+          const activityEvent = buildProviderSummaryActivityEvent({
+            providerType: "tool_use_summary",
+            providerId: messageAny.uuid,
+            summary: messageAny.summary,
+            source: CLAUDE_ACTIVITY_SOURCE,
+          })
+          if (activityEvent) {
+            await sink.emit(activityEvent)
+          }
           continue
         }
 
@@ -746,6 +866,13 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
                 providerType: "assistant:thinking",
                 providerId: `${messageAny.uuid}-thinking`,
                 payload: { text: block.thinking },
+              })
+              await emitActivity({
+                eventType: "reasoning",
+                providerType: "assistant:thinking",
+                providerId: `${messageAny.uuid}-thinking`,
+                payload: { text: block.thinking },
+                kind: "thinking",
               })
             }
             if (block?.type === "tool_use") {
@@ -816,6 +943,13 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
             providerType: messageAny.type,
             providerId: messageAny.uuid,
             payload: { text: assistantText },
+          })
+          await emitActivity({
+            eventType: "assistant_message",
+            providerType: messageAny.type,
+            providerId: messageAny.uuid,
+            payload: { text: assistantText },
+            kind: "writing",
           })
         }
 

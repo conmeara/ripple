@@ -1,4 +1,3 @@
-# Visual Context
 
 Visual Context helps agents see the motion piece.
 

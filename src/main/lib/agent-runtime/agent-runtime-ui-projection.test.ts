@@ -122,6 +122,16 @@ describe("AgentRuntimeUIProjector", () => {
         }),
       }),
     ])
+
+    expect(projector.project({
+      type: "activity",
+      providerType: "tool_use_summary",
+      providerId: "activity-1",
+      payload: {
+        kind: "searching",
+        label: "Looking up reference",
+      },
+    })).toEqual([])
   })
 
   test("projects pending approvals as visible runtime data", () => {

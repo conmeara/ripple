@@ -16,6 +16,7 @@ test-results/
 *.swp
 *.swo
 .vscode/
+.obsidian/workspace.json
 .codex/
 
 # System files

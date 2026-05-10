@@ -1,4 +1,9 @@
-import { msToSeconds, type RippleRevisionDiffSummary } from "../../../shared/ripple-comments"
+import {
+  msToSeconds,
+  type RippleRevisionDiffSummary,
+  type RippleRevisionStatus,
+  type RippleRevisionView,
+} from "../../../shared/ripple-comments"
 import { formatTimelineTimecode } from "../../../shared/hyperframes-timeline-model"
 
 export function formatCommentTimecode(
@@ -73,4 +78,71 @@ export function formatRevisionResultLine(
     return compactCommentLine(summary.summary, maxLength)
   }
   return null
+}
+
+const RESOLVING_REVISION_STATUSES = new Set<RippleRevisionStatus>([
+  "queued",
+  "preparing",
+  "running",
+  "updating",
+])
+
+export function isWorkingRevisionStatus(status: RippleRevisionStatus): boolean {
+  return status === "queued" || status === "preparing" || status === "running"
+}
+
+function isRevisionResolvingAgainstLatestForLine(
+  revision: RippleRevisionView,
+): boolean {
+  return revision.status === "updating" || (
+    Boolean(revision.diffSummary) &&
+    RESOLVING_REVISION_STATUSES.has(revision.status)
+  )
+}
+
+export function revisionStatusLabel(status: RippleRevisionStatus): string {
+  switch (status) {
+    case "queued":
+      return "Agent is thinking"
+    case "preparing":
+      return "Preparing the composition"
+    case "running":
+      return "Editing files"
+    case "updating":
+      return "Updating against Main"
+    case "needs_update":
+      return "Refresh needed"
+    case "proposed":
+      return "Changes ready"
+    case "answered":
+      return "No changes needed"
+    case "accepted":
+      return "Accepted"
+    case "rejected":
+      return "Changes rejected"
+    case "superseded":
+      return "Updated by a newer reply"
+    case "failed":
+      return "Needs attention"
+  }
+}
+
+export function formatRevisionStatusLine(revision: RippleRevisionView): string {
+  const summary = parseRevisionDiffSummary(revision.diffSummary)
+  const label = revisionStatusLabel(revision.status)
+  const canShowSummaryLine = Boolean(summary) && (
+    revision.status === "proposed" ||
+    revision.status === "needs_update" ||
+    revision.status === "updating" ||
+    revision.status === "accepted" ||
+    revision.status === "superseded" ||
+    isRevisionResolvingAgainstLatestForLine(revision)
+  )
+  const resultLine = canShowSummaryLine
+    ? formatRevisionResultLine(summary, { maxLength: null }) ?? label
+    : label
+
+  return revision.status === "failed"
+    ? revision.errorMessage || revisionStatusLabel(revision.status)
+    : resultLine
 }

@@ -434,6 +434,8 @@ export class AgentRuntimeUIProjector {
           },
         }]
       }
+      case "activity":
+        return []
       case "error": {
         const errorText =
           typeof payload.message === "string"

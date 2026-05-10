@@ -66,12 +66,30 @@ describe("Codex App Server notification normalization", () => {
           status: "inProgress",
         }),
       }),
+      expect.objectContaining({
+        type: "activity",
+        providerId: "cmd-1",
+        payload: {
+          kind: "checking",
+          label: "Checking the project",
+          source: "codex_app_server",
+        },
+      }),
     ])
     expect(output).toEqual([
       expect.objectContaining({
         type: "tool_update",
         providerId: "cmd-1",
         payload: { delta: "ok\n" },
+      }),
+      expect.objectContaining({
+        type: "activity",
+        providerId: "cmd-1",
+        payload: {
+          kind: "checking",
+          label: "Checking the project",
+          source: "codex_app_server",
+        },
       }),
     ])
     expect(completed).toEqual([
@@ -84,6 +102,15 @@ describe("Codex App Server notification normalization", () => {
           output: "ok\n",
           exitCode: 0,
         }),
+      }),
+      expect.objectContaining({
+        type: "activity",
+        providerId: "cmd-1",
+        payload: {
+          kind: "checking",
+          label: "Checking the project",
+          source: "codex_app_server",
+        },
       }),
     ])
   })
@@ -116,6 +143,15 @@ describe("Codex App Server notification normalization", () => {
         providerId: "mcp-1",
         payload: { message: "Searching" },
       }),
+      expect.objectContaining({
+        type: "activity",
+        providerId: "mcp-1",
+        payload: {
+          kind: "searching",
+          label: "Looking up reference",
+          source: "codex_app_server",
+        },
+      }),
     ])
     expect(completed).toEqual([
       expect.objectContaining({
@@ -127,6 +163,15 @@ describe("Codex App Server notification normalization", () => {
           tool: "search",
           status: "completed",
         }),
+      }),
+      expect.objectContaining({
+        type: "activity",
+        providerId: "mcp-1",
+        payload: {
+          kind: "searching",
+          label: "Looking up reference",
+          source: "codex_app_server",
+        },
       }),
     ])
   })
@@ -141,6 +186,15 @@ describe("Codex App Server notification normalization", () => {
         providerId: "msg-1",
         payload: { delta: "Hi" },
       }),
+      expect.objectContaining({
+        type: "activity",
+        providerId: "msg-1",
+        payload: {
+          kind: "writing",
+          label: "Writing a response",
+          source: "codex_app_server",
+        },
+      }),
     ])
 
     expect(normalizeCodexAppServerNotification({
@@ -151,6 +205,15 @@ describe("Codex App Server notification normalization", () => {
         type: "assistant_message",
         providerId: "msg-1",
         payload: { text: "Done" },
+      }),
+      expect.objectContaining({
+        type: "activity",
+        providerId: "msg-1",
+        payload: {
+          kind: "writing",
+          label: "Writing a response",
+          source: "codex_app_server",
+        },
       }),
     ])
 
@@ -163,6 +226,15 @@ describe("Codex App Server notification normalization", () => {
         providerId: "reason-1",
         payload: { delta: "Thinking" },
       }),
+      expect.objectContaining({
+        type: "activity",
+        providerId: "reason-1",
+        payload: {
+          kind: "thinking",
+          label: "Agent is thinking",
+          source: "codex_app_server",
+        },
+      }),
     ])
 
     expect(normalizeCodexAppServerNotification({
@@ -173,6 +245,15 @@ describe("Codex App Server notification normalization", () => {
         type: "file_change",
         providerId: "turn-1",
         payload: { diff: "diff --git a/a b/a" },
+      }),
+      expect.objectContaining({
+        type: "activity",
+        providerId: "turn-1",
+        payload: {
+          kind: "editing",
+          label: "Editing files",
+          source: "codex_app_server",
+        },
       }),
     ])
   })
@@ -252,6 +333,16 @@ describe("Codex App Server notification normalization", () => {
         providerType: "thread/compacted",
         providerId: "turn-1",
         payload: expect.objectContaining({ label: "Compacted context" }),
+      }),
+      expect.objectContaining({
+        type: "activity",
+        providerType: "thread/compacted",
+        providerId: "turn-1",
+        payload: {
+          kind: "preparing",
+          label: "Preparing context",
+          source: "codex_app_server",
+        },
       }),
     ])
 

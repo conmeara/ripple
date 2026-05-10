@@ -28,6 +28,8 @@ import {
 import { toast } from "sonner"
 import {
   commentAnchorPreviewTimeSeconds,
+  normalizeCommentAnchor,
+  type RippleCommentAnchorInput,
   type RippleCommentFilter,
   type RippleCommentMessageView,
   type RippleCommentThreadView,
@@ -113,9 +115,10 @@ import {
   shouldShowRestoreAction,
 } from "./comment-filters"
 import {
-  formatRevisionResultLine,
+  formatRevisionStatusLine,
   formatCommentTimecode,
-  parseRevisionDiffSummary,
+  isWorkingRevisionStatus,
+  revisionStatusLabel as getRevisionStatusLabel,
 } from "./comment-formatting"
 import { RippleCommentIcon } from "./RippleCommentIcon"
 import { buildAnchorFromTimelineContext } from "./timeline-comment-prompt"
@@ -224,6 +227,20 @@ function commentAttachmentFallbackBody(
   return `Attached ${attachments.length} files`
 }
 
+function serializeOptimisticCommentMessageMetadata(
+  attachments: AgentRuntimeAttachment[],
+): string | null {
+  if (attachments.length === 0) return null
+  return JSON.stringify({
+    attachments: attachments.map((attachment) => ({
+      type: attachment.type,
+      filename: attachment.filename ?? (attachment.type === "image" ? "image" : "file"),
+      mediaType: attachment.mediaType ?? null,
+      size: attachment.size ?? null,
+    })),
+  })
+}
+
 function parseCommentMessageAttachments(
   message: RippleCommentMessageView,
 ): Array<{ type: "image" | "file"; filename: string }> {
@@ -243,6 +260,53 @@ function parseCommentMessageAttachments(
       }))
   } catch {
     return []
+  }
+}
+
+function buildOptimisticCommentThread(input: {
+  projectId: string
+  compositionId?: string | null
+  body: string
+  anchor: RippleCommentAnchorInput
+  attachments?: AgentRuntimeAttachment[]
+  clientRequestId?: string | null
+}): RippleCommentThreadView {
+  const anchor = normalizeCommentAnchor(input.anchor)
+  const now = new Date()
+  const optimisticId = `optimistic-${input.clientRequestId ?? now.getTime()}`
+
+  return {
+    id: optimisticId,
+    projectId: input.projectId,
+    compositionId: input.compositionId ?? null,
+    conversationId: null,
+    anchorType: anchor.anchorType,
+    startTime: anchor.startTimeMs,
+    endTime: anchor.endTimeMs,
+    startFrame: anchor.startFrame,
+    endFrame: anchor.endFrame,
+    elementSelector: anchor.elementSelector,
+    clipKey: anchor.clipKey,
+    sourceFile: anchor.sourceFile,
+    screenshotPath: anchor.screenshotPath,
+    clientRequestId: input.clientRequestId ?? null,
+    status: "open",
+    latestRevisionId: null,
+    createdAt: now,
+    updatedAt: now,
+    resolvedAt: null,
+    deletedAt: null,
+    messages: [{
+      id: `${optimisticId}-message`,
+      threadId: optimisticId,
+      revisionId: null,
+      role: "user",
+      body: input.body,
+      metadataJson: serializeOptimisticCommentMessageMetadata(input.attachments ?? []),
+      clientRequestId: input.clientRequestId ?? null,
+      createdAt: now,
+    }],
+    revisions: [],
   }
 }
 
@@ -542,10 +606,7 @@ function IconButton({
       {disabled ? (
         <TooltipTrigger asChild>
           <span
-            role="button"
-            aria-label={label}
             aria-disabled="true"
-            tabIndex={0}
             className="inline-flex"
           >
             {button}
@@ -569,6 +630,7 @@ function CommentComposer({
   timecode,
   isSubmitting,
   modelSelector,
+  focusSignal,
 }: {
   value: string
   onChange: (value: string) => void
@@ -579,11 +641,17 @@ function CommentComposer({
   timecode?: string
   isSubmitting?: boolean
   modelSelector?: ReactNode
+  focusSignal?: number | null
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const [isFocused, setIsFocused] = useState(false)
   const hasContent = value.trim().length > 0 || attachments.length > 0
+
+  useEffect(() => {
+    if (!focusSignal) return
+    textareaRef.current?.focus()
+  }, [focusSignal])
 
   const addFiles = async (files: File[]) => {
     if (files.length === 0 || !onAttachmentsChange) return
@@ -810,26 +878,8 @@ function RevisionStatusLine({
   revision: RippleRevisionView
   agentTextResetKey?: string | number | null
 }) {
-  if (isRevisionResolvingAgainstLatest(revision)) return null
-
-  const summary = parseRevisionDiffSummary(revision.diffSummary)
-  const isWorking =
-    revision.status === "queued" ||
-    revision.status === "preparing" ||
-    revision.status === "running"
-  const label = revisionStatusLabel(revision.status)
-  const canShowSummaryLine = Boolean(summary) && (
-    revision.status === "proposed" ||
-    revision.status === "needs_update" ||
-    revision.status === "accepted" ||
-    revision.status === "superseded"
-  )
-  const resultLine = canShowSummaryLine
-    ? formatRevisionResultLine(summary, { maxLength: null }) ?? label
-    : label
-  const line = revision.status === "failed"
-    ? revision.errorMessage || revisionStatusLabel(revision.status)
-    : resultLine
+  const isWorking = isWorkingRevisionStatus(revision.status)
+  const line = formatRevisionStatusLine(revision)
 
   return (
     <div
@@ -863,30 +913,7 @@ function RevisionStatusLine({
 }
 
 function revisionStatusLabel(status: RippleRevisionStatus): string {
-  switch (status) {
-    case "queued":
-      return "Starting agent"
-    case "preparing":
-      return "Preparing changes"
-    case "running":
-      return "Agent is working"
-    case "updating":
-      return "Updating"
-    case "needs_update":
-      return "Refresh needed"
-    case "proposed":
-      return "Changes ready"
-    case "answered":
-      return "No changes needed"
-    case "accepted":
-      return "Accepted"
-    case "rejected":
-      return "Changes rejected"
-    case "superseded":
-      return "Updated by a newer reply"
-    case "failed":
-      return "Needs attention"
-  }
+  return getRevisionStatusLabel(status)
 }
 
 function commentStatusVisual(
@@ -984,7 +1011,6 @@ function CommentCard({
   agentTextResetKey,
   onSelect,
   onReply,
-  onReject,
   onDelete,
   onRestore,
   onRefreshRevision,
@@ -1005,7 +1031,6 @@ function CommentCard({
     clientRequestId: string,
     attachments: AgentRuntimeAttachment[],
   ) => void
-  onReject: (threadId: string) => void
   onDelete: (threadId: string) => void
   onRestore: (threadId: string) => void
   onRefreshRevision: (
@@ -1035,6 +1060,8 @@ function CommentCard({
   const canRefreshLatestRevision = canRefreshRevisionChanges(revision, {
     deleted: isDeleted,
   })
+  const shouldShowBottomRightRefresh =
+    revision?.status === "failed" || revision?.status === "needs_update"
   const canReply = canReplyToCommentThread(thread) && !isAcceptedThread
   const revisionByMessageId = useMemo(() => {
     const revisionsById = new Map(
@@ -1249,14 +1276,22 @@ function CommentCard({
             </IconButton>
           ) : !isAcceptedThread ? (
             <IconButton
-              label="Reject comment"
-              onClick={() => onReject(thread.id)}
+              label="Delete comment"
+              onClick={() => onDelete(thread.id)}
             >
               <X className="h-4 w-4" />
             </IconButton>
           ) : null}
           {revision && !isDeleted && !isAcceptedThread ? (
-            <>
+            shouldShowBottomRightRefresh ? (
+              <IconButton
+                label="Refresh changes"
+                disabled={reviewActionPending}
+                onClick={() => onRefreshRevision(revision, thread)}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </IconButton>
+            ) : (
               <IconButton
                 label={acceptControl?.label ?? "Accept changes"}
                 disabled={(acceptControl?.disabled ?? true) || reviewActionPending}
@@ -1268,7 +1303,7 @@ function CommentCard({
                   <Check className="h-4 w-4" />
                 )}
               </IconButton>
-            </>
+            )
           ) : null}
         </div>
       </div>
@@ -1309,6 +1344,7 @@ export function RippleCommentsPane({
   const [draft, setDraft] = useState("")
   const [draftAttachments, setDraftAttachments] = useState<AgentRuntimeAttachment[]>([])
   const [draftRequestId, setDraftRequestId] = useState(createClientRequestId)
+  const [composerFocusSignal, setComposerFocusSignal] = useState(0)
   const [localSelectedThreadId, setLocalSelectedThreadId] = useState<string | null>(null)
   const selectedThreadId =
     controlledSelectedThreadId === undefined
@@ -1342,8 +1378,12 @@ export function RippleCommentsPane({
     await utils.chats.get.invalidate({ id: revision.conversationId })
     await utils.chats.get.prefetch({ id: revision.conversationId }, { staleTime: 0 })
   }, [persistSelectionForSubChat, utils.chats.get])
+  const threadsQueryInput = useMemo(
+    () => ({ projectId, compositionId, filter }),
+    [compositionId, filter, projectId],
+  )
   const threadsQuery = trpc.revisions.listThreads.useQuery(
-    { projectId, compositionId, filter },
+    threadsQueryInput,
     {
       enabled: Boolean(projectId),
       refetchOnWindowFocus: false,
@@ -1356,14 +1396,55 @@ export function RippleCommentsPane({
     },
   )
   const createThread = trpc.revisions.createThread.useMutation({
-    onSuccess: async (thread) => {
-      await refreshLatestRevisionChat(thread)
+    onMutate: async (variables) => {
+      const previousThreads = utils.revisions.listThreads.getData(threadsQueryInput) ?? []
+      const optimisticThread = buildOptimisticCommentThread(variables)
+
+      await utils.revisions.listThreads.cancel(threadsQueryInput)
       setDraft("")
       setDraftAttachments([])
       setDraftRequestId(createClientRequestId())
+      setComposerFocusSignal((value) => value + 1)
+      if (filter === "active" || filter === "all") {
+        utils.revisions.listThreads.setData(threadsQueryInput, (threads = []) => [
+          optimisticThread,
+          ...threads.filter((thread) =>
+            thread.clientRequestId !== optimisticThread.clientRequestId &&
+            thread.id !== optimisticThread.id
+          ),
+        ])
+      }
+
+      return {
+        optimisticThreadId: optimisticThread.id,
+        previousThreads,
+      }
+    },
+    onSuccess: async (thread, _variables, context) => {
+      await refreshLatestRevisionChat(thread)
+      utils.revisions.listThreads.setData(threadsQueryInput, (threads = []) => {
+        const nextThreads = threads.map((item) =>
+          item.id === context?.optimisticThreadId ||
+          item.clientRequestId === thread.clientRequestId
+            ? thread
+            : item
+        )
+        return nextThreads.some((item) => item.id === thread.id)
+          ? nextThreads
+          : [thread, ...nextThreads]
+      })
       await utils.revisions.listThreads.invalidate()
     },
-    onError: (error) => toast.error("Comment was not sent", { description: error.message }),
+    onError: (error, variables, context) => {
+      utils.revisions.listThreads.setData(
+        threadsQueryInput,
+        context?.previousThreads ?? [],
+      )
+      setDraft(variables.body)
+      setDraftAttachments(variables.attachments ?? [])
+      setDraftRequestId(variables.clientRequestId ?? createClientRequestId())
+      toast.error("Comment was not sent", { description: error.message })
+    },
   })
   const addReply = trpc.revisions.addReply.useMutation({
     onSuccess: async (thread) => {
@@ -1371,17 +1452,6 @@ export function RippleCommentsPane({
       await utils.revisions.listThreads.invalidate()
     },
     onError: (error) => toast.error("Reply was not sent", { description: error.message }),
-  })
-  const rejectThread = trpc.revisions.rejectThread.useMutation({
-    onSuccess: async (_, variables) => {
-      if (selectedThreadId === variables.threadId) {
-        setSelectedThreadId(null)
-        onShowPrimaryPreview()
-      }
-      await utils.revisions.listThreads.invalidate()
-      toast.success("Comment rejected")
-    },
-    onError: (error) => toast.error("Comment was not rejected", { description: error.message }),
   })
   const deleteThread = trpc.revisions.deleteThread.useMutation({
     onSuccess: async (_, variables) => {
@@ -1446,7 +1516,6 @@ export function RippleCommentsPane({
   const isMutating =
     createThread.isPending ||
     addReply.isPending ||
-    rejectThread.isPending ||
     deleteThread.isPending ||
     restoreThread.isPending ||
     refreshProposal.isPending ||
@@ -1625,7 +1694,6 @@ export function RippleCommentsPane({
                       clientRequestId,
                     })
                   }
-                  onReject={(threadId) => rejectThread.mutate({ threadId })}
                   onDelete={(threadId) => deleteThread.mutate({ threadId })}
                   onRestore={(threadId) => restoreThread.mutate({ threadId })}
                   onRefreshRevision={(targetRevision, thread) => {
@@ -1671,6 +1739,7 @@ export function RippleCommentsPane({
           timecode={composerTimecode}
           isSubmitting={isMutating}
           modelSelector={modelSelector}
+          focusSignal={composerFocusSignal}
         />
       </div>
     </div>

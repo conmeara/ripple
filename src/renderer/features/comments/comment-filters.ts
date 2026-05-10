@@ -82,7 +82,6 @@ export function canRefreshRevisionChanges(
     revision &&
       !options.deleted &&
       (
-        revision.status === "proposed" ||
         revision.status === "needs_update" ||
         revision.status === "failed"
       ),

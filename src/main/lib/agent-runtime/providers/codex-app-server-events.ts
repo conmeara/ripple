@@ -1,4 +1,5 @@
-import type { AgentRunEventInput } from "../types"
+import type { AgentRunActivityKind, AgentRunEventInput } from "../types"
+import { buildAgentRunActivityEvent } from "../activity"
 
 export type JsonRpcMessage = {
   id?: number | string
@@ -6,6 +7,30 @@ export type JsonRpcMessage = {
   params?: any
   result?: any
   error?: any
+}
+
+const CODEX_ACTIVITY_SOURCE = "codex_app_server"
+
+function withActivity(
+  event: AgentRunEventInput,
+  options: {
+    kind?: AgentRunActivityKind
+    label?: unknown
+    payload?: Record<string, unknown> | null
+  } = {},
+): AgentRunEventInput[] {
+  return [
+    event,
+    buildAgentRunActivityEvent({
+      eventType: event.type,
+      providerType: event.providerType,
+      providerId: event.providerId,
+      payload: options.payload ?? event.payload ?? {},
+      kind: options.kind,
+      label: options.label,
+      source: CODEX_ACTIVITY_SOURCE,
+    }),
+  ]
 }
 
 export function extractItemText(item: any): string | null {
@@ -197,12 +222,12 @@ export function normalizeCodexAppServerNotification(
   const providerId = item?.id ?? params.itemId ?? params.turnId ?? params.turn?.id ?? null
 
   if (message.method === "turn/started") {
-    return [{
+    return withActivity({
       type: "status",
       providerType: message.method,
       providerId,
       payload: { status: "running" },
-    }]
+    }, { kind: "thinking" })
   }
 
   if (message.method === "sessionConfigured") {
@@ -245,12 +270,12 @@ export function normalizeCodexAppServerNotification(
   }
 
   if (message.method === "item/agentMessage/delta") {
-    return [{
+    return withActivity({
       type: "assistant_text_delta",
       providerType: message.method,
       providerId: params.itemId,
       payload: { delta: String(params.delta ?? "") },
-    }]
+    }, { kind: "writing" })
   }
 
   if (
@@ -258,39 +283,40 @@ export function normalizeCodexAppServerNotification(
     message.method === "item/reasoning/textDelta" ||
     message.method === "item/plan/delta"
   ) {
-    return [{
+    return withActivity({
       type: "reasoning",
       providerType: message.method,
       providerId: params.itemId,
       payload: { delta: String(params.delta ?? "") },
-    }]
+    }, { kind: "thinking" })
   }
 
   if (message.method === "item/started") {
     const toolName = getToolName(item)
     if (!toolName) return []
-    return [{
+    const payload = toolPayload(item)
+    return withActivity({
       type: "tool_start",
       providerType: message.method,
       providerId,
-      payload: toolPayload(item),
-    }]
+      payload,
+    }, { payload })
   }
 
   if (
     message.method === "item/commandExecution/outputDelta" ||
     message.method === "item/fileChange/outputDelta"
   ) {
-    return [{
+    return withActivity({
       type: "tool_update",
       providerType: message.method,
       providerId: params.itemId,
       payload: { delta: String(params.delta ?? "") },
-    }]
+    })
   }
 
   if (message.method === "item/commandExecution/terminalInteraction") {
-    return [{
+    return withActivity({
       type: "tool_update",
       providerType: message.method,
       providerId: params.itemId,
@@ -299,54 +325,55 @@ export function normalizeCodexAppServerNotification(
         stdin: params.stdin,
         processId: params.processId,
       },
-    }]
+    })
   }
 
   if (message.method === "item/mcpToolCall/progress") {
-    return [{
+    return withActivity({
       type: "tool_update",
       providerType: message.method,
       providerId: params.itemId,
       payload: { message: String(params.message ?? "") },
-    }]
+    })
   }
 
   if (message.method === "item/completed") {
     const events: AgentRunEventInput[] = []
     const text = extractItemText(item)
     if (text) {
-      events.push({
+      events.push(...withActivity({
         type: "assistant_message",
         providerType: message.method,
         providerId,
         payload: { text },
-      })
+      }, { kind: "writing" }))
     }
 
     const toolName = getToolName(item)
     if (toolName) {
-      events.push({
+      const payload = toolPayload(item)
+      events.push(...withActivity({
         type: "tool_end",
         providerType: message.method,
         providerId,
-        payload: toolPayload(item),
-      })
+        payload,
+      }, { payload }))
     }
 
     return events
   }
 
   if (message.method === "turn/diff/updated") {
-    return [{
+    return withActivity({
       type: "file_change",
       providerType: message.method,
       providerId: params.turnId,
       payload: { diff: params.diff },
-    }]
+    }, { kind: "editing" })
   }
 
   if (message.method === "thread/compacted") {
-    return [{
+    return withActivity({
       type: "status",
       providerType: message.method,
       providerId: params.turnId,
@@ -354,7 +381,7 @@ export function normalizeCodexAppServerNotification(
         status: "running",
         label: "Compacted context",
       },
-    }]
+    }, { kind: "preparing", label: "Preparing context" })
   }
 
   if (message.method === "warning") {

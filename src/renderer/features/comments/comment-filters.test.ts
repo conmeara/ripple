@@ -83,6 +83,7 @@ describe("comment filter helpers", () => {
   })
 
   test("allows refresh but not rejection when a proposal needs updates or restart", () => {
+    expect(canRefreshRevisionChanges(revision("proposed"))).toBe(false)
     expect(canRefreshRevisionChanges(revision("needs_update"))).toBe(true)
     expect(canRefreshRevisionChanges(revision("failed"))).toBe(true)
     expect(canRefreshRevisionChanges(revision("needs_update"), { deleted: true })).toBe(false)

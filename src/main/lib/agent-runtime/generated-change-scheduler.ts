@@ -17,6 +17,7 @@ import { compactOneLineSummary } from "../revisions/comment-summary"
 import { executeAgentRun, startAgentRun } from "./service"
 import { inferAgentProviderFromModel } from "./provider-selection"
 import { buildGeneratedChangeRuntimeContext } from "./generated-change-runtime-context"
+import { drainGeneratedChangeQueueForProject } from "./generated-change-queue-drain"
 import type { AgentProviderId, AgentRunStatus, AgentRuntimeAttachment } from "./types"
 
 export interface GeneratedChangeSchedulerResult {
@@ -71,16 +72,24 @@ function takeNextProjectId(): string | null | undefined {
   return next.value
 }
 
+async function drainProjectGeneratedChangeQueue(
+  input: { projectId?: string | null } = {},
+): Promise<void> {
+  await processQueuedRevisionUpdates(input)
+  await drainGeneratedChangeQueueForProject(input, {
+    processor: (processorInput) =>
+      processGeneratedChangeQueue(processorInput, { processUpdates: false }),
+  })
+}
+
 async function drainGeneratedChangeQueue(): Promise<void> {
+  const drains: Promise<void>[] = []
   while (pendingProjectIds.size > 0) {
     const projectId = takeNextProjectId()
-    if (projectId === undefined) return
-
-    for (;;) {
-      const result = await processGeneratedChangeQueue({ projectId })
-      if (!result.claimed) break
-    }
+    if (projectId === undefined) break
+    drains.push(drainProjectGeneratedChangeQueue({ projectId }))
   }
+  await Promise.all(drains)
 }
 
 function ensureDrainScheduled(): void {
@@ -211,8 +220,12 @@ function resolveRunIntent(job: RevisionQueueRun): {
 
 export async function processGeneratedChangeQueue(input: {
   projectId?: string | null
+} = {}, options: {
+  processUpdates?: boolean
 } = {}): Promise<GeneratedChangeSchedulerResult> {
-  const queue = await claimNextRevisionRun(input)
+  const queue = await claimNextRevisionRun(input, {
+    processUpdates: options.processUpdates,
+  })
   if (!queue.job) {
     return {
       updated: queue.updated,
@@ -311,7 +324,7 @@ export async function nudgeGeneratedChangeQueue(input: {
   projectId?: string | null
 } = {}): Promise<GeneratedChangeSchedulerResult> {
   const updated = await processQueuedRevisionUpdates(input)
-  const result = await processGeneratedChangeQueue(input)
+  const result = await processGeneratedChangeQueue(input, { processUpdates: false })
   return {
     ...result,
     updated: updated + result.updated,

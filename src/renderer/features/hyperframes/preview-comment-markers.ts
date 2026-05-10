@@ -54,6 +54,11 @@ const PREVIEWABLE_REVISION_STATUSES = new Set<RippleRevisionStatus>([
   "accepted",
 ])
 
+function isAcceptedCommentThread(thread: RippleCommentThreadView): boolean {
+  const revision = latestPreviewCommentRevision(thread)
+  return thread.status === "resolved" || revision?.status === "accepted"
+}
+
 function clampPercent(value: number): number {
   if (!Number.isFinite(value)) return 0
   return Math.min(100, Math.max(0, value))
@@ -109,7 +114,11 @@ export function buildPreviewCommentMarkers(
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return []
 
   return threads
-    .filter((thread) => !thread.deletedAt && Number.isFinite(thread.startTime))
+    .filter((thread) =>
+      !thread.deletedAt &&
+      !isAcceptedCommentThread(thread) &&
+      Number.isFinite(thread.startTime)
+    )
     .map((thread) => {
       const time = commentAnchorPreviewTimeSeconds(thread)
       const revision = latestPreviewCommentRevision(thread)

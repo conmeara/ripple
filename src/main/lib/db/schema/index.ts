@@ -423,6 +423,7 @@ export const agentRunEvents = sqliteTable("agent_run_events", {
   type: text("type")
     .$type<
       | "status"
+      | "activity"
       | "assistant_text_delta"
       | "assistant_message"
       | "reasoning"

@@ -170,6 +170,40 @@ describe("preview comment markers", () => {
     ], 0)).toEqual([])
   })
 
+  test("does not render accepted comments on the preview timeline", () => {
+    const acceptedRevision = {
+      id: "revision-1",
+      threadId: "thread-1",
+      projectId: "project-1",
+      compositionId: "composition-1",
+      chatId: null,
+      subChatId: null,
+      status: "accepted" as const,
+      previewContextKey: null,
+      diffSummary: null,
+      errorMessage: null,
+      createdAt: null,
+      updatedAt: null,
+      resolvedAt: null,
+    }
+
+    expect(buildPreviewCommentMarkers([
+      thread({
+        id: "accepted-revision",
+        revisions: [acceptedRevision],
+      }),
+      thread({
+        id: "resolved-thread",
+        status: "resolved",
+        revisions: [{ ...acceptedRevision, id: "revision-2", status: "proposed" }],
+      }),
+      thread({
+        id: "still-open",
+        revisions: [{ ...acceptedRevision, id: "revision-3", status: "proposed" }],
+      }),
+    ], 10).map((marker) => marker.id)).toEqual(["still-open"])
+  })
+
   test("detects comments whose marker color should refresh while work runs", () => {
     expect(hasActivePreviewCommentMarkerWork(thread())).toBe(false)
     expect(hasActivePreviewCommentMarkerWork(thread({

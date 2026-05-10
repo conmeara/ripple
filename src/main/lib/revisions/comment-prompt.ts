@@ -137,6 +137,7 @@ export function buildRevisionPrompt(input: {
       "If it is only a question, QA note, acknowledgement, or observation, do not edit files; answer briefly in product language and say no revision was needed.",
       "When a revision is requested, edit only this Ripple project, preserve composition data attributes and registered animation timelines, and keep the change focused on the user's comment.",
       "Use `ripple snapshot --at current --json` when you need the current frame visually, or `ripple frame-sheet --range <start>..<end> --json` when you need to inspect motion across a comment range.",
+      "Keep the final user-facing comment reply to one line.",
       "Do not mention internal paths, worktrees, sandboxing, permissions, local preview ports, endpoints, backends, handoffs, fallbacks, providers, or tool plumbing in the user-facing reply unless the user explicitly asks for debugging details.",
     ].join(" "),
   ].filter((line): line is string => line !== null)

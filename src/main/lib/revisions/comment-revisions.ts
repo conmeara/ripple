@@ -20,6 +20,7 @@ import {
   type AgentRuntimeAttachment,
 } from "../../../shared/agent-runtime-attachments"
 import {
+  agentRunEvents,
   commentMessages,
   commentThreads,
   conversationMessages,
@@ -28,7 +29,6 @@ import {
   getDatabase,
   projects,
   revisions,
-  workspaces,
   type Composition,
   type CommentThread,
   type Project,
@@ -65,10 +65,13 @@ import { captureCommentVisualForAnchor } from "./comment-visuals"
 import { shouldCaptureCommentVisualContext } from "./comment-visual-policy"
 import { markStaleProjectRevisionsUpdating } from "./revision-staleness"
 import { canReuseRevisionAsFollowUpBase } from "./revision-follow-up-policy"
+import { extractRevisionRunActivityLine } from "./revision-activity"
 
 type Db = ReturnType<typeof getDatabase>
 
 const RUNNING_REVISION_STATUSES = ["queued", "preparing", "running", "updating"] as const
+const LIVE_AGENT_ACTIVITY_STATUSES = new Set(["queued", "preparing", "running"])
+export const MAIN_CONFLICT_RESOLUTION_PROMPT = "Pull and Resolve from Main"
 
 export interface CreateCommentThreadInput {
   projectId: string
@@ -148,6 +151,29 @@ function serializeCommentMessageMetadata(
       size: attachment.size ?? null,
     })),
   })
+}
+
+function shouldUseE2EFakeAgent(): boolean {
+  return process.env.RIPPLE_E2E === "1" && !process.env.RIPPLE_E2E_LIVE_AGENT_HOME
+}
+
+function selectRevisionAgentProvider(input: {
+  agentProvider?: AgentProviderId
+  model?: string | null
+  fallbackProvider?: AgentProviderId | null
+}): AgentProviderId {
+  if (shouldUseE2EFakeAgent()) return "fake"
+  return input.agentProvider ??
+    input.fallbackProvider ??
+    inferAgentProviderFromModel(input.model)
+}
+
+function selectRevisionAgentModel(input: {
+  model?: string | null
+  fallbackModel?: string | null
+}): string | null {
+  if (shouldUseE2EFakeAgent()) return "fake-agent"
+  return input.model ?? input.fallbackModel ?? null
 }
 
 function getProject(db: Db, projectId: string): Project {
@@ -232,6 +258,9 @@ function getRevisionDiffSummaryForView(
   db: ReturnType<typeof getDatabase>,
   revision: Revision,
 ): string | null {
+  const liveActivity = getRevisionRunActivitySummaryForView(db, revision)
+  if (liveActivity) return liveActivity
+
   const summary = parseStoredDiffSummary(revision.diffSummary)
   if (!summary || !revision.conversationId) return revision.diffSummary
   if (summary.summary?.trim()) return revision.diffSummary
@@ -257,6 +286,33 @@ function getRevisionDiffSummaryForView(
   )
   if (!assistantSummary) return revision.diffSummary
   return serializeDiffSummary({ ...summary, summary: assistantSummary })
+}
+
+function getRevisionRunActivitySummaryForView(
+  db: ReturnType<typeof getDatabase>,
+  revision: Revision,
+): string | null {
+  if (!revision.agentRunId || !LIVE_AGENT_ACTIVITY_STATUSES.has(revision.status)) {
+    return null
+  }
+
+  const activity = extractRevisionRunActivityLine(
+    db
+      .select()
+      .from(agentRunEvents)
+      .where(eq(agentRunEvents.agentRunId, revision.agentRunId))
+      .orderBy(asc(agentRunEvents.sequence))
+      .all(),
+  )
+  if (!activity) return null
+
+  const summary = parseStoredDiffSummary(revision.diffSummary) ?? {
+    fileCount: 0,
+    additions: 0,
+    deletions: 0,
+    files: [],
+  }
+  return serializeDiffSummary({ ...summary, summary: activity })
 }
 
 function attachRevisionToCommentMessage(input: {
@@ -363,6 +419,154 @@ function appendCommentUserConversationMessage(input: {
       clientRequestId: input.clientRequestId ?? null,
     },
   })
+}
+
+function captureCommentVisualContextInBackground(input: {
+  project: Project
+  composition: Composition | null
+  anchor: RippleCommentAnchorInput
+  threadId: string
+  sourceRevisionId?: string | null
+}): void {
+  void (async () => {
+    try {
+      const db = getDatabase()
+      const visual = await captureCommentVisualForAnchor({
+        db,
+        project: input.project,
+        composition: input.composition,
+        anchor: input.anchor,
+        threadId: input.threadId,
+        sourceRevisionId: input.sourceRevisionId,
+      })
+      if (!visual?.relativePath) return
+
+      db.update(commentThreads)
+        .set({
+          screenshotPath: visual.relativePath,
+          updatedAt: dateNow(),
+        })
+        .where(and(
+          eq(commentThreads.id, input.threadId),
+          isNull(commentThreads.screenshotPath),
+        ))
+        .run()
+    } catch (error) {
+      console.warn("[Ripple] Could not capture comment visual context:", error)
+    }
+  })()
+}
+
+function createRevisionForThreadInBackground(input: Parameters<typeof createRevisionForThread>[0]) {
+  void createRevisionForThread(input)
+    .then((revision) =>
+      import("../agent-runtime/generated-change-scheduler")
+        .then(({ scheduleGeneratedChangeQueue }) => {
+          scheduleGeneratedChangeQueue({ projectId: revision.projectId })
+        }),
+    )
+    .catch((error) => {
+      console.warn("[Ripple] Could not start comment revision:", error)
+    })
+}
+
+async function prepareMissingRevisionWorkspaceForRecovery(input: {
+  db: Db
+  revision: Revision
+  project: Project
+}): Promise<Revision> {
+  if (!input.revision.conversationId) {
+    throw new Error("The generated change chat is not available.")
+  }
+
+  const recoveryPrompt = `${input.revision.prompt}\n\nrecovery: rebuild the missing generated-change workspace before accepting.`
+  const recoveryMessage =
+    "Ripple is recovering this generated change before it can be accepted."
+  const preparingAt = dateNow()
+  input.db.update(revisions)
+    .set({
+      status: "preparing",
+      errorMessage: recoveryMessage,
+      prompt: recoveryPrompt,
+      updatedAt: preparingAt,
+    })
+    .where(eq(revisions.id, input.revision.id))
+    .run()
+
+  try {
+    const projectPath = resolveRevisionProjectPath(input.project)
+    const base = await ensureRippleProjectGitRepository(projectPath)
+    const branchType = await hasOriginRemote(base.projectPath) ? undefined : "local"
+    const result = await createWorktreeForChat(
+      base.projectPath,
+      sanitizeProjectName(input.project.name),
+      input.revision.id,
+      undefined,
+      branchType,
+    )
+    const contextPath = result.worktreePath ? resolve(result.worktreePath) : null
+    if (
+      !result.success ||
+      !contextPath ||
+      contextPath === base.projectPath ||
+      isPathInsideDirectory(base.projectPath, contextPath)
+    ) {
+      throw new Error(
+        result.error ||
+          "Ripple could not prepare a temporary workspace for this generated change.",
+      )
+    }
+
+    return input.db.transaction(() => {
+      const now = dateNow()
+      const recoveredRevision = input.db.update(revisions)
+        .set({
+          contextPath,
+          branch: result.branch ?? null,
+          baseProjectCommit: base.baseCommit,
+          status: "queued",
+          errorMessage: recoveryMessage,
+          prompt: recoveryPrompt,
+          previewContextKey:
+            input.revision.previewContextKey ??
+            getRippleRevisionPreviewProjectId(input.revision.id),
+          updatedAt: now,
+          resolvedAt: null,
+        })
+        .where(eq(revisions.id, input.revision.id))
+        .returning()
+        .get()
+      input.db.update(conversations)
+        .set({
+          revisionId: recoveredRevision.id,
+          worktreePath: contextPath,
+          branch: result.branch ?? null,
+          baseBranch: result.baseBranch ?? null,
+          updatedAt: now,
+        })
+        .where(eq(conversations.id, input.revision.conversationId!))
+        .run()
+      input.db.update(commentThreads)
+        .set({ latestRevisionId: recoveredRevision.id, updatedAt: now })
+        .where(eq(commentThreads.id, input.revision.threadId))
+        .run()
+      return recoveredRevision
+    })
+  } catch (error) {
+    const errorMessage = compactOneLineSummary(
+      error instanceof Error ? error.message : String(error),
+    ) || "Ripple could not recover this generated change."
+    return input.db.update(revisions)
+      .set({
+        status: "failed",
+        errorMessage,
+        updatedAt: dateNow(),
+        resolvedAt: dateNow(),
+      })
+      .where(eq(revisions.id, input.revision.id))
+      .returning()
+      .get()
+  }
 }
 
 function updateCommentConversationStatus(input: {
@@ -562,25 +766,6 @@ export async function createCommentThread(
   const now = dateNow()
   const threadId = createId()
   const messageId = createId()
-  let automaticVisualPath: string | null = null
-  if (shouldCaptureCommentVisualContext({
-    captureVisualContext: input.captureVisualContext,
-    screenshotPath: anchor.screenshotPath,
-  })) {
-    try {
-      const visual = await captureCommentVisualForAnchor({
-        db,
-        project,
-        composition,
-        anchor: input.anchor,
-        threadId,
-        sourceRevisionId: input.sourceRevisionId,
-      })
-      automaticVisualPath = visual?.relativePath ?? null
-    } catch (error) {
-      console.warn("[Ripple] Could not capture comment visual context:", error)
-    }
-  }
   const thread = db.transaction(() => {
     const createdThread = db
       .insert(commentThreads)
@@ -596,7 +781,7 @@ export async function createCommentThread(
         elementSelector: anchor.elementSelector,
         clipKey: anchor.clipKey,
         sourceFile: anchor.sourceFile,
-        screenshotPath: anchor.screenshotPath ?? automaticVisualPath,
+        screenshotPath: anchor.screenshotPath,
         clientRequestId,
         status: "open",
         createdAt: now,
@@ -628,8 +813,21 @@ export async function createCommentThread(
     clientRequestId,
   })
 
+  if (shouldCaptureCommentVisualContext({
+    captureVisualContext: input.captureVisualContext,
+    screenshotPath: anchor.screenshotPath,
+  })) {
+    captureCommentVisualContextInBackground({
+      project,
+      composition,
+      anchor: input.anchor,
+      threadId: thread.id,
+      sourceRevisionId: input.sourceRevisionId,
+    })
+  }
+
   if (input.createRevision ?? true) {
-    await createRevisionForThread({
+    createRevisionForThreadInBackground({
       threadId: thread.id,
       body,
       project,
@@ -791,11 +989,15 @@ export async function createRevisionForThread(input: {
             conversationId: conversation.id,
             chatId: null,
             subChatId: null,
-            agentProvider:
-              input.agentProvider ??
-              reusableBaseRevision.agentProvider ??
-              inferAgentProviderFromModel(input.model),
-            agentModel: input.model ?? reusableBaseRevision.agentModel ?? null,
+            agentProvider: selectRevisionAgentProvider({
+              agentProvider: input.agentProvider,
+              model: input.model,
+              fallbackProvider: reusableBaseRevision.agentProvider,
+            }),
+            agentModel: selectRevisionAgentModel({
+              model: input.model,
+              fallbackModel: reusableBaseRevision.agentModel,
+            }),
             baseRevisionId: reusableBaseRevision.id,
             baseProjectCommit: reusableBaseRevision.baseProjectCommit,
             baseProjectHash: reusableBaseRevision.baseProjectHash,
@@ -845,11 +1047,15 @@ export async function createRevisionForThread(input: {
           conversationId: conversation.id,
           chatId: null,
           subChatId: null,
-          agentProvider:
-            input.agentProvider ??
-            reusableBaseRevision.agentProvider ??
-            inferAgentProviderFromModel(input.model),
-          agentModel: input.model ?? reusableBaseRevision.agentModel ?? null,
+          agentProvider: selectRevisionAgentProvider({
+            agentProvider: input.agentProvider,
+            model: input.model,
+            fallbackProvider: reusableBaseRevision.agentProvider,
+          }),
+          agentModel: selectRevisionAgentModel({
+            model: input.model,
+            fallbackModel: reusableBaseRevision.agentModel,
+          }),
           baseRevisionId: reusableBaseRevision.id,
           baseProjectCommit: reusableBaseRevision.baseProjectCommit,
           baseProjectHash: reusableBaseRevision.baseProjectHash,
@@ -914,8 +1120,11 @@ export async function createRevisionForThread(input: {
         conversationId: conversation.id,
         chatId: null,
         subChatId: null,
-        agentProvider: input.agentProvider ?? inferAgentProviderFromModel(input.model),
-        agentModel: input.model ?? null,
+        agentProvider: selectRevisionAgentProvider({
+          agentProvider: input.agentProvider,
+          model: input.model,
+        }),
+        agentModel: selectRevisionAgentModel({ model: input.model }),
         baseRevisionId: input.baseRevisionId ?? null,
         prompt,
         status: "preparing",
@@ -1163,6 +1372,7 @@ export async function rejectCommentThread(threadId: string): Promise<RippleComme
 
 export async function deleteCommentThread(threadId: string): Promise<void> {
   const db = getDatabase()
+  const now = dateNow()
   const thread = db
     .select()
     .from(commentThreads)
@@ -1176,49 +1386,18 @@ export async function deleteCommentThread(threadId: string): Promise<void> {
     .where(eq(revisions.threadId, threadId))
     .all()
   throwIfAcceptedThreadHistory(thread, threadRevisions)
-  throwIfThreadHasRunningRevision(threadRevisions)
-
-  const cleanupErrors = await cleanupRevisionWorkspaces({
-    db,
-    revisions: threadRevisions,
-    includeAccepted: true,
-  })
-  const cleanupError = [...cleanupErrors.values()].find(Boolean)
-  if (cleanupError) {
-    throw new Error(`Comment was not deleted because cleanup failed: ${cleanupError}`)
-  }
-
-  const revisionIds = threadRevisions.map((revision) => revision.id)
-  const conversationIds = new Set<string>()
-  if (thread.conversationId) conversationIds.add(thread.conversationId)
-  for (const revision of threadRevisions) {
-    if (revision.conversationId) conversationIds.add(revision.conversationId)
-  }
 
   db.transaction(() => {
-    if (revisionIds.length > 0) {
-      db.delete(workspaces)
-        .where(and(
-          eq(workspaces.kind, "generated_change"),
-          eq(workspaces.targetType, "revision"),
-          inArray(workspaces.targetId, revisionIds),
-        ))
-        .run()
-      db.delete(conversations)
-        .where(inArray(conversations.revisionId, revisionIds))
-        .run()
-    }
-    db.delete(conversations)
-      .where(eq(conversations.commentThreadId, threadId))
-      .run()
-    if (conversationIds.size > 0) {
-      db.delete(conversations)
-        .where(inArray(conversations.id, [...conversationIds]))
-        .run()
-    }
-    db.delete(commentThreads)
+    db.update(commentThreads)
+      .set({ deletedAt: now, updatedAt: now })
       .where(eq(commentThreads.id, threadId))
       .run()
+    updateCommentConversationStatus({
+      db,
+      threadId,
+      status: "deleted",
+      deletedAt: now,
+    })
   })
 }
 
@@ -1294,28 +1473,19 @@ export async function updateStaleRevisionProposal(id: string): Promise<RippleCom
     const now = dateNow()
     db.update(revisions)
       .set({
-        status: "queued",
+        status: "updating",
         errorMessage: null,
-        prompt: "Pull and Resolve from Main",
+        prompt: MAIN_CONFLICT_RESOLUTION_PROMPT,
         updatedAt: now,
       })
       .where(eq(revisions.id, id))
       .run()
-    if (revision.conversationId) {
-      appendConversationMessage({
-        db,
-        conversationId: revision.conversationId,
-        role: "system",
-        body: "Refreshing these changes against Main.",
-        metadata: {
-          source: "ripple-revision-refresh",
-          revisionId: revision.id,
-        },
-      })
-    }
     return loadThreadView(revision.threadId)
   }
   if (revision.status !== "updating") {
+    return loadThreadView(revision.threadId)
+  }
+  if (revision.prompt === MAIN_CONFLICT_RESOLUTION_PROMPT) {
     return loadThreadView(revision.threadId)
   }
   if (!revision.contextPath) {
@@ -1355,11 +1525,11 @@ export async function updateStaleRevisionProposal(id: string): Promise<RippleCom
     const now = dateNow()
     db.update(revisions)
       .set({
-        status: "needs_update",
+        status: "updating",
         baseProjectCommit: refresh.currentCommit,
         diffSummary: serializeDiffSummary(summary),
-        errorMessage: compactOneLineSummary(refresh.error) ||
-          "These changes need to be refreshed against Main.",
+        errorMessage: null,
+        prompt: MAIN_CONFLICT_RESOLUTION_PROMPT,
         updatedAt: now,
       })
       .where(eq(revisions.id, id))
@@ -1404,7 +1574,10 @@ export async function markRevisionRunning(id: string): Promise<{
       errorMessage: null,
       updatedAt: dateNow(),
     })
-    .where(and(eq(revisions.id, id), eq(revisions.status, "queued")))
+    .where(and(
+      eq(revisions.id, id),
+      inArray(revisions.status, ["queued", "updating"]),
+    ))
     .returning()
     .get()
 
@@ -1544,7 +1717,12 @@ export async function acceptRevision(id: string): Promise<RippleCommentThreadVie
   const db = getDatabase()
   const { revision, project } = requireRevision(id)
   if (!revision.contextPath) {
-    throw new Error("The temporary workspace is not available.")
+    const recoveredRevision = await prepareMissingRevisionWorkspaceForRecovery({
+      db,
+      revision,
+      project,
+    })
+    return loadThreadView(recoveredRevision.threadId)
   }
   if (revision.status !== "proposed") {
     throw new Error("Changes are not ready to accept yet.")
