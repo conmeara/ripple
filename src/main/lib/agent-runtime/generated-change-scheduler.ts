@@ -127,8 +127,19 @@ function parseMessages(value: string | null | undefined): any[] {
   }
 }
 
+function latestUserMessage(messages: any[]): any | undefined {
+  return [...messages].reverse().find((item) => item?.role === "user")
+}
+
+function latestModelFromMessages(messages: any[]): string | null {
+  return [...messages]
+    .reverse()
+    .map((message) => message?.metadata?.model)
+    .find((value): value is string => typeof value === "string") ?? null
+}
+
 function extractPrompt(messages: any[]): string {
-  const message = [...messages].reverse().find((item) => item?.role === "user")
+  const message = latestUserMessage(messages)
   const parts = Array.isArray(message?.parts) ? message.parts : []
   const text = parts
     .map((part: any) =>
@@ -141,7 +152,7 @@ function extractPrompt(messages: any[]): string {
 }
 
 function extractAttachments(messages: any[]): AgentRuntimeAttachment[] {
-  const message = [...messages].reverse().find((item) => item?.role === "user")
+  const message = latestUserMessage(messages)
   const parts = Array.isArray(message?.parts) ? message.parts : []
   const attachments: AgentRuntimeAttachment[] = []
 
@@ -168,11 +179,7 @@ function extractAttachments(messages: any[]): AgentRuntimeAttachment[] {
 }
 
 function inferProviderFromMessages(messages: any[]): AgentProviderId {
-  const model = [...messages]
-    .reverse()
-    .map((message) => message?.metadata?.model)
-    .find((value): value is string => typeof value === "string")
-  return inferAgentProviderFromModel(model)
+  return inferAgentProviderFromModel(latestModelFromMessages(messages))
 }
 
 function loadRevision(revisionId: string): Revision {
@@ -202,12 +209,7 @@ function resolveRunIntent(job: RevisionQueueRun): {
 } {
   const revision = loadRevision(job.revisionId)
   const messages = parseMessages(job.messages)
-  const model = revision.agentModel ??
-    [...messages]
-      .reverse()
-      .map((message) => message?.metadata?.model)
-      .find((value): value is string => typeof value === "string") ??
-    null
+  const model = revision.agentModel ?? latestModelFromMessages(messages)
 
   return {
     prompt: job.prompt || extractPrompt(messages),

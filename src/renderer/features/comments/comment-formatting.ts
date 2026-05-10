@@ -80,24 +80,26 @@ export function formatRevisionResultLine(
   return null
 }
 
-const RESOLVING_REVISION_STATUSES = new Set<RippleRevisionStatus>([
+const REVISION_STATUSES_WITH_SUMMARY_LINES = new Set<RippleRevisionStatus>([
   "queued",
   "preparing",
   "running",
   "updating",
+  "needs_update",
+  "proposed",
+  "accepted",
+  "superseded",
 ])
 
 export function isWorkingRevisionStatus(status: RippleRevisionStatus): boolean {
   return status === "queued" || status === "preparing" || status === "running"
 }
 
-function isRevisionResolvingAgainstLatestForLine(
+function canShowRevisionSummaryLine(
   revision: RippleRevisionView,
+  summary: RippleRevisionDiffSummary | null,
 ): boolean {
-  return revision.status === "updating" || (
-    Boolean(revision.diffSummary) &&
-    RESOLVING_REVISION_STATUSES.has(revision.status)
-  )
+  return Boolean(summary) && REVISION_STATUSES_WITH_SUMMARY_LINES.has(revision.status)
 }
 
 export function revisionStatusLabel(status: RippleRevisionStatus): string {
@@ -130,15 +132,7 @@ export function revisionStatusLabel(status: RippleRevisionStatus): string {
 export function formatRevisionStatusLine(revision: RippleRevisionView): string {
   const summary = parseRevisionDiffSummary(revision.diffSummary)
   const label = revisionStatusLabel(revision.status)
-  const canShowSummaryLine = Boolean(summary) && (
-    revision.status === "proposed" ||
-    revision.status === "needs_update" ||
-    revision.status === "updating" ||
-    revision.status === "accepted" ||
-    revision.status === "superseded" ||
-    isRevisionResolvingAgainstLatestForLine(revision)
-  )
-  const resultLine = canShowSummaryLine
+  const resultLine = canShowRevisionSummaryLine(revision, summary)
     ? formatRevisionResultLine(summary, { maxLength: null }) ?? label
     : label
 

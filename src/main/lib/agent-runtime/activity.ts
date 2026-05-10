@@ -30,6 +30,80 @@ const DEFAULT_ACTIVITY_LABELS: Record<AgentRunActivityKind, string> = {
   waiting: "Waiting for approval",
 }
 
+const ACTIVITY_CLASSIFICATION_RULES: Array<{
+  kind: AgentRunActivityKind
+  signals: readonly string[]
+}> = [
+  {
+    kind: "waiting",
+    signals: ["approval", "askuserquestion", "elicitation"],
+  },
+  {
+    kind: "thinking",
+    signals: ["todowrite", "todo", "plan"],
+  },
+  {
+    kind: "editing",
+    signals: [
+      "filechange",
+      "file_change",
+      "files_persisted",
+      "diff/updated",
+      " edit",
+      "multiedit",
+      "write",
+    ],
+  },
+  {
+    kind: "checking",
+    signals: ["commandexecution", "bash", "shell", "terminal"],
+  },
+  {
+    kind: "searching",
+    signals: [
+      "websearch",
+      "webfetch",
+      "fetch",
+      "browser",
+      "search",
+      "lookup",
+      "look up",
+      "find",
+    ],
+  },
+  {
+    kind: "reviewing",
+    signals: ["imageview", "viewimage", "screenshot", "frame", "visual"],
+  },
+  {
+    kind: "preparing",
+    signals: ["compact", "prepar"],
+  },
+  {
+    kind: "reading",
+    signals: [
+      "skill",
+      "instruction",
+      "docs",
+      "read",
+      "grep",
+      "glob",
+      " ls",
+      "list",
+      "open",
+      "context",
+    ],
+  },
+  {
+    kind: "writing",
+    signals: ["assistant", "text_delta", "message"],
+  },
+  {
+    kind: "thinking",
+    signals: ["reasoning", "thinking", "plan"],
+  },
+]
+
 function compactString(value: unknown): string | null {
   if (typeof value !== "string") return null
   const compact = value.replace(/\s+/g, " ").trim()
@@ -83,6 +157,10 @@ function textFromSignal(input: {
   return parts.join(" ").toLowerCase()
 }
 
+function includesAny(text: string, signals: readonly string[]): boolean {
+  return signals.some((signal) => text.includes(signal))
+}
+
 export function normalizeAgentRunActivityPayload(
   payload: Record<string, unknown> | null | undefined,
 ): AgentRunActivityPayload | null {
@@ -106,96 +184,9 @@ export function classifyAgentRunActivity(input: {
 }): AgentRunActivityKind {
   if (input.kind) return input.kind
   const text = textFromSignal(input)
-
-  if (
-    text.includes("approval") ||
-    text.includes("askuserquestion") ||
-    text.includes("elicitation")
-  ) {
-    return "waiting"
-  }
-  if (
-    text.includes("todowrite") ||
-    text.includes("todo") ||
-    text.includes("plan")
-  ) {
-    return "thinking"
-  }
-  if (
-    text.includes("filechange") ||
-    text.includes("file_change") ||
-    text.includes("files_persisted") ||
-    text.includes("diff/updated") ||
-    text.includes(" edit") ||
-    text.includes("multiedit") ||
-    text.includes("write")
-  ) {
-    return "editing"
-  }
-  if (
-    text.includes("commandexecution") ||
-    text.includes("bash") ||
-    text.includes("shell") ||
-    text.includes("terminal")
-  ) {
-    return "checking"
-  }
-  if (
-    text.includes("websearch") ||
-    text.includes("webfetch") ||
-    text.includes("fetch") ||
-    text.includes("browser") ||
-    text.includes("search") ||
-    text.includes("lookup") ||
-    text.includes("look up") ||
-    text.includes("find")
-  ) {
-    return "searching"
-  }
-  if (
-    text.includes("imageview") ||
-    text.includes("viewimage") ||
-    text.includes("screenshot") ||
-    text.includes("frame") ||
-    text.includes("visual")
-  ) {
-    return "reviewing"
-  }
-  if (
-    text.includes("compact") ||
-    text.includes("prepar")
-  ) {
-    return "preparing"
-  }
-  if (
-    text.includes("skill") ||
-    text.includes("instruction") ||
-    text.includes("docs") ||
-    text.includes("read") ||
-    text.includes("grep") ||
-    text.includes("glob") ||
-    text.includes(" ls") ||
-    text.includes("list") ||
-    text.includes("open") ||
-    text.includes("context")
-  ) {
-    return "reading"
-  }
-  if (
-    text.includes("assistant") ||
-    text.includes("text_delta") ||
-    text.includes("message")
-  ) {
-    return "writing"
-  }
-  if (
-    text.includes("reasoning") ||
-    text.includes("thinking") ||
-    text.includes("plan")
-  ) {
-    return "thinking"
-  }
-  return "tooling"
+  return ACTIVITY_CLASSIFICATION_RULES.find((rule) =>
+    includesAny(text, rule.signals)
+  )?.kind ?? "tooling"
 }
 
 export function buildAgentRunActivityEvent(input: {

@@ -10,6 +10,15 @@ export type JsonRpcMessage = {
 }
 
 const CODEX_ACTIVITY_SOURCE = "codex_app_server"
+const REASONING_DELTA_METHODS = new Set([
+  "item/reasoning/summaryTextDelta",
+  "item/reasoning/textDelta",
+  "item/plan/delta",
+])
+const TOOL_OUTPUT_DELTA_METHODS = new Set([
+  "item/commandExecution/outputDelta",
+  "item/fileChange/outputDelta",
+])
 
 function withActivity(
   event: AgentRunEventInput,
@@ -278,11 +287,7 @@ export function normalizeCodexAppServerNotification(
     }, { kind: "writing" })
   }
 
-  if (
-    message.method === "item/reasoning/summaryTextDelta" ||
-    message.method === "item/reasoning/textDelta" ||
-    message.method === "item/plan/delta"
-  ) {
+  if (REASONING_DELTA_METHODS.has(message.method ?? "")) {
     return withActivity({
       type: "reasoning",
       providerType: message.method,
@@ -303,10 +308,7 @@ export function normalizeCodexAppServerNotification(
     }, { payload })
   }
 
-  if (
-    message.method === "item/commandExecution/outputDelta" ||
-    message.method === "item/fileChange/outputDelta"
-  ) {
+  if (TOOL_OUTPUT_DELTA_METHODS.has(message.method ?? "")) {
     return withActivity({
       type: "tool_update",
       providerType: message.method,

@@ -475,32 +475,34 @@ async function prepareMissingRevisionWorkspaceForRecovery(input: {
   revision: Revision
   project: Project
 }): Promise<Revision> {
-  if (!input.revision.conversationId) {
+  const { db, revision, project } = input
+
+  if (!revision.conversationId) {
     throw new Error("The generated change chat is not available.")
   }
 
-  const recoveryPrompt = `${input.revision.prompt}\n\nrecovery: rebuild the missing generated-change workspace before accepting.`
+  const recoveryPrompt = `${revision.prompt}\n\nrecovery: rebuild the missing generated-change workspace before accepting.`
   const recoveryMessage =
     "Ripple is recovering this generated change before it can be accepted."
   const preparingAt = dateNow()
-  input.db.update(revisions)
+  db.update(revisions)
     .set({
       status: "preparing",
       errorMessage: recoveryMessage,
       prompt: recoveryPrompt,
       updatedAt: preparingAt,
     })
-    .where(eq(revisions.id, input.revision.id))
+    .where(eq(revisions.id, revision.id))
     .run()
 
   try {
-    const projectPath = resolveRevisionProjectPath(input.project)
+    const projectPath = resolveRevisionProjectPath(project)
     const base = await ensureRippleProjectGitRepository(projectPath)
     const branchType = await hasOriginRemote(base.projectPath) ? undefined : "local"
     const result = await createWorktreeForChat(
       base.projectPath,
-      sanitizeProjectName(input.project.name),
-      input.revision.id,
+      sanitizeProjectName(project.name),
+      revision.id,
       undefined,
       branchType,
     )
@@ -517,9 +519,9 @@ async function prepareMissingRevisionWorkspaceForRecovery(input: {
       )
     }
 
-    return input.db.transaction(() => {
+    return db.transaction(() => {
       const now = dateNow()
-      const recoveredRevision = input.db.update(revisions)
+      const recoveredRevision = db.update(revisions)
         .set({
           contextPath,
           branch: result.branch ?? null,
@@ -528,15 +530,15 @@ async function prepareMissingRevisionWorkspaceForRecovery(input: {
           errorMessage: recoveryMessage,
           prompt: recoveryPrompt,
           previewContextKey:
-            input.revision.previewContextKey ??
-            getRippleRevisionPreviewProjectId(input.revision.id),
+            revision.previewContextKey ??
+            getRippleRevisionPreviewProjectId(revision.id),
           updatedAt: now,
           resolvedAt: null,
         })
-        .where(eq(revisions.id, input.revision.id))
+        .where(eq(revisions.id, revision.id))
         .returning()
         .get()
-      input.db.update(conversations)
+      db.update(conversations)
         .set({
           revisionId: recoveredRevision.id,
           worktreePath: contextPath,
@@ -544,11 +546,11 @@ async function prepareMissingRevisionWorkspaceForRecovery(input: {
           baseBranch: result.baseBranch ?? null,
           updatedAt: now,
         })
-        .where(eq(conversations.id, input.revision.conversationId!))
+        .where(eq(conversations.id, revision.conversationId!))
         .run()
-      input.db.update(commentThreads)
+      db.update(commentThreads)
         .set({ latestRevisionId: recoveredRevision.id, updatedAt: now })
-        .where(eq(commentThreads.id, input.revision.threadId))
+        .where(eq(commentThreads.id, revision.threadId))
         .run()
       return recoveredRevision
     })
@@ -556,14 +558,14 @@ async function prepareMissingRevisionWorkspaceForRecovery(input: {
     const errorMessage = compactOneLineSummary(
       error instanceof Error ? error.message : String(error),
     ) || "Ripple could not recover this generated change."
-    return input.db.update(revisions)
+    return db.update(revisions)
       .set({
         status: "failed",
         errorMessage,
         updatedAt: dateNow(),
         resolvedAt: dateNow(),
       })
-      .where(eq(revisions.id, input.revision.id))
+      .where(eq(revisions.id, revision.id))
       .returning()
       .get()
   }

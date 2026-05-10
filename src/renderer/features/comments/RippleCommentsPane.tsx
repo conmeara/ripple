@@ -249,15 +249,17 @@ function parseCommentMessageAttachments(
     const parsed = JSON.parse(message.metadataJson)
     if (!Array.isArray(parsed?.attachments)) return []
     return parsed.attachments
-      .map((attachment: any) => ({
-        type: attachment?.type === "image" ? "image" as const : "file" as const,
-        filename:
-          typeof attachment?.filename === "string" && attachment.filename.trim()
-            ? attachment.filename
-            : attachment?.type === "image"
-              ? "image"
-              : "file",
-      }))
+      .map((attachment: any) => {
+        const type = attachment?.type === "image" ? "image" as const : "file" as const
+        const fallbackFilename = type === "image" ? "image" : "file"
+        return {
+          type,
+          filename:
+            typeof attachment?.filename === "string" && attachment.filename.trim()
+              ? attachment.filename
+              : fallbackFilename,
+        }
+      })
   } catch {
     return []
   }

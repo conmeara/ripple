@@ -43,6 +43,27 @@ function shouldUseStatusLabel(
   return true
 }
 
+const DIRECT_ACTIVITY_LINES = new Map<string, string>([
+  ["file_change", "Editing files"],
+  ["reasoning", "Agent is thinking"],
+  ["assistant_text_delta", "Writing a response"],
+  ["assistant_message", "Writing a response"],
+  ["approval_request", "Waiting for approval"],
+])
+
+const TOOL_ACTIVITY_EVENT_TYPES = new Set([
+  "tool_start",
+  "tool_update",
+  "tool_end",
+])
+
+const STATUS_ACTIVITY_LINES = new Map<string, string>([
+  ["awaiting_approval", "Waiting for approval"],
+  ["preparing", "Preparing the composition"],
+  ["queued", "Agent is thinking"],
+  ["running", "Agent is thinking"],
+])
+
 function toolActivityLine(
   event: RevisionActivityEvent,
   payload: Record<string, unknown>,
@@ -67,31 +88,17 @@ export function extractRevisionRunActivityLine(
       const activity = normalizeAgentRunActivityPayload(payload)
       if (activity) return activity.label
     }
-    if (event.type === "file_change") return "Editing files"
-    if (event.type === "reasoning") return "Agent is thinking"
-    if (event.type === "assistant_text_delta") return "Writing a response"
-    if (event.type === "assistant_message") return "Writing a response"
-    if (
-      event.type === "tool_start" ||
-      event.type === "tool_update" ||
-      event.type === "tool_end"
-    ) {
+    const directLine = DIRECT_ACTIVITY_LINES.get(event.type)
+    if (directLine) return directLine
+    if (TOOL_ACTIVITY_EVENT_TYPES.has(event.type)) {
       const line = toolActivityLine(event, payload)
       if (line) return line
     }
-    if (event.type === "approval_request") return "Waiting for approval"
     if (event.type === "status") {
       const label = compactLabel(payload.label) || compactLabel(payload.message)
       if (shouldUseStatusLabel(label, payload)) return label
-      switch (compactLabel(payload.status)) {
-        case "awaiting_approval":
-          return "Waiting for approval"
-        case "preparing":
-          return "Preparing the composition"
-        case "queued":
-        case "running":
-          return "Agent is thinking"
-      }
+      const statusLine = STATUS_ACTIVITY_LINES.get(compactLabel(payload.status) ?? "")
+      if (statusLine) return statusLine
     }
   }
 

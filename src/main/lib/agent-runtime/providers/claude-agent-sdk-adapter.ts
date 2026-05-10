@@ -226,29 +226,24 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
       toolNamesByKey.set(toolCallId, payload.toolName)
       if (startedToolCallIds.has(toolCallId)) return toolCallId
       startedToolCallIds.add(toolCallId)
+      const eventPayload = {
+        toolCallId,
+        toolName: payload.toolName,
+        input: payload.input,
+        inputStreaming: payload.inputStreaming,
+        title: payload.title,
+      }
       await sink.emit({
         type: "tool_start",
         providerType: payload.providerType,
         providerId: payload.providerId ?? toolCallId,
-        payload: {
-          toolCallId,
-          toolName: payload.toolName,
-          input: payload.input,
-          inputStreaming: payload.inputStreaming,
-          title: payload.title,
-        },
+        payload: eventPayload,
       })
       await emitActivity({
         eventType: "tool_start",
         providerType: payload.providerType,
         providerId: payload.providerId ?? toolCallId,
-        payload: {
-          toolCallId,
-          toolName: payload.toolName,
-          input: payload.input,
-          inputStreaming: payload.inputStreaming,
-          title: payload.title,
-        },
+        payload: eventPayload,
       })
       return toolCallId
     }
@@ -260,27 +255,23 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
       toolName: string
       input: unknown
     }) => {
+      const eventPayload = {
+        toolCallId: payload.toolCallId,
+        toolName: payload.toolName,
+        input: payload.input,
+        inputAvailable: true,
+      }
       await sink.emit({
         type: "tool_update",
         providerType: payload.providerType,
         providerId: payload.providerId ?? payload.toolCallId,
-        payload: {
-          toolCallId: payload.toolCallId,
-          toolName: payload.toolName,
-          input: payload.input,
-          inputAvailable: true,
-        },
+        payload: eventPayload,
       })
       await emitActivity({
         eventType: "tool_update",
         providerType: payload.providerType,
         providerId: payload.providerId ?? payload.toolCallId,
-        payload: {
-          toolCallId: payload.toolCallId,
-          toolName: payload.toolName,
-          input: payload.input,
-          inputAvailable: true,
-        },
+        payload: eventPayload,
       })
     }
 
@@ -295,29 +286,24 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
     }) => {
       if (completedToolCallIds.has(payload.toolCallId)) return
       completedToolCallIds.add(payload.toolCallId)
+      const eventPayload = {
+        toolCallId: payload.toolCallId,
+        toolName: payload.toolName,
+        output: payload.output,
+        error: payload.error,
+        status: payload.status,
+      }
       await sink.emit({
         type: "tool_end",
         providerType: payload.providerType,
         providerId: payload.providerId ?? payload.toolCallId,
-        payload: {
-          toolCallId: payload.toolCallId,
-          toolName: payload.toolName,
-          output: payload.output,
-          error: payload.error,
-          status: payload.status,
-        },
+        payload: eventPayload,
       })
       await emitActivity({
         eventType: "tool_end",
         providerType: payload.providerType,
         providerId: payload.providerId ?? payload.toolCallId,
-        payload: {
-          toolCallId: payload.toolCallId,
-          toolName: payload.toolName,
-          output: payload.output,
-          error: payload.error,
-          status: payload.status,
-        },
+        payload: eventPayload,
       })
     }
 

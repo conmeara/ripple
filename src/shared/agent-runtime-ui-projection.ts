@@ -251,6 +251,17 @@ function shouldProjectStatusEvent(
   return Boolean(label || recovery)
 }
 
+function approvalRequestLabel(payload: Record<string, unknown>): string {
+  if (payload.kind === "user_input") return "Agent asked for input"
+  if (payload.status === "pending") return "Approval needed"
+  if (payload.status === "denied" || payload.status === "cancelled") {
+    return "Request denied"
+  }
+  if (payload.kind === "command") return "Approved command"
+  if (payload.kind === "file_change") return "Approved file change"
+  return "Approved tool request"
+}
+
 export function extractRuntimeUsageMetadata(
   payload: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -400,18 +411,7 @@ export class AgentRuntimeUIProjector {
           id: stableEventId("approval", event),
           data: {
             kind: "approval",
-            label:
-              payload.kind === "user_input"
-                ? "Agent asked for input"
-                : payload.status === "pending"
-                  ? "Approval needed"
-                  : payload.status === "denied" || payload.status === "cancelled"
-                    ? "Request denied"
-                    : payload.kind === "command"
-                      ? "Approved command"
-                      : payload.kind === "file_change"
-                        ? "Approved file change"
-                        : "Approved tool request",
+            label: approvalRequestLabel(payload),
             payload,
           },
         }]
