@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visual Context Eval - Ripple</title>
+<style>
+  :root {
+    --bg: #171717;
+    --panel: #1f1f1f;
+    --panel-2: #242424;
+    --border: #323232;
+    --border-2: #454545;
+    --text: #ececec;
+    --muted: #a7a7a7;
+    --quiet: #707070;
+    --blue: #5a93ff;
+    --blue-soft: rgba(90, 147, 255, 0.16);
+    --green: #55d6b8;
+    --green-soft: rgba(85, 214, 184, 0.14);
+    --violet: #a995ff;
+    --violet-soft: rgba(169, 149, 255, 0.14);
+    --amber: #e5b449;
+    --amber-soft: rgba(229, 180, 73, 0.14);
+    --red: #f08b75;
+    --mono: ui-monospace, "SF Mono", "Menlo", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  a { color: inherit; }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    min-height: 100vh;
+  }
+
+  aside {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    border-right: 1px solid var(--border);
+    background: #1b1b1b;
+    padding: 22px 14px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 18px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mark {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border-2);
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .brand-title {
+    font-weight: 650;
+    font-size: 13px;
+  }
+
+  .brand-sub {
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  nav {
+    display: grid;
+    gap: 5px;
+  }
+
+  nav a {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 12px;
+  }
+
+  nav a:hover {
+    background: var(--panel-2);
+    color: var(--text);
+  }
+
+  nav span {
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+
+  main {
+    width: min(1160px, calc(100vw - 220px));
+    padding: 58px 72px 96px;
+  }
+
+  header {
+    max-width: 900px;
+    margin-bottom: 34px;
+  }
+
+  .eyebrow {
+    margin-bottom: 12px;
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0 0 14px;
+    max-width: 760px;
+    font-size: 38px;
+    line-height: 1.04;
+    letter-spacing: 0;
+  }
+
+  .lede {
+    max-width: 840px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 16px;
+  }
+
+  section {
+    margin-top: 42px;
+  }
+
+  h2 {
+    margin: 0 0 12px;
+    font-size: 22px;
+    line-height: 1.2;
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  code {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: #121212;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.94em;
+  }
+
+  .decision {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .decision-card {
+    min-height: 170px;
+    padding: 22px;
+    background: var(--panel);
+  }
+
+  .decision-card.primary {
+    background:
+      linear-gradient(135deg, rgba(90, 147, 255, 0.18), rgba(36, 36, 36, 0) 62%),
+      var(--panel);
+  }
+
+  .label {
+    margin-bottom: 8px;
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .decision-title {
+    margin-bottom: 10px;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.12;
+  }
+
+  .rule-list {
+    display: grid;
+    gap: 9px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .rule-list li {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: 12px;
+    color: var(--muted);
+  }
+
+  .rule-list strong {
+    color: var(--text);
+    font-weight: 650;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    min-height: 24px;
+    padding: 3px 8px;
+    border: 1px solid var(--border-2);
+    border-radius: 999px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .pill.blue { border-color: rgba(90, 147, 255, 0.44); background: var(--blue-soft); color: #c9dbff; }
+  .pill.green { border-color: rgba(85, 214, 184, 0.44); background: var(--green-soft); color: #bef7e8; }
+  .pill.violet { border-color: rgba(169, 149, 255, 0.44); background: var(--violet-soft); color: #ded6ff; }
+  .pill.amber { border-color: rgba(229, 180, 73, 0.44); background: var(--amber-soft); color: #f3d68a; }
+
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .metric {
+    min-height: 116px;
+    padding: 18px;
+    background: var(--panel);
+  }
+
+  .metric-value {
+    margin: 4px 0;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 24px;
+    line-height: 1.1;
+  }
+
+  .metric-copy {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .runs {
+    display: grid;
+    gap: 14px;
+  }
+
+  .run-card {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+
+  .run-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .run-title {
+    margin-bottom: 4px;
+    color: var(--text);
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .run-sub {
+    color: var(--quiet);
+    font-size: 12px;
+  }
+
+  .run-body {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .run-body > div {
+    padding: 18px 20px;
+    background: var(--panel);
+  }
+
+  .bars {
+    display: grid;
+    gap: 10px;
+  }
+
+  .bar-row {
+    display: grid;
+    grid-template-columns: 148px minmax(140px, 1fr) 72px;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .bar-name {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .bar-name strong {
+    display: block;
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  .track {
+    height: 10px;
+    overflow: hidden;
+    border: 1px solid #303030;
+    border-radius: 999px;
+    background: #151515;
+  }
+
+  .fill {
+    height: 100%;
+    border-radius: inherit;
+    background: var(--blue);
+  }
+
+  .fill.green { background: var(--green); }
+  .fill.amber { background: var(--amber); }
+  .fill.red { background: var(--red); }
+  .bar-value {
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: right;
+  }
+
+  .fact-list {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .fact-list li {
+    display: grid;
+    gap: 3px;
+  }
+
+  .fact-list strong {
+    color: var(--text);
+  }
+
+  .fact-list span {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .thumb-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  figure {
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+
+  figure img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    background: #0f0f0f;
+  }
+
+  figcaption {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--border);
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .needs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .need {
+    min-height: 245px;
+    padding: 20px;
+    background: var(--panel);
+  }
+
+  .need.blue { background: linear-gradient(180deg, var(--blue-soft), rgba(31,31,31,0) 44%), var(--panel); }
+  .need.green { background: linear-gradient(180deg, var(--green-soft), rgba(31,31,31,0) 44%), var(--panel); }
+  .need.violet { background: linear-gradient(180deg, var(--violet-soft), rgba(31,31,31,0) 44%), var(--panel); }
+
+  .need-name {
+    margin: 8px 0 9px;
+    font-size: 19px;
+    font-weight: 700;
+  }
+
+  .need-copy {
+    margin-bottom: 16px;
+    color: var(--muted);
+  }
+
+  .need-rule {
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .need-rule strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+
+  .table-wrap {
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+
+  table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  td {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  tr:last-child td { border-bottom: 0; }
+  td strong { color: var(--text); }
+
+  .callout {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 18px;
+    margin-top: 16px;
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--blue);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+
+  .callout .label {
+    margin: 0;
+    color: var(--blue);
+  }
+
+  .callout strong { color: var(--text); }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    color: var(--quiet);
+    font-size: 12px;
+  }
+
+  @media (max-width: 980px) {
+    .shell { display: block; }
+    aside {
+      position: static;
+      width: auto;
+      height: auto;
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    main {
+      width: 100%;
+      padding: 34px 20px 72px;
+    }
+    h1 { font-size: 30px; }
+    .decision,
+    .run-body,
+    .needs,
+    .metric-grid,
+    .thumb-grid {
+      grid-template-columns: 1fr;
+    }
+    .bar-row {
+      grid-template-columns: 112px minmax(100px, 1fr) 58px;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <div class="brand">
+        <div class="mark">R</div>
+        <div>
+          <div class="brand-title">Visual Context Eval</div>
+          <div class="brand-sub">tested readout</div>
+        </div>
+      </div>
+      <nav aria-label="Page sections">
+        <a href="#decision">Decision <span>01</span></a>
+        <a href="#tested">What We Tested <span>02</span></a>
+        <a href="#evidence">Image Evidence <span>03</span></a>
+        <a href="#needs">Three Needs <span>04</span></a>
+        <a href="#implementation">Implementation Read <span>05</span></a>
+      </nav>
+    </aside>
+
+    <main>
+      <header>
+        <div class="eyebrow">Ripple Spec / Visual Context Eval / May 2026</div>
+        <h1>Fast visual context for agents</h1>
+        <p class="lede">This page is trimmed to the work we actually tested: capture latency, fidelity, normalization, and the resulting product split between current-frame capture and render-backed arbitrary frames.</p>
+      </header>
+
+      <section id="decision">
+        <h2>Decision</h2>
+        <div class="decision">
+          <div class="decision-card primary">
+            <div class="label">So what</div>
+            <div class="decision-title">Use the live preview for the current frame. Use warm Engine renders for everything else.</div>
+            <p>Current-frame capture is fast enough to make visual context feel immediate. Arbitrary timestamps and frame sheets need source-canonical rendering, not display pixels.</p>
+          </div>
+          <div class="decision-card">
+            <div class="label">Routing rule</div>
+            <ul class="rule-list">
+              <li><strong>Current</strong><span><code>capturePage()</code> on the live preview iframe, with normalization guards.</span></li>
+              <li><strong>Certain</strong><span>Warm HyperFrames Engine render at the requested timestamp.</span></li>
+              <li><strong>Sheet</strong><span>Warm Engine sampled renders assembled into a compact frame sheet.</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="metric-grid" style="margin-top:14px">
+          <div class="metric">
+            <div class="label">Actual preview</div>
+            <div class="metric-value">9-10ms</div>
+            <div class="metric-copy">Real Ripple preview iframe capture once ready.</div>
+          </div>
+          <div class="metric">
+            <div class="label">Warm Engine</div>
+            <div class="metric-value">125ms</div>
+            <div class="metric-copy">3-frame render after session reuse.</div>
+          </div>
+          <div class="metric">
+            <div class="label">Warm sheet</div>
+            <div class="metric-value">332ms</div>
+            <div class="metric-copy">8-frame Engine capture in the spike harness.</div>
+          </div>
+          <div class="metric">
+            <div class="label">CLI baseline</div>
+            <div class="metric-value">8213ms</div>
+            <div class="metric-copy">Standalone single-frame snapshot baseline.</div>
+          </div>
+        </div>
+
+      </section>
+
+      <section id="tested">
+        <h2>What We Tested</h2>
+        <div class="runs">
+          <article class="run-card">
+            <div class="run-head">
+              <div>
+                <div class="run-title">Spike 02: render-path benchmark</div>
+                <div class="run-sub">Compared standalone preview, fast browser, Engine, Producer, and CLI snapshot paths.</div>
+              </div>
+              <span class="pill amber">benchmark</span>
+            </div>
+            <div class="run-body">
+              <div>
+                <div class="bars" aria-label="Render-path benchmark latency">
+                  <div class="bar-row">
+                    <div class="bar-name"><strong>Engine warm</strong>3 frames</div>
+                    <div class="track"><div class="fill green" style="width:1.5%"></div></div>
+                    <div class="bar-value">125ms</div>
+                  </div>
+                  <div class="bar-row">
+                    <div class="bar-name"><strong>Producer warm</strong>3 frames</div>
+                    <div class="track"><div class="fill green" style="width:1.5%"></div></div>
+                    <div class="bar-value">125ms</div>
+                  </div>
+                  <div class="bar-row">
+                    <div class="bar-name"><strong>Engine warm</strong>8 frames</div>
+                    <div class="track"><div class="fill green" style="width:4%"></div></div>
+                    <div class="bar-value">332ms</div>
+                  </div>
+                  <div class="bar-row">
+                    <div class="bar-name"><strong>Fast browser</strong>3 frames</div>
+                    <div class="track"><div class="fill amber" style="width:9.1%"></div></div>
+                    <div class="bar-value">749ms</div>
+                  </div>
+                  <div class="bar-row">
+                    <div class="bar-name"><strong>Painted preview</strong>standalone</div>
+                    <div class="track"><div class="fill amber" style="width:14.1%"></div></div>
+                    <div class="bar-value">1154ms</div>
+                  </div>
+                  <div class="bar-row">
+                    <div class="bar-name"><strong>CLI snapshot</strong>single frame</div>
+                    <div class="track"><div class="fill red" style="width:100%"></div></div>
+                    <div class="bar-value">8213ms</div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <ul class="fact-list">
+                  <li><strong>Warm sessions matter.</strong><span>Once the renderer is alive, multi-frame capture becomes plausible for agent use.</span></li>
+                  <li><strong>Fidelity was clean on the simple fixture.</strong><span>Painted preview and fast-browser output matched pixel-for-pixel in the fixture: SSIM 1.000, changed pixels 0.</span></li>
+                  <li><strong>Standalone CLI is not the hot path.</strong><span>The CLI should be the agent interface, but it should delegate to the app-managed service when available.</span></li>
+                </ul>
+              </div>
+            </div>
+          </article>
+
+          <article class="run-card">
+            <div class="run-head">
+              <div>
+                <div class="run-title">Spike 03: actual Ripple preview capture</div>
+                <div class="run-sub">Captured the real in-app HyperFrames preview iframe with Electron <code>capturePage()</code>.</div>
+              </div>
+              <span class="pill blue">current frame</span>
+            </div>
+            <div class="run-body">
+              <div>
+                <div class="bars" aria-label="Actual preview capture latency">
+                  <div class="bar-row">
+                    <div class="bar-name"><strong>Frame 0</strong>0ms</div>
+                    <div class="track"><div class="fill" style="width:45%"></div></div>
+                    <div class="bar-value">9ms</div>
+                  </div>
+                  <div class="bar-row">
+                    <div class="bar-name"><strong>Frame 1</strong>500ms</div>
+                    <div class="track"><div class="fill" style="width:45%"></div></div>
+                    <div class="bar-value">9ms</div>
+                  </div>
+                  <div class="bar-row">
+                    <div class="bar-name"><strong>Frame 2</strong>1000ms</div>
+                    <div class="track"><div class="fill" style="width:50%"></div></div>
+                    <div class="bar-value">10ms</div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <ul class="fact-list">
+                  <li><strong>Result: immediate.</strong><span>The real preview path averaged 9ms in the latest run.</span></li>
+                  <li><strong>Retina output is expected.</strong><span>A 507x285 CSS-pixel iframe produced a 1014x570 PNG.</span></li>
+                  <li><strong>Fidelity caveat.</strong><span>Mean RGB delta against the browser baseline averaged 2.08. Good visual match, not pixel-zero, because this is a composited display surface.</span></li>
+                </ul>
+              </div>
+            </div>
+          </article>
+
+          <article class="run-card">
+            <div class="run-head">
+              <div>
+                <div class="run-title">Spike 04: preview normalization sweep</div>
+                <div class="run-sub">Repeated live preview capture across compact, wide, and tall app layouts.</div>
+              </div>
+              <span class="pill violet">normalization</span>
+            </div>
+            <div class="run-body">
+              <div>
+                <div class="bars" aria-label="Normalization sweep capture latency">
+                  <div class="bar-row">
+                    <div class="bar-name"><strong>Compact</strong>980x720</div>
+                    <div class="track"><div class="fill" style="width:45%"></div></div>
+                    <div class="bar-value">9ms</div>
+                  </div>
+                  <div class="bar-row">
+                    <div class="bar-name"><strong>Wide</strong>1400x900</div>
+                    <div class="track"><div class="fill" style="width:50%"></div></div>
+                    <div class="bar-value">10ms</div>
+                  </div>
+                  <div class="bar-row">
+                    <div class="bar-name"><strong>Tall</strong>1100x900</div>
+                    <div class="track"><div class="fill" style="width:40%"></div></div>
+                    <div class="bar-value">8ms</div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <ul class="fact-list">
+                  <li><strong>Geometry is stable.</strong><span>Max 16:9 aspect error stayed under 0.01 across the sweep.</span></li>
+                  <li><strong>Backing scale is stable.</strong><span>All tested preview captures were 2x Retina crops.</span></li>
+                  <li><strong>Pixel deltas vary by layout.</strong><span>This confirms the route is right for "what the user sees," not source-canonical comparison.</span></li>
+                </ul>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="evidence">
+        <h2>Image Evidence</h2>
+        <p>The images below are the artifacts used in the eval. They are local PNG files, not inline data URIs.</p>
+
+        <h3 style="margin-top:20px">Actual preview capture</h3>
+        <div class="thumb-grid">
+          <figure>
+            <img src="assets/visual-context-spike-03-000.png" alt="Actual Ripple preview capture at 0 ms">
+            <figcaption><span>actual preview</span><span>0ms</span></figcaption>
+          </figure>
+          <figure>
+            <img src="assets/visual-context-spike-03-500.png" alt="Actual Ripple preview capture at 500 ms">
+            <figcaption><span>actual preview</span><span>500ms</span></figcaption>
+          </figure>
+          <figure>
+            <img src="assets/visual-context-spike-03-1000.png" alt="Actual Ripple preview capture at 1000 ms">
+            <figcaption><span>actual preview</span><span>1000ms</span></figcaption>
+          </figure>
+        </div>
+
+        <h3 style="margin-top:22px">Normalization sweep</h3>
+        <div class="thumb-grid">
+          <figure>
+            <img src="assets/visual-context-spike-04-compact.png" alt="Actual preview capture in compact layout">
+            <figcaption><span>layout</span><span>compact</span></figcaption>
+          </figure>
+          <figure>
+            <img src="assets/visual-context-spike-04-wide.png" alt="Actual preview capture in wide layout">
+            <figcaption><span>layout</span><span>wide</span></figcaption>
+          </figure>
+          <figure>
+            <img src="assets/visual-context-spike-04-tall.png" alt="Actual preview capture in tall layout">
+            <figcaption><span>layout</span><span>tall</span></figcaption>
+          </figure>
+        </div>
+
+        <h3 style="margin-top:22px">Browser-render baseline</h3>
+        <div class="thumb-grid">
+          <figure>
+            <img src="assets/visual-context-spike-02-000.png" alt="Browser-render baseline at 0 ms">
+            <figcaption><span>baseline</span><span>0ms</span></figcaption>
+          </figure>
+          <figure>
+            <img src="assets/visual-context-spike-02-500.png" alt="Browser-render baseline at 500 ms">
+            <figcaption><span>baseline</span><span>500ms</span></figcaption>
+          </figure>
+          <figure>
+            <img src="assets/visual-context-spike-02-1000.png" alt="Browser-render baseline at 1000 ms">
+            <figcaption><span>baseline</span><span>1000ms</span></figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="needs">
+        <h2>The Three Needs</h2>
+        <div class="needs">
+          <div class="need blue">
+            <div class="label">Need 01</div>
+            <div class="need-name">Current frame</div>
+            <p class="need-copy">What the user is looking at right now. The pixels already exist in the app preview.</p>
+            <div class="need-rule">
+              <strong>Use live preview capture.</strong>
+              <span><code>capturePage()</code> is fast and faithful to the user's visible surface. Normalize dimensions and mark it as display context.</span>
+            </div>
+          </div>
+
+          <div class="need green">
+            <div class="label">Need 02</div>
+            <div class="need-name">Certain frame</div>
+            <p class="need-copy">A requested timestamp in a known composition. The user may not be looking at that timestamp now.</p>
+            <div class="need-rule">
+              <strong>Use warm Engine render.</strong>
+              <span>Do not seek the user's visible preview. Render source-canonical pixels from project, composition, revision, and time.</span>
+            </div>
+          </div>
+
+          <div class="need violet">
+            <div class="label">Need 03</div>
+            <div class="need-name">Frame sheet</div>
+            <p class="need-copy">A compact grid across a time range so the agent can reason about motion, timing, and transitions.</p>
+            <div class="need-rule">
+              <strong>Use warm Engine sampled renders.</strong>
+              <span>Capture a small set of timestamps, assemble a sheet, and include a manifest mapping cells to times.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="implementation">
+        <h2>Implementation Read</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Case</th>
+                <th>Agent-facing command</th>
+                <th>Backend route</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Current app view</strong></td>
+                <td><code>ripple snapshot --at current --json</code></td>
+                <td>Live preview <code>capturePage()</code></td>
+                <td>Fastest path; reflects what the user sees right now.</td>
+              </tr>
+              <tr>
+                <td><strong>Specific timestamp</strong></td>
+                <td><code>ripple snapshot --at 1.25s --json</code></td>
+                <td>Warm Engine render</td>
+                <td>Source-canonical and not dependent on the visible preview state.</td>
+              </tr>
+              <tr>
+                <td><strong>Motion over time</strong></td>
+                <td><code>ripple frame-sheet --range 0s..8s --samples 8 --columns 4 --json</code></td>
+                <td>Warm Engine renders plus sheet assembly</td>
+                <td>Best tradeoff for agent reasoning about timing without large payloads.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout">
+          <div class="label">Guardrail</div>
+          <p><strong>Do not ask agents to choose browser plumbing.</strong> Agents should use the app-managed <code>ripple</code> visual commands. Ripple should route those commands to the fastest correct backend and return local image paths plus manifest JSON.</p>
+        </div>
+      </section>
+
+      <footer>
+        Tested with <code>scripts/benchmark-visual-context.ts</code>, <code>test/e2e/visual-context-preview-surface.e2e.ts</code>, and the <code>test/fixtures/hyperframes/visual-capture-qa</code> fixture.
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

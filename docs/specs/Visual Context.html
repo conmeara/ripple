@@ -20,15 +20,16 @@
     --primary-dim: rgba(79,142,255,0.10);
     --primary-mid: rgba(79,142,255,0.22);
     --blue: #4f8eff;
-    --blue-dim: rgba(79,142,255,0.12);
+    --blue-dim: rgba(79,142,255,0.14);
+    --green: #4ec9b0;
+    --green-dim: rgba(78,201,176,0.14);
+    --violet: #a78bfa;
+    --violet-dim: rgba(167,139,250,0.14);
     --amber: #d4a72c;
     --amber-dim: rgba(212,167,44,0.12);
-    --emerald: #4ec9b0;
-    --emerald-dim: rgba(78,201,176,0.12);
     --red: #f48771;
     --red-dim: rgba(244,135,113,0.12);
-    --violet: #a78bfa;
-    --violet-dim: rgba(167,139,250,0.12);
+    --emerald: #4ec9b0;
     --radius-sm: 4px;
     --radius: 6px;
     --radius-lg: 8px;
@@ -38,7 +39,6 @@
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   html { scroll-behavior: smooth; }
 
   body {
@@ -125,7 +125,7 @@
     flex: 1;
     min-width: 0;
     padding: 56px 72px 120px;
-    max-width: 940px;
+    max-width: 980px;
   }
 
   .spec-eyebrow {
@@ -134,30 +134,31 @@
     color: var(--fg-3);
     margin-bottom: 14px;
     font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
   h1 {
-    font-size: 30px;
+    font-size: 34px;
     font-weight: 600;
-    line-height: 1.15;
-    letter-spacing: 0;
-    margin-bottom: 14px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    margin-bottom: 16px;
     color: var(--fg);
   }
 
   h2 {
-    font-size: 19px;
+    font-size: 20px;
     font-weight: 600;
     margin-top: 56px;
     margin-bottom: 8px;
-    letter-spacing: 0;
     color: var(--fg);
   }
 
   h3 {
     font-size: 14px;
     font-weight: 600;
-    margin-top: 26px;
+    margin-top: 22px;
     margin-bottom: 8px;
     color: var(--fg);
   }
@@ -187,7 +188,6 @@
     text-decoration-color: var(--border-2);
     text-underline-offset: 3px;
   }
-
   a:hover { text-decoration-color: var(--fg-3); }
 
   code {
@@ -207,37 +207,29 @@
     font-size: 15px;
     color: var(--fg-2);
     line-height: 1.65;
-    max-width: 660px;
-    margin-bottom: 28px;
+    max-width: 680px;
+    margin-bottom: 14px;
   }
 
   .lede-2 {
     font-size: 14px;
     color: var(--fg-2);
     margin-bottom: 18px;
-    max-width: 660px;
+    max-width: 680px;
   }
 
   .meta-row {
     display: flex;
     gap: 24px;
     flex-wrap: wrap;
-    padding: 10px 0;
+    padding: 12px 0;
+    margin-top: 20px;
     font-size: 12px;
     color: var(--fg-3);
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
   }
-
   .meta-row strong { color: var(--fg-2); font-weight: 500; }
-
-  .section-num {
-    font-size: 11px;
-    font-family: var(--font-mono);
-    color: var(--fg-3);
-    margin-bottom: 4px;
-    margin-top: 64px;
-  }
 
   .callout {
     display: flex;
@@ -248,10 +240,8 @@
     border-left: 2px solid;
     background: var(--bg-2);
   }
-
   .callout.info { border-left-color: var(--primary); }
   .callout.warning { border-left-color: var(--amber); }
-  .callout.danger { border-left-color: var(--red); }
   .callout.note { border-left-color: var(--border-2); }
   .callout-icon {
     font-size: 11px;
@@ -261,28 +251,12 @@
     margin-top: 2px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    width: 42px;
+    width: 56px;
   }
   .callout.info .callout-icon { color: var(--primary); }
   .callout.warning .callout-icon { color: var(--amber); }
-  .callout.danger .callout-icon { color: var(--red); }
   .callout-body { font-size: 13px; color: var(--fg-2); line-height: 1.6; flex: 1; }
   .callout-body strong { color: var(--fg); }
-
-  .test-legend {
-    display: flex;
-    gap: 16px;
-    align-items: center;
-    padding: 10px 14px;
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    margin: 18px 0 0;
-    font-size: 12px;
-    color: var(--fg-3);
-    flex-wrap: wrap;
-  }
-  .test-legend strong { color: var(--fg); font-weight: 500; }
 
   .test-marker {
     display: inline-flex;
@@ -299,19 +273,11 @@
     border: 1px solid;
     line-height: 1;
     vertical-align: 1px;
-    letter-spacing: 0.02em;
     position: relative;
   }
-  .test-marker.covered {
-    color: var(--emerald);
-    border-color: rgba(78,201,176,0.3);
-    background: rgba(78,201,176,0.06);
-  }
-  .test-marker.watch {
-    color: var(--amber);
-    border-color: rgba(212,167,44,0.3);
-    background: rgba(212,167,44,0.06);
-  }
+  .test-marker.covered { color: var(--emerald); border-color: rgba(78,201,176,0.3); background: rgba(78,201,176,0.06); }
+  .test-marker.watch { color: var(--amber); border-color: rgba(212,167,44,0.3); background: rgba(212,167,44,0.06); }
+  .test-marker.planned { color: var(--violet); border-color: rgba(167,139,250,0.3); background: rgba(167,139,250,0.06); }
   .test-marker:hover { filter: brightness(1.4); }
   .test-marker .tip {
     position: absolute;
@@ -331,84 +297,29 @@
     transition: opacity 100ms ease;
     z-index: 20;
     text-align: left;
-    letter-spacing: 0;
   }
   .test-marker .tip strong { color: var(--fg); display: block; margin-bottom: 2px; font-size: 11px; }
   .test-marker .tip em { color: var(--fg-3); font-style: normal; font-size: 10px; }
   .test-marker:hover .tip { opacity: 1; }
 
-  .promise-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    margin: 18px 0;
-  }
-
-  .promise-cell {
-    background: var(--bg-2);
-    padding: 14px 16px;
-  }
-
-  .promise-cell.highlight { background: var(--bg-3); }
-  .promise-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--fg);
-    margin-bottom: 4px;
-    display: flex;
+  /* Pills */
+  .pill {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-  }
-  .promise-cell.highlight .promise-name { color: var(--primary); }
-  .promise-desc { font-size: 12px; color: var(--fg-2); line-height: 1.55; }
-  .promise-tag {
-    font-size: 10px;
-    color: var(--fg-3);
-    font-family: var(--font-mono);
-    margin-left: auto;
-    font-weight: 400;
-  }
-
-  .review-surface {
-    display: grid;
-    grid-template-columns: minmax(0, 1.5fr) minmax(270px, 0.9fr);
-    gap: 12px;
-    margin: 18px 0;
-  }
-
-  .surface-panel {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background: var(--bg-2);
-    overflow: hidden;
-  }
-
-  .surface-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 9px 14px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg);
-  }
-
-  .surface-title {
-    font-size: 11px;
-    font-weight: 500;
+    height: 22px;
+    padding: 0 9px;
+    border: 1px solid var(--border-2);
+    border-radius: 999px;
     color: var(--fg-2);
-    display: flex;
-    align-items: center;
-    gap: 8px;
     font-family: var(--font-mono);
+    font-size: 11px;
   }
+  .pill.blue   { border-color: rgba(79,142,255,0.44); background: var(--blue-dim);   color: #b9d3ff; }
+  .pill.green  { border-color: rgba(78,201,176,0.44); background: var(--green-dim);  color: #b9eedd; }
+  .pill.violet { border-color: rgba(167,139,250,0.44); background: var(--violet-dim); color: #d7c8ff; }
+  .pill.amber  { border-color: rgba(212,167,44,0.44); background: var(--amber-dim);  color: #ead08a; }
 
-  .surface-tag { font-size: 11px; color: var(--fg-3); font-family: var(--font-mono); }
-  .surface-body { padding: 16px; }
-
+  /* Preview frame mockup */
   .preview-frame {
     background: #0d0d0d;
     border: 1px solid var(--border);
@@ -417,7 +328,6 @@
     overflow: hidden;
     position: relative;
   }
-
   .frame-bg {
     position: absolute;
     inset: 0;
@@ -426,38 +336,29 @@
       radial-gradient(circle at 72% 36%, rgba(78,201,176,0.18), transparent 24%),
       linear-gradient(150deg, #111 0%, #171717 45%, #0e0e0e 100%);
   }
-
   .title-block {
     position: absolute;
-    left: 9%;
-    top: 24%;
-    width: 52%;
-    height: 18%;
+    left: 9%; top: 24%;
+    width: 52%; height: 18%;
     border: 1px solid rgba(228,228,231,0.22);
     background: rgba(255,255,255,0.08);
     border-radius: 4px;
   }
-
   .lower-third {
     position: absolute;
-    left: 9%;
-    bottom: 18%;
-    width: 48%;
-    height: 15%;
+    left: 9%; bottom: 18%;
+    width: 48%; height: 15%;
     border-radius: 4px;
     background: rgba(79,142,255,0.18);
     border-left: 3px solid var(--primary);
   }
-
   .playhead-line {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 0; bottom: 0;
     left: 42%;
     width: 1px;
     background: rgba(255,255,255,0.55);
   }
-
   .capture-ring {
     position: absolute;
     inset: 8px;
@@ -465,11 +366,9 @@
     border-radius: var(--radius);
     pointer-events: none;
   }
-
   .frame-label {
     position: absolute;
-    right: 10px;
-    bottom: 10px;
+    right: 10px; bottom: 10px;
     padding: 3px 7px;
     border-radius: 4px;
     border: 1px solid rgba(255,255,255,0.12);
@@ -479,188 +378,140 @@
     font-family: var(--font-mono);
   }
 
-  .comment-card {
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-  }
-
-  .comment-card.selected {
-    border-color: var(--primary);
-  }
-
-  .cc-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 12px 0;
-    flex-wrap: wrap;
-  }
-
-  .timecode {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    background: var(--primary-dim);
-    color: var(--primary);
-    padding: 2px 7px;
-    border-radius: var(--radius-sm);
-  }
-
-  .cc-index { font-size: 11px; font-weight: 600; color: var(--fg-3); }
-  .cc-status-dot { width: 8px; height: 8px; border-radius: 50%; margin-left: auto; }
-  .dot-blue { background: var(--blue); animation: pulse 1.6s ease-in-out infinite; }
-  .dot-emerald { background: var(--emerald); }
-  .dot-amber { background: var(--amber); }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  .cc-message {
-    margin: 10px 12px 0;
-    background: var(--input-bg);
-    border-radius: var(--radius);
-    padding: 9px 12px;
-    font-size: 13px;
-    color: var(--fg);
-    line-height: 1.5;
-  }
-
-  .visual-attachment {
+  /* Frame sheet grid */
+  .frame-sheet-grid {
     display: grid;
-    grid-template-columns: 76px 1fr;
-    gap: 10px;
-    margin: 12px;
-    padding: 8px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .sheet-cell {
+    position: relative;
+    aspect-ratio: 16/9;
+    background:
+      radial-gradient(circle at 30% 36%, rgba(79,142,255,0.28), transparent 28%),
+      linear-gradient(150deg, #101010, #202020);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .sheet-cell:nth-child(2) { filter: hue-rotate(18deg) brightness(1.08); }
+  .sheet-cell:nth-child(3) { filter: hue-rotate(35deg) brightness(1.14); }
+  .sheet-cell:nth-child(4) { filter: hue-rotate(50deg) brightness(1.08); }
+  .sheet-cell:nth-child(5) { filter: hue-rotate(80deg) brightness(1.12); }
+  .sheet-cell:nth-child(6) { filter: hue-rotate(100deg) brightness(1.05); }
+  .sheet-cell:nth-child(7) { filter: hue-rotate(130deg) brightness(1.08); }
+  .sheet-cell:nth-child(8) { filter: hue-rotate(150deg) brightness(1.04); }
+  .sheet-stamp {
+    position: absolute;
+    left: 5px; bottom: 4px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(0,0,0,0.55);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: rgba(228,228,231,0.85);
+  }
+
+  /* Snapshot stack for certain-frame */
+  .snapshot-stack {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .snapshot-card {
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    background: var(--bg);
-  }
-
-  .thumb {
-    aspect-ratio: 16/9;
-    border-radius: 4px;
-    border: 1px solid var(--border-2);
     overflow: hidden;
-    position: relative;
-    background: #0c0c0c;
+    background: var(--bg-3);
+  }
+  .snapshot-caption {
+    padding: 6px 8px;
+    border-top: 1px solid var(--border);
+    color: var(--fg-3);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    display: flex;
+    justify-content: space-between;
   }
 
-  .thumb::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(circle at 25% 32%, rgba(79,142,255,0.32), transparent 28%),
-      linear-gradient(150deg, #101010, #1a1a1a);
-  }
-
-  .thumb.sheet {
+  /* Three Needs grid */
+  .needs {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 1px;
     background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin: 18px 0 8px;
   }
-
-  .thumb.sheet::before { display: none; }
-  .thumb-cell {
-    background:
-      radial-gradient(circle at 30% 36%, rgba(79,142,255,0.28), transparent 28%),
-      linear-gradient(150deg, #101010, #202020);
+  .need {
+    background: var(--bg-2);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
-  .thumb-cell:nth-child(2) { filter: hue-rotate(18deg) brightness(1.08); }
-  .thumb-cell:nth-child(3) { filter: hue-rotate(35deg) brightness(1.14); }
-  .thumb-cell:nth-child(4) { filter: hue-rotate(50deg) brightness(1.08); }
-  .thumb-cell:nth-child(5) { filter: hue-rotate(80deg) brightness(1.12); }
-  .thumb-cell:nth-child(6) { filter: hue-rotate(100deg) brightness(1.05); }
-
-  .attachment-copy { min-width: 0; }
-  .attachment-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--fg);
-    margin-bottom: 2px;
-  }
-  .attachment-meta {
-    font-size: 11px;
-    color: var(--fg-3);
+  .need.blue   { background: linear-gradient(180deg, rgba(79,142,255,0.16), rgba(31,31,31,0) 46%), var(--bg-2); }
+  .need.green  { background: linear-gradient(180deg, rgba(78,201,176,0.14), rgba(31,31,31,0) 46%), var(--bg-2); }
+  .need.violet { background: linear-gradient(180deg, rgba(167,139,250,0.16), rgba(31,31,31,0) 46%), var(--bg-2); }
+  .need-num {
     font-family: var(--font-mono);
-    white-space: normal;
+    font-size: 10px;
+    color: var(--fg-3);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
-
-  .cc-status-line {
-    margin: 12px 16px 0;
+  .need-name { font-size: 17px; font-weight: 700; color: var(--fg); }
+  .need-desc { font-size: 13px; color: var(--fg-2); }
+  .need-visual { margin: 4px 0; }
+  .need-rule {
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
     font-size: 12px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-  .cc-status-line.shimmer { color: var(--blue); animation: shimmer 1.2s ease-in-out infinite alternate; }
-  .cc-status-line.ready { color: var(--emerald); }
-  .cc-status-line.attention { color: var(--amber); }
-
-  @keyframes shimmer {
-    from { opacity: 0.6; }
-    to { opacity: 1; }
-  }
-
-  .cc-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px;
-    gap: 8px;
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: all var(--transition);
-    white-space: nowrap;
-    background: transparent;
     color: var(--fg-2);
-    font-family: inherit;
   }
-  .btn:hover { background: var(--bg-3); color: var(--fg); }
-  .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
-  .btn-primary:hover { opacity: 0.92; background: var(--primary); color: #fff; }
-  .btn-icon {
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    justify-content: center;
-    border-radius: 50%;
-  }
-  .progress-indicator {
-    width: 26px;
-    height: 26px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-  }
-  .progress-ring {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    border: 2px solid var(--border-2);
-    border-top-color: var(--primary);
-    animation: spin 900ms linear infinite;
-  }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
+  .need-rule strong { display: block; color: var(--fg); margin-bottom: 3px; }
 
+  /* Routing table & flow table */
+  .flow-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--bg-2);
+    margin: 14px 0;
+    font-size: 13px;
+  }
+  .flow-table th, .flow-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .flow-table th {
+    background: var(--bg-3);
+    color: var(--fg-3);
+    font-weight: 500;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .flow-table tbody tr:last-child td { border-bottom: 0; }
+  .flow-table td.col-name {
+    width: 22%;
+    color: var(--fg);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .flow-table td.col-label { color: var(--fg-2); }
+
+  /* Capture journey strip */
   .journey {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -669,15 +520,12 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    margin: 18px 0 24px;
+    margin: 18px 0;
   }
-
   .journey-step {
     background: var(--bg-2);
-    padding: 18px 18px 20px;
-    position: relative;
+    padding: 16px 18px 18px;
   }
-
   .journey-step.accent { background: var(--bg-3); }
   .journey-num {
     font-size: 10px;
@@ -689,491 +537,311 @@
   .journey-title { font-size: 13px; font-weight: 600; color: var(--fg); margin-bottom: 6px; }
   .journey-desc { font-size: 12px; color: var(--fg-2); line-height: 1.55; }
 
-  .context-tabs {
-    display: flex;
-    gap: 2px;
-    background: var(--bg-3);
-    padding: 3px;
-    border-radius: var(--radius-lg);
-    margin-bottom: 14px;
-    overflow-x: auto;
-  }
-
-  .context-tab {
-    padding: 5px 10px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    color: var(--fg-3);
-    border: none;
-    background: transparent;
-    transition: all var(--transition);
-    white-space: nowrap;
-    font-family: var(--font-mono);
-  }
-  .context-tab.active {
-    background: var(--bg);
-    color: var(--fg);
-    box-shadow: 0 1px 2px rgba(0,0,0,0.4);
-  }
-  .context-tab:hover:not(.active) { color: var(--fg-2); }
-
-  .context-content { display: none; }
-  .context-content.visible { display: block; }
-
-  .context-layout {
+  /* Decision card (Architecture) */
+  .decision {
     display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
-    gap: 12px;
-    margin: 12px 0;
-  }
-
-  .context-visual {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    min-height: 238px;
-    background: var(--bg-2);
-    padding: 14px;
-  }
-
-  .context-notes {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background: var(--bg-2);
-    padding: 14px 16px;
-  }
-
-  .context-notes p { font-size: 13px; }
-
-  .metric-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-top: 12px;
-  }
-
-  .metric {
-    background: var(--bg-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 9px 12px;
-    font-size: 11px;
-  }
-
-  .metric-label {
-    color: var(--fg-3);
-    margin-bottom: 3px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-size: 10px;
-    font-weight: 600;
-  }
-  .metric-value { color: var(--fg); font-family: var(--font-mono); font-size: 12px; }
-
-  .timeline-strip {
-    height: 54px;
-    background: var(--bg-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    position: relative;
-    margin: 12px 0;
-  }
-
-  .timeline-window {
-    position: absolute;
-    top: 10px;
-    bottom: 10px;
-    left: 26%;
-    width: 42%;
-    border: 1px solid var(--primary);
-    background: var(--primary-dim);
-    border-radius: 5px;
-  }
-
-  .timeline-dot {
-    position: absolute;
-    top: 50%;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--primary);
-    border: 2px solid var(--bg);
-    transform: translate(-50%, -50%);
-  }
-
-  .frame-sheet-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1.1fr 1fr;
     gap: 1px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
     overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     background: var(--border);
-    aspect-ratio: 16/9;
+    margin: 16px 0;
   }
-
-  .sheet-cell {
-    position: relative;
-    min-height: 72px;
+  .decision-card {
+    padding: 22px;
+    background: var(--bg-2);
+  }
+  .decision-card.primary {
     background:
-      radial-gradient(circle at 28% 32%, rgba(79,142,255,0.26), transparent 28%),
-      linear-gradient(150deg, #101010, #202020);
+      linear-gradient(135deg, rgba(79,142,255,0.16), rgba(31,31,31,0) 62%),
+      var(--bg-2);
   }
-  .sheet-cell:nth-child(2) { filter: hue-rotate(18deg) brightness(1.08); }
-  .sheet-cell:nth-child(3) { filter: hue-rotate(35deg) brightness(1.14); }
-  .sheet-cell:nth-child(4) { filter: hue-rotate(50deg) brightness(1.08); }
-  .sheet-cell:nth-child(5) { filter: hue-rotate(80deg) brightness(1.12); }
-  .sheet-cell:nth-child(6) { filter: hue-rotate(100deg) brightness(1.05); }
-  .sheet-stamp {
-    position: absolute;
-    left: 6px;
-    bottom: 5px;
-    font-size: 9px;
+  .decision-label {
     font-family: var(--font-mono);
-    color: rgba(228,228,231,0.68);
-    background: rgba(0,0,0,0.35);
-    border-radius: 3px;
-    padding: 1px 4px;
-  }
-
-  .snapshot-stack {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    align-items: center;
-  }
-
-  .snapshot-card {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    background: var(--bg);
-  }
-
-  .snapshot-card .preview-frame { border: none; border-radius: 0; }
-  .snapshot-caption {
-    padding: 8px 10px;
-    font-size: 11px;
+    font-size: 10px;
     color: var(--fg-3);
-    font-family: var(--font-mono);
-    border-top: 1px solid var(--border);
-  }
-
-  .service-map {
-    margin: 18px 0;
-  }
-
-  .service-row {
-    display: grid;
-    grid-template-columns: minmax(150px, 0.75fr) 28px minmax(180px, 1fr) 28px minmax(150px, 0.75fr);
-    gap: 8px;
-    align-items: stretch;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     margin-bottom: 8px;
   }
-
-  .service-box {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--bg-2);
-    padding: 12px 14px;
-    min-width: 0;
-  }
-
-  .service-box.primary {
-    border-color: rgba(79,142,255,0.45);
-    background: var(--primary-dim);
-  }
-
-  .service-box.local {
-    border-color: rgba(78,201,176,0.38);
-    background: var(--emerald-dim);
-  }
-
-  .service-title {
+  .decision-card.primary .decision-label { color: var(--primary); }
+  .decision-title {
+    font-size: 22px;
+    line-height: 1.15;
+    font-weight: 700;
     color: var(--fg);
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 3px;
+    margin-bottom: 10px;
   }
+  .decision-card p { color: var(--fg-2); font-size: 13px; }
+  .rule-list {
+    display: grid;
+    gap: 9px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .rule-list li {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: 12px;
+    color: var(--fg-2);
+    font-size: 13px;
+  }
+  .rule-list strong { color: var(--fg); font-weight: 600; }
 
-  .service-desc { color: var(--fg-2); font-size: 12px; line-height: 1.5; }
-  .service-arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  /* Architecture flow diagram */
+  .arch-flow {
+    display: grid;
+    grid-template-columns: 1fr auto 1.4fr auto 1fr;
+    align-items: stretch;
+    gap: 10px;
+    margin: 18px 0;
+  }
+  .arch-node {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+  }
+  .arch-node.center {
+    background:
+      linear-gradient(160deg, rgba(79,142,255,0.16), rgba(31,31,31,0) 60%),
+      var(--bg-2);
+    border-color: rgba(79,142,255,0.34);
+  }
+  .arch-node h4 {
+    font-size: 11px;
+    color: var(--fg-3);
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .arch-node.center h4 { color: var(--primary); }
+  .arch-node-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--fg);
+    margin-bottom: 6px;
+  }
+  .arch-node-desc { font-size: 12px; color: var(--fg-2); }
+  .arch-arrow {
+    align-self: center;
     color: var(--fg-3);
     font-family: var(--font-mono);
+    font-size: 14px;
   }
 
-  .service-notes {
+  /* Metric grid (eval summary) */
+  .metric-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
     overflow: hidden;
-    margin-top: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--border);
+    margin: 14px 0;
   }
-
-  .service-note {
+  .metric {
     background: var(--bg-2);
-    padding: 12px 14px;
+    padding: 16px;
   }
-
-  .service-note strong {
-    display: block;
-    color: var(--fg);
-    font-size: 12px;
+  .metric-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--fg-3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     margin-bottom: 4px;
   }
-
-  .service-note span {
-    display: block;
-    color: var(--fg-2);
+  .metric-value {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    color: var(--fg);
+    margin: 2px 0 6px;
+  }
+  .metric-copy {
     font-size: 12px;
+    color: var(--fg-2);
     line-height: 1.5;
   }
 
-  .flow-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    margin: 14px 0;
-    font-size: 12px;
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-
-  .flow-table th {
-    text-align: left;
-    padding: 9px 14px;
-    background: var(--bg);
-    color: var(--fg-3);
-    font-weight: 500;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    border-bottom: 1px solid var(--border);
-    font-family: var(--font-mono);
-  }
-
-  .flow-table td {
-    padding: 9px 14px;
-    border-bottom: 1px solid var(--border);
-    color: var(--fg-2);
-    vertical-align: top;
-  }
-
-  .flow-table tr:last-child td { border-bottom: none; }
-  .flow-table .col-name {
-    font-family: var(--font-mono);
-    color: var(--fg);
-    white-space: nowrap;
-    font-size: 11px;
-  }
-  .flow-table .col-label { color: var(--fg); font-weight: 500; }
-  .flow-table .ok { color: var(--emerald); }
-  .flow-table .busy { color: var(--blue); }
-  .flow-table .warn { color: var(--amber); }
-  .flow-table .bad { color: var(--red); }
-
-  .state-lane {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    margin: 18px 0;
-  }
-
-  .state-item {
-    background: var(--bg-2);
-    padding: 14px 16px;
-    min-height: 124px;
-  }
-
-  .state-item.focus { background: var(--bg-3); }
-  .state-kicker {
-    font-family: var(--font-mono);
-    color: var(--fg-3);
-    font-size: 10px;
-    margin-bottom: 8px;
-  }
-  .state-title { color: var(--fg); font-weight: 600; font-size: 13px; margin-bottom: 6px; }
-  .state-desc { color: var(--fg-2); font-size: 12px; line-height: 1.5; }
-
-  .artifact-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin: 18px 0;
-  }
-
-  .artifact {
+  /* Benchmark bars */
+  .bench {
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--bg-2);
-    padding: 14px 16px;
-  }
-
-  .artifact h3 { margin-top: 0; }
-  .artifact p { font-size: 13px; }
-
-  .path-pill {
-    display: inline-flex;
-    max-width: 100%;
-    padding: 2px 6px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-    background: var(--bg-3);
-    color: var(--fg-2);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    overflow-wrap: anywhere;
-  }
-
-  .edge-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
+    padding: 18px 20px;
     margin: 14px 0;
   }
-
-  .edge-cell {
-    background: var(--bg-2);
-    padding: 14px 16px;
-  }
-
-  .edge-cell h3 { margin-top: 0; }
-  .edge-cell p { font-size: 13px; }
-
-  .related-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    margin: 16px 0;
-  }
-
-  .related-card {
-    background: var(--bg-2);
-    padding: 14px 16px;
-    text-decoration: none;
-    border-bottom: none;
-    transition: background var(--transition);
-  }
-  .related-card:hover { background: var(--bg-3); }
-  .related-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--fg);
-    margin-bottom: 4px;
+  .bench-head {
     display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 14px;
+  }
+  .bench-title { font-size: 14px; font-weight: 700; color: var(--fg); }
+  .bench-sub { font-size: 11px; color: var(--fg-3); font-family: var(--font-mono); }
+  .bars { display: grid; gap: 10px; }
+  .bar-row {
+    display: grid;
+    grid-template-columns: 192px minmax(120px, 1fr) 72px;
     align-items: center;
-    gap: 6px;
+    gap: 12px;
+    padding: 4px 8px 4px 10px;
+    margin-left: -10px;
+    border-left: 2px solid transparent;
+    border-radius: 4px;
   }
-  .related-name::after {
-    content: ">";
-    color: var(--fg-3);
-    font-weight: 400;
-    margin-left: auto;
+  .bar-row.chosen {
+    background: linear-gradient(90deg, rgba(78,201,176,0.12), rgba(31,31,31,0) 80%);
+    border-left-color: var(--emerald);
   }
-  .related-desc { font-size: 12px; color: var(--fg-3); line-height: 1.5; }
-
-  .testplan { margin: 16px 0 24px; }
-  .testplan-group { margin-bottom: 18px; }
-  .testplan-group-title {
-    font-size: 11px;
+  .bar-row.chosen .bar-name strong { color: var(--emerald); }
+  .bar-name {
+    font-size: 12px;
+    color: var(--fg-2);
+    line-height: 1.3;
+  }
+  .bar-name strong { display: block; color: var(--fg); font-size: 13px; }
+  .bench-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 6px;
+    color: var(--fg-2);
+  }
+  .bench-legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--emerald);
+    box-shadow: 0 0 0 2px rgba(78,201,176,0.18);
+  }
+  .track {
+    height: 10px;
+    border: 1px solid #303030;
+    border-radius: 999px;
+    background: #131313;
+    overflow: hidden;
+  }
+  .fill {
+    height: 100%;
+    border-radius: inherit;
+    background: var(--blue);
+  }
+  .fill.green { background: var(--emerald); }
+  .fill.amber { background: var(--amber); }
+  .fill.red { background: var(--red); }
+  .fill.violet { background: var(--violet); }
+  .bar-value {
     font-family: var(--font-mono);
-    color: var(--fg-3);
-    margin-bottom: 6px;
-    padding-bottom: 6px;
+    font-size: 12px;
+    color: var(--fg);
+    text-align: right;
+  }
+
+  /* Rules grid (closing) */
+  .rules-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 14px 0;
+  }
+  .rule-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    border-left: 2px solid var(--border-2);
+  }
+  .rule-card.accent { border-left-color: var(--primary); }
+  .rule-card h3 {
+    margin: 0 0 4px;
+    font-size: 13px;
+    color: var(--fg);
+  }
+  .rule-card p { margin: 0; font-size: 12px; color: var(--fg-2); }
+
+  /* Test plan */
+  .testplan {
+    display: grid;
+    gap: 14px;
+    margin: 14px 0;
+  }
+  .testplan-group {
+    border: 1px solid var(--border);
+    background: var(--bg-2);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .testplan-group-title {
+    padding: 10px 14px;
+    background: var(--bg-3);
+    color: var(--fg);
+    font-size: 12px;
+    font-weight: 600;
     border-bottom: 1px solid var(--border);
   }
   .testplan-row {
     display: grid;
-    grid-template-columns: 56px 1fr 88px 90px minmax(130px, 1fr);
+    grid-template-columns: 50px 1fr 70px 90px;
     gap: 12px;
-    align-items: baseline;
-    padding: 7px 0;
-    font-size: 12px;
+    padding: 9px 14px;
+    align-items: center;
     border-bottom: 1px solid var(--border);
+    font-size: 12px;
   }
-  .testplan-row:last-child { border-bottom: none; }
-  .testplan-id { font-family: var(--font-mono); color: var(--fg); font-size: 11px; font-weight: 600; }
-  .testplan-name { color: var(--fg-2); line-height: 1.5; }
-  .testplan-type { font-family: var(--font-mono); font-size: 10px; color: var(--fg-3); text-transform: uppercase; }
-  .testplan-status { font-family: var(--font-mono); font-size: 10px; }
-  .testplan-status.covered { color: var(--emerald); }
-  .testplan-status.watch { color: var(--amber); }
-  .testplan-file {
-    font-family: var(--font-mono);
+  .testplan-row:last-child { border-bottom: 0; }
+  .testplan-id { font-family: var(--font-mono); color: var(--fg-3); font-size: 11px; }
+  .testplan-name { color: var(--fg); }
+  .testplan-type { font-family: var(--font-mono); font-size: 10px; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.04em; }
+  .testplan-status {
     font-size: 10px;
-    color: var(--fg-3);
-    overflow-wrap: anywhere;
+    font-family: var(--font-mono);
+    padding: 2px 7px;
+    border-radius: 999px;
+    text-align: center;
+    border: 1px solid;
+    white-space: nowrap;
   }
+  .testplan-status.covered { color: var(--emerald); border-color: rgba(78,201,176,0.36); background: rgba(78,201,176,0.08); }
+  .testplan-status.watch { color: var(--amber); border-color: rgba(212,167,44,0.36); background: rgba(212,167,44,0.08); }
+  .testplan-status.planned { color: var(--violet); border-color: rgba(167,139,250,0.36); background: rgba(167,139,250,0.08); }
 
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--fg-3); }
-
-  @media (max-width: 1100px) {
-    .journey { grid-template-columns: repeat(2, 1fr); }
-    .review-surface,
-    .context-layout,
-    .snapshot-stack { grid-template-columns: 1fr; }
-    .state-lane { grid-template-columns: repeat(2, 1fr); }
-    .service-row { grid-template-columns: 1fr; }
-    .service-arrow { display: none; }
-    .service-notes { grid-template-columns: 1fr; }
+  /* Related */
+  .related-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 14px 0;
   }
+  .related-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-2);
+    color: var(--fg-2);
+    text-decoration: none;
+    font-size: 12px;
+  }
+  .related-chip:hover { background: var(--bg-3); color: var(--fg); border-color: var(--border-2); }
+  .related-chip span { color: var(--fg-3); font-family: var(--font-mono); font-size: 10px; }
 
-  @media (max-width: 820px) {
-    body { display: block; }
-    .sidebar {
-      position: relative;
-      width: 100%;
-      height: auto;
-      border-right: none;
-      border-bottom: 1px solid var(--border);
-      padding: 14px 0;
-    }
-    .sidebar-logo { padding: 0 14px 12px; }
-    .nav-section { display: none; }
-    .main { padding: 32px 18px 72px; max-width: none; }
-    h1 { font-size: 26px; }
-    h2 { font-size: 18px; margin-top: 44px; }
-    .promise-grid,
-    .journey,
-    .artifact-grid,
-    .edge-grid,
-    .related-grid,
-    .state-lane { grid-template-columns: 1fr; }
-    .metric-row { grid-template-columns: 1fr; }
-    .testplan-row {
-      grid-template-columns: 54px 1fr;
-      gap: 4px 10px;
-      padding: 10px 0;
-    }
-    .testplan-type,
-    .testplan-status,
-    .testplan-file { grid-column: 2; }
-    .flow-table { display: block; overflow-x: auto; }
-    .test-marker .tip { display: none; }
+  /* Responsive */
+  @media (max-width: 1080px) {
+    .arch-flow { grid-template-columns: 1fr; }
+    .arch-arrow { transform: rotate(90deg); }
+    .needs { grid-template-columns: 1fr; }
+    .decision, .rules-grid { grid-template-columns: 1fr; }
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    .bar-row { grid-template-columns: 1fr; gap: 4px; }
+    .testplan-row { grid-template-columns: 1fr; gap: 4px; }
+    .journey { grid-template-columns: 1fr 1fr; }
+    .main { padding: 36px 22px 84px; }
   }
 </style>
 </head>
@@ -1184,221 +852,109 @@
     <div class="logo-mark">R</div>
     <div>
       <div class="sidebar-title">Ripple Spec</div>
-      <div class="sidebar-sub">Visual Context - v1</div>
+      <div class="sidebar-sub">Visual Context - v2</div>
     </div>
   </div>
 
   <div class="nav-section">
-    <div class="nav-label">Foundations</div>
+    <div class="nav-label">Spec</div>
     <a class="nav-item active" href="#overview"><span class="nav-num">1</span>Overview</a>
-    <a class="nav-item" href="#model"><span class="nav-num">2</span>User model</a>
-    <a class="nav-item" href="#vision"><span class="nav-num">3</span>Agent vision</a>
-    <a class="nav-item" href="#journey"><span class="nav-num">4</span>Capture journey</a>
+    <a class="nav-item" href="#needs"><span class="nav-num">2</span>Three Needs</a>
+    <a class="nav-item" href="#behavior"><span class="nav-num">3</span>Product Behavior</a>
+    <a class="nav-item" href="#routing"><span class="nav-num">4</span>Routing</a>
   </div>
 
   <div class="nav-section">
-    <div class="nav-label">Experience</div>
-    <a class="nav-item" href="#contexts"><span class="nav-num">5</span>Context types</a>
-    <a class="nav-item" href="#states"><span class="nav-num">6</span>States</a>
-    <a class="nav-item" href="#service"><span class="nav-num">7</span>Architecture</a>
-    <a class="nav-item" href="#strategies"><span class="nav-num">8</span>Capture strategy</a>
-    <a class="nav-item" href="#provider-contract"><span class="nav-num">9</span>Provider contract</a>
-    <a class="nav-item" href="#artifacts"><span class="nav-num">10</span>Local artifacts</a>
+    <div class="nav-label">System</div>
+    <a class="nav-item" href="#architecture"><span class="nav-num">5</span>Architecture</a>
+    <a class="nav-item" href="#evidence"><span class="nav-num">6</span>Evidence</a>
   </div>
 
   <div class="nav-section">
-    <div class="nav-label">Behavior</div>
-    <a class="nav-item" href="#rules"><span class="nav-num">11</span>Rules</a>
-    <a class="nav-item" href="#edge"><span class="nav-num">12</span>Edge cases</a>
-  </div>
-
-  <div class="nav-section">
-    <div class="nav-label">Reference</div>
-    <a class="nav-item" href="#related"><span class="nav-num">13</span>Related specs</a>
-    <a class="nav-item" href="#testplan"><span class="nav-num">14</span>Test plan</a>
+    <div class="nav-label">Contract</div>
+    <a class="nav-item" href="#rules"><span class="nav-num">7</span>Rules</a>
+    <a class="nav-item" href="#vision"><span class="nav-num">8</span>Vision</a>
+    <a class="nav-item" href="#testplan"><span class="nav-num">9</span>Test plan</a>
   </div>
 </nav>
 
 <main class="main">
 
   <section id="overview">
-    <div class="spec-eyebrow">Spec - Visual Context</div>
+    <div class="spec-eyebrow">Spec - Visual Context - v2</div>
     <h1>Visual Context</h1>
-    <p class="lede">Visual Context is how Ripple lets an agent see an HTML motion world without making the user manage screenshots. Ripple renders HyperFrames compositions, captures the right visual evidence on the user's behalf, and hands that evidence to Codex or Claude so the agent can judge what it is doing visually.</p>
+    <p class="lede">Agents see the user's projects through code. They can read files, but it is often hard for them to understand exactly how the work renders. Visual Context gives agents a fast way to see the frame or range they are working on so they can make better changes.</p>
+    <p class="lede-2">Ripple provides visuals as a service to agents. The goal is speed and quality: the user keeps working, and the agent gets enough visual evidence to understand the project.</p>
 
     <div class="meta-row">
       <div><strong>Audience:</strong> Motion designers directing agent edits</div>
-      <div><strong>Surfaces:</strong> HTML preview, comments, chats, timeline</div>
-      <div><strong>Status:</strong> Building</div>
-    </div>
-
-    <div class="test-legend">
-      <strong>Test markers</strong>
-      <span><span class="test-marker covered">T-A1</span> covered</span>
-      <span><span class="test-marker watch">T-C9</span> code-reviewed</span>
-      <span>Markers map to existing tests or code-reviewed implementation seams</span>
-      <span style="margin-left:auto;color:var(--fg-3)">Hover markers for details - jump to <a href="#testplan">Test plan</a></span>
+      <div><strong>Surfaces:</strong> Preview, comments, chat</div>
+      <div><strong>Status:</strong> Refactor target - ideal system</div>
     </div>
   </section>
 
-  <section id="model">
-    <h2>User model</h2>
-    <p class="lede-2">The user should never think about screenshots, CLIs, browser sessions, capture backends, endpoints, or generated files. The visible promise is simple: the agent can see the right frame or range, and the app stays fast while it prepares that context.</p>
+  <section id="needs">
+    <h2>Three Needs</h2>
+    <p class="lede-2">Three distinct visual asks. Each maps to a different source and quality bar.</p>
 
-    <div class="callout info">
-      <div class="callout-icon">Model</div>
-      <div class="callout-body"><strong>The agent sees through rendered HTML.</strong> Ripple projects are HTML motion compositions. The agent can inspect source files, but visual judgment comes from rendered frames, sheets, and preview-state captures prepared by the app.</div>
-    </div>
-
-    <div class="review-surface">
-      <div class="surface-panel">
-        <div class="surface-header">
-          <div class="surface-title">Preview player - current frame</div>
-          <div class="surface-tag">00:00:09:22</div>
-        </div>
-        <div class="surface-body">
+    <div class="needs">
+      <div class="need blue">
+        <div class="need-num">Need 01</div>
+        <div class="need-name">Current Frame</div>
+        <div class="need-desc">What the user is looking at right now.</div>
+        <div class="need-visual">
           <div class="preview-frame">
             <div class="frame-bg"></div>
             <div class="title-block"></div>
             <div class="lower-third"></div>
             <div class="playhead-line"></div>
             <div class="capture-ring"></div>
-            <div class="frame-label">current frame</div>
+            <div class="frame-label">00:00:09:22</div>
           </div>
+        </div>
+        <div class="need-rule">
+          <strong>Live preview surface.</strong>
+          <span>Match the project, composition, revision, time, and frame the user sees. If preview context is missing, fail clearly instead of guessing.</span>
         </div>
       </div>
 
-      <div class="surface-panel">
-        <div class="surface-header">
-          <div class="surface-title">Comment card</div>
-          <div class="surface-tag">runtime visual stored</div>
-        </div>
-        <div class="surface-body">
-          <div class="comment-card selected">
-            <div class="cc-header">
-              <span class="timecode">00:00:09:22</span>
-              <span class="cc-index">#3</span>
-              <span class="cc-status-dot dot-blue"></span>
+      <div class="need green">
+        <div class="need-num">Need 02</div>
+        <div class="need-name">Certain Frame</div>
+        <div class="need-desc">A specific timestamp in a known composition.</div>
+        <div class="need-visual">
+          <div class="snapshot-stack">
+            <div class="snapshot-card">
+              <div class="preview-frame" style="border:none;border-radius:0">
+                <div class="frame-bg"></div>
+                <div class="title-block"></div>
+                <div class="lower-third"></div>
+                <div class="frame-label">main</div>
+              </div>
+              <div class="snapshot-caption"><span>main</span><span>0.5s</span></div>
             </div>
-            <div class="cc-message">Slow the fade here. It feels rushed against the background build.</div>
-            <div class="cc-status-line shimmer">Reviewing the frame from stored runtime context.</div>
-            <div class="cc-actions">
-              <button class="btn">Reply</button>
-              <span class="progress-indicator" title="Generating changes"><span class="progress-ring"></span></span>
+            <div class="snapshot-card">
+              <div class="preview-frame" style="border:none;border-radius:0">
+                <div class="frame-bg"></div>
+                <div class="title-block" style="width:60%"></div>
+                <div class="lower-third" style="bottom:22%;width:54%"></div>
+                <div class="frame-label">proposed</div>
+              </div>
+              <div class="snapshot-caption"><span>revision</span><span>0.5s</span></div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="vision">
-    <h2>Agent Vision Model</h2>
-    <p class="lede-2">The user should be able to ask for a visual change without gathering evidence. Ripple provides the agent with visual context as part of the app, using the current HTML preview, app-managed capture tools, and provider-specific image handoff formats.</p>
-
-    <table class="flow-table">
-      <thead>
-        <tr>
-          <th>Route</th>
-          <th>What the agent can see</th>
-          <th>User effort</th>
-          <th>Implementation posture</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td class="col-name">chat</td><td class="col-label">Current preview frame, arbitrary timestamp snapshot, or frame sheet across a requested range.</td><td>None beyond asking the agent.</td><td>App-managed <code>ripple snapshot</code> and <code>ripple frame-sheet</code> tools over endpoint or file bridge.</td></tr>
-        <tr><td class="col-name">point comment</td><td class="col-label">The frame at the comment timestamp, tied to the preview source and composition.</td><td>None beyond placing the comment.</td><td>Automatic background capture writes a runtime visual attachment for the agent.</td></tr>
-        <tr><td class="col-name">range comment</td><td class="col-label">A sampled frame sheet for the selected range.</td><td>None beyond selecting the range and commenting.</td><td>Automatic frame-sheet capture, with sampling bounds and project-local artifacts.</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section id="journey">
-    <h2>Capture journey</h2>
-    <p class="lede-2">The comment or chat environment starts first. Visual context is delivered alongside it by the Visual Context Service, so a frame capture, snapshot, or frame sheet can arrive without making the user wait on infrastructure.</p>
-
-    <div class="journey">
-      <div class="journey-step accent">
-        <div class="journey-num">01 - User action</div>
-        <div class="journey-title">Send from the preview</div>
-        <div class="journey-desc">A comment is anchored to the visible frame or selected range. A chat starts from the current project and preview context.</div>
-      </div>
-      <div class="journey-step">
-        <div class="journey-num">02 - Environment starts</div>
-        <div class="journey-title">UI and run begin</div>
-        <div class="journey-desc">The comment card or chat run starts immediately. The user sees their note or conversation state before visual capture finishes.</div>
-      </div>
-      <div class="journey-step">
-        <div class="journey-num">03 - Visual delivery</div>
-        <div class="journey-title">Service provides sight</div>
-        <div class="journey-desc">The Visual Context Service captures the needed frame, snapshot, or sheet in parallel and stores it as local runtime evidence.</div>
-      </div>
-      <div class="journey-step">
-        <div class="journey-num">04 - Agent run</div>
-        <div class="journey-title">Agent uses the visual</div>
-        <div class="journey-desc">The runtime materializes the local image attachment or exposes app-managed visual tools, then passes concise frame or sheet context to Codex or Claude.</div>
-      </div>
-    </div>
-
-    <div class="callout info">
-      <div class="callout-icon">Comment</div>
-      <div class="callout-body"><strong>This mirrors <a href="Comments.html">Comments.html</a>.</strong> A comment card appears before screenshots, frame sheets, or any agent run. Visual context attaches in the background so the UI is not blocked.</div>
-    </div>
-
-    <h4>Submission rules</h4>
-    <ul>
-      <li><strong>The comment or chat starts before visual context finishes.</strong> Capture should never be the gate for showing the user's own note or starting the run environment.<a class="test-marker covered" href="#testplan">T-A1<span class="tip"><strong>Visual capture does not block comment card</strong><em>e2e - comments-spec.e2e.ts</em></span></a></li>
-      <li><strong>Frame comments get a still frame.</strong> A paused moment should become a local image attachment for the run.<a class="test-marker covered" href="#testplan">T-A2<span class="tip"><strong>Frame comment visual stored locally</strong><em>e2e - release-qa.e2e.ts</em></span></a></li>
-      <li><strong>Range comments get a compact frame sheet.</strong> Timing feedback needs multiple samples, not a single still.<a class="test-marker covered" href="#testplan">T-A3<span class="tip"><strong>Range comments capture a frame sheet</strong><em>quality - visual-context-matrix.test.ts</em></span></a></li>
-      <li><strong>Current preview state is source-aware.</strong> Runtime visual tools respect whether the user is looking at Main or a proposed version.<a class="test-marker covered" href="#testplan">T-A4<span class="tip"><strong>Runtime current-frame snapshot carries source revision</strong><em>unit - runtime-context.test.ts</em></span></a></li>
-    </ul>
-  </section>
-
-  <div class="section-num">02 - Experience</div>
-
-  <section id="contexts">
-    <h2>Context types</h2>
-    <p class="lede-2">These labels should not overlap. A frame or sheet is visual evidence. A snapshot is an explicit captured artifact. Current preview is live app state that tells the service what to capture.</p>
-
-    <div class="context-tabs">
-      <button class="context-tab active" data-context="frame">comment frame</button>
-      <button class="context-tab" data-context="range">range sheet</button>
-      <button class="context-tab" data-context="snapshot">snapshot artifact</button>
-      <button class="context-tab" data-context="preview">current preview state</button>
-    </div>
-
-    <div class="context-content visible" data-context="frame">
-      <div class="context-layout">
-        <div class="context-visual">
-          <div class="preview-frame">
-            <div class="frame-bg"></div>
-            <div class="title-block"></div>
-            <div class="lower-third"></div>
-            <div class="capture-ring"></div>
-            <div class="frame-label">00:00:09:22 - frame 292</div>
-          </div>
-          <div class="metric-row">
-            <div class="metric"><div class="metric-label">Best for</div><div class="metric-value">precise note</div></div>
-            <div class="metric"><div class="metric-label">Artifact</div><div class="metric-value">frame.png</div></div>
-            <div class="metric"><div class="metric-label">User sees</div><div class="metric-value">timecode card</div></div>
-          </div>
-        </div>
-        <div class="context-notes">
-          <h3>Comment frame</h3>
-          <p>A comment frame is the single still automatically attached to a point comment. It represents the timestamp the user is commenting on.</p>
-          <p>The generated image is stored for the runtime today, not rendered as a visible thumbnail in the comment card. The user should understand this as "the frame for my comment," not as a generic screenshot.</p>
+        <div class="need-rule">
+          <strong>Rendered from source.</strong>
+          <span>Use project, composition, revision, and timestamp. Do not move the user's visible preview just to capture this.</span>
         </div>
       </div>
-    </div>
 
-    <div class="context-content" data-context="range">
-      <div class="context-layout">
-        <div class="context-visual">
-          <div class="timeline-strip">
-            <div class="timeline-window"></div>
-            <div class="timeline-dot" style="left: 26%"></div>
-            <div class="timeline-dot" style="left: 68%"></div>
-          </div>
+      <div class="need violet">
+        <div class="need-num">Need 03</div>
+        <div class="need-name">Frame Sheet</div>
+        <div class="need-desc">A small grid of frames from a range, sampled at a useful cadence.</div>
+        <div class="need-visual">
           <div class="frame-sheet-grid">
             <div class="sheet-cell"><span class="sheet-stamp">00:00</span></div>
             <div class="sheet-cell"><span class="sheet-stamp">00:01</span></div>
@@ -1406,530 +962,369 @@
             <div class="sheet-cell"><span class="sheet-stamp">00:03</span></div>
             <div class="sheet-cell"><span class="sheet-stamp">00:04</span></div>
             <div class="sheet-cell"><span class="sheet-stamp">00:05</span></div>
+            <div class="sheet-cell"><span class="sheet-stamp">00:06</span></div>
+            <div class="sheet-cell"><span class="sheet-stamp">00:07</span></div>
           </div>
         </div>
-        <div class="context-notes">
-          <h3>Range frame sheet</h3>
-          <p>A range sheet is visual evidence for time-based feedback. It samples a selected span so the agent can compare the beginning, middle, and end of a motion note without watching a full render.</p>
-          <p>Comments create this automatically for selected ranges. Chat tools can also create frame sheets for arbitrary ranges and sample counts within app limits.</p>
+        <div class="need-rule">
+          <strong>Sampled with a manifest.</strong>
+          <span>Include a manifest that maps each cell to its timestamp or frame so the agent can refer to exact moments.</span>
         </div>
       </div>
     </div>
-
-    <div class="context-content" data-context="snapshot">
-      <div class="context-layout">
-        <div class="context-visual">
-          <div class="snapshot-stack">
-            <div class="snapshot-card">
-              <div class="preview-frame">
-                <div class="frame-bg"></div>
-                <div class="title-block"></div>
-                <div class="lower-third"></div>
-                <div class="frame-label">before</div>
-              </div>
-              <div class="snapshot-caption">Main snapshot</div>
-            </div>
-            <div class="snapshot-card">
-              <div class="preview-frame">
-                <div class="frame-bg"></div>
-                <div class="title-block" style="width:60%"></div>
-                <div class="lower-third" style="bottom:22%;width:54%"></div>
-                <div class="frame-label">after</div>
-              </div>
-              <div class="snapshot-caption">Proposed snapshot</div>
-            </div>
-          </div>
-        </div>
-        <div class="context-notes">
-          <h3>Snapshot artifact</h3>
-          <p>A snapshot is an explicit one-off capture requested by chat tools, QA flows, or before/after checks. It can target the current preview state or a specific timestamp.</p>
-          <p>Unlike a comment frame, a snapshot is not automatically tied to a review note. It is a local artifact the agent can ask for when it needs to inspect a rendered HTML state.</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="context-content" data-context="preview">
-      <div class="context-layout">
-        <div class="context-visual">
-          <div class="preview-frame">
-            <div class="frame-bg"></div>
-            <div class="title-block"></div>
-            <div class="lower-third" style="left: 13%; bottom: 23%;"></div>
-            <div class="playhead-line" style="left:58%"></div>
-            <div class="capture-ring"></div>
-            <div class="frame-label">proposal source - current</div>
-          </div>
-          <div class="metric-row">
-            <div class="metric"><div class="metric-label">Source</div><div class="metric-value">Main or revision</div></div>
-            <div class="metric"><div class="metric-label">Time</div><div class="metric-value">current player</div></div>
-            <div class="metric"><div class="metric-label">Use</div><div class="metric-value">visual QA</div></div>
-          </div>
-        </div>
-        <div class="context-notes">
-          <h3>Current preview state</h3>
-          <p>Current preview is not an image by itself. It is the live app state: project, source revision, composition, time, frame, and preview identity.</p>
-          <p>Chat visual tools use this state when the agent asks for <code>ripple snapshot --at current</code>. The service then turns that state into a snapshot image or frame sheet.</p>
-        </div>
-      </div>
-    </div>
-
-    <table class="flow-table">
-      <thead>
-        <tr>
-          <th>Context</th>
-          <th>Meaning</th>
-          <th>Route</th>
-          <th>Covered by</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td class="col-name">comment frame</td><td class="col-label">One still image for the timestamp of a point comment</td><td>automatic comment context</td><td><a class="test-marker covered" href="#testplan">T-B1<span class="tip"><strong>Frame comments capture current frame</strong><em>quality - visual-context-matrix.test.ts</em></span></a></td></tr>
-        <tr><td class="col-name">range sheet</td><td class="col-label">A sampled grid of frames for a selected or requested time span</td><td>automatic range comment or chat tool</td><td><a class="test-marker covered" href="#testplan">T-B2<span class="tip"><strong>Range comments capture sheet</strong><em>quality - visual-context-matrix.test.ts</em></span></a></td></tr>
-        <tr><td class="col-name">snapshot artifact</td><td class="col-label">A one-off captured image for QA, before/after review, or agent self-checks</td><td>chat tool or CLI</td><td><a class="test-marker covered" href="#testplan">T-B3<span class="tip"><strong>Snapshot CLI and service paths</strong><em>cli - visual.test.ts</em></span></a></td></tr>
-        <tr><td class="col-name">current preview state</td><td class="col-label">The live project/source/composition/time/frame pointer, not an image</td><td>runtime context for capture tools</td><td><a class="test-marker covered" href="#testplan">T-B4<span class="tip"><strong>Current-frame endpoint resolves player state</strong><em>unit - endpoint.test.ts</em></span></a></td></tr>
-      </tbody>
-    </table>
   </section>
 
-  <section id="states">
-    <h2>States</h2>
-    <p class="lede-2">The capture state should never replace the user's note state. In the implemented comments path, it is a quiet attachment lifecycle underneath the card. In chat, visual context is mostly runtime context plus on-demand <code>ripple snapshot</code> and <code>ripple frame-sheet</code> tools.</p>
+  <section id="behavior">
+    <h2>Product Behavior</h2>
+    <p class="lede-2">Visual capture is a service. The user keeps working, and the visual arrives alongside the comment or chat, not in front of it.</p>
 
-    <div class="state-lane">
-      <div class="state-item focus">
-        <div class="state-kicker">visible</div>
-        <div class="state-title">Note exists</div>
-        <div class="state-desc">The comment card is already visible and editable in the user's flow before capture starts.</div>
-      </div>
-      <div class="state-item">
-        <div class="state-kicker">background</div>
-        <div class="state-title">Comment capture queued</div>
-        <div class="state-desc">Ripple records the project, composition, preview source, time, source revision, and range request.</div>
-      </div>
-      <div class="state-item">
-        <div class="state-kicker">service</div>
-        <div class="state-title">Coordinator running</div>
-        <div class="state-desc">The Visual Context Service queues by session key, allows two active captures, and falls back between registered backends.</div>
-      </div>
-      <div class="state-item">
-        <div class="state-kicker">attachment</div>
-        <div class="state-title">Context materialized</div>
-        <div class="state-desc">The agent run receives local image inputs plus concise prompt context; user attachments take precedence when budgets are tight.</div>
-      </div>
-      <div class="state-item">
-        <div class="state-kicker">fallback</div>
-        <div class="state-title">Text still works</div>
-        <div class="state-desc">If capture fails, the user keeps the note and the agent still receives text context. Runtime visual tool failures are reported as command errors, not app data loss.</div>
-      </div>
-    </div>
-
-    <h4>UI treatment</h4>
     <ul>
-      <li><strong>Current UI does not show generated visual thumbnails.</strong> Comment cards show timecode, status, actions, and user-supplied attachment chips; generated <code>screenshotPath</code> is stored for runtime use.</li>
-      <li><strong>A thumbnail or frame-sheet chip is a proposed enhancement.</strong> It can reassure the user that the agent can see the relevant visual, but the current implementation keeps that evidence behind the scenes.</li>
-      <li><strong>Capture failures should be quiet by default.</strong> Use product language such as "Could not attach visual context" only when the user needs to act.</li>
-      <li><strong>Debug terms stay out of normal UX.</strong> Do not show backend names, ports, endpoints, handoff files, workspaces, or provider plumbing in comments and chats.</li>
+      <li><strong>Point comments automatically attach the frame at the comment timestamp.</strong><a class="test-marker covered" href="#testplan">T-B1<span class="tip"><strong>Frame comments capture current frame</strong><em>quality - visual-context-matrix.test.ts</em></span></a></li>
+      <li><strong>Range comments automatically attach a frame sheet for the selected range.</strong><a class="test-marker covered" href="#testplan">T-B2<span class="tip"><strong>Range comments capture sheet</strong><em>unit - comment-visuals.test.ts</em></span></a></li>
+      <li><strong>The UI never waits on capture.</strong> Comments and chats both appear immediately.<a class="test-marker covered" href="#testplan">T-A1<span class="tip"><strong>Card visible before visual files attach</strong><em>e2e - comments-spec.e2e.ts</em></span></a></li>
+      <li><strong>Comment agent runs wait for the visual.</strong> The agent session pauses until the frame or sheet is ready, so the visual is attached to the first agent message.<a class="test-marker planned" href="#testplan">T-A5<span class="tip"><strong>Comment agent run gated on visual</strong><em>planned - refactor target</em></span></a></li>
+      <li><strong>Chat agent runs start immediately.</strong> The agent requests frames or sheets on demand during the session via Ripple's visual commands.<a class="test-marker covered" href="#testplan">T-B3<span class="tip"><strong>Snapshot and frame-sheet CLI tools</strong><em>cli - visual.test.ts</em></span></a></li>
+      <li><strong>If visual capture fails, the comment or chat still exists</strong> and the agent still gets the text.<a class="test-marker covered" href="#testplan">T-A2<span class="tip"><strong>Fallback to text on capture failure</strong><em>e2e - release-qa.e2e.ts</em></span></a></li>
     </ul>
   </section>
 
-  <section id="service">
-    <h2>Architecture</h2>
-    <p class="lede-2">Ripple owns the capture layer. The implementation is split between automatic comment capture, runtime chat context, app-managed CLI tools, and a coordinator service that re-renders requested frames rather than screen-scraping the visible player.</p>
+  <section id="routing">
+    <h2>Routing</h2>
+    <p class="lede-2">Each need has a best source. The service routes automatically; agents do not pick backends.</p>
 
-    <div class="service-map">
-      <div class="service-row">
-        <div class="service-box">
-          <div class="service-title">User surface</div>
-          <div class="service-desc">Comment cards, timeline ranges, preview source, chat runtime context, or explicit visual QA request.</div>
-        </div>
-        <div class="service-arrow">-&gt;</div>
-        <div class="service-box primary">
-          <div class="service-title">Visual Context Service</div>
-          <div class="service-desc">Coordinator for queued snapshots and frame sheets, backend fallback, metrics, invalidation, safe serving, and shutdown.</div>
-        </div>
-        <div class="service-arrow">-&gt;</div>
-        <div class="service-box local">
-          <div class="service-title">Agent runtime</div>
-          <div class="service-desc">Local image inputs, provider env vars, endpoint or file bridge access, and prompt context that describes the frame or sheet.</div>
-        </div>
+    <table class="flow-table">
+      <thead>
+        <tr>
+          <th>Need</th>
+          <th>Best source</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-name">Current Frame</td>
+          <td class="col-label">Live preview</td>
+          <td class="col-label">Should match the project, composition, revision, time, and frame the user is seeing. If current preview context is missing, fail clearly instead of guessing.</td>
+        </tr>
+        <tr>
+          <td class="col-name">Certain Frame</td>
+          <td class="col-label">Rendered frame from project source</td>
+          <td class="col-label">Should use the project, composition, revision, and timestamp. Do not move the user's visible preview just to capture this.</td>
+        </tr>
+        <tr>
+          <td class="col-name">Frame Sheet</td>
+          <td class="col-label">Rendered samples across a range</td>
+          <td class="col-label">Should include a manifest that maps each cell to its timestamp or frame, so the agent can refer to exact moments.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>Capture journey</h4>
+    <div class="journey">
+      <div class="journey-step accent">
+        <div class="journey-num">01 - user</div>
+        <div class="journey-title">Send from preview</div>
+        <div class="journey-desc">A comment is anchored to the visible frame or range. A chat starts from the current project and preview state.</div>
       </div>
+      <div class="journey-step">
+        <div class="journey-num">02 - surface</div>
+        <div class="journey-title">UI shows up first</div>
+        <div class="journey-desc">The comment card or chat run appears immediately. The user moves on without waiting for visual infrastructure.</div>
+      </div>
+      <div class="journey-step">
+        <div class="journey-num">03 - service</div>
+        <div class="journey-title">Ripple captures</div>
+        <div class="journey-desc">The Visual Context Service prepares a local frame, snapshot, or sheet in parallel.</div>
+      </div>
+      <div class="journey-step">
+        <div class="journey-num">04 - agent</div>
+        <div class="journey-title">Provider format</div>
+        <div class="journey-desc">The runtime adapts the local artifact to the provider's native image input - Codex local image path or Claude image block.</div>
+      </div>
+    </div>
+  </section>
 
-      <div class="service-notes">
-        <div class="service-note">
-          <strong>Queue capture</strong>
-          <span>Capture requests are keyed by project, source, composition, revision, dimensions, and format, with two active captures at a time.</span>
+  <section id="architecture">
+    <h2>Architecture</h2>
+    <p class="lede-2">We ran the render-path benchmark across every available capture method. The result was clear: live preview for the current frame, warm Engine for certain frames and frame sheets. The app is coded to these routes - the spec picks once, and the benchmark stays as a regression check.</p>
+
+    <div class="decision">
+      <div class="decision-card primary">
+        <div class="decision-label">Decision</div>
+        <div class="decision-title">Live preview for the current frame. Warm Engine for everything else.</div>
+        <p>Current-frame capture is fast enough off the live preview surface to feel immediate. Arbitrary timestamps and frame sheets need source-canonical rendering, not display pixels.</p>
+      </div>
+      <div class="decision-card">
+        <div class="decision-label">Coded routes</div>
+        <ul class="rule-list">
+          <li><strong>Current</strong><span>Live preview surface capture, with normalization guards.</span></li>
+          <li><strong>Certain</strong><span>Warm Engine render at the requested timestamp.</span></li>
+          <li><strong>Sheet</strong><span>Warm Engine sampled renders assembled into a compact frame sheet.</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Ideal flow</h3>
+    <div class="arch-flow">
+      <div class="arch-node">
+        <h4>User surface</h4>
+        <div class="arch-node-title">Preview, comments, chat</div>
+        <div class="arch-node-desc">Point and range comments, chat runs, explicit visual QA - each carries the project, composition, revision, time, and frame.</div>
+      </div>
+      <div class="arch-arrow">&rarr;</div>
+      <div class="arch-node center">
+        <h4>Visual Context Service</h4>
+        <div class="arch-node-title">Owns capture</div>
+        <div class="arch-node-desc">Dispatches each need to its coded route, invalidates stale visuals on source edits, exposes safe endpoints. Routes are fixed by this spec, not chosen at runtime.</div>
+      </div>
+      <div class="arch-arrow">&rarr;</div>
+      <div class="arch-node">
+        <h4>Agent runtime</h4>
+        <div class="arch-node-title">Provider-shaped input</div>
+        <div class="arch-node-desc">One local artifact, then adapt: Codex local image path or Claude native image block. Bare <code>ripple</code> commands for on-demand captures.</div>
+      </div>
+    </div>
+
+    <h3>Agent interface</h3>
+    <p class="lede-2">Agents never pick backends or set up browsers. They call two clean commands; the app dispatches each to its coded route.</p>
+
+    <table class="flow-table">
+      <thead>
+        <tr>
+          <th>Case</th>
+          <th>Agent command</th>
+          <th>Coded route</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-name">Current app view</td>
+          <td class="col-label"><code>ripple snapshot --at current</code></td>
+          <td class="col-label">Live preview capture</td>
+          <td class="col-label">Fastest path. Reflects exactly what the user sees.</td>
+        </tr>
+        <tr>
+          <td class="col-name">Specific timestamp</td>
+          <td class="col-label"><code>ripple snapshot --at 1.25s</code></td>
+          <td class="col-label">Warm Engine render</td>
+          <td class="col-label">Source-canonical. Does not depend on visible preview state.</td>
+        </tr>
+        <tr>
+          <td class="col-name">Motion over time</td>
+          <td class="col-label"><code>ripple frame-sheet --range 0s..8s --samples 8</code></td>
+          <td class="col-label">Warm Engine renders + sheet assembly</td>
+          <td class="col-label">Best tradeoff between motion reasoning and payload size.</td>
+        </tr>
+      </tbody>
+    </table>
+
+  </section>
+
+  <section id="evidence">
+    <h2>Evidence</h2>
+    <p class="lede-2">The render-path benchmark that informed the decision above. We keep running it as the system evolves - if a method ever beats the chosen routes on speed and quality, the spec gets revisited.</p>
+
+    <div class="metric-grid">
+      <div class="metric">
+        <div class="metric-label">Live preview</div>
+        <div class="metric-value">9-10 ms</div>
+        <div class="metric-copy">Real Ripple preview iframe capture once ready (spike result).</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Warm Engine</div>
+        <div class="metric-value">125 ms</div>
+        <div class="metric-copy">3-frame render after session reuse.</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Warm sheet</div>
+        <div class="metric-value">332 ms</div>
+        <div class="metric-copy">8-frame Engine capture in the spike harness.</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Cold CLI</div>
+        <div class="metric-value">8213 ms</div>
+        <div class="metric-copy">Standalone single-frame snapshot baseline.</div>
+      </div>
+    </div>
+
+    <div class="bench">
+      <div class="bench-head">
+        <div class="bench-title">Render-path benchmark</div>
+        <div class="bench-sub">sorted fastest first - <span class="bench-legend"><span class="bench-legend-dot"></span> chosen route</span></div>
+      </div>
+      <div class="bars" aria-label="Render-path benchmark latency">
+        <div class="bar-row chosen">
+          <div class="bar-name"><strong>Live preview</strong>chosen - current frame</div>
+          <div class="track"><div class="fill" style="width:0.5%"></div></div>
+          <div class="bar-value">9 ms</div>
         </div>
-        <div class="service-note">
-          <strong>Fall back cleanly</strong>
-          <span>The registered backends are Engine, Producer capture, fast browser, and HyperFrames CLI. A preview backend type exists but is not implemented.</span>
+        <div class="bar-row chosen">
+          <div class="bar-name"><strong>Engine warm</strong>chosen - certain frame, 3 frames</div>
+          <div class="track"><div class="fill green" style="width:1.5%"></div></div>
+          <div class="bar-value">125 ms</div>
         </div>
-        <div class="service-note">
-          <strong>Invalidate stale visuals</strong>
-          <span>Source changes invalidate generated context so agents do not reason from an old frame.</span>
+        <div class="bar-row">
+          <div class="bar-name"><strong>Producer warm</strong>3 frames</div>
+          <div class="track"><div class="fill green" style="width:1.5%"></div></div>
+          <div class="bar-value">125 ms</div>
         </div>
-        <div class="service-note">
-          <strong>Expose safe tools</strong>
-          <span>Agent runs get localhost token-auth endpoints or a file bridge, plus approved clean <code>ripple snapshot</code> and <code>ripple frame-sheet</code> commands.</span>
+        <div class="bar-row chosen">
+          <div class="bar-name"><strong>Engine warm</strong>chosen - frame sheet, 8 frames</div>
+          <div class="track"><div class="fill green" style="width:4%"></div></div>
+          <div class="bar-value">332 ms</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-name"><strong>Fast browser</strong>3 frames</div>
+          <div class="track"><div class="fill amber" style="width:9.1%"></div></div>
+          <div class="bar-value">749 ms</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-name"><strong>Painted preview</strong>standalone</div>
+          <div class="track"><div class="fill amber" style="width:14.1%"></div></div>
+          <div class="bar-value">1154 ms</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-name"><strong>CLI snapshot</strong>single frame, cold</div>
+          <div class="track"><div class="fill red" style="width:100%"></div></div>
+          <div class="bar-value">8213 ms</div>
         </div>
       </div>
     </div>
 
-    <table class="flow-table">
-      <thead>
-        <tr>
-          <th>Layer</th>
-          <th>Owns</th>
-          <th>Should say</th>
-          <th>Should hide</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td class="col-name">product</td><td class="col-label">The visible promise</td><td>current frame, selected range, preview</td><td>backends, endpoints, handoffs</td></tr>
-        <tr><td class="col-name">service</td><td class="col-label">Capture correctness and safety</td><td>local artifacts, source-aware capture</td><td>provider setup and shell details</td></tr>
-        <tr><td class="col-name">agent</td><td class="col-label">Using the right visual evidence</td><td>reviewing the frame, checking the range</td><td>raw paths in user-facing replies</td></tr>
-      </tbody>
-    </table>
-
-    <h4>Actual code paths</h4>
-    <table class="flow-table">
-      <thead>
-        <tr>
-          <th>Path</th>
-          <th>How it works today</th>
-          <th>Primary files</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td class="col-name">automatic comment visual</td><td class="col-label">Renderer sends <code>captureVisualContext: true</code> with the active preview revision. Main inserts the thread and message first, then a fire-and-forget task captures a frame or sheet and writes <code>comment_threads.screenshot_path</code>.</td><td><code>RippleCommentsPane.tsx</code>, <code>comment-revisions.ts</code>, <code>comment-visuals.ts</code></td></tr>
-        <tr><td class="col-name">agent-run attachment</td><td class="col-label">The runtime validates the stored project-relative visual path, reads it as base64, materializes provider attachments under a run temp directory, and includes prompt context with time, frame, or sheet cells.</td><td><code>agent-runtime/service.ts</code>, <code>runtime-attachments.ts</code>, provider adapters</td></tr>
-        <tr><td class="col-name">active chat visual tools</td><td class="col-label">Existing ChatView runs receive live preview runtime context. Providers get endpoint and bridge env vars so approved <code>ripple snapshot --at current</code> and <code>ripple frame-sheet</code> commands can request app-managed captures.</td><td><code>RippleShell.tsx</code>, <code>endpoint.ts</code>, <code>file-bridge.ts</code>, <code>cli-tools-env.ts</code></td></tr>
-        <tr><td class="col-name">explicit CLI capture</td><td class="col-label"><code>ripple snapshot</code> and <code>ripple frame-sheet</code> write project-local artifacts, delegating to the app endpoint or bridge when available and falling back to standalone service capture where possible.</td><td><code>src/cli/visual.ts</code>, visual context service files</td></tr>
-      </tbody>
-    </table>
+    <h3>What we learned</h3>
+    <ul>
+      <li><strong>Warm sessions matter.</strong> Once the renderer is alive, multi-frame capture becomes plausible for agent use.</li>
+      <li><strong>Fidelity is clean on the simple fixture.</strong> Painted preview and fast-browser output matched pixel-for-pixel at SSIM 1.000 in the test fixture.</li>
+      <li><strong>Live preview is the right hot path for current frame.</strong> 9 ms once ready, with stable geometry across compact, wide, and tall layouts. Pixel deltas vary by layout, which is why the route is "what the user sees," not source-canonical comparison.</li>
+    </ul>
 
     <div class="callout info">
-      <div class="callout-icon">Rule</div>
-      <div class="callout-body"><strong>The service is plumbing.</strong> It matters for correctness, speed, and safety, but normal Ripple language should stay visual: current frame, snapshot, frame sheet, selected range, preview.</div>
+      <div class="callout-icon">Source</div>
+      <div class="callout-body">Tested with <code>scripts/benchmark-visual-context.ts</code>, <code>test/e2e/visual-context-preview-surface.e2e.ts</code>, and the <code>test/fixtures/hyperframes/visual-capture-qa</code> fixture.</div>
     </div>
   </section>
-
-  <section id="strategies">
-    <h2>Capture Strategy</h2>
-    <p class="lede-2">The product goal is not one universal capture path. The goal is to choose the fastest method that gives the agent enough visual quality for the route: instant comment context, reliable chat self-checks, and accurate frame sheets when timing matters.</p>
-
-    <table class="flow-table">
-      <thead>
-        <tr>
-          <th>Strategy</th>
-          <th>Best for</th>
-          <th>Strength</th>
-          <th>Risk / test focus</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td class="col-name">preview-surface capture</td><td class="col-label">Point comments at the frame already visible in the preview player.</td><td>Likely fastest route because the user is already looking at the frame.</td><td>Must prove the captured pixels match the painted preview, active revision, and playhead before using it as the hot path.</td></tr>
-        <tr><td class="col-name">engine / producer</td><td class="col-label">High-quality chat snapshots, deterministic QA frames, and correctness fallbacks.</td><td>Re-renders the HTML composition through app-owned capture backends.</td><td>Can be slower; tests should measure latency and visual fidelity against the preview surface.</td></tr>
-        <tr><td class="col-name">HyperFrames CLI</td><td class="col-label">Agent-requested snapshots and frame sheets, packaged tool paths, and standalone fallback.</td><td>Works as an explicit tool contract for Codex and Claude.</td><td>Must stay available as bare <code>ripple</code> inside provider shells and should not require extra setup by the user.</td></tr>
-        <tr><td class="col-name">cache / reuse</td><td class="col-label">Repeated captures of stable frames or ranges while the user reviews the same composition.</td><td>Can remove repeated render work and make chat checks feel immediate.</td><td>Invalidation is hard: edits, revision switches, composition changes, media changes, and timeline changes must retire stale visuals.</td></tr>
-        <tr><td class="col-name">low-res profile</td><td class="col-label">Fast visual grounding when the agent only needs layout, presence, color, or timing landmarks.</td><td>Smaller images move faster through provider attachment limits and reduce capture cost.</td><td>Tests must define where low-res is enough and where text, small logos, or fine motion require higher quality.</td></tr>
-      </tbody>
-    </table>
-
-    <div class="callout warning">
-      <div class="callout-icon">Decision</div>
-      <div class="callout-body"><strong>Route selection needs tests, not taste.</strong> Chat current-frame checks, chat arbitrary-frame checks, point comments, and range comments should each have latency and visual-quality fixtures so Ripple can pick preview capture, service re-render, CLI capture, cache, or low-res capture intentionally.</div>
-    </div>
-
-    <h4>Route budgets to prove</h4>
-    <table class="flow-table">
-      <thead>
-        <tr>
-          <th>Route</th>
-          <th>Preferred first method</th>
-          <th>Fallback</th>
-          <th>Test question</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td class="col-name">point comment</td><td class="col-label">Capture the currently previewed frame if it can be proven source/time accurate.</td><td>Visual Context Service frame capture at the comment timestamp.</td><td>Can the user submit instantly while the agent receives a good-enough frame before it starts meaningful work?</td></tr>
-        <tr><td class="col-name">range comment</td><td class="col-label">Generate a bounded frame sheet for the selected range.</td><td>Reduce samples or resolution before failing the automatic visual.</td><td>What sample count and sheet width preserve timing/easing feedback without slowing the review loop?</td></tr>
-        <tr><td class="col-name">chat current frame</td><td class="col-label">Use app-managed <code>ripple snapshot --at current</code> from verified runtime preview context.</td><td>Re-render the same source/time through Engine, Producer, fast-browser, or CLI.</td><td>Which path gives the best quality image fast enough for agent self-checks?</td></tr>
-        <tr><td class="col-name">chat arbitrary frame</td><td class="col-label">Use <code>ripple snapshot --at &lt;time&gt;</code> with explicit composition/source metadata.</td><td>Fallback between registered capture backends.</td><td>Does the capture match the expected HTML state at that timestamp across Main and proposed revisions?</td></tr>
-        <tr><td class="col-name">chat frame sheet</td><td class="col-label">Use <code>ripple frame-sheet</code> with requested range, samples, and columns inside app caps.</td><td>Clamp sample count, columns, or sheet width; return manifest details if image viewing is unavailable.</td><td>What is the smallest sheet that still lets the agent reason about motion?</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section id="provider-contract">
-    <h2>Provider Image Contract</h2>
-    <p class="lede-2">Ripple should choose image formats and resolutions with provider handoff in mind. Codex App Server and Claude Agent SDK receive images differently, so the shared visual-context layer should prepare a common local artifact and then adapt it per provider.</p>
-
-    <table class="flow-table">
-      <thead>
-        <tr>
-          <th>Provider</th>
-          <th>Image input path</th>
-          <th>Supported image shape in code</th>
-          <th>Implication for capture</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td class="col-name">Codex App Server</td><td class="col-label">Saved image attachments become typed <code>localImage</code> inputs with filesystem paths.</td><td>Any runtime attachment marked <code>type: "image"</code> is passed as a local image path after being saved under <code>.ripple/tmp/agent-attachments/</code>.</td><td>Prefer project-local PNG/JPEG files with clear filenames. Avoid base64 in prompt text.</td></tr>
-        <tr><td class="col-name">Claude Agent SDK</td><td class="col-label">Supported images become native base64 <code>image</code> content blocks.</td><td><code>image/png</code>, <code>image/jpeg</code>, <code>image/gif</code>, and <code>image/webp</code>. <code>image/jpg</code> normalizes to JPEG; unsupported image types stay saved files only.</td><td>PNG is the safest generated default; JPEG/WebP can be considered for lower-byte visual QA if tests prove quality holds.</td></tr>
-        <tr><td class="col-name">shared runtime</td><td class="col-label">All attachments are first materialized as local files.</td><td>Current limits are 6 attachments, 10 MB per attachment, and 20 MB total decoded payload.</td><td>Frame sheets and high-res stills must stay under budget, and automatic visuals yield to user-provided attachments.</td></tr>
-      </tbody>
-    </table>
-
-    <div class="promise-grid">
-      <div class="promise-cell highlight">
-        <div class="promise-name">Common default <span class="promise-tag">today</span></div>
-        <div class="promise-desc">Generated visuals should default to PNG because both providers can consume it and the current comment visual path already stores PNG frames.</div>
-      </div>
-      <div class="promise-cell">
-        <div class="promise-name">Route-specific resolution <span class="promise-tag">needed</span></div>
-        <div class="promise-desc">A comment may only need a lower-res visual to locate the issue, while a typography or logo critique may need higher resolution.</div>
-      </div>
-      <div class="promise-cell">
-        <div class="promise-name">Current implementation caps <span class="promise-tag">code</span></div>
-        <div class="promise-desc">Snapshot defaults are 1920x1080, point-comment capture uses max width 1920, and frame sheets default to max sheet width 1440.</div>
-      </div>
-      <div class="promise-cell">
-        <div class="promise-name">Spec target <span class="promise-tag">tests</span></div>
-        <div class="promise-desc">Add fixtures that compare low, medium, and full-res captures for agent success, latency, byte size, and text/logo legibility.</div>
-      </div>
-    </div>
-  </section>
-
-  <section id="artifacts">
-    <h2>Local artifacts</h2>
-    <p class="lede-2">Generated visual context artifacts are local and scoped. They are runtime evidence, not ordinary source changes, and they should not pollute the project unless the user intentionally imports them as assets.</p>
-
-    <div class="artifact-grid">
-      <div class="artifact">
-        <h3>Comment visuals</h3>
-        <p>Frame captures for comment runs are copied into canonical project storage so the visual stays available even if a proposed revision is later deleted.</p>
-        <span class="path-pill">.ripple/comment-visuals/&lt;thread-id&gt;/frame.png</span>
-      </div>
-      <div class="artifact">
-        <h3>Comment frame sheets</h3>
-        <p>Range comments store a sheet plus manifest so the agent can inspect sampled timecodes and frames without a full render.</p>
-        <span class="path-pill">.ripple/comment-visuals/&lt;thread-id&gt;/sheet.png</span>
-      </div>
-      <div class="artifact">
-        <h3>CLI frame sheets</h3>
-        <p>Explicit <code>ripple frame-sheet</code> calls write a sheet, manifest, and copied frame images for review or provider use.</p>
-        <span class="path-pill">.ripple/frame-sheets/fs_&lt;id&gt;/sheet.png</span>
-      </div>
-      <div class="artifact">
-        <h3>Snapshots</h3>
-        <p>Explicit <code>ripple snapshot</code> calls live under the project-local Ripple directory and are guarded against traversal or symlink escape.</p>
-        <span class="path-pill">.ripple/visual-context/snapshots/snap_&lt;id&gt;/</span>
-      </div>
-      <div class="artifact">
-        <h3>Provider attachments</h3>
-        <p>Stored visuals are materialized into run-scoped temp files before being sent as Codex local images or Claude native image/PDF content.</p>
-        <span class="path-pill">.ripple/tmp/agent-attachments/&lt;run-id&gt;/</span>
-      </div>
-      <div class="artifact">
-        <h3>Endpoint and bridge</h3>
-        <p>Agent tools communicate through token-auth localhost endpoints or polling request/response files when an endpoint is unavailable.</p>
-        <span class="path-pill">.ripple/agent-visual-context/&lt;run-id&gt;/requests/</span>
-      </div>
-      <div class="artifact">
-        <h3>Optional eager handoff</h3>
-        <p>Eager run-start visual manifests are only prepared when <code>RIPPLE_EAGER_AGENT_VISUAL_CONTEXT=1</code>; that is not the default chat path.</p>
-        <span class="path-pill">.ripple/agent-visual-context/&lt;run-id&gt;/manifest.json</span>
-      </div>
-    </div>
-  </section>
-
-  <div class="section-num">03 - Behavior</div>
 
   <section id="rules">
     <h2>Rules</h2>
-    <p class="lede-2">These are the invariants the implementation should preserve across comments, active chats, visual QA, and provider runs.</p>
+    <p class="lede-2">Invariants the implementation should preserve across comments, chats, visual QA, and provider runs.</p>
 
-    <table class="flow-table">
-      <thead>
-        <tr>
-          <th>Rule</th>
-          <th>Behavior</th>
-          <th>Why it matters</th>
-          <th>Test</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td class="col-name">fast comment action</td><td class="col-label">Comment card appears before capture completes</td><td>Creative review stays fluid</td><td><a class="test-marker covered" href="#testplan">T-A1<span class="tip"><strong>Card visible before visual files attach</strong><em>e2e - comments-spec.e2e.ts</em></span></a></td></tr>
-        <tr><td class="col-name">source-aware</td><td class="col-label">Capture respects Main vs proposed revision and re-renders the app-provided preview state</td><td>The agent sees the same intended source, not a guessed file state</td><td><a class="test-marker covered" href="#testplan">T-A4<span class="tip"><strong>Runtime current-frame snapshot carries source revision</strong><em>unit - runtime-context.test.ts</em></span></a></td></tr>
-        <tr><td class="col-name">safe serving</td><td class="col-label">Project server denies traversal, hidden files, generated files, and credential-like paths</td><td>Local-first trust depends on boundary safety</td><td><a class="test-marker covered" href="#testplan">T-C3<span class="tip"><strong>Project server path guards</strong><em>unit - project-server.test.ts</em></span></a></td></tr>
-        <tr><td class="col-name">bounded sampling</td><td class="col-label">Frame sheets honor sample and column bounds</td><td>Sheets stay compact and readable</td><td><a class="test-marker covered" href="#testplan">T-C4<span class="tip"><strong>Sampling bounds</strong><em>unit - sampling.test.ts</em></span></a></td></tr>
-        <tr><td class="col-name">stale invalidation</td><td class="col-label">Source edits invalidate old visual context</td><td>Agents should not reason from obsolete frames</td><td><a class="test-marker covered" href="#testplan">T-C5<span class="tip"><strong>Source invalidation</strong><em>unit - source-invalidation.test.ts</em></span></a></td></tr>
-        <tr><td class="col-name">shutdown cleanly</td><td class="col-label">Capture work stops safely when the service closes</td><td>Desktop sessions should not leak capture resources</td><td><a class="test-marker covered" href="#testplan">T-C6<span class="tip"><strong>Lifecycle disposers</strong><em>unit - lifecycle.test.ts</em></span></a></td></tr>
-        <tr><td class="col-name">user attachments first</td><td class="col-label">Automatic visuals are dropped before user-provided files when provider attachment limits are full</td><td>User intent should beat generated evidence</td><td><a class="test-marker covered" href="#testplan">T-C7<span class="tip"><strong>Auto visuals respect attachment budget</strong><em>unit - runtime-attachments.test.ts</em></span></a></td></tr>
-        <tr><td class="col-name">clean agent tools</td><td class="col-label">Approved provider commands are limited to clean <code>ripple snapshot</code> and <code>ripple frame-sheet</code> visual commands</td><td>Agents should use app-owned capture, not arbitrary browser setup</td><td><a class="test-marker covered" href="#testplan">T-C8<span class="tip"><strong>Visual commands are allowed safely</strong><em>unit - provider approval tests</em></span></a></td></tr>
-        <tr><td class="col-name">fps caveat</td><td class="col-label">Comment frame anchors without a selected range derive frame from time at 30fps today</td><td>Specs should not imply timeline-model fps in every comment path</td><td><a class="test-marker watch" href="#testplan">T-C9<span class="tip"><strong>Timeline comment prompt anchors frame/time</strong><em>code - timeline-comment-prompt.ts</em></span></a></td></tr>
-        <tr><td class="col-name">app-owned vision</td><td class="col-label">The user should not manually attach screenshots for normal visual review</td><td>The app's benefit is giving agents sight on the user's behalf</td><td><a class="test-marker watch" href="#testplan">T-E1<span class="tip"><strong>Route capture tests needed</strong><em>planned - strategy matrix</em></span></a></td></tr>
-        <tr><td class="col-name">route-specific quality</td><td class="col-label">Use the smallest image or sheet that lets the agent succeed for that route</td><td>Speed matters as much as visual correctness</td><td><a class="test-marker watch" href="#testplan">T-E2<span class="tip"><strong>Resolution profiles needed</strong><em>planned - visual QA fixtures</em></span></a></td></tr>
-        <tr><td class="col-name">provider adaptation</td><td class="col-label">Prepare one local artifact, then adapt it to Codex local images or Claude native image blocks</td><td>Provider differences should not leak into user workflow</td><td><a class="test-marker covered" href="#testplan">T-E4<span class="tip"><strong>Provider image paths</strong><em>unit - adapter attachment tests</em></span></a></td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section id="edge">
-    <h2>Edge cases</h2>
-
-    <div class="edge-grid">
-      <div class="edge-cell">
-        <h3>Capture fails</h3>
-        <p>The comment remains and the agent still receives text context. Chat visual tool failures should be handled as command output, not as lost app state.</p>
+    <div class="rules-grid">
+      <div class="rule-card accent">
+        <h3>Ripple owns visual capture</h3>
+        <p>Agents use Ripple visual commands. They do not set up browser capture or choose capture backends.</p>
       </div>
-      <div class="edge-cell">
-        <h3>Source changes mid-capture</h3>
-        <p>Generated context should be invalidated or regenerated rather than reused as if it still matches the preview.</p>
+      <div class="rule-card accent">
+        <h3>Product language stays simple</h3>
+        <p>Current frame, selected range, snapshot, frame sheet, preview. Backend names stay out of UX.</p>
       </div>
-      <div class="edge-cell">
-        <h3>Range is reversed or tiny</h3>
-        <p>Normalize the selection and sample within bounds. A single-frame range can fall back to current-frame behavior.</p>
+      <div class="rule-card">
+        <h3>Source-aware capture</h3>
+        <p>Visual context respects whether the user is viewing Main or a proposed revision.</p>
       </div>
-      <div class="edge-cell">
-        <h3>Agent asks for more visuals</h3>
-        <p>Use app-managed <code>ripple snapshot</code> and <code>ripple frame-sheet</code> commands, not ad hoc browser capture or package installs.</p>
+      <div class="rule-card">
+        <h3>Local and project-scoped</h3>
+        <p>Visual artifacts are local. They do not appear as normal source changes or assets unless the user imports them.</p>
       </div>
-      <div class="edge-cell">
-        <h3>Endpoint is unavailable</h3>
-        <p>Provider runs can fall back to the file bridge. If both startup paths fail, cleanup runs and the agent continues without app-managed visual tools.</p>
+      <div class="rule-card">
+        <h3>Sheets stay compact</h3>
+        <p>Enough samples to understand motion, not a huge payload. Sampling and column bounds are bounded.</p>
       </div>
-      <div class="edge-cell">
-        <h3>Attachment budget is full</h3>
-        <p>Drop automatic visual context before dropping user-provided attachments, and keep the user-facing reply concise.</p>
+      <div class="rule-card">
+        <h3>User attachments first</h3>
+        <p>User-provided attachments take precedence over automatic visuals when attachment limits are reached.</p>
       </div>
-      <div class="edge-cell">
-        <h3>New chat first message</h3>
-        <p>The embedded new-chat form currently does not receive live preview runtime context, so do not promise automatic first-message visual capture until that path is wired.</p>
+      <div class="rule-card">
+        <h3>Stale visuals invalidate</h3>
+        <p>Source changes invalidate stale visuals. If Ripple is not sure the visual still matches, it makes a fresh one.</p>
       </div>
-      <div class="edge-cell">
-        <h3>Current frame mismatch</h3>
-        <p><code>--at current</code> requires verified app-managed visual context. Missing or mismatched runtime context should fail clearly instead of silently guessing a frame.</p>
-      </div>
-      <div class="edge-cell">
-        <h3>Local image viewing is unavailable</h3>
-        <p>The agent should report the sheet path and manifest details so Ripple can show the artifact instead of repeatedly trying external viewers.</p>
+      <div class="rule-card">
+        <h3>One artifact, then adapt</h3>
+        <p>Ripple prepares one local artifact, then sends it to the chosen agent provider in the right format.</p>
       </div>
     </div>
   </section>
 
-  <section id="related">
-    <h2>Related specs</h2>
-    <p class="lede-2">Visual Context sits underneath the review loop. It should be read alongside the surfaces that create or consume it.</p>
-
-    <div class="related-grid">
-      <a class="related-card" href="Comments.html">
-        <div class="related-name">Comments</div>
-        <div class="related-desc">Frame and range notes that automatically attach visual context.</div>
-      </a>
-      <a class="related-card" href="Chats.md">
-        <div class="related-name">Chats</div>
-        <div class="related-desc">Open-ended conversations that can use current preview context.</div>
-      </a>
-      <a class="related-card" href="Preview.md">
-        <div class="related-name">Preview</div>
-        <div class="related-desc">The player state that defines current frame, time, and preview source.</div>
-      </a>
-      <a class="related-card" href="Timeline.md">
-        <div class="related-name">Timeline</div>
-        <div class="related-desc">Range selection and time sampling for frame sheets.</div>
-      </a>
-      <a class="related-card" href="Revisions.md">
-        <div class="related-name">Revisions</div>
-        <div class="related-desc">Main vs proposed versions that visual context must distinguish.</div>
-      </a>
-      <a class="related-card" href="Agent Context and Skills.md">
-        <div class="related-name">Agent Context and Skills</div>
-        <div class="related-desc">How app-managed visual context reaches Codex and Claude runs.</div>
-      </a>
-    </div>
+  <section id="vision">
+    <h2>Vision</h2>
+    <p class="lede">The user leaves feedback without waiting. The agent can see the frame or range the user meant. Ripple captures a local visual artifact, attaches it to the agent run in the provider's native format, and keeps the image path plus manifest available for timing details and fresh visual checks.</p>
   </section>
 
   <section id="testplan">
     <h2>Test plan</h2>
-    <p class="lede-2">The Markdown source already maps this behavior to executable coverage. This HTML spec keeps those tests readable as a product contract.</p>
+    <p class="lede-2">Every behavioral claim in this spec maps to one or more tests. Tests verify what the user and the agent see - not internal call sequences or implementation choices. The suite is unit-heavy; integration and e2e are reserved for the seams that only show up across the full stack.</p>
 
     <div class="testplan">
       <div class="testplan-group">
         <div class="testplan-group-title">A - User-speed contract</div>
-        <div class="testplan-row"><span class="testplan-id">T-A1</span><span class="testplan-name">Visual context attaches without blocking the comment card</span><span class="testplan-type">e2e</span><span class="testplan-status covered">covered</span><span class="testplan-file">test/e2e/comments-spec.e2e.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-A2</span><span class="testplan-name">Frame comment stores a local visual while shell remains usable</span><span class="testplan-type">e2e</span><span class="testplan-status covered">covered</span><span class="testplan-file">test/e2e/release-qa.e2e.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-A3</span><span class="testplan-name">Comment visual context is captured by default unless disabled or already attached</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/revisions/comment-visual-policy.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-A4</span><span class="testplan-name">Runtime current-frame context carries source revision, time, and frame</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/agent-runtime/runtime-context.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-A5</span><span class="testplan-name">Eager run-start visual capture remains opt-in and does not block startup by default</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/agent-runtime/visual-context-handoff.test.ts</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-A1</span><span class="testplan-name">Comment card and chat surface appear immediately, before any visual capture completes</span><span class="testplan-type">e2e</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-A2</span><span class="testplan-name">When visual capture fails, the comment or chat still exists and the agent still receives text context</span><span class="testplan-type">e2e</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-A3</span><span class="testplan-name">Comment visual context is on by default unless explicitly disabled or already attached</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-A4</span><span class="testplan-name">Runtime current-frame context carries source revision, time, and frame to the dispatcher</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-A5</span><span class="testplan-name">Comment agent run waits for its current frame or frame sheet before sending the first message</span><span class="testplan-type">e2e</span><span class="testplan-status planned">planned</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-A6</span><span class="testplan-name">Chat agent run starts immediately without waiting for any visual context</span><span class="testplan-type">e2e</span><span class="testplan-status planned">planned</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-A7</span><span class="testplan-name">User-provided attachments take precedence over automatic visuals when provider attachment limits are reached</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
       </div>
 
       <div class="testplan-group">
-        <div class="testplan-group-title">B - Context types</div>
-        <div class="testplan-row"><span class="testplan-id">T-B1</span><span class="testplan-name">Frame comments capture a still frame through the Visual Context Service</span><span class="testplan-type">quality</span><span class="testplan-status covered">covered</span><span class="testplan-file">test/quality/visual-context-matrix.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-B2</span><span class="testplan-name">Range comments capture an Engine frame sheet in canonical comment visuals</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/revisions/comment-visuals.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-B3</span><span class="testplan-name">Snapshot and frame-sheet CLI behavior delegates to app visual context when available</span><span class="testplan-type">cli</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/cli/visual.test.ts + test/quality/visual-context-matrix.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-B4</span><span class="testplan-name">Live provider receives the current app frame and produces visual-check evidence</span><span class="testplan-type">e2e</span><span class="testplan-status covered">covered</span><span class="testplan-file">test/e2e/agent-visual-context-live.e2e.ts</span></div>
+        <div class="testplan-group-title">B - The three needs</div>
+        <div class="testplan-row"><span class="testplan-id">T-B1</span><span class="testplan-name">Point comments capture the current frame and attach it to the comment thread</span><span class="testplan-type">quality</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-B2</span><span class="testplan-name">Range comments capture a frame sheet and a manifest that maps each cell to its timestamp</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-B3</span><span class="testplan-name">ripple snapshot and ripple frame-sheet CLI commands delegate to the app service when Ripple is running</span><span class="testplan-type">cli</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-B4</span><span class="testplan-name">Live provider receives the current app frame and produces visual-check evidence in its native image format</span><span class="testplan-type">e2e</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-B5</span><span class="testplan-name">ripple snapshot --at &lt;time&gt; renders source-canonical pixels at the requested timestamp without moving the user's visible preview</span><span class="testplan-type">integration</span><span class="testplan-status planned">planned</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-B6</span><span class="testplan-name">ripple snapshot --at current fails with a clear error when preview context is missing, rather than guessing</span><span class="testplan-type">unit</span><span class="testplan-status planned">planned</span></div>
       </div>
 
       <div class="testplan-group">
-        <div class="testplan-group-title">C - Service and runtime correctness</div>
-        <div class="testplan-row"><span class="testplan-id">T-C1</span><span class="testplan-name">Visual Context Service serializes captures, falls back between backends, rejects shutdown work, and records metrics</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/visual-context/service.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-C2</span><span class="testplan-name">Composition targeting resolves capture requests to the intended composition</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/visual-context/composition-targeting.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-C3</span><span class="testplan-name">Project server serves files safely and denies traversal, hidden, generated, and credential-like paths</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/visual-context/project-server.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-C4</span><span class="testplan-name">Sampling keeps ranges and timestamps within count and column bounds</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/visual-context/sampling.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-C5</span><span class="testplan-name">Source invalidation clears visual context when watched source changes</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/visual-context/source-invalidation.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-C6</span><span class="testplan-name">Visual context lifecycle disposers run safely on shutdown</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/visual-context/lifecycle.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-C7</span><span class="testplan-name">Automatic visual attachments yield to user-provided attachments when limits are reached</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/agent-runtime/runtime-attachments.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-C8</span><span class="testplan-name">Provider approval keeps visual commands inside the clean snapshot and frame-sheet family</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">codex-app-server-adapter.test.ts + claude-agent-sdk-approval.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-C9</span><span class="testplan-name">Timeline comment anchors preserve time, frame, source revision, and range metadata</span><span class="testplan-type">code</span><span class="testplan-status watch">code-reviewed</span><span class="testplan-file">src/renderer/features/comments/timeline-comment-prompt.ts</span></div>
+        <div class="testplan-group-title">C - Service correctness</div>
+        <div class="testplan-row"><span class="testplan-id">T-C1</span><span class="testplan-name">Dispatcher routes 'current' to the live preview backend, specific timestamps to warm Engine, and ranges to Engine sampling - routes are fixed, not picked at runtime</span><span class="testplan-type">unit</span><span class="testplan-status planned">planned</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-C2</span><span class="testplan-name">Service serializes captures, falls back between backends within the chosen route, and rejects work after shutdown</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-C3</span><span class="testplan-name">Project server denies traversal, hidden, generated, and credential-like paths</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-C4</span><span class="testplan-name">Frame-sheet sampling keeps ranges, sample counts, and columns within bounded limits</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-C5</span><span class="testplan-name">Source edits invalidate stale visual context so agents do not reason from old frames</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-C6</span><span class="testplan-name">Lifecycle disposers run safely on shutdown and clean up capture resources</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-C7</span><span class="testplan-name">Provider approval keeps visual commands inside the clean ripple snapshot / ripple frame-sheet family</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
       </div>
 
       <div class="testplan-group">
-        <div class="testplan-group-title">D - Artifact safety and quality</div>
-        <div class="testplan-row"><span class="testplan-id">T-D1</span><span class="testplan-name">Comment visuals reject symlink escapes before creating out-of-project directories</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/revisions/comment-visuals.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-D2</span><span class="testplan-name">Frame-sheet manifests are stable and project-relative</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/visual-context/manifest.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-D3</span><span class="testplan-name">Sheet assembly builds deterministic FFmpeg tile commands and reports candidate failures</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/visual-context/sheet-assembly.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-D4</span><span class="testplan-name">Visual capture QA fixtures keep frames and sheets compact, timed, and pixel-readable</span><span class="testplan-type">quality</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/hyperframes/visual-capture-qa.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-D5</span><span class="testplan-name">Media, transparency, Engine, and Producer capture spikes prove backend feasibility</span><span class="testplan-type">spike</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/visual-context/backends/*.test.ts</span></div>
-      </div>
-
-      <div class="testplan-group">
-        <div class="testplan-group-title">E - Strategy and provider contract</div>
-        <div class="testplan-row"><span class="testplan-id">T-E1</span><span class="testplan-name">Point-comment capture compares preview-surface hot path against service re-render for latency and source accuracy</span><span class="testplan-type">planned</span><span class="testplan-status watch">needed</span><span class="testplan-file">preview capture fixture + comment submit path</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-E2</span><span class="testplan-name">Chat current-frame and arbitrary-frame snapshots compare low, medium, and full-res captures for agent usefulness</span><span class="testplan-type">planned</span><span class="testplan-status watch">needed</span><span class="testplan-file">visual-context quality matrix</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-E3</span><span class="testplan-name">Range frame sheets prove the smallest sample count and sheet width that still preserves motion reasoning</span><span class="testplan-type">planned</span><span class="testplan-status watch">needed</span><span class="testplan-file">frame-sheet QA fixtures</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-E4</span><span class="testplan-name">Provider handoff sends Codex localImage paths and Claude native image blocks for supported media types</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">codex-app-server-adapter.test.ts + runtime-attachments.test.ts</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-E5</span><span class="testplan-name">Unsupported provider image formats stay saved locally and do not masquerade as native image inputs</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span><span class="testplan-file">src/main/lib/agent-runtime/runtime-attachments.test.ts</span></div>
+        <div class="testplan-group-title">D - Refactor targets &amp; quality</div>
+        <div class="testplan-row"><span class="testplan-id">T-D1</span><span class="testplan-name">Live preview backend ships, owns the current-frame route, and survives compact/wide/tall layout sweeps</span><span class="testplan-type">integration</span><span class="testplan-status planned">planned</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D2</span><span class="testplan-name">Route latency budgets hold: current frame &lt; 50 ms, certain frame &lt; 250 ms, frame sheet &lt; 600 ms</span><span class="testplan-type">quality</span><span class="testplan-status planned">planned</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D3</span><span class="testplan-name">Capture fidelity matches expected pixels within SSIM threshold for known fixtures across each chosen route</span><span class="testplan-type">quality</span><span class="testplan-status planned">planned</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D4</span><span class="testplan-name">Render cache reuses warm-session frames when source and timing are unchanged; invalidates on edits, revision switches, and media changes</span><span class="testplan-type">unit</span><span class="testplan-status planned">planned</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D5</span><span class="testplan-name">Provider handoff sends Codex localImage paths and Claude native image blocks for supported media types</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D6</span><span class="testplan-name">Render-path benchmark runs in CI and flags if any non-chosen method beats a chosen route on both speed and fidelity</span><span class="testplan-type">quality</span><span class="testplan-status planned">planned</span></div>
       </div>
     </div>
 
-    <h3>Verification posture</h3>
+    <h3>Testing posture</h3>
     <ul>
-      <li><strong>Spec changes stay behavior-first.</strong> Test names should read like product claims, not implementation trivia.</li>
-      <li><strong>Performance stays visible.</strong> Keep timing expectations in the quality matrix because visual context is only useful when comments stay fast and active chats can request visuals without setup detours.</li>
-      <li><strong>Provider proof matters for final confidence.</strong> The live visual-context E2E is the proof that app-owned capture reaches a real agent path.</li>
+      <li><strong>Test state, not interactions.</strong> Assert on the captured artifact, the agent message that goes out, the file on disk - not on which functions the dispatcher called. Tests that verify call sequences break on refactor even when behavior is unchanged.</li>
+      <li><strong>DAMP over DRY.</strong> Each test reads like a behavior spec on its own. Duplicated arrange code is fine when it keeps a test independently understandable.</li>
+      <li><strong>Real implementations over mocks.</strong> Prefer real warm sessions, real PNG outputs, and real fixtures. Mock only at provider boundaries where real deps are slow or non-deterministic.</li>
+      <li><strong>Pyramid shape.</strong> Most tests are unit (capture logic, dispatcher, sampling, invalidation). Integration covers seams (CLI delegation, comment thread + visual write). E2E is reserved for full user flows (comment-to-agent-message, live provider).</li>
+      <li><strong>Prove-it for refactor bugs.</strong> Any regression caught during the refactor toward this spec gets a reproduction test that fails before the fix.</li>
+      <li><strong>One assertion per concept.</strong> Latency and fidelity stay in separate tests, even though they share a fixture. Comment-waits-for-visual and chat-does-not-wait stay in separate tests.</li>
     </ul>
   </section>
 
   <hr>
 
-  <p style="text-align:center;color:var(--fg-3);font-size:12px">Spec - Visual Context - Ripple v1</p>
+  <div class="related-row">
+    <a class="related-chip" href="Comments.html">Comments <span>spec</span></a>
+    <a class="related-chip" href="visual-context-eval.html">Visual Context Eval <span>tested readout</span></a>
+    <a class="related-chip" href="Chats.md">Chats <span>spec</span></a>
+    <a class="related-chip" href="Preview.md">Preview <span>spec</span></a>
+    <a class="related-chip" href="Timeline.md">Timeline <span>spec</span></a>
+    <a class="related-chip" href="Revisions.md">Revisions <span>spec</span></a>
+  </div>
+
+  <p style="text-align:center;color:var(--fg-3);font-size:12px;margin-top:24px">Spec - Visual Context - Ripple v2</p>
 
 </main>
 
 <script>
-  document.querySelectorAll(".context-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      const context = tab.dataset.context;
-      tab.parentElement.querySelectorAll(".context-tab").forEach((item) => item.classList.remove("active"));
-      tab.classList.add("active");
-      document.querySelectorAll(".context-content").forEach((content) => {
-        content.classList.toggle("visible", content.dataset.context === context);
-      });
-    });
-  });
-
   document.querySelectorAll(".nav-item").forEach((link) => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
