@@ -36,6 +36,7 @@ import {
   type RippleRevisionStatus,
   type RippleRevisionView,
 } from "../../../shared/ripple-comments"
+import { buildVisualPreviewSurfaceKey } from "../../../shared/visual-preview-surface"
 import {
   type AgentRuntimeAttachment,
   MAX_AGENT_RUNTIME_ATTACHMENT_BYTES,
@@ -109,9 +110,10 @@ import {
   canRefreshRevisionChanges,
   canReplyToCommentThread,
   commentFilterLabels,
-  hasActiveRevisionChanges,
+  hasPendingCommentStartup,
   isDeletedCommentThread,
   isRevisionResolvingAgainstLatest,
+  shouldPollCommentThread,
   shouldShowRestoreAction,
 } from "./comment-filters"
 import {
@@ -139,6 +141,12 @@ interface RippleCommentsPaneProps {
     revisionId?: string | null,
     time?: number,
   ) => void
+}
+
+interface PreparedCommentVisual {
+  key: string
+  screenshotPath: string
+  kind: "frame" | "range_sheet"
 }
 
 function createClientRequestId(): string {
@@ -914,6 +922,25 @@ function RevisionStatusLine({
   )
 }
 
+function PendingCommentStartupLine() {
+  const line = "Preparing visual context"
+
+  return (
+    <div
+      className="mt-3 min-w-0 px-1 text-xs font-medium"
+      title={line}
+    >
+      <TextShimmer
+        as="span"
+        duration={1.2}
+        className="inline-flex h-4 max-w-full items-center truncate text-xs leading-none"
+      >
+        {line}
+      </TextShimmer>
+    </div>
+  )
+}
+
 function revisionStatusLabel(status: RippleRevisionStatus): string {
   return getRevisionStatusLabel(status)
 }
@@ -921,7 +948,12 @@ function revisionStatusLabel(status: RippleRevisionStatus): string {
 function commentStatusVisual(
   thread: RippleCommentThreadView,
   revision: RippleRevisionView | null,
+  options: { pendingStartup?: boolean } = {},
 ): { label: string; className: string } {
+  if (options.pendingStartup) {
+    return { label: "Working", className: "bg-blue-500" }
+  }
+
   if (
     revision?.status === "queued" ||
     revision?.status === "preparing" ||
@@ -1084,7 +1116,8 @@ function CommentCard({
   const firstRevision = firstMessage
     ? revisionByMessageId.get(firstMessage.id) ?? null
     : null
-  const statusVisual = commentStatusVisual(thread, revision)
+  const pendingStartup = hasPendingCommentStartup(thread)
+  const statusVisual = commentStatusVisual(thread, revision, { pendingStartup })
   const acceptControl = revision
     ? revisionAcceptControl(revision, { deleted: isDeleted })
     : null
@@ -1169,6 +1202,8 @@ function CommentCard({
             revision={firstRevision}
             agentTextResetKey={agentTextResetKey}
           />
+        ) : pendingStartup ? (
+          <PendingCommentStartupLine />
         ) : null}
       </div>
 
@@ -1346,6 +1381,10 @@ export function RippleCommentsPane({
   const [draft, setDraft] = useState("")
   const [draftAttachments, setDraftAttachments] = useState<AgentRuntimeAttachment[]>([])
   const [draftRequestId, setDraftRequestId] = useState(createClientRequestId)
+  const [preparedCommentVisual, setPreparedCommentVisual] =
+    useState<PreparedCommentVisual | null>(null)
+  const preparedCommentVisualRequestIdRef = useRef(0)
+  const preparedCommentVisualKeyRef = useRef<string | null>(null)
   const [composerFocusSignal, setComposerFocusSignal] = useState(0)
   const [localSelectedThreadId, setLocalSelectedThreadId] = useState<string | null>(null)
   const selectedThreadId =
@@ -1393,16 +1432,20 @@ export function RippleCommentsPane({
         const threads = Array.isArray(query.state.data)
           ? query.state.data as RippleCommentThreadView[]
           : []
-        return threads.some(hasActiveRevisionChanges) ? 1_000 : false
+        return threads.some(shouldPollCommentThread) ? 1_000 : false
       },
     },
   )
+  const prepareCommentVisual = trpc.revisions.prepareCommentVisual.useMutation()
   const createThread = trpc.revisions.createThread.useMutation({
     onMutate: async (variables) => {
       const previousThreads = utils.revisions.listThreads.getData(threadsQueryInput) ?? []
       const optimisticThread = buildOptimisticCommentThread(variables)
 
       await utils.revisions.listThreads.cancel(threadsQueryInput)
+      preparedCommentVisualRequestIdRef.current += 1
+      preparedCommentVisualKeyRef.current = null
+      setPreparedCommentVisual(null)
       setDraft("")
       setDraftAttachments([])
       setDraftRequestId(createClientRequestId())
@@ -1509,6 +1552,117 @@ export function RippleCommentsPane({
     () => buildAnchorFromTimelineContext({ currentTime, selection }),
     [currentTime, selection],
   )
+  const visualPreviewSurfaceKey = useMemo(() =>
+    buildVisualPreviewSurfaceKey({
+      projectId,
+      compositionId,
+      revisionId: activePreviewRevisionId ?? null,
+    }), [activePreviewRevisionId, compositionId, projectId])
+  const commentVisualPreparation = useMemo(() => {
+    const startTime = typeof anchor.startTime === "number" ? anchor.startTime : null
+    const endTime = typeof anchor.endTime === "number" ? anchor.endTime : null
+    const hasDraftContent = Boolean(draft.trim()) || draftAttachments.length > 0
+    const isRangeAnchor = anchor.anchorType === "range" &&
+      startTime !== null &&
+      endTime !== null &&
+      Math.abs(endTime - startTime) > 0.001
+    if (startTime === null) {
+      return null
+    }
+
+    const start = isRangeAnchor ? Math.min(startTime, endTime!) : startTime
+    const end = isRangeAnchor ? Math.max(startTime, endTime!) : null
+    return {
+      key: [
+        projectId,
+        compositionId ?? "",
+        activePreviewRevisionId ?? "",
+        anchor.anchorType,
+        start.toFixed(3),
+        end === null ? "" : end.toFixed(3),
+        anchor.startFrame ?? "",
+        anchor.endFrame ?? "",
+        anchor.sourceFile ?? "",
+        anchor.clipKey ?? "",
+        anchor.elementSelector ?? "",
+      ].join("\u0000"),
+      anchor,
+      hasDraftContent,
+    }
+  }, [
+    activePreviewRevisionId,
+    anchor.anchorType,
+    anchor.clipKey,
+    anchor.elementSelector,
+    anchor.endFrame,
+    anchor.endTime,
+    anchor.sourceFile,
+    anchor.startFrame,
+    anchor.startTime,
+    compositionId,
+    draft,
+    draftAttachments.length,
+    projectId,
+  ])
+  const prepareCommentVisualMutateAsync = prepareCommentVisual.mutateAsync
+
+  useEffect(() => {
+    if (!commentVisualPreparation) {
+      preparedCommentVisualRequestIdRef.current += 1
+      preparedCommentVisualKeyRef.current = null
+      setPreparedCommentVisual(null)
+      return
+    }
+
+    if (preparedCommentVisualKeyRef.current !== commentVisualPreparation.key) {
+      preparedCommentVisualRequestIdRef.current += 1
+      preparedCommentVisualKeyRef.current = commentVisualPreparation.key
+      setPreparedCommentVisual(null)
+    }
+    const requestId = preparedCommentVisualRequestIdRef.current
+    const timeoutId = window.setTimeout(() => {
+      void prepareCommentVisualMutateAsync({
+        projectId,
+        compositionId,
+        anchor: commentVisualPreparation.anchor,
+        sourceRevisionId: activePreviewRevisionId,
+        visualPreviewSurfaceKey,
+      })
+        .then((visual) => {
+          if (preparedCommentVisualRequestIdRef.current !== requestId) return
+          if (preparedCommentVisualKeyRef.current !== commentVisualPreparation.key) return
+          if (!visual?.screenshotPath) {
+            setPreparedCommentVisual(null)
+            return
+          }
+          setPreparedCommentVisual({
+            key: commentVisualPreparation.key,
+            screenshotPath: visual.screenshotPath,
+            kind: visual.kind,
+          })
+        })
+        .catch(() => {
+          if (preparedCommentVisualRequestIdRef.current === requestId) {
+            setPreparedCommentVisual(null)
+          }
+        })
+    }, commentVisualPreparation.anchor.anchorType === "range"
+      ? 450
+      : commentVisualPreparation.hasDraftContent
+        ? 250
+        : 750)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [
+    activePreviewRevisionId,
+    commentVisualPreparation,
+    compositionId,
+    prepareCommentVisualMutateAsync,
+    projectId,
+    visualPreviewSurfaceKey,
+  ])
   const composerTimecode = formatCommentTimecode(
     Math.round((anchor.startTime ?? 0) * 1000),
     anchor.endTime === null || anchor.endTime === undefined
@@ -1528,17 +1682,27 @@ export function RippleCommentsPane({
   const handleSend = () => {
     const body = draft.trim() || commentAttachmentFallbackBody(draftAttachments)
     if (!body) return
+    const anchorWithPreparedVisual =
+      preparedCommentVisual &&
+      commentVisualPreparation &&
+      preparedCommentVisual.key === commentVisualPreparation.key
+        ? {
+            ...anchor,
+            screenshotPath: preparedCommentVisual.screenshotPath,
+          }
+        : anchor
     createThread.mutate({
       projectId,
       compositionId,
       body,
-      anchor,
+      anchor: anchorWithPreparedVisual,
       attachments: draftAttachments,
       createRevision: true,
       agentProvider: selectedRevisionProvider,
       model: selectedRevisionModel,
       clientRequestId: draftRequestId,
       sourceRevisionId: activePreviewRevisionId,
+      visualPreviewSurfaceKey,
       captureVisualContext: true,
     })
   }

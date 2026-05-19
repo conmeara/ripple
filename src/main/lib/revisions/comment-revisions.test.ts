@@ -119,8 +119,8 @@ describe("comment revision summaries", () => {
     expect(prompt).toContain(
       "If it is only a question, QA note, acknowledgement, or observation, do not edit files",
     )
-    expect(prompt).toContain("Use `ripple snapshot --at current --json`")
-    expect(prompt).toContain("`ripple frame-sheet --range <start>..<end> --json`")
+    expect(prompt).toContain("Use the native Ripple snapshot tool")
+    expect(prompt).toContain("native Ripple frame sheet tool")
     expect(prompt).toContain(
       "Do not mention internal paths, worktrees, sandboxing, permissions, local preview ports",
     )

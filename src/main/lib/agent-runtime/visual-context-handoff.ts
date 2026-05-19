@@ -1,11 +1,12 @@
 import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises"
-import { join, relative, resolve } from "node:path"
+import { basename, extname, join, relative, resolve } from "node:path"
 import {
   RIPPLE_VISUAL_CONTEXT_HANDOFF_VERSION,
   type RippleVisualContextHandoffManifest,
   type RippleVisualContextHandoffSheet,
   type RippleVisualContextHandoffSnapshot,
 } from "../../../shared/visual-context-handoff"
+import type { AgentRuntimeAttachment } from "../../../shared/agent-runtime-attachments"
 import { runVisualCommand } from "../../../cli/visual"
 import {
   createVisualContextService,
@@ -16,6 +17,7 @@ import { isPathInsideDirectory } from "../ripple-projects/paths"
 export interface AgentVisualContextHandoff {
   manifestPath: string
   promptContext: string
+  attachments: AgentRuntimeAttachment[]
 }
 
 export function shouldPrepareAgentVisualContextHandoff(
@@ -26,6 +28,14 @@ export function shouldPrepareAgentVisualContextHandoff(
 
 function projectRelative(projectPath: string, path: string): string {
   return relative(projectPath, path).replace(/\\/g, "/")
+}
+
+function mediaTypeForPath(path: string): string {
+  const extension = extname(path).toLowerCase()
+  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg"
+  if (extension === ".webp") return "image/webp"
+  if (extension === ".gif") return "image/gif"
+  return "image/png"
 }
 
 async function readProjectDurationMs(projectPath: string): Promise<number> {
@@ -49,6 +59,43 @@ async function assertInsideProject(projectPath: string, path: string): Promise<v
   if (!isPathInsideDirectory(projectRealPath, targetRealPath)) {
     throw new Error("Visual context handoff artifact escaped the project.")
   }
+}
+
+async function loadVisualArtifactAttachment(input: {
+  projectPath: string
+  relativePath: string
+}): Promise<AgentRuntimeAttachment> {
+  const visualPath = resolve(input.projectPath, input.relativePath)
+  await assertInsideProject(input.projectPath, visualPath)
+  const image = await readFile(visualPath)
+  return {
+    type: "image",
+    base64Data: image.toString("base64"),
+    mediaType: mediaTypeForPath(visualPath),
+    filename: basename(visualPath),
+    size: image.byteLength,
+  }
+}
+
+export async function loadAgentVisualContextHandoffAttachments(input: {
+  projectPath: string
+  snapshot?: RippleVisualContextHandoffSnapshot | null
+  sheet?: RippleVisualContextHandoffSheet | null
+}): Promise<AgentRuntimeAttachment[]> {
+  const attachments: AgentRuntimeAttachment[] = []
+  if (input.snapshot?.path) {
+    attachments.push(await loadVisualArtifactAttachment({
+      projectPath: input.projectPath,
+      relativePath: input.snapshot.path,
+    }))
+  }
+  if (input.sheet?.path) {
+    attachments.push(await loadVisualArtifactAttachment({
+      projectPath: input.projectPath,
+      relativePath: input.sheet.path,
+    }))
+  }
+  return attachments
 }
 
 async function captureHandoffSnapshot(input: {
@@ -204,19 +251,25 @@ export async function prepareAgentVisualContextHandoff(input: {
   const promptLines = [
     "Ripple prepared visual context:",
     snapshot
-      ? `- Current-frame snapshot captured at run start: ${snapshot.path} (frame ${snapshot.frame}, ${(snapshot.timeMs / 1000).toFixed(3)}s).`
+      ? `- Current-frame snapshot attached at run start: ${snapshot.path} (frame ${snapshot.frame}, ${(snapshot.timeMs / 1000).toFixed(3)}s).`
       : null,
     sheet
-      ? `- Timeline frame sheet captured at run start: ${sheet.path} (${sheet.summary})`
+      ? `- Timeline frame sheet attached at run start: ${sheet.path} (${sheet.summary})`
       : null,
     sheet
       ? `- Frame sheet manifest: ${sheet.manifestPath}`
       : null,
-    "- Treat these prepared artifacts as pre-edit context only. Fresh visual checks never reuse these files; after changing source, verify with `ripple snapshot --at current --json` for the visible app frame or `ripple frame-sheet --range ... --json` for motion over time.",
+    "- Treat these prepared artifacts as pre-edit context only. Fresh visual checks never reuse these files; after changing source, use the native Ripple snapshot tool for the visible app frame or the native Ripple frame sheet tool for motion over time.",
   ].filter((line): line is string => Boolean(line))
+  const attachments = await loadAgentVisualContextHandoffAttachments({
+    projectPath,
+    snapshot,
+    sheet,
+  })
 
   return {
     manifestPath,
     promptContext: promptLines.join("\n"),
+    attachments,
   }
 }

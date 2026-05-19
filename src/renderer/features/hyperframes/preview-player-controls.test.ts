@@ -366,6 +366,10 @@ describe("HyperFrames preview player controls", () => {
     expect(source).toContain("updateVisualPreviewSurface")
     expect(source).toContain("clearVisualPreviewSurface")
     expect(source).toContain("sourceQuery.data?.projectPath")
+    expect(source).toContain("sourceQuery.data?.composition?.filePath")
+    expect(source).toContain("PREVIEW_SURFACE_HEARTBEAT_MS = 5_000")
+    expect(source).toContain("window.setInterval(updateVisualPreviewSurface, PREVIEW_SURFACE_HEARTBEAT_MS)")
+    expect(source).toContain("window.clearInterval(heartbeat)")
   })
 
   test("delays transient preview loading indicators to avoid flicker", () => {

@@ -20,6 +20,29 @@ export interface AgentVisualContextFileBridgeOptions {
   runId: string
   service?: VisualContextService
   resolveCurrentFrameSnapshot?: (request: Record<string, unknown>) => Promise<VisualCurrentFrameSnapshot | null>
+  prewarmCurrentFrameSnapshot?: VisualCurrentFrameSnapshot | null
+}
+
+function prewarmWorkspaceVisualContext(input: {
+  service: VisualContextService
+  workspaceRoot: string
+  currentFrameSnapshot?: VisualCurrentFrameSnapshot | null
+}): void {
+  const snapshot = input.currentFrameSnapshot
+  if (!snapshot) return
+
+  void input.service.warmProject?.({
+    projectPath: input.workspaceRoot,
+    sourcePath: input.workspaceRoot,
+    compositionPath: snapshot.compositionPath ?? null,
+    sourceRevisionId: null,
+    fps: snapshot.fps ?? 30,
+    width: snapshot.width ?? 1920,
+    height: snapshot.height ?? 1080,
+    format: "png",
+  }).catch((error) => {
+    console.warn("[Ripple] Could not prewarm visual context bridge:", error)
+  })
 }
 
 export async function createAgentVisualContextFileBridge(
@@ -39,6 +62,11 @@ export async function createAgentVisualContextFileBridge(
       workspaceRoot,
       requestDir: join(workspaceRoot, ".ripple", "agent-visual-context", options.runId, "requests"),
       resolveCurrentFrameSnapshot: options.resolveCurrentFrameSnapshot,
+    })
+    prewarmWorkspaceVisualContext({
+      service,
+      workspaceRoot,
+      currentFrameSnapshot: options.prewarmCurrentFrameSnapshot,
     })
     sourceInvalidation = await attachVisualContextSourceInvalidation({
       service,

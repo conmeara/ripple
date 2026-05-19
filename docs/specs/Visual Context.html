@@ -983,7 +983,7 @@
       <li><strong>Range comments automatically attach a frame sheet for the selected range.</strong><a class="test-marker covered" href="#testplan">T-B2<span class="tip"><strong>Range comments capture sheet</strong><em>unit - comment-visuals.test.ts</em></span></a></li>
       <li><strong>The UI never waits on capture.</strong> Comments and chats both appear immediately.<a class="test-marker covered" href="#testplan">T-A1<span class="tip"><strong>Card visible before visual files attach</strong><em>e2e - comments-spec.e2e.ts</em></span></a></li>
       <li><strong>Comment agent runs wait for the visual.</strong> The agent session pauses until the frame or sheet is ready, so the visual is attached to the first agent message.<a class="test-marker covered" href="#testplan">T-A5<span class="tip"><strong>Comment agent run gated on visual</strong><em>quality - comments-spec-contract.test.ts</em></span></a></li>
-      <li><strong>Chat agent runs start immediately.</strong> The agent requests frames or sheets on demand during the session via Ripple's visual commands.<a class="test-marker covered" href="#testplan">T-B3<span class="tip"><strong>Snapshot and frame-sheet CLI tools</strong><em>cli - visual.test.ts</em></span></a></li>
+      <li><strong>Chat agent runs start immediately.</strong> The agent requests frames or sheets on demand during the session via Ripple's native visual tool when available, or via Ripple's visual commands.<a class="test-marker covered" href="#testplan">T-B3<span class="tip"><strong>Snapshot and frame-sheet CLI tools</strong><em>cli - visual.test.ts</em></span></a></li>
       <li><strong>Current-frame capture fails closed.</strong> If Ripple cannot verify the active preview identity, it does not silently substitute a source render.<a class="test-marker covered" href="#testplan">T-B6<span class="tip"><strong>Missing current preview fails clearly</strong><em>unit - endpoint.test.ts</em></span></a></li>
       <li><strong>If visual capture fails, the comment or chat still exists</strong> and the agent still gets the text.<a class="test-marker covered" href="#testplan">T-A2<span class="tip"><strong>Fallback to text on capture failure</strong><em>e2e - release-qa.e2e.ts</em></span></a></li>
     </ul>
@@ -1074,14 +1074,14 @@
       <div class="journey-step">
         <div class="journey-num">04 - agent</div>
         <div class="journey-title">Provider format</div>
-        <div class="journey-desc">The runtime adapts the local artifact to the provider's native image input - Codex local image path or Claude image block.</div>
+        <div class="journey-desc">The runtime adapts the local artifact to the provider's native image input - Codex localImage or dynamic inputImage, and Claude image blocks.</div>
       </div>
     </div>
   </section>
 
   <section id="architecture">
     <h2>Architecture</h2>
-    <p class="lede-2">The prior render-path eval pointed to a clear target: live preview for the current frame, warm Engine for certain frames and frame sheets. The current app still needs to be refactored toward these explicit routes; the rebuilt benchmark and acceptance tests become the regression check.</p>
+    <p class="lede-2">The prior render-path eval pointed to a clear target: live preview for the current frame, warm Engine for certain frames and frame sheets. The implementation keeps these explicit routes behind the Visual Context Service; the rebuilt benchmark and acceptance tests are the regression check.</p>
 
     <div class="decision">
       <div class="decision-card primary">
@@ -1116,7 +1116,7 @@
       <div class="arch-node">
         <h4>Agent runtime</h4>
         <div class="arch-node-title">Provider-shaped input</div>
-        <div class="arch-node-desc">One local artifact, then adapt: Codex local image path or Claude native image block. Bare <code>ripple</code> commands for on-demand captures.</div>
+        <div class="arch-node-desc">One local artifact, then adapt: Codex initial localImage, Codex on-demand inputImage, or Claude native image block. Bare <code>ripple</code> commands remain the reversible on-demand contract.</div>
       </div>
     </div>
 
@@ -1191,7 +1191,12 @@
 
   <section id="evidence">
     <h2>Evidence</h2>
-    <p class="lede-2">The prior render-path eval informed the decision above. Its original image artifacts were not preserved in this repo, so Ripple now keeps the decision alive as executable evidence: the quality matrix rebuilds PNGs during the run, validates pixels, and checks the app-owned current-frame, specific-frame, and frame-sheet routes.</p>
+    <p class="lede-2">The prior render-path eval informed the capture-route decision above. The newer provider-native eval covers a different stage: how an existing visual artifact gets into the agent session. Keep these as two pipeline layers, then compose them into end-to-end local totals.</p>
+
+    <div class="callout info">
+      <div class="callout-icon">Pipeline</div>
+      <div class="callout-body">The detailed stage model now lives in <a href="Visual Context Pipeline.html"><code>Visual Context Pipeline.html</code></a>. It separates capture timing from runtime handoff timing, explains Codex dynamic tools and Claude SDK MCP tools, and includes the live Codex plus Claude timing matrix for every chat and comment visual path.</div>
+    </div>
 
     <div class="metric-grid">
       <div class="metric">
@@ -1201,27 +1206,37 @@
       </div>
       <div class="metric">
         <div class="metric-label">Warm Engine</div>
-        <div class="metric-value">125 ms</div>
-        <div class="metric-copy">Verified in the quality matrix against the visual-capture fixture.</div>
+        <div class="metric-value">147 ms</div>
+        <div class="metric-copy">Fresh benchmark warm-session result for 3 source-canonical frames.</div>
       </div>
       <div class="metric">
         <div class="metric-label">Warm sheet</div>
-        <div class="metric-value">332 ms</div>
-        <div class="metric-copy">Verified in the quality matrix with rebuilt sheet artifacts.</div>
+        <div class="metric-value">400 ms</div>
+        <div class="metric-copy">Fresh benchmark warm-session result for an 8-frame sheet.</div>
       </div>
       <div class="metric">
         <div class="metric-label">Cold CLI</div>
-        <div class="metric-value">8213 ms</div>
+        <div class="metric-value">7398 ms</div>
         <div class="metric-copy">Kept as the fallback baseline; app-owned visual routes avoid this path for agents.</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Native return</div>
+        <div class="metric-value">0.61 ms</div>
+        <div class="metric-copy">Runtime-handoff stage only. Compare this with path-only handoff plus a follow-up agent turn, not with Engine capture.</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Comment gate</div>
+        <div class="metric-value">68-79 ms</div>
+        <div class="metric-copy">Latest live provider matrix result: prepared point frames and range sheets attach before the comment run starts.</div>
       </div>
     </div>
 
     <div class="bench">
       <div class="bench-head">
-        <div class="bench-title">Render-path benchmark</div>
+        <div class="bench-title">Capture-stage benchmark</div>
         <div class="bench-sub">sorted fastest first - <span class="bench-legend"><span class="bench-legend-dot"></span> chosen route</span></div>
       </div>
-      <div class="bars" aria-label="Render-path benchmark latency">
+      <div class="bars" aria-label="Capture-stage benchmark latency">
         <div class="bar-row chosen">
           <div class="bar-name"><strong>Live preview</strong>chosen - current frame</div>
           <div class="track"><div class="fill" style="width:0.5%"></div></div>
@@ -1229,23 +1244,23 @@
         </div>
         <div class="bar-row chosen">
           <div class="bar-name"><strong>Engine warm</strong>chosen - certain frame, 3 frames</div>
-          <div class="track"><div class="fill green" style="width:1.5%"></div></div>
-          <div class="bar-value">125 ms</div>
+          <div class="track"><div class="fill green" style="width:2.0%"></div></div>
+          <div class="bar-value">147 ms</div>
         </div>
         <div class="bar-row">
           <div class="bar-name"><strong>Producer warm</strong>3 frames</div>
-          <div class="track"><div class="fill green" style="width:1.5%"></div></div>
-          <div class="bar-value">125 ms</div>
+          <div class="track"><div class="fill green" style="width:2.1%"></div></div>
+          <div class="bar-value">154 ms</div>
         </div>
         <div class="bar-row chosen">
           <div class="bar-name"><strong>Engine warm</strong>chosen - frame sheet, 8 frames</div>
-          <div class="track"><div class="fill green" style="width:4%"></div></div>
-          <div class="bar-value">332 ms</div>
+          <div class="track"><div class="fill green" style="width:5.4%"></div></div>
+          <div class="bar-value">400 ms</div>
         </div>
         <div class="bar-row">
           <div class="bar-name"><strong>Fast browser</strong>3 frames</div>
-          <div class="track"><div class="fill amber" style="width:9.1%"></div></div>
-          <div class="bar-value">749 ms</div>
+          <div class="track"><div class="fill amber" style="width:3.6%"></div></div>
+          <div class="bar-value">264 ms</div>
         </div>
         <div class="bar-row">
           <div class="bar-name"><strong>Painted preview</strong>standalone</div>
@@ -1255,7 +1270,7 @@
         <div class="bar-row">
           <div class="bar-name"><strong>CLI snapshot</strong>single frame, cold</div>
           <div class="track"><div class="fill red" style="width:100%"></div></div>
-          <div class="bar-value">8213 ms</div>
+          <div class="bar-value">7398 ms</div>
         </div>
       </div>
     </div>
@@ -1265,11 +1280,15 @@
       <li><strong>Warm sessions matter.</strong> Once the renderer is alive, multi-frame capture becomes plausible for agent use.</li>
       <li><strong>Fidelity is clean on the simple fixture.</strong> Painted preview and fast-browser output matched pixel-for-pixel at SSIM 1.000 in the test fixture.</li>
       <li><strong>Live preview is the right hot path for current frame.</strong> 9 ms once ready, with stable geometry across compact, wide, and tall layouts. Pixel deltas vary by layout, which is why the route is "what the user sees," not source-canonical comparison.</li>
+      <li><strong>Native return is a runtime-handoff choice.</strong> Local image adaptation is sub-millisecond once an artifact exists; the meaningful win is returning the image in the visual-tool result instead of making the agent spend another turn looking up the file.</li>
+      <li><strong>The current comment wait is inside budget.</strong> In the latest live Codex and Claude matrix, comment cards appear in 68-73 ms and automatic visuals are ready in 68-79 ms because the app prepares the point frame or range sheet before send.</li>
+      <li><strong>The app-owned tool paths are now inside budget.</strong> Treat provider/model wait as a separate diagnostic. Native visual tools capture within 0-418 ms in the live matrix, automatic visual gates are under 80 ms, and the longest end-to-end rows are now model wait before tool calls.</li>
+      <li><strong>Preview activity should warm the next visual request.</strong> The active preview surface publishes current-frame identity for point comments and triggers render-engine prewarm for source-canonical snapshots and sheets.</li>
     </ul>
 
     <div class="callout info">
       <div class="callout-icon">Evidence</div>
-      <div class="callout-body">The preserved repo evidence is <code>scripts/benchmark-visual-context.ts</code>, <code>test/quality/visual-context-matrix.test.ts</code>, <code>test/e2e/agent-visual-context-live.e2e.ts</code>, <code>src/main/lib/visual-context/service.test.ts</code>, <code>src/main/lib/visual-context/endpoint.test.ts</code>, and the <code>test/fixtures/hyperframes/visual-capture-qa</code> fixture. The old static PNG bundle is intentionally replaced by regenerated test artifacts.</div>
+      <div class="callout-body">The preserved repo evidence is <code>scripts/benchmark-visual-context.ts</code>, <code>test/quality/visual-context-matrix.test.ts</code>, <code>test/e2e/agent-visual-context-live.e2e.ts</code>, <code>test/e2e/agent-visual-context-provider-matrix-live.e2e.ts</code>, <code>test/e2e/helpers/visual-context-timing-report.ts</code>, <code>test/e2e/helpers/visual-context-timing-report.test.ts</code>, <code>src/main/lib/agent-runtime/visual-context-native-tool.test.ts</code>, <code>src/main/lib/revisions/comment-visuals.test.ts</code>, <code>src/main/lib/visual-context/service.test.ts</code>, <code>src/main/lib/visual-context/endpoint.test.ts</code>, <code>src/renderer/features/hyperframes/preview-player-controls.test.ts</code>, and the <code>test/fixtures/hyperframes/visual-capture-qa</code> fixture. The latest live report writes <code>test-results/visual-context-live-timing-matrix.md</code> with an app-owned budget readout. The old static PNG bundle is intentionally replaced by regenerated test artifacts.</div>
     </div>
   </section>
 
@@ -1318,12 +1337,16 @@
         <h3>One artifact, then adapt</h3>
         <p>Ripple prepares one local artifact, then sends it to the chosen agent provider in the right format.</p>
       </div>
+      <div class="rule-card">
+        <h3>Measure what Ripple owns</h3>
+        <p>Live evals separate UI, automatic visual gates, tool execution, capture, handoff, provider run, and model wait so performance work targets the right stage.</p>
+      </div>
     </div>
   </section>
 
   <section id="vision">
     <h2>Vision</h2>
-    <p class="lede">The user leaves feedback without waiting. The agent can see the frame or range the user meant. Ripple captures a local visual artifact, attaches it to the agent run in the provider's native format, and keeps the image path plus manifest available for timing details and fresh visual checks.</p>
+    <p class="lede">The user leaves feedback without waiting. The agent can see the frame or range the user meant. Ripple captures a local visual artifact, attaches comment visuals before the agent starts, returns chat visuals on demand in the provider's native format, and keeps the image path plus manifest available for timing details and fresh visual checks. The performance target is simple: every normal Ripple-owned visual path feels instant, and every eval row says whether remaining wait belongs to Ripple, the capture engine, or the provider/model.</p>
   </section>
 
   <section id="testplan">
@@ -1369,8 +1392,15 @@
         <div class="testplan-row"><span class="testplan-id">T-D2</span><span class="testplan-name">Route latency and artifact quality are measured for current frame, certain frame, and frame-sheet paths</span><span class="testplan-type">quality</span><span class="testplan-status covered">covered</span></div>
         <div class="testplan-row"><span class="testplan-id">T-D3</span><span class="testplan-name">Capture fidelity matches expected pixels for known fixtures across each chosen route</span><span class="testplan-type">quality</span><span class="testplan-status covered">covered</span></div>
         <div class="testplan-row"><span class="testplan-id">T-D4</span><span class="testplan-name">Render cache reuses warm-session frames when source and timing are unchanged; invalidates on edits, revision switches, and media changes</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-D5</span><span class="testplan-name">Provider handoff sends Codex localImage paths and Claude native image blocks for supported media types</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D5</span><span class="testplan-name">Provider handoff sends Codex localImage paths and Claude native image blocks for supported startup attachments</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
         <div class="testplan-row"><span class="testplan-id">T-D6</span><span class="testplan-name">Render-path benchmark is rebuilt in-repo and available through <code>benchmark:visual-context</code></span><span class="testplan-type">quality</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D7</span><span class="testplan-name">On-demand visual tools return provider-native image content so the agent does not need a follow-up file lookup turn</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D8</span><span class="testplan-name">Live Codex and Claude eval covers chat current snapshot, timestamp snapshot, frame sheet, automatic comment visual, and comment-run visual tools</span><span class="testplan-type">e2e</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D9</span><span class="testplan-name">Live timing matrix records every chat and comment visual path with UI, automatic visual, run, tool, capture, handoff, provider, and end-to-end timings</span><span class="testplan-type">e2e</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D10</span><span class="testplan-name">Timing report classifies app-owned latency against budgets and names the dominant bottleneck separately from provider/model wait</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D11</span><span class="testplan-name">Range comments can precompute a sheet while the user is composing and pass the prepared image into the first agent message when ready</span><span class="testplan-type">renderer</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D12</span><span class="testplan-name">Comment agents reuse the attached range sheet for matching native frame-sheet tool calls, but capture a fresh sheet for a different explicit range</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D13</span><span class="testplan-name">Agent visual bridge prewarms the run workspace render path in the background so later timestamp snapshots and frame sheets avoid cold startup</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
       </div>
     </div>
 
@@ -1380,6 +1410,7 @@
       <li><strong>DAMP over DRY.</strong> Each test reads like a behavior spec on its own. Duplicated arrange code is fine when it keeps a test independently understandable.</li>
       <li><strong>Real implementations over mocks.</strong> Prefer real warm sessions, real PNG outputs, and real fixtures. Mock only at provider boundaries where real deps are slow or non-deterministic.</li>
       <li><strong>Pyramid shape.</strong> Most tests are unit (capture logic, dispatcher, sampling, invalidation). Integration covers seams (CLI delegation, comment thread + visual write). E2E is reserved for full user flows (comment-to-agent-message, live provider).</li>
+      <li><strong>Live provider matrix.</strong> <code>test:e2e:visual-context-live</code> runs the app with Codex and Claude, checks chat on-demand visuals, checks comment automatic visual attachments, checks comment agents can call the same visual tools, and writes the timing table to <code>test-results/visual-context-live-timing-matrix.md</code>.</li>
       <li><strong>Prove-it for refactor bugs.</strong> Any regression caught during the refactor toward this spec gets a reproduction test that fails before the fix.</li>
       <li><strong>One assertion per concept.</strong> Latency and fidelity stay in separate tests, even though they share a fixture. Comment-waits-for-visual and chat-does-not-wait stay in separate tests.</li>
     </ul>

@@ -24,8 +24,10 @@ import {
   canReplyToCommentThread,
   commentFilterLabels,
   hasActiveRevisionChanges,
+  hasPendingCommentStartup,
   isDeletedCommentThread,
   shouldShowRestoreAction,
+  shouldPollCommentThread,
 } from "../../src/renderer/features/comments/comment-filters"
 import {
   formatRevisionResultLine,
@@ -300,7 +302,7 @@ describe("Comments spec contract: B - visual context attachment", () => {
     expect(serviceSource).toContain("captureCommentVisualForAnchor({")
   })
 
-  test("comment agent run waits for automatic visual context before provider startup", () => {
+  test("comment creates a visible revision before waiting for automatic visual context", () => {
     const serviceSource = read(COMMENT_REVISIONS_PATH)
     const createThreadSource = between(
       serviceSource,
@@ -319,12 +321,26 @@ describe("Comments spec contract: B - visual context attachment", () => {
       "createRevisionForThreadInBackground({",
     )
     expect(createThreadSource).toContain("visualContextReady,")
-    expect(revisionStartupSource).toContain("await options.visualContextReady")
+    expect(revisionStartupSource).toContain("deferQueueUntilVisualContext: shouldDeferQueue")
+    expect(revisionStartupSource).toContain("await waitForCommentVisualContext(options.visualContextReady)")
+    expect(revisionStartupSource).toContain("markRevisionReadyForQueue(revision.id)")
     expectBefore(
       revisionStartupSource,
-      "await options.visualContextReady",
-      "const revision = await createRevisionForThread(input)",
+      "const revision = await createRevisionForThread({",
+      "await waitForCommentVisualContext(options.visualContextReady)",
     )
+    expectBefore(
+      revisionStartupSource,
+      "await waitForCommentVisualContext(options.visualContextReady)",
+      "markRevisionReadyForQueue(revision.id)",
+    )
+    expectBefore(
+      revisionStartupSource,
+      "markRevisionReadyForQueue(revision.id)",
+      "scheduleGeneratedChangeQueue({ projectId: revision.projectId })",
+    )
+    expect(revisionStartupSource).toContain("COMMENT_VISUAL_CONTEXT_STARTUP_TIMEOUT_MS")
+    expect(revisionStartupSource).toContain("continuing without the automatic visual")
   })
 
   test("T-B2 comment persists even when visual capture fails", () => {
@@ -335,9 +351,17 @@ describe("Comments spec contract: B - visual context attachment", () => {
       "function createRevisionForThreadInBackground(",
     )
 
+    const startupBlock = between(
+      serviceSource,
+      "async function waitForCommentVisualContext(",
+      "async function prepareMissingRevisionWorkspaceForRecovery(",
+    )
+
     expect(captureBlock).toContain("try {")
     expect(captureBlock).toContain("catch (error)")
     expect(captureBlock).toContain("Could not capture comment visual context")
+    expect(startupBlock).toContain("catch (error)")
+    expect(startupBlock).toContain("Comment visual context failed before agent startup")
   })
 
   test("T-B3 range comments capture a six-sample frame sheet", () => {
@@ -360,6 +384,21 @@ describe("Comments spec contract: C - pane behavior", () => {
   test("T-C1 active filter shows open and working threads", () => {
     expect(commentFilterLabels.active).toBe("Comments")
     expect(hasActiveRevisionChanges({ revisions: [revision("running")] })).toBe(true)
+    expect(hasPendingCommentStartup(thread({
+      latestRevisionId: null,
+      messages: [{
+        id: "message-1",
+        threadId: "thread-1",
+        revisionId: null,
+        role: "user",
+        body: "what is on screen?",
+        metadataJson: null,
+        clientRequestId: null,
+        createdAt: null,
+      }],
+      revisions: [],
+      status: "open",
+    }))).toBe(true)
   })
 
   test("T-C2 rejected filter shows soft-deleted threads with restore affordance", () => {
@@ -388,7 +427,7 @@ describe("Comments spec contract: C - pane behavior", () => {
     expect(scrollEffect).toContain("scrollIntoView({ block: \"nearest\" })")
   })
 
-  test("T-C5 polls every second only while visible work is running", () => {
+  test("T-C5 polls every second while visible work or startup is running", () => {
     const commentsPaneSource = read(COMMENTS_PANE_PATH)
     const querySource = between(
       commentsPaneSource,
@@ -396,7 +435,11 @@ describe("Comments spec contract: C - pane behavior", () => {
       "const createThread = trpc.revisions.createThread.useMutation({",
     )
 
-    expect(querySource).toContain("threads.some(hasActiveRevisionChanges) ? 1_000 : false")
+    expect(shouldPollCommentThread(thread({
+      latestRevisionId: "running-revision",
+      revisions: [revision("running")],
+    }))).toBe(true)
+    expect(querySource).toContain("threads.some(shouldPollCommentThread) ? 1_000 : false")
   })
 })
 
@@ -416,6 +459,8 @@ describe("Comments spec contract: D - card by status", () => {
     expect(formatRevisionStatusLine(revision("running", { diffSummary: null })))
       .toBe("Editing files")
     expect(cardSource).toContain("TextShimmer")
+    expect(cardSource).toContain("Preparing visual context")
+    expect(cardSource).toContain("PendingCommentStartupLine")
     expect(cardSource).toContain("LoaderCircle")
   })
 
@@ -429,7 +474,7 @@ describe("Comments spec contract: D - card by status", () => {
     expect(commentsPaneSource).toContain("bg-emerald-500")
   })
 
-  test("T-D3 answered cards show No changes needed with disabled accept", () => {
+  test("T-D3 answered cards show the final response with disabled accept", () => {
     const commentsPaneSource = read(COMMENTS_PANE_PATH)
     const acceptSource = between(
       commentsPaneSource,
@@ -437,6 +482,17 @@ describe("Comments spec contract: D - card by status", () => {
       "function CommentCard({",
     )
 
+    expect(formatRevisionStatusLine(revision("answered", {
+      diffSummary: JSON.stringify({
+        fileCount: 0,
+        additions: 0,
+        deletions: 0,
+        files: [],
+        summary: "A purple fitness-app promo frame; no revision was needed.",
+      }),
+    }))).toBe("A purple fitness-app promo frame; no revision was needed.")
+    expect(formatRevisionStatusLine(revision("answered", { diffSummary: null })))
+      .toBe("No changes needed")
     expect(acceptSource).toContain('case "answered":')
     expect(acceptSource).toContain('return { label: "No changes needed", disabled: true, busy: false }')
   })

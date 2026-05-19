@@ -135,12 +135,14 @@ describe("ripple visual CLI commands", () => {
 
   test("delegates snapshots to the app visual context endpoint when provided", async () => {
     const projectDir = await makeProject()
+    let snapshotRequest: VisualSnapshotInput | null = null
     const service: VisualContextService = {
       warmProject: async () => undefined,
       captureFrames: async () => {
         throw new Error("not used")
       },
       captureSnapshot: async (input: VisualSnapshotInput) => {
+        snapshotRequest = input
         const framePath = join(String(input.outputDir), "endpoint.png")
         await writeFile(framePath, ONE_BY_ONE_PNG)
         return {
@@ -193,6 +195,9 @@ describe("ripple visual CLI commands", () => {
         timeMs: 500,
         frame: 12,
       })
+      expect(snapshotRequest).toEqual(expect.objectContaining({
+        preferredBackend: "fast-browser",
+      }))
     } finally {
       await handle.close()
       await rm(projectDir, { recursive: true, force: true })
@@ -833,7 +838,7 @@ describe("ripple visual CLI commands", () => {
       expect(result.exitCode).toBe(0)
       const payload = JSON.parse(result.stdout)
       expect(payload.ok).toBe(true)
-      expect(payload.backend).toBe("engine")
+      expect(payload.backend).toBe("fast-browser")
       expect(payload.sheet.path).toBe(".ripple/frame-sheets/fs_visual/sheet.png")
       expect(payload.sheet.manifestPath).toBe(".ripple/frame-sheets/fs_visual/manifest.json")
       expect(payload.elapsedMs).toBeGreaterThanOrEqual(0)
@@ -865,9 +870,11 @@ describe("ripple visual CLI commands", () => {
 
   test("delegates sheet frame capture to the app endpoint when provided", async () => {
     const projectDir = await makeProject()
+    let captureRequest: VisualCaptureFramesRequest | null = null
     const service: VisualContextService = {
       warmProject: async () => undefined,
       captureFrames: async (input: VisualCaptureFramesRequest) => {
+        captureRequest = input
         const frameDir = join(input.projectPath, ".ripple", "endpoint-sheet-frames")
         await mkdir(frameDir, { recursive: true })
         const frames = []
@@ -930,6 +937,11 @@ describe("ripple visual CLI commands", () => {
       const payload = JSON.parse(result.stdout)
       expect(payload.backend).toBe("engine")
       expect(payload.sheet.path).toBe(".ripple/frame-sheets/fs_endpoint/sheet.png")
+      expect(captureRequest).toEqual(expect.objectContaining({
+        preferredBackend: "fast-browser",
+        width: 720,
+        height: 405,
+      }))
     } finally {
       await handle.close()
       await rm(projectDir, { recursive: true, force: true })

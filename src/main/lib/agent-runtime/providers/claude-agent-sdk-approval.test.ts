@@ -40,6 +40,23 @@ describe("Claude Agent SDK approval bridge", () => {
     })).toBe(false)
   })
 
+  test("auto-allows app-managed Ripple visual MCP tools", () => {
+    expect(isRippleClaudeAutoAllowedTool("mcp__ripple_visual_context__ripple_snapshot", {
+      at: "current",
+    })).toBe(true)
+    expect(isRippleClaudeAutoAllowedTool("mcp__ripple_visual_context__ripple_snapshot", {
+      at: "0.5s",
+    })).toBe(true)
+    expect(isRippleClaudeAutoAllowedTool("mcp__ripple_visual_context__ripple_frame_sheet", {
+      range: "0s..1s",
+      samples: 3,
+      columns: 3,
+    })).toBe(true)
+    expect(isRippleClaudeAutoAllowedTool("mcp__other_server__ripple_snapshot", {
+      at: "current",
+    })).toBe(false)
+  })
+
   test("builds user approval requests from Claude permission metadata", () => {
     expect(buildClaudeToolApprovalRequest({
       toolName: "Bash",

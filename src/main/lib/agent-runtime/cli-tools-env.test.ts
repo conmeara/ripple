@@ -326,7 +326,7 @@ describe("Ripple agent CLI tool environment", () => {
 
       expect(payload.ok).toBe(true)
       expect(payload.type).toBe("sheet")
-      expect(requestedBackend).toBe("engine")
+      expect(requestedBackend).toBe("fast-browser")
       expect(stdout).not.toContain("backend")
       expect(stdout).not.toContain("endpoint")
       expect(stdout).not.toContain("handoff")

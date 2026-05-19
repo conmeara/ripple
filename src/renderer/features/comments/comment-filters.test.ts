@@ -7,7 +7,9 @@ import {
   canReplyToCommentThread,
   commentFilterLabels,
   hasActiveRevisionChanges,
+  hasPendingCommentStartup,
   isRevisionResolvingAgainstLatest,
+  shouldPollCommentThread,
 } from "./comment-filters"
 
 function revision(
@@ -68,6 +70,33 @@ describe("comment filter helpers", () => {
     expect(hasActiveRevisionChanges({ revisions: [revision("updating")] })).toBe(true)
     expect(hasActiveRevisionChanges({ revisions: [revision("needs_update")] })).toBe(false)
     expect(hasActiveRevisionChanges({ revisions: [revision("proposed")] })).toBe(false)
+  })
+
+  test("keeps polling while a new comment is waiting for its first revision", () => {
+    const pendingThread = {
+      deletedAt: null,
+      latestRevisionId: null,
+      messages: [{
+        id: "message-1",
+        threadId: "thread-1",
+        revisionId: null,
+        role: "user" as const,
+        body: "what is on screen?",
+        metadataJson: null,
+        clientRequestId: null,
+        createdAt: null,
+      }],
+      revisions: [],
+      status: "open" as const,
+    }
+
+    expect(hasPendingCommentStartup(pendingThread)).toBe(true)
+    expect(shouldPollCommentThread(pendingThread)).toBe(true)
+    expect(shouldPollCommentThread({
+      ...pendingThread,
+      latestRevisionId: "revision-1",
+      revisions: [revision("answered")],
+    })).toBe(false)
   })
 
   test("allows explicit rejection only for live proposed changes", () => {

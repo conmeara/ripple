@@ -22,9 +22,10 @@ import { buildRippleAgentToolEnvironment } from "../cli-tools-env"
 import { createAgentVisualContextEndpoint } from "../visual-context-endpoint"
 import { createAgentVisualContextFileBridge } from "../visual-context-file-bridge"
 import {
-  prepareAgentVisualContextHandoff,
-  shouldPrepareAgentVisualContextHandoff,
-} from "../visual-context-handoff"
+  buildClaudeNativeVisualContextToolResult,
+  RIPPLE_NATIVE_VISUAL_TOOL_COPY,
+  runNativeVisualContextTool,
+} from "../visual-context-native-tool"
 import {
   buildClaudeElicitationApprovalRequest,
   buildClaudeElicitationResult,
@@ -124,6 +125,74 @@ function authLabel(status: Record<string, unknown>): string {
     return "Claude connection ready"
   }
   return "Connect Claude before asking it to edit"
+}
+
+function createClaudeNativeVisualContextMcpServer(input: {
+  sdk: any
+  z: any
+  cwd: string
+  env: NodeJS.ProcessEnv
+  repoRoot?: string
+}): unknown {
+  const snapshotSchema = {
+    at: input.z.string()
+      .describe(RIPPLE_NATIVE_VISUAL_TOOL_COPY.snapshotAtDescription)
+      .default("current"),
+    composition: input.z.string()
+      .describe(RIPPLE_NATIVE_VISUAL_TOOL_COPY.compositionDescription)
+      .optional(),
+  }
+  const sheetSchema = {
+    range: input.z.string()
+      .describe(RIPPLE_NATIVE_VISUAL_TOOL_COPY.frameSheetRangeDescription)
+      .default("0s..8s"),
+    samples: input.z.number().int().positive()
+      .describe(RIPPLE_NATIVE_VISUAL_TOOL_COPY.frameSheetSamplesDescription)
+      .default(8),
+    columns: input.z.number().int().positive()
+      .describe(RIPPLE_NATIVE_VISUAL_TOOL_COPY.frameSheetColumnsDescription)
+      .default(4),
+    composition: input.z.string()
+      .describe(RIPPLE_NATIVE_VISUAL_TOOL_COPY.compositionDescription)
+      .optional(),
+  }
+  return input.sdk.createSdkMcpServer({
+    name: "ripple_visual_context",
+    version: "1.0.0",
+    alwaysLoad: true,
+    tools: [
+      input.sdk.tool(
+        "ripple_snapshot",
+        RIPPLE_NATIVE_VISUAL_TOOL_COPY.snapshotDescription,
+        snapshotSchema,
+        async (args: Record<string, unknown>) => buildClaudeNativeVisualContextToolResult(
+          await runNativeVisualContextTool({
+            cwd: input.cwd,
+            env: input.env,
+            repoRoot: input.repoRoot,
+            tool: "snapshot",
+            arguments: args,
+          }),
+        ),
+        { alwaysLoad: true },
+      ),
+      input.sdk.tool(
+        "ripple_frame_sheet",
+        RIPPLE_NATIVE_VISUAL_TOOL_COPY.frameSheetDescription,
+        sheetSchema,
+        async (args: Record<string, unknown>) => buildClaudeNativeVisualContextToolResult(
+          await runNativeVisualContextTool({
+            cwd: input.cwd,
+            env: input.env,
+            repoRoot: input.repoRoot,
+            tool: "frame_sheet",
+            arguments: args,
+          }),
+        ),
+        { alwaysLoad: true },
+      ),
+    ],
+  })
 }
 
 export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
@@ -309,6 +378,7 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
 
     try {
       const sdk = await import("@anthropic-ai/claude-agent-sdk")
+      const { z } = await import("zod/v4")
       const promptContext = prepareAgentRuntimePrompt(input.prompt)
       const preparedAttachments = await prepareRuntimeAttachments({
         runId: input.run.id,
@@ -352,22 +422,13 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         })
       }
 
-      const visualContextHandoff = shouldPrepareAgentVisualContextHandoff()
-        ? await prepareAgentVisualContextHandoff({
-          runId: input.run.id,
-          currentFrameSnapshot: input.currentFrameSnapshot,
-          repoRoot: getRepoRoot(),
-        }).catch((error) => {
-          console.warn("[claude-agent-sdk] Failed to prepare visual context handoff:", error)
-          return null
-        })
-        : null
       visualContextEndpoint = await createAgentVisualContextEndpoint(input.cwd, {
         resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
       })
       visualContextBridge = await createAgentVisualContextFileBridge(input.cwd, {
         runId: input.run.id,
         resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
+        prewarmCurrentFrameSnapshot: input.currentFrameSnapshot ?? null,
       })
       const env = buildRippleAgentToolEnvironment({
         baseEnv: buildClaudeEnv({
@@ -382,14 +443,21 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         visualContextBridgeDir: visualContextBridge?.requestDir,
         visualContextBridgeToken: visualContextBridge?.token,
       })
+      const nativeVisualContextMcpServer = createClaudeNativeVisualContextMcpServer({
+        sdk,
+        z,
+        cwd: input.cwd,
+        env,
+        repoRoot: getRepoRoot(),
+      })
+      const mcpServers = {
+        ...capabilities.mcpServers,
+        ripple_visual_context: nativeVisualContextMcpServer,
+      }
       const nativeAttachmentBlocks = [
         ...preparedAttachments.imageContentBlocks,
         ...preparedAttachments.documentContentBlocks,
       ]
-      const finalPromptWithVisualContext = [
-        finalPrompt,
-        visualContextHandoff?.promptContext,
-      ].filter(Boolean).join("\n\n")
       const sdkPrompt = nativeAttachmentBlocks.length > 0
         ? (async function* () {
             yield {
@@ -398,15 +466,15 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
                 role: "user" as const,
                 content: [
                   ...nativeAttachmentBlocks,
-                  ...(finalPromptWithVisualContext.trim()
-                    ? [{ type: "text" as const, text: finalPromptWithVisualContext }]
+                  ...(finalPrompt.trim()
+                    ? [{ type: "text" as const, text: finalPrompt }]
                     : []),
                 ],
               },
               parent_tool_use_id: null,
             }
           })()
-        : finalPromptWithVisualContext
+        : finalPrompt
       const canUseTool = async (
         toolName: string,
         toolInput: Record<string, unknown>,
@@ -429,6 +497,7 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         if (isRippleClaudeAutoAllowedTool(toolName, normalizedInput)) {
           return {
             behavior: "allow" as const,
+            updatedInput: normalizedInput,
             toolUseID,
             decisionClassification: "user_temporary" as const,
           }
@@ -445,9 +514,7 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         if (approval.approved) {
           return {
             behavior: "allow" as const,
-            ...(toolName === "AskUserQuestion" && approval.response
-              ? { updatedInput: approval.response }
-              : {}),
+            updatedInput: asRecord(approval.response) ?? normalizedInput,
             toolUseID,
             decisionClassification: "user_temporary" as const,
           }
@@ -488,9 +555,7 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
           settingSources: capabilities.settingSources,
           skills: capabilities.skills,
           ...(Object.keys(agentsOption).length > 0 ? { agents: agentsOption } : {}),
-          ...(Object.keys(capabilities.mcpServers).length > 0
-            ? { mcpServers: capabilities.mcpServers as any }
-            : {}),
+          mcpServers: mcpServers as any,
           ...(capabilities.plugins.length > 0 ? { plugins: capabilities.plugins } : {}),
           ...(input.model ? { model: input.model } : {}),
           ...(providerSessionId ? { resume: providerSessionId } : {}),

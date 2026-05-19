@@ -47,15 +47,23 @@ function makeResult(
 function backend(input: {
   id: VisualContextBackendId
   captureFrames: (request: VisualCaptureFramesRequest) => Promise<VisualCaptureFramesResult>
+  warmProject?: (request: VisualCaptureFramesRequest) => Promise<void>
   invalidateProject?: (request: { projectPath: string; sourcePath?: string | null }) => Promise<void>
+  dispose?: () => Promise<void>
 }): VisualCaptureBackend {
   const result: VisualCaptureBackend = {
     id: input.id,
     supportsWarmSession: true,
     captureFrames: input.captureFrames,
   }
+  if (input.warmProject) {
+    result.warmProject = input.warmProject
+  }
   if (input.invalidateProject) {
     result.invalidateProject = input.invalidateProject
+  }
+  if (input.dispose) {
+    result.dispose = input.dispose
   }
   return result
 }
@@ -178,6 +186,52 @@ describe("Visual Context Service", () => {
     expect(snapshot.backend).toBe("engine")
     expect(sheet.backend).toBe("engine")
     expect(calls).toEqual(["engine", "engine"])
+  })
+
+  test("warms the first render backend without touching the preview backend", async () => {
+    const warmed: VisualCaptureFramesRequest[] = []
+    const service = createVisualContextService({
+      backendOrder: ["preview", "engine", "producer-capture"],
+      backends: {
+        preview: backend({
+          id: "preview",
+          captureFrames: async (input) => makeResult("preview", input),
+          warmProject: async () => {
+            throw new Error("Preview should not be prewarmed as a render backend.")
+          },
+        }),
+        engine: backend({
+          id: "engine",
+          captureFrames: async (input) => makeResult("engine", input),
+          warmProject: async (input) => {
+            warmed.push(input)
+          },
+        }),
+      },
+    })
+
+    await service.warmProject({
+      projectPath: "/project",
+      sourcePath: "/project",
+      compositionPath: "index.html",
+      sourceRevisionId: null,
+      fps: 30,
+      width: 1920,
+      height: 1080,
+      format: "png",
+    })
+
+    expect(warmed).toHaveLength(1)
+    expect(warmed[0]).toMatchObject({
+      projectPath: "/project",
+      sourcePath: "/project",
+      compositionPath: "index.html",
+      timestampsMs: [0],
+      timeoutMs: 5_000,
+      reason: "agent-context",
+      intent: "specific-frame",
+      preferredBackend: "engine",
+    })
   })
 
   test("falls back from Engine to Producer capture with an explicit warning", async () => {
@@ -305,6 +359,27 @@ describe("Visual Context Service", () => {
 
     await service.shutdown()
     await expect(service.captureFrames(makeRequest())).rejects.toThrow("shut down")
+  })
+
+  test("shutdown disposes custom backends owned by the service", async () => {
+    let disposed = 0
+    const service = createVisualContextService({
+      backendOrder: ["engine"],
+      backends: {
+        engine: backend({
+          id: "engine",
+          captureFrames: async (request) => makeResult("engine", request),
+          dispose: async () => {
+            disposed += 1
+          },
+        }),
+      },
+    })
+
+    await service.shutdown()
+    await service.shutdown()
+
+    expect(disposed).toBe(1)
   })
 
   test("records capture, invalidation, and shutdown metrics", async () => {

@@ -99,8 +99,9 @@ describe("Claude runtime capabilities source contract", () => {
         root.endsWith("resources/claude-plugins/ripple-visual-context/skills")
       )).toBe(true)
       expect(capabilities.systemPrompt?.append).toContain("Use it proactively after creating or editing visible motion work")
-      expect(capabilities.systemPrompt?.append).toContain("ripple frame-sheet --range 0s..8s --samples 8 --columns 4 --json")
-      expect(capabilities.systemPrompt?.append).toContain("ripple snapshot --at current --json")
+      expect(capabilities.systemPrompt?.append).toContain("make the native Ripple visual tool the first external action")
+      expect(capabilities.systemPrompt?.append).toContain("Do not use shell commands, file lookup")
+      expect(capabilities.systemPrompt?.append).toContain("only when the runtime does not expose native Ripple visual tools")
     } finally {
       await rm(projectPath, { recursive: true, force: true })
     }

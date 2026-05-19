@@ -50,4 +50,24 @@ describe("comment composer", () => {
     expect(commentComposerSource).not.toContain("focus-within:border-primary/45")
     expect(commentComposerSource).not.toContain("focus-within:ring-2")
   })
+
+  test("prepares automatic visual context before sending the comment", () => {
+    const commentsPaneSource = getCommentsPaneSource()
+
+    expect(commentsPaneSource).toContain(
+      "trpc.revisions.prepareCommentVisual.useMutation()",
+    )
+    expect(commentsPaneSource).toContain("commentVisualPreparation")
+    expect(commentsPaneSource).toContain("hasDraftContent")
+    expect(commentsPaneSource).toContain("preparedCommentVisualKeyRef")
+    expect(commentsPaneSource).toContain("window.setTimeout")
+    expect(commentsPaneSource).toContain(
+      "commentVisualPreparation.hasDraftContent",
+    )
+    expect(commentsPaneSource).toContain(": 750")
+    expect(commentsPaneSource).toContain(
+      "screenshotPath: preparedCommentVisual.screenshotPath",
+    )
+    expect(commentsPaneSource).toContain("anchor: anchorWithPreparedVisual")
+  })
 })

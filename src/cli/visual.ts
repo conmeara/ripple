@@ -302,6 +302,20 @@ async function readVisualProjectMetadata(projectDir: string): Promise<{
   }
 }
 
+function selectFrameSheetCaptureSize(input: {
+  sourceWidth: number | null
+  sourceHeight: number | null
+  columns: number
+  maxSheetWidth: number
+}): { width: number; height: number } {
+  const sourceWidth = input.sourceWidth ?? DEFAULT_WIDTH
+  const sourceHeight = input.sourceHeight ?? DEFAULT_HEIGHT
+  const cellWidth = Math.max(1, Math.ceil(input.maxSheetWidth / Math.max(1, input.columns)))
+  const width = Math.max(1, Math.min(sourceWidth, cellWidth))
+  const height = Math.max(1, Math.round(sourceHeight * (width / sourceWidth)))
+  return { width, height }
+}
+
 function jsonError(error: unknown): { ok: false; error: { code: string; message: string } } {
   if (error instanceof VisualCliError || error instanceof FrameSheetCliError) {
     return {
@@ -595,7 +609,7 @@ async function runVisualSnapshotCommand(
           timeoutMs: parsed.timeoutMs,
           reason: "snapshot",
           intent: "specific-frame",
-          preferredBackend: parsed.backend ?? undefined,
+          preferredBackend: parsed.backend ?? "fast-browser",
           repoRoot: options.repoRoot,
           outputDir,
         },
@@ -614,7 +628,7 @@ async function runVisualSnapshotCommand(
           timeoutMs: parsed.timeoutMs,
           reason: "snapshot",
           intent: "specific-frame",
-          preferredBackend: parsed.backend ?? undefined,
+          preferredBackend: parsed.backend ?? "fast-browser",
           repoRoot: options.repoRoot,
           outputDir,
         },
@@ -707,7 +721,7 @@ async function runVisualSheetCommand(
     const compositionOption = extractOption(backendOption.args, "--composition")
     const backend = backendOption.value ? parseBackend(backendOption.value) : null
     let forwardedArgs = compositionOption.args
-    let reportedBackend: VisualContextBackendId = backend ?? "engine"
+            let reportedBackend: VisualContextBackendId = backend ?? "fast-browser"
     if (!args.includes("--help") && !args.includes("-h")) {
       const baseCwd = resolve(options.cwd ?? process.cwd())
       const projectDir = await projectDirFromArgs(forwardedArgs, baseCwd)
@@ -731,18 +745,24 @@ async function runVisualSheetCommand(
             const metadata = await readVisualProjectMetadata(input.projectDir)
             const bridge = visualFileBridgeFromEnv(input.env)
             const endpoint = bridge ? null : visualEndpointFromEnv(input.env)
+            const captureSize = selectFrameSheetCaptureSize({
+              sourceWidth: metadata.width,
+              sourceHeight: metadata.height,
+              columns: input.columns,
+              maxSheetWidth: input.maxSheetWidth,
+            })
             const requestBody = {
               projectPath: input.projectDir,
               compositionPath: compositionOption.value,
               timestampsMs: input.timestampsMs,
               fps: metadata.fps ?? DEFAULT_FPS,
-              width: metadata.width ?? DEFAULT_WIDTH,
-              height: metadata.height ?? DEFAULT_HEIGHT,
+              width: captureSize.width,
+              height: captureSize.height,
               format: "png" as const,
               timeoutMs: input.timeoutMs,
               reason: "frame-sheet" as const,
               intent: "frame-sheet" as const,
-              preferredBackend: backend ?? "engine",
+              preferredBackend: backend ?? "fast-browser",
               repoRoot: options.repoRoot,
             }
             const capture = bridge

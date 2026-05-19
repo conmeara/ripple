@@ -132,6 +132,13 @@ export interface AgentProviderRunInput extends AgentRunExecutionContext {
   mode: AgentRunMode
   model: string | null
   attachments?: AgentRuntimeAttachment[]
+  commentVisualContext?: {
+    kind: "frame" | "range_sheet"
+    startTimeMs: number
+    endTimeMs: number | null
+    startFrame: number
+    endFrame: number | null
+  } | null
   currentFrameSnapshot?: VisualCurrentFrameSnapshot | null
   authConfig?: {
     apiKey?: string

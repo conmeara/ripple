@@ -46,9 +46,11 @@ import { buildRippleAgentToolEnvironment } from "../cli-tools-env"
 import { createAgentVisualContextEndpoint } from "../visual-context-endpoint"
 import { createAgentVisualContextFileBridge } from "../visual-context-file-bridge"
 import {
-  prepareAgentVisualContextHandoff,
-  shouldPrepareAgentVisualContextHandoff,
-} from "../visual-context-handoff"
+  buildCodexNativeVisualContextContentItems,
+  buildRippleVisualDynamicToolSpecs,
+  isRippleVisualDynamicToolCall,
+  runNativeVisualContextTool,
+} from "../visual-context-native-tool"
 import {
   approvalBoundaryWarning,
   assessCodexAppServerApprovalRequest,
@@ -408,27 +410,6 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
   ): Promise<AgentProviderRunResult> {
     const appManagedApiKey = getAppManagedCodexApiKey(input)
     const repoRoot = getRepoRoot()
-    const visualContextHandoffPromise = input.currentFrameSnapshot && shouldPrepareAgentVisualContextHandoff()
-      ? (async () => {
-        await sink.emit({
-          type: "status",
-          providerType: "ripple:visual-context",
-          providerId: `${input.run.id}:visual-context`,
-          payload: {
-            status: "running",
-            label: "Preparing preview context",
-          },
-        })
-        return prepareAgentVisualContextHandoff({
-          runId: input.run.id,
-          currentFrameSnapshot: input.currentFrameSnapshot,
-          repoRoot,
-        })
-      })().catch((error) => {
-        console.warn("[codex-app-server] Failed to prepare visual context handoff:", error)
-        return null
-      })
-      : Promise.resolve(null)
     const [visualContextEndpoint, visualContextBridge] = await Promise.all([
       createAgentVisualContextEndpoint(input.cwd, {
         resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
@@ -436,6 +417,7 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
       createAgentVisualContextFileBridge(input.cwd, {
         runId: input.run.id,
         resolveCurrentFrameSnapshot: async () => input.currentFrameSnapshot ?? null,
+        prewarmCurrentFrameSnapshot: input.currentFrameSnapshot ?? null,
       }),
     ])
     const appServerEnv = buildRippleAgentToolEnvironment({
@@ -507,26 +489,19 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
         console.warn("[codex-app-server] Failed to resolve Codex skills:", error)
       }
 
-      const preparedAttachmentsPromise = prepareRuntimeAttachments({
+      const preparedAttachments = await prepareRuntimeAttachments({
         runId: input.run.id,
         cwd: input.cwd,
         attachments: input.attachments,
       })
-      const [visualContextHandoff, preparedAttachments] = await Promise.all([
-        visualContextHandoffPromise,
-        preparedAttachmentsPromise,
-      ])
-      const promptWithVisualContext = [
-        input.prompt,
-        visualContextHandoff?.promptContext,
-      ].filter(Boolean).join("\n\n")
-      const promptContext = prepareAgentRuntimePrompt(promptWithVisualContext)
+      const promptContext = prepareAgentRuntimePrompt(input.prompt)
       const finalPrompt = [
         promptContext.prompt,
         preparedAttachments.promptSuffix,
       ].filter(Boolean).join("\n\n")
 
       const codexSessionInit = buildCodexMcpSessionInit(codexMcpSnapshot)
+      const visualDynamicTools = buildRippleVisualDynamicToolSpecs()
       const codexSkillNames = codexSkills
         .filter((skill) => skill.enabled)
         .map((skill) => skill.name)
@@ -574,7 +549,10 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
               skillsError: codexSkillsError,
             },
             sessionInit: {
-              tools: codexSessionInit.tools,
+              tools: [
+                ...codexSessionInit.tools,
+                ...visualDynamicTools.map((tool) => `${tool.namespace}.${tool.name}`),
+              ],
               mcpServers: codexSessionInit.mcpServers,
               plugins: [],
               skills: codexSkillNames,
@@ -782,23 +760,80 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
         }
         if (message.method === "item/tool/call") {
           const callId = String(message.params?.callId ?? message.id)
+          const toolName = message.params?.tool ?? "Tool"
           await sink.emit({
             type: "tool_start",
             providerType: message.method,
             providerId: callId,
             payload: {
               toolCallId: callId,
-              toolName: message.params?.tool ?? "Tool",
+              toolName,
               arguments: message.params?.arguments,
             },
           })
+          if (isRippleVisualDynamicToolCall({
+            namespace: message.params?.namespace,
+            tool: message.params?.tool,
+          })) {
+            try {
+              const result = await runNativeVisualContextTool({
+                cwd: input.cwd,
+                env: appServerEnv,
+                repoRoot,
+                tool: message.params?.tool,
+                arguments: message.params?.arguments,
+              })
+              await sink.emit({
+                type: "tool_end",
+                providerType: message.method,
+                providerId: callId,
+                payload: {
+                  toolCallId: callId,
+                  toolName,
+                  status: "completed",
+                  output: {
+                    artifactPath: result.relativePath,
+                    type: result.kind,
+                    payload: result.payload,
+                    byteLength: result.byteLength,
+                  },
+                },
+              })
+              return {
+                success: true,
+                contentItems: buildCodexNativeVisualContextContentItems(result),
+              }
+            } catch (error) {
+              const messageText = error instanceof Error ? error.message : String(error)
+              await sink.emit({
+                type: "tool_end",
+                providerType: message.method,
+                providerId: callId,
+                payload: {
+                  toolCallId: callId,
+                  toolName,
+                  status: "failed",
+                  error: messageText,
+                },
+              })
+              return {
+                success: false,
+                contentItems: [
+                  {
+                    type: "inputText",
+                    text: `Ripple visual context failed: ${messageText}`,
+                  },
+                ],
+              }
+            }
+          }
           await sink.emit({
             type: "tool_end",
             providerType: message.method,
             providerId: callId,
             payload: {
               toolCallId: callId,
-              toolName: message.params?.tool ?? "Tool",
+              toolName,
               status: "declined",
               error: "Ripple has not enabled this Codex dynamic tool.",
             },
@@ -885,6 +920,7 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
           sessionStartSource: "clear",
           experimentalRawEvents: false,
           persistExtendedHistory: false,
+          dynamicTools: visualDynamicTools,
         })
         threadId = threadStart?.thread?.id ?? null
         await sink.setProviderIds({ providerThreadId: threadId })

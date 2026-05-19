@@ -8,6 +8,11 @@ import {
   resolveCommentVisualAttachmentsForRun,
 } from "./comment-visuals"
 import { prepareRuntimeAttachments } from "../agent-runtime/runtime-attachments"
+import type {
+  VisualCaptureFramesRequest,
+  VisualCaptureFramesResult,
+  VisualContextService,
+} from "../visual-context"
 
 const ONE_BY_ONE_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
@@ -68,6 +73,80 @@ async function makeNonEntryProject(): Promise<{ root: string; projectPath: strin
 }
 
 describe("comment visual context", () => {
+  test("captures point comments through the live preview surface when preview identity is available", async () => {
+    const projectPath = await mkdtemp(join(tmpdir(), "ripple-comment-preview-frame-"))
+    const requests: VisualCaptureFramesRequest[] = []
+    const service: VisualContextService = {
+      warmProject: async () => undefined,
+      invalidateProject: async () => undefined,
+      shutdown: async () => undefined,
+      captureSnapshot: async () => {
+        throw new Error("Not used.")
+      },
+      captureFrames: async (request): Promise<VisualCaptureFramesResult> => {
+        requests.push(request)
+        const outputDir = request.outputDir
+        if (!outputDir) throw new Error("Expected an output directory.")
+        await mkdir(outputDir, { recursive: true })
+        const framePath = join(outputDir, "current.png")
+        await writeFile(framePath, ONE_BY_ONE_PNG)
+        return {
+          backend: "preview",
+          frames: [{
+            index: 0,
+            timeMs: request.timestampsMs[0],
+            frame: Math.round((request.timestampsMs[0] / 1000) * request.fps),
+            path: framePath,
+            width: 1,
+            height: 1,
+            sizeBytes: ONE_BY_ONE_PNG.byteLength,
+          }],
+          elapsedMs: 8,
+          timings: { previewCaptureMs: 8 },
+          warnings: [],
+          cleanupPaths: [],
+        }
+      },
+    }
+
+    try {
+      const result = await captureCommentVisualForAnchor({
+        db: fakeDbReturning(null),
+        project: {
+          id: "project-1",
+          path: projectPath,
+          localPath: projectPath,
+        } as any,
+        composition: { id: "composition-1", filePath: "index.html" } as any,
+        anchor: {
+          anchorType: "frame",
+          startTime: 0.5,
+          startFrame: 15,
+        },
+        threadId: "thread-preview-frame",
+        previewSurfaceKey: "project-1:composition-1:main",
+        service,
+      })
+
+      expect(result).toEqual({
+        kind: "frame",
+        relativePath: ".ripple/comment-visuals/thread-preview-frame/frame.png",
+      })
+      expect(requests).toHaveLength(1)
+      expect(requests[0]).toMatchObject({
+        intent: "current-frame",
+        preferredBackend: "preview",
+        previewSurfaceKey: "project-1:composition-1:main",
+        expectedPreviewTimeMs: 500,
+        projectId: "project-1",
+        compositionId: "composition-1",
+      })
+      await expect(stat(join(projectPath, result!.relativePath))).resolves.toBeTruthy()
+    } finally {
+      await rm(projectPath, { recursive: true, force: true })
+    }
+  })
+
   test("captures frame comments through the Visual Context Service into canonical comment visuals", async () => {
     const { root, projectPath } = await copyVisualQaProject()
     try {
@@ -101,7 +180,7 @@ describe("comment visual context", () => {
     }
   })
 
-  test("captures range comments as Engine frame sheets in canonical comment visuals", async () => {
+  test("captures range comments as fast frame sheets in canonical comment visuals", async () => {
     const { root, projectPath } = await copyVisualQaProject()
     try {
       const result = await captureCommentVisualForAnchor({

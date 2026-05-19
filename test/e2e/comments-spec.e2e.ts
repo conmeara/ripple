@@ -29,6 +29,14 @@ test.describe("Comments spec workflow", () => {
       .getByRole("button", { name: "Comments" })
       .click()
     await expect(page.getByTestId("ripple-comments-pane")).toBeVisible()
+    await expect.poll(
+      async () => countPreparedCommentVisualFiles(projectDir, "frame.png"),
+      {
+        message: "expected the comment composer to prepare the current frame before send",
+        timeout: 20_000,
+        intervals: [50, 100, 250],
+      },
+    ).toBeGreaterThan(0)
 
     const commentText = "Slow the fade transition; keep this frame as context."
     await page.getByTestId("ripple-comment-composer-input").fill(commentText)
@@ -151,6 +159,20 @@ async function countCommentVisualFiles(projectDir: string): Promise<number> {
   const root = join(projectDir, ".ripple", "comment-visuals")
   if (!existsSync(root)) return 0
   return countFiles(root, /\.(png|jpg|jpeg|webp)$/i)
+}
+
+async function countPreparedCommentVisualFiles(
+  projectDir: string,
+  fileName: "frame.png" | "sheet.png",
+): Promise<number> {
+  const root = join(projectDir, ".ripple", "comment-visuals")
+  if (!existsSync(root)) return 0
+  let count = 0
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !entry.name.startsWith("prepared-")) continue
+    if (existsSync(join(root, entry.name, fileName))) count += 1
+  }
+  return count
 }
 
 async function countFiles(root: string, pattern: RegExp): Promise<number> {

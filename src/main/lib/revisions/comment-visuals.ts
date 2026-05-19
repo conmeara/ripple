@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm"
+import { randomUUID } from "node:crypto"
 import {
   copyFile,
   cp,
@@ -22,7 +23,8 @@ import {
   type Composition,
   type Project,
 } from "../db/schema"
-import { createVisualContextService } from "../visual-context"
+import { createVisualContextService, type VisualContextService } from "../visual-context"
+import { createPreviewSurfaceVisualBackend } from "../visual-context/preview-surface"
 import { isPathInsideDirectory } from "../ripple-projects/paths"
 import { runVisualCommand } from "../../../cli/visual"
 import { resolveRevisionProjectPath } from "./revision-acceptance"
@@ -39,6 +41,13 @@ export interface CommentVisualCaptureResult {
 export interface CommentVisualAttachmentResolution {
   attachments: AgentRuntimeAttachment[]
   promptContext: string | null
+  visualContext: {
+    kind: CommentVisualCaptureResult["kind"]
+    startTimeMs: number
+    endTimeMs: number | null
+    startFrame: number
+    endFrame: number | null
+  } | null
 }
 
 const sourceCaptureLocks = new Map<string, Promise<void>>()
@@ -177,10 +186,14 @@ async function assertExistingVisualSymlinkInsideProject(
 async function captureSingleFrame(input: {
   projectPath: string
   sourcePath: string
+  projectId?: string | null
+  compositionId?: string | null
   threadId: string
   timeMs: number
   compositionPath?: string | null
+  previewSurfaceKey?: string | null
   repoRoot?: string
+  service?: VisualContextService
 }): Promise<CommentVisualCaptureResult> {
   return withSourceCaptureMutex(input.sourcePath, () => captureSingleFrameWithService(input))
 }
@@ -188,35 +201,60 @@ async function captureSingleFrame(input: {
 async function captureSingleFrameWithService(input: {
   projectPath: string
   sourcePath: string
+  projectId?: string | null
+  compositionId?: string | null
   threadId: string
   timeMs: number
   compositionPath?: string | null
+  previewSurfaceKey?: string | null
   repoRoot?: string
+  service?: VisualContextService
 }): Promise<CommentVisualCaptureResult> {
   const visualDir = await prepareCanonicalVisualDir({
     projectPath: input.projectPath,
     threadId: input.threadId,
   })
-  const service = createVisualContextService()
+  const service = input.service ?? createVisualContextService({
+    backends: {
+      preview: createPreviewSurfaceVisualBackend(),
+    },
+  })
+  const shouldShutdown = !input.service
   let cleanupPaths: string[] = []
 
   try {
-    const capture = await service.captureFrames({
+    const baseRequest = {
       projectPath: input.projectPath,
       sourcePath: input.sourcePath,
+      projectId: input.projectId,
+      compositionId: input.compositionId,
       compositionPath: input.compositionPath,
       timestampsMs: [input.timeMs],
       fps: 30,
       width: FAST_FRAME_CAPTURE_MAX_WIDTH,
       height: 1080,
-      format: "png",
+      format: "png" as const,
       timeoutMs: FAST_FRAME_CAPTURE_TIMEOUT_MS,
-      reason: "comment-frame",
-      intent: "specific-frame",
+      reason: "comment-frame" as const,
       outputDir: visualDir,
       env: process.env,
       repoRoot: input.repoRoot,
-    })
+    }
+    const capture = input.previewSurfaceKey
+      ? await service.captureFrames({
+        ...baseRequest,
+        intent: "current-frame",
+        preferredBackend: "preview",
+        previewSurfaceKey: input.previewSurfaceKey,
+        expectedPreviewTimeMs: input.timeMs,
+      }).catch(() => service.captureFrames({
+        ...baseRequest,
+        intent: "specific-frame",
+      }))
+      : await service.captureFrames({
+        ...baseRequest,
+        intent: "specific-frame",
+      })
     cleanupPaths = capture.cleanupPaths
     if (capture.frames.length !== 1) {
       throw new Error(`Ripple captured ${capture.frames.length} frames for a frame comment.`)
@@ -251,7 +289,7 @@ async function captureSingleFrameWithService(input: {
         rm(path, { recursive: true, force: true }).catch(() => undefined),
       ),
     )
-    await service.shutdown()
+    if (shouldShutdown) await service.shutdown()
   }
 }
 
@@ -276,7 +314,7 @@ async function captureRangeSheet(input: {
       "--columns",
       "3",
       "--backend",
-      "engine",
+      "fast-browser",
       "--json",
     ]
     if (input.compositionPath) {
@@ -335,7 +373,9 @@ export async function captureCommentVisualForAnchor(input: {
   anchor: RippleCommentAnchorInput
   threadId: string
   sourceRevisionId?: string | null
+  previewSurfaceKey?: string | null
   repoRoot?: string
+  service?: VisualContextService
 }): Promise<CommentVisualCaptureResult | null> {
   const source = await resolveVisualSource({
     db: input.db,
@@ -360,10 +400,30 @@ export async function captureCommentVisualForAnchor(input: {
   return captureSingleFrame({
     projectPath: source.canonicalProjectPath,
     sourcePath: source.sourcePath,
+    projectId: input.project.id,
+    compositionId: input.composition?.id ?? null,
     threadId: input.threadId,
     timeMs: anchor.startTimeMs,
     compositionPath,
+    previewSurfaceKey: input.previewSurfaceKey,
     repoRoot: input.repoRoot,
+    service: input.service,
+  })
+}
+
+export async function prepareCommentVisualForAnchor(input: {
+  db: Db
+  project: Project
+  composition?: Composition | null
+  anchor: RippleCommentAnchorInput
+  sourceRevisionId?: string | null
+  previewSurfaceKey?: string | null
+  repoRoot?: string
+  service?: VisualContextService
+}): Promise<CommentVisualCaptureResult | null> {
+  return captureCommentVisualForAnchor({
+    ...input,
+    threadId: `prepared-${randomUUID().replace(/-/g, "").slice(0, 16)}`,
   })
 }
 
@@ -419,7 +479,7 @@ export async function resolveCommentVisualAttachmentsForRun(input: {
 }): Promise<CommentVisualAttachmentResolution> {
   const threadId = input.run.threadId ?? null
   if (!threadId) {
-    return { attachments: [], promptContext: null }
+    return { attachments: [], promptContext: null, visualContext: null }
   }
 
   const thread = input.db
@@ -428,7 +488,7 @@ export async function resolveCommentVisualAttachmentsForRun(input: {
     .where(eq(commentThreads.id, threadId))
     .get()
   if (!thread?.screenshotPath) {
-    return { attachments: [], promptContext: null }
+    return { attachments: [], promptContext: null, visualContext: null }
   }
 
   const relativePath = normalizeRelativeProjectPath(thread.screenshotPath)
@@ -458,5 +518,12 @@ export async function resolveCommentVisualAttachmentsForRun(input: {
       size: image.byteLength,
     }],
     promptContext: promptParts.join("\n\n"),
+    visualContext: {
+      kind: basename(visualPath) === "sheet.png" ? "range_sheet" : "frame",
+      startTimeMs: thread.startTime,
+      endTimeMs: thread.endTime,
+      startFrame: thread.startFrame,
+      endFrame: thread.endFrame,
+    },
   }
 }

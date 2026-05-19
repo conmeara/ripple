@@ -61,7 +61,10 @@ import {
   resolveRevisionProjectPath,
 } from "./revision-acceptance"
 import { acceptIsolatedWorkspace } from "./isolated-workspace-acceptance"
-import { captureCommentVisualForAnchor } from "./comment-visuals"
+import {
+  captureCommentVisualForAnchor,
+  prepareCommentVisualForAnchor,
+} from "./comment-visuals"
 import { shouldCaptureCommentVisualContext } from "./comment-visual-policy"
 import { markStaleProjectRevisionsUpdating } from "./revision-staleness"
 import { canReuseRevisionAsFollowUpBase } from "./revision-follow-up-policy"
@@ -71,6 +74,7 @@ type Db = ReturnType<typeof getDatabase>
 
 const RUNNING_REVISION_STATUSES = ["queued", "preparing", "running", "updating"] as const
 const LIVE_AGENT_ACTIVITY_STATUSES = new Set(["queued", "preparing", "running"])
+const COMMENT_VISUAL_CONTEXT_STARTUP_TIMEOUT_MS = 30_000
 export const MAIN_CONFLICT_RESOLUTION_PROMPT = "Pull and Resolve from Main"
 
 export interface CreateCommentThreadInput {
@@ -84,7 +88,16 @@ export interface CreateCommentThreadInput {
   model?: string
   clientRequestId?: string | null
   sourceRevisionId?: string | null
+  visualPreviewSurfaceKey?: string | null
   captureVisualContext?: boolean
+}
+
+export interface PrepareCommentVisualContextInput {
+  projectId: string
+  compositionId?: string | null
+  anchor: RippleCommentAnchorInput
+  sourceRevisionId?: string | null
+  visualPreviewSurfaceKey?: string | null
 }
 
 export interface AddCommentReplyInput {
@@ -427,6 +440,7 @@ function captureCommentVisualContextInBackground(input: {
   anchor: RippleCommentAnchorInput
   threadId: string
   sourceRevisionId?: string | null
+  visualPreviewSurfaceKey?: string | null
 }): Promise<void> {
   return (async () => {
     try {
@@ -438,6 +452,7 @@ function captureCommentVisualContextInBackground(input: {
         anchor: input.anchor,
         threadId: input.threadId,
         sourceRevisionId: input.sourceRevisionId,
+        previewSurfaceKey: input.visualPreviewSurfaceKey,
       })
       if (!visual?.relativePath) return
 
@@ -462,14 +477,62 @@ function createRevisionForThreadInBackground(
   options: { visualContextReady?: Promise<void> | null } = {},
 ) {
   void (async () => {
-    await options.visualContextReady
-    const revision = await createRevisionForThread(input)
+    const shouldDeferQueue = Boolean(options.visualContextReady)
+    const revision = await createRevisionForThread({
+      ...input,
+      deferQueueUntilVisualContext: shouldDeferQueue,
+    })
+    await waitForCommentVisualContext(options.visualContextReady)
+    if (shouldDeferQueue) {
+      markRevisionReadyForQueue(revision.id)
+    }
     const { scheduleGeneratedChangeQueue } = await import("../agent-runtime/generated-change-scheduler")
     scheduleGeneratedChangeQueue({ projectId: revision.projectId })
   })()
     .catch((error) => {
       console.warn("[Ripple] Could not start comment revision:", error)
     })
+}
+
+async function waitForCommentVisualContext(
+  visualContextReady?: Promise<void> | null,
+): Promise<void> {
+  if (!visualContextReady) return
+
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  let timedOut = false
+  const timeout = new Promise<void>((resolveTimeout) => {
+    timeoutId = setTimeout(() => {
+      timedOut = true
+      console.warn(
+        "[Ripple] Comment visual context did not finish before agent startup; continuing without the automatic visual.",
+      )
+      resolveTimeout()
+    }, COMMENT_VISUAL_CONTEXT_STARTUP_TIMEOUT_MS)
+  })
+
+  try {
+    await Promise.race([visualContextReady, timeout])
+  } catch (error) {
+    console.warn("[Ripple] Comment visual context failed before agent startup:", error)
+  } finally {
+    if (!timedOut && timeoutId) clearTimeout(timeoutId)
+  }
+}
+
+function markRevisionReadyForQueue(revisionId: string): Revision | null {
+  return getDatabase()
+    .update(revisions)
+    .set({
+      status: "queued",
+      updatedAt: dateNow(),
+    })
+    .where(and(
+      eq(revisions.id, revisionId),
+      eq(revisions.status, "preparing"),
+    ))
+    .returning()
+    .get() ?? null
 }
 
 async function prepareMissingRevisionWorkspaceForRecovery(input: {
@@ -827,6 +890,7 @@ export async function createCommentThread(
       anchor: input.anchor,
       threadId: thread.id,
       sourceRevisionId: input.sourceRevisionId,
+      visualPreviewSurfaceKey: input.visualPreviewSurfaceKey,
     })
     : null
 
@@ -845,6 +909,28 @@ export async function createCommentThread(
   }
 
   return loadThreadView(thread.id)
+}
+
+export async function prepareCommentVisualContext(
+  input: PrepareCommentVisualContextInput,
+): Promise<{ screenshotPath: string; kind: "frame" | "range_sheet" } | null> {
+  const db = getDatabase()
+  const project = getProject(db, input.projectId)
+  assertComposition(db, input.projectId, input.compositionId)
+  const composition = getCompositionForPrompt(db, input.compositionId)
+  const visual = await prepareCommentVisualForAnchor({
+    db,
+    project,
+    composition,
+    anchor: input.anchor,
+    sourceRevisionId: input.sourceRevisionId,
+    previewSurfaceKey: input.visualPreviewSurfaceKey,
+  })
+  if (!visual?.relativePath) return null
+  return {
+    screenshotPath: visual.relativePath,
+    kind: visual.kind,
+  }
 }
 
 export async function addCommentReply(
@@ -934,6 +1020,7 @@ export async function createRevisionForThread(input: {
   attachments?: AgentRuntimeAttachment[]
   agentProvider?: AgentProviderId
   model?: string
+  deferQueueUntilVisualContext?: boolean
 }): Promise<Revision> {
   const db = getDatabase()
   const thread = db
@@ -965,6 +1052,7 @@ export async function createRevisionForThread(input: {
   })
   const now = dateNow()
   const revisionId = createId()
+  const runnableStatus = input.deferQueueUntilVisualContext ? "preparing" : "queued"
   const baseRevision = input.baseRevisionId
     ? db.select().from(revisions).where(eq(revisions.id, input.baseRevisionId)).get()
     : null
@@ -1068,7 +1156,7 @@ export async function createRevisionForThread(input: {
           contextPath: reusableBaseRevision.contextPath,
           branch: reusableBaseRevision.branch,
           prompt,
-          status: "queued",
+          status: runnableStatus,
           previewContextKey: getRippleRevisionPreviewProjectId(revisionId),
           createdAt: now,
           updatedAt: now,
@@ -1186,7 +1274,7 @@ export async function createRevisionForThread(input: {
           contextPath,
           branch: result.branch ?? null,
           baseProjectCommit: base.baseCommit,
-          status: "queued",
+          status: runnableStatus,
           previewContextKey,
           updatedAt: dateNow(),
         })

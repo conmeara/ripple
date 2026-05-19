@@ -1,4 +1,4 @@
-import { BrowserWindow } from "electron"
+import type { Rectangle, Size } from "electron"
 import { mkdir, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type {
@@ -16,6 +16,21 @@ export type { VisualPreviewSurfaceBounds, VisualPreviewSurfaceUpdate }
 interface StoredVisualPreviewSurface extends VisualPreviewSurfaceUpdate {
   windowId: number
   updatedAt: number
+}
+
+interface CapturablePreviewWindow {
+  isDestroyed(): boolean
+  webContents: {
+    capturePage(bounds: Rectangle): Promise<PreviewNativeImage>
+  }
+}
+
+type ResolvePreviewWindow = (windowId: number) => Promise<CapturablePreviewWindow | null> | CapturablePreviewWindow | null
+
+interface PreviewNativeImage {
+  isEmpty(): boolean
+  toPNG(): Buffer
+  getSize(): Size
 }
 
 export interface VisualPreviewSurfaceCaptureProvider {
@@ -42,8 +57,24 @@ function assertSingleCurrentFrameRequest(input: VisualCaptureFramesRequest): voi
   }
 }
 
+function assertPreviewTimeMatches(input: VisualCaptureFramesRequest, surface: StoredVisualPreviewSurface): void {
+  const expectedTimeMs = input.expectedPreviewTimeMs
+  if (typeof expectedTimeMs !== "number" || !Number.isFinite(expectedTimeMs)) return
+  if (typeof surface.timeMs !== "number" || !Number.isFinite(surface.timeMs)) {
+    throw new Error("Current-frame visual context preview time is unavailable.")
+  }
+  const toleranceMs = Math.max(100, Math.ceil(1000 / Math.max(1, input.fps)))
+  if (Math.abs(surface.timeMs - expectedTimeMs) > toleranceMs) {
+    throw new Error("Current-frame visual context preview frame no longer matches the requested anchor.")
+  }
+}
+
 export class VisualPreviewSurfaceRegistry implements VisualPreviewSurfaceCaptureProvider {
   private readonly surfaces = new Map<string, StoredVisualPreviewSurface>()
+
+  constructor(
+    private readonly resolveWindow: ResolvePreviewWindow = resolveElectronPreviewWindow,
+  ) {}
 
   update(windowId: number, surface: VisualPreviewSurfaceUpdate): void {
     if (!surface.surfaceKey.trim()) return
@@ -79,11 +110,13 @@ export class VisualPreviewSurfaceRegistry implements VisualPreviewSurfaceCapture
     if (!surface) {
       throw new Error("Current-frame visual context requires a verified active preview identity.")
     }
+    const warnings: string[] = []
     if (Date.now() - surface.updatedAt > PREVIEW_SURFACE_MAX_AGE_MS) {
-      throw new Error("Current-frame visual context preview identity is stale.")
+      warnings.push("Current-frame visual context used the last known preview bounds because the preview heartbeat was stale.")
     }
+    assertPreviewTimeMatches(input, surface)
 
-    const window = BrowserWindow.fromId(surface.windowId)
+    const window = await this.resolveWindow(surface.windowId)
     if (!window || window.isDestroyed()) {
       this.clear({ surfaceKey: surface.surfaceKey, windowId: surface.windowId })
       throw new Error("Current-frame visual context preview window is unavailable.")
@@ -118,13 +151,21 @@ export class VisualPreviewSurfaceRegistry implements VisualPreviewSurfaceCapture
       timings: {
         previewCaptureMs: elapsedMs,
       },
-      warnings: [],
+      warnings,
       cleanupPaths: [],
     }
   }
 }
 
 export const visualPreviewSurfaceRegistry = new VisualPreviewSurfaceRegistry()
+
+async function resolveElectronPreviewWindow(windowId: number): Promise<CapturablePreviewWindow | null> {
+  const electron = await import("electron") as typeof import("electron") & {
+    default?: typeof import("electron")
+  }
+  const browserWindow = electron.BrowserWindow ?? electron.default?.BrowserWindow
+  return browserWindow?.fromId(windowId) ?? null
+}
 
 export function createPreviewSurfaceVisualBackend(
   provider: VisualPreviewSurfaceCaptureProvider = visualPreviewSurfaceRegistry,

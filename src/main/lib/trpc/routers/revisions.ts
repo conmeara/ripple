@@ -18,6 +18,7 @@ import {
   deleteCommentThread,
   listCommentActivitySummary,
   listCommentThreads,
+  prepareCommentVisualContext,
   refreshRevisionProposal,
   rejectCommentThread,
   rejectRevision,
@@ -126,6 +127,7 @@ export const revisionsRouter = router({
       model: z.string().optional(),
       clientRequestId: z.string().optional(),
       sourceRevisionId: z.string().nullable().optional(),
+      visualPreviewSurfaceKey: z.string().nullable().optional(),
       captureVisualContext: z.boolean().optional(),
     }))
     .mutation(async ({ input }) => {
@@ -144,6 +146,16 @@ export const revisionsRouter = router({
       scheduleGeneratedChangeQueue({ projectId: thread.projectId })
       return thread
     }),
+
+  prepareCommentVisual: publicProcedure
+    .input(z.object({
+      projectId: z.string(),
+      compositionId: z.string().nullable().optional(),
+      anchor: anchorInput,
+      sourceRevisionId: z.string().nullable().optional(),
+      visualPreviewSurfaceKey: z.string().nullable().optional(),
+    }))
+    .mutation(({ input }) => prepareCommentVisualContext(input)),
 
   addReply: publicProcedure
     .input(z.object({

@@ -150,5 +150,15 @@ describe("comment formatting", () => {
         summary: "Raised the phone in the center.",
       }),
     }))).toBe("Raised the phone in the center.")
+    expect(formatRevisionStatusLine(revision("answered", {
+      diffSummary: JSON.stringify({
+        fileCount: 0,
+        additions: 0,
+        deletions: 0,
+        files: [],
+        summary: "A purple fitness-app promo frame; no revision was needed.",
+      }),
+    }))).toBe("A purple fitness-app promo frame; no revision was needed.")
+    expect(formatRevisionStatusLine(revision("answered"))).toBe("No changes needed")
   })
 })

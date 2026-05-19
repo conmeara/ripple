@@ -358,6 +358,22 @@ function currentFrameSnapshot(projectDir: string) {
 }
 
 describe("Visual Context quality and speed matrix", () => {
+  test("preview prewarm resolves trusted paths from main-process identities", async () => {
+    const source = await readFile(
+      join(repoRoot, "src/main/lib/visual-context/preview-surface-ipc.ts"),
+      "utf8",
+    )
+
+    expect(source).toContain("async function trustedPrewarmRequest(")
+    expect(source).toContain(".from(projects)")
+    expect(source).toContain("project.localPath || project.path")
+    expect(source).toContain(".from(revisions)")
+    expect(source).toContain(".from(chats)")
+    expect(source).toContain(".from(compositions)")
+    expect(source).not.toContain("const projectPath = surface.projectPath?.trim()")
+    expect(source).not.toContain("sourcePath = surface.sourcePath?.trim()")
+  })
+
   timedTest("covers explicit snapshot, quality, and timing", async () => {
     const projectDir = await makeProject()
     try {
@@ -468,7 +484,7 @@ describe("Visual Context quality and speed matrix", () => {
       expect(sheetResult.exitCode).toBe(0)
       const sheetPayload = JSON.parse(sheetResult.stdout)
       expect(sheetPayload.ok).toBe(true)
-      expect(sheetPayload.backend).toBe("engine")
+      expect(sheetPayload.backend).toBe("fast-browser")
       expect(sheetElapsedMs).toBeLessThan(10000)
 
       const sheetPath = join(projectDir, sheetPayload.sheet.path)

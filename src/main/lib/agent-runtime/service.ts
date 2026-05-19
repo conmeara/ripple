@@ -713,7 +713,7 @@ export async function executeAgentRun(
       projectPath: context.projectPath,
     }).catch((error) => {
       console.warn("[Ripple] Could not load comment visual context:", error)
-      return { attachments: [], promptContext: null }
+      return { attachments: [], promptContext: null, visualContext: null }
     })
     const mergedAttachments = appendOptionalAgentRuntimeAttachments({
       attachments: options.attachments,
@@ -762,6 +762,7 @@ export async function executeAgentRun(
       mode: context.run.mode,
       model: context.run.model,
       attachments: mergedAttachments.attachments,
+      commentVisualContext: visualContext.visualContext,
       currentFrameSnapshot: resolveAgentRuntimeCurrentFrameSnapshot({
         db,
         resolved: {

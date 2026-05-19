@@ -53,6 +53,7 @@
     "test:e2e:packaged": "RIPPLE_E2E_PACKAGED_APP=${RIPPLE_E2E_PACKAGED_APP:-release/mac-arm64/Ripple.app} playwright test --config test/e2e/playwright.config.ts test/e2e/release-qa.e2e.ts",
     "test:e2e:update": "bun run browser:stage && bun run build && playwright test --config test/e2e/playwright.config.ts --update-snapshots",
     "test:e2e:headed": "bun run browser:stage && bun run build && playwright test --config test/e2e/playwright.config.ts --headed",
+    "test:e2e:visual-context-live": "bun run browser:stage && bun run build && RIPPLE_E2E_LIVE_AGENT=1 RIPPLE_E2E_LIVE_AGENT_PROVIDER=${RIPPLE_E2E_LIVE_AGENT_PROVIDER:-all} RIPPLE_E2E_LIVE_AGENT_HOME=${RIPPLE_E2E_LIVE_AGENT_HOME:-$HOME} playwright test --config test/e2e/playwright.config.ts test/e2e/agent-visual-context-provider-matrix-live.e2e.ts",
     "test:visual": "bun run browser:stage && bun run build && playwright test --config test/e2e/playwright.config.ts --grep @visual",
     "test:live": "node scripts/smoke-live-provider.mjs",
     "test:package:smoke": "node scripts/smoke-packaged-ripple.mjs",

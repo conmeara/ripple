@@ -116,7 +116,16 @@ export async function resolveAgentRunContext(input: {
   const appManagedSkillRoot = getAppManagedHyperframesSkillRoot(skillProvider)
   const visualContextSkillRoot = getAppManagedRippleAgentSkillRoot(skillProvider)
   const projectSkillRoot = getProviderProjectSkillRoot(input.projectPath, skillProvider)
+  const visualToolChoicePolicy = [
+    "Ripple visual tool-choice policy:",
+    "When a user or comment asks for visual context, make the native Ripple visual tool the first external action. Do not preface it with a plan unless the user asked for a plan.",
+    "Use native snapshot at `current` for the visible app frame, native snapshot at a timestamp such as `1.25s` only for an exact-time request, and native frame sheet for motion over time or a time range.",
+    "Native Ripple visual tools return images directly in the tool result. Do not use shell commands, file lookup, generic image-view/open/browser tools, or video extraction before a native Ripple visual tool.",
+    "Comment runs may already include automatic visual context: frame comments get a still frame, and range comments get a frame sheet. Use that attached image first, then call a native Ripple visual tool only for a fresh or different visual.",
+    "Normal chats do not receive automatic run-start images; request visuals on demand with the native Ripple visual tools.",
+  ].join("\n")
   const appPolicy = [
+    visualToolChoicePolicy,
     RIPPLE_PROVIDER_POLICY,
     [
       "Ripple app-managed HyperFrames skills for this run:",
@@ -127,10 +136,8 @@ export async function resolveAgentRunContext(input: {
       "Ripple app-managed visual-context skill for this run:",
       "ripple-visual-context",
       `Loaded from: ${visualContextSkillRoot}`,
-      "Use it proactively after creating or editing visible motion work. Ripple comment runs may already include automatic visual context: frame comments get a still frame, and range comments get a frame sheet.",
-      "For any extra visual context, use the app-aware `ripple snapshot` and `ripple frame-sheet` commands. Use `ripple snapshot --at current --json` for the visible app frame, `ripple snapshot --at 1.25s --json` for an exact timestamp, and `ripple frame-sheet --range 0s..8s --samples 8 --columns 4 --json` for a compact frame sheet. Add `--composition <path>` when you need another composition.",
+      "Use it proactively after creating or editing visible motion work. Use reversible `ripple snapshot` and `ripple frame-sheet` commands only when the runtime does not expose native Ripple visual tools. Add `--composition <path>` only when you need a project-relative composition other than the active/default one.",
       "Use bundled HyperFrames CLI and skills for structure, linting, inspection, and export work. Use app-managed bare commands (`ripple`, `hyperframes`) instead of `npx`, `bunx`, or package installs.",
-      "If local image viewing is unavailable, do not call image-view/open/browser tools just to inspect the generated sheet; report the sheet path and manifest details so Ripple can show the artifact.",
     ].join("\n"),
   ].join("\n\n")
 

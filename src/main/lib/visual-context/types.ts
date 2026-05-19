@@ -27,6 +27,7 @@ export interface VisualCaptureFramesRequest {
   compositionId?: string | null
   intent?: VisualContextIntentKind
   previewSurfaceKey?: string | null
+  expectedPreviewTimeMs?: number | null
   timestampsMs: number[]
   fps: number
   width: number
@@ -63,6 +64,7 @@ export interface VisualCaptureFramesResult {
 export interface VisualCaptureBackend {
   readonly id: VisualContextBackendId
   readonly supportsWarmSession: boolean
+  warmProject?(input: VisualCaptureFramesRequest): Promise<void>
   captureFrames(input: VisualCaptureFramesRequest): Promise<VisualCaptureFramesResult>
   invalidateProject?(input: { projectPath: string; sourcePath?: string | null }): Promise<void>
   dispose?(): Promise<void>

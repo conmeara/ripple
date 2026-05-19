@@ -8,6 +8,7 @@ const archivedMdSpecsDir = "docs/z_archive/md_specs"
 const requiredActiveSpecFiles = [
   "Comments.html",
   "Visual Context.html",
+  "Visual Context Pipeline.html",
   "visual-context-eval.html",
 ]
 

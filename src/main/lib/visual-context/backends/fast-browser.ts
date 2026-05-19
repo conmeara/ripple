@@ -64,6 +64,7 @@ export class FastBrowserVisualBackend implements VisualCaptureBackend {
     const captureStartedAt = performance.now()
     const capture = await captureFramesWithFastBrowser({
       projectDir: input.sourcePath ?? input.projectPath,
+      compositionPath: input.compositionPath,
       timestampsMs: input.timestampsMs,
       timeoutMs: input.timeoutMs,
       columns: 1,

@@ -87,6 +87,7 @@ const REVISION_STATUSES_WITH_SUMMARY_LINES = new Set<RippleRevisionStatus>([
   "updating",
   "needs_update",
   "proposed",
+  "answered",
   "accepted",
   "superseded",
 ])

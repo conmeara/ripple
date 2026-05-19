@@ -66,6 +66,10 @@ function defaultOutputDir(sourcePath: string, backend: VisualContextBackendId): 
   return join(sourcePath, ".ripple", "visual-context", `${backend}-${id}`)
 }
 
+function warmOutputDir(sourcePath: string, backend: VisualContextBackendId): string {
+  return join(sourcePath, ".ripple", "visual-context", `${backend}-warm`)
+}
+
 function requestBrowserPath(request: VisualCaptureFramesRequest): string | null {
   return request.env?.HYPERFRAMES_BROWSER_PATH ??
     request.env?.PRODUCER_HEADLESS_SHELL_PATH ??
@@ -252,6 +256,55 @@ export class WarmRuntimeCaptureBackend {
     this.backend = input.backend
     this.moduleSpecifier = input.moduleSpecifier
     this.idleTtlMs = input.idleTtlMs ?? 90_000
+  }
+
+  async warmProject(request: VisualCaptureFramesRequest): Promise<void> {
+    if (!runtimeFormats.has(request.format)) {
+      throw new Error(`${this.backend} visual capture currently supports png and jpeg frames.`)
+    }
+
+    let entry: RuntimeSessionEntry | null = null
+    let outputDir: string | null = null
+
+    try {
+      const target = await resolveVisualCompositionTarget({
+        projectPath: request.projectPath,
+        sourcePath: request.sourcePath,
+        compositionPath: request.compositionPath,
+        sourceRevisionId: request.sourceRevisionId,
+        allowMissingSourceFallback: true,
+      })
+      outputDir = warmOutputDir(target.sourcePath, this.backend)
+
+      const browserPath = requestBrowserPath(request)
+      if (!browserPath) {
+        throw new Error("Ripple could not find an app-managed browser for visual capture.")
+      }
+
+      const key = runtimeSessionKey({
+        backend: this.backend,
+        target,
+        request,
+        browserPath,
+      })
+      const sessionResult = await this.getOrCreateSession({
+        key,
+        target,
+        request,
+        outputDir,
+        browserPath,
+        timings: {},
+      })
+      entry = sessionResult.entry
+      this.armIdleTimer(entry)
+    } catch (error) {
+      if (entry) {
+        await this.removeSession(entry.key)
+      } else if (outputDir) {
+        await rm(outputDir, { recursive: true, force: true }).catch(() => undefined)
+      }
+      throw error
+    }
   }
 
   async captureFrames(request: VisualCaptureFramesRequest): Promise<VisualCaptureFramesResult> {

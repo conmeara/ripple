@@ -20,8 +20,11 @@ export interface VisualPreviewSurfaceUpdate {
   chatId?: string | null
   projectPath?: string | null
   sourcePath?: string | null
+  compositionPath?: string | null
   sourceWidth?: number | null
   sourceHeight?: number | null
+  timeMs?: number | null
+  frame?: number | null
   bounds: VisualPreviewSurfaceBounds
 }
 

@@ -6,6 +6,14 @@ import type {
 
 const CLAUDE_AUTO_ALLOWED_VISUAL_CONTEXT =
   /^ripple\s+(?:snapshot|frame-sheet)(?:\s|$)/
+const CLAUDE_AUTO_ALLOWED_VISUAL_CONTEXT_MCP_TOOLS = new Set([
+  "mcp__ripple_visual_context__ripple_snapshot",
+  "mcp__ripple_visual_context__ripple_frame_sheet",
+  "ripple_visual_context__ripple_snapshot",
+  "ripple_visual_context__ripple_frame_sheet",
+  "ripple_snapshot",
+  "ripple_frame_sheet",
+])
 const SHELL_CONTROL_CHARS = new Set([";", "&", "|", "<", ">", "\n", "\r"])
 
 type ClaudePermissionOptions = {
@@ -91,6 +99,7 @@ export function isRippleClaudeAutoAllowedTool(
   toolName: string,
   toolInput: Record<string, unknown>,
 ): boolean {
+  if (CLAUDE_AUTO_ALLOWED_VISUAL_CONTEXT_MCP_TOOLS.has(toolName)) return true
   if (toolName !== "Bash") return false
   const command = commandFromToolInput(toolInput)
   if (!command || hasShellControlOperator(command)) return false

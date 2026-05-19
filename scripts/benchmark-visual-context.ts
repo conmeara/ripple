@@ -1,9 +1,14 @@
-import { cp, mkdtemp, readdir, rm, stat } from "node:fs/promises"
+import { copyFile, cp, mkdir, mkdtemp, readdir, rm, stat } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { join, relative, resolve } from "node:path"
 import {
   captureFramesWithFastBrowser,
 } from "../src/cli/frame-sheet"
+import {
+  buildClaudeNativeVisualContextToolResult,
+  buildCodexNativeVisualContextContentItems,
+  loadNativeVisualContextArtifact,
+} from "../src/main/lib/agent-runtime/visual-context-native-tool"
 import {
   buildHyperframesEnvironment,
   resolveProducerBrowserPath,
@@ -38,7 +43,7 @@ async function time<T>(fn: () => Promise<T>): Promise<{ elapsedMs: number; value
   const startedAt = performance.now()
   const value = await fn()
   return {
-    elapsedMs: Math.round(performance.now() - startedAt),
+    elapsedMs: Math.round((performance.now() - startedAt) * 100) / 100,
     value,
   }
 }
@@ -134,6 +139,181 @@ async function benchmarkCliSnapshot(): Promise<number> {
   }
 }
 
+export function summarizeAgentVisualInjectionSavings(input: {
+  nativeVisualReturnMs: number
+  pathOnlyReturnMs: number
+  followupImageLookupMs: number
+}): {
+  comparison: "on-demand-native-image-vs-path-only-followup"
+  nativeVisualReturnMs: number
+  pathOnlyReturnMs: number
+  followupImageLookupMs: number
+  pathOnlyTotalMs: number
+  savedMs: number
+  savedPercent: number
+  nativeVisualLocalOverheadMs: number
+  localTimingWinner: "native-image" | "path-only"
+  measuredModelTurnLatencyMs: null
+  agentTurnsSaved: number
+} {
+  const nativeVisualReturnMs = Math.max(0, Math.round(input.nativeVisualReturnMs * 100) / 100)
+  const pathOnlyReturnMs = Math.max(0, Math.round(input.pathOnlyReturnMs * 100) / 100)
+  const followupImageLookupMs = Math.max(0, Math.round(input.followupImageLookupMs * 100) / 100)
+  const pathOnlyTotalMs = Math.round((pathOnlyReturnMs + followupImageLookupMs) * 100) / 100
+  const savedMs = Math.round(Math.max(0, pathOnlyTotalMs - nativeVisualReturnMs) * 100) / 100
+  const nativeVisualLocalOverheadMs = Math.round(Math.max(0, nativeVisualReturnMs - pathOnlyTotalMs) * 100) / 100
+  const savedPercent = pathOnlyTotalMs > 0
+    ? Math.round((savedMs / pathOnlyTotalMs) * 1000) / 10
+    : 0
+  return {
+    comparison: "on-demand-native-image-vs-path-only-followup",
+    nativeVisualReturnMs,
+    pathOnlyReturnMs,
+    followupImageLookupMs,
+    pathOnlyTotalMs,
+    savedMs,
+    savedPercent,
+    nativeVisualLocalOverheadMs,
+    localTimingWinner: nativeVisualReturnMs <= pathOnlyTotalMs ? "native-image" : "path-only",
+    measuredModelTurnLatencyMs: null,
+    agentTurnsSaved: 1,
+  }
+}
+
+export function summarizeVisualContextPipelineTimings(input: {
+  warmEngineFramesMs: number
+  warmEngineSheetMs: number
+  coldCliSnapshotMs: number
+  nativeVisualReturnMs: number
+  pathOnlyReturnMs: number
+  followupImageLookupMs: number
+}): {
+  captureStage: {
+    warmEngineFramesMs: number
+    warmEngineSheetMs: number
+    coldCliSnapshotMs: number
+  }
+  runtimeHandoffStage: ReturnType<typeof summarizeAgentVisualInjectionSavings>
+  localPipelineTotals: {
+    warmFramesNativeImageMs: number
+    warmSheetNativeImageMs: number
+    coldCliPathOnlyLocalMs: number
+  }
+  caveat: string
+} {
+  const runtimeHandoffStage = summarizeAgentVisualInjectionSavings({
+    nativeVisualReturnMs: input.nativeVisualReturnMs,
+    pathOnlyReturnMs: input.pathOnlyReturnMs,
+    followupImageLookupMs: input.followupImageLookupMs,
+  })
+  const round = (value: number) => Math.round(value * 100) / 100
+  return {
+    captureStage: {
+      warmEngineFramesMs: round(input.warmEngineFramesMs),
+      warmEngineSheetMs: round(input.warmEngineSheetMs),
+      coldCliSnapshotMs: round(input.coldCliSnapshotMs),
+    },
+    runtimeHandoffStage,
+    localPipelineTotals: {
+      warmFramesNativeImageMs: round(input.warmEngineFramesMs + runtimeHandoffStage.nativeVisualReturnMs),
+      warmSheetNativeImageMs: round(input.warmEngineSheetMs + runtimeHandoffStage.nativeVisualReturnMs),
+      coldCliPathOnlyLocalMs: round(input.coldCliSnapshotMs + runtimeHandoffStage.pathOnlyTotalMs),
+    },
+    caveat: "Local file adaptation timings do not include the extra provider/model turn required when the agent receives only a path and must ask to inspect the image.",
+  }
+}
+
+async function prepareBenchmarkVisualArtifact(): Promise<{
+  projectDir: string
+  payload: Record<string, unknown>
+  cleanup(): Promise<void>
+}> {
+  const projectDir = await makeProject()
+  try {
+    const capture = await captureFramesWithFastBrowser({
+      projectDir,
+      timestampsMs: [500],
+      timeoutMs: 5000,
+      columns: 1,
+      maxSheetWidth: 1440,
+      settleMs: 0,
+      env: buildHyperframesEnvironment(process.env, { repoRoot }),
+      repoRoot,
+    })
+    const framePath = capture.framePaths[0]
+    if (!framePath) throw new Error("Native visual benchmark did not capture a frame.")
+    const benchmarkDir = join(projectDir, ".ripple", "benchmark", "native-visual")
+    await mkdir(benchmarkDir, { recursive: true })
+    const artifactPath = join(benchmarkDir, "current-frame.png")
+    await copyFile(framePath, artifactPath)
+    await Promise.all((capture.cleanupPaths ?? []).map((path) =>
+      rm(path, { recursive: true, force: true }).catch(() => undefined)
+    ))
+    return {
+      projectDir,
+      payload: {
+        ok: true,
+        type: "snapshot",
+        snapshot: {
+          path: relative(projectDir, artifactPath).replace(/\\/g, "/"),
+          sample: { timeMs: 500, frame: 15 },
+          width: 1920,
+          height: 1080,
+        },
+        context: {
+          source: { kind: "app-render", preEdit: false },
+          samples: [{ timeMs: 500, frame: 15 }],
+        },
+        elapsedMs: 0,
+      },
+      cleanup: () => rm(projectDir, { recursive: true, force: true }),
+    }
+  } catch (error) {
+    await rm(projectDir, { recursive: true, force: true })
+    throw error
+  }
+}
+
+async function benchmarkOnDemandNativeVisualReturnFromArtifact(): Promise<{
+  nativeVisualReturnMs: number
+  pathOnlyReturnMs: number
+  followupImageLookupMs: number
+}> {
+  const artifact = await prepareBenchmarkVisualArtifact()
+  try {
+    const nativeResult = await time(async () => {
+      const result = await loadNativeVisualContextArtifact({
+        projectPath: artifact.projectDir,
+        payload: artifact.payload,
+      })
+      const codexItems = buildCodexNativeVisualContextContentItems(result)
+      const claudeResult = buildClaudeNativeVisualContextToolResult(result)
+      if (!codexItems.some((item) => item.type === "inputImage")) {
+        throw new Error("Codex native visual result did not include an image.")
+      }
+      if (!claudeResult.content.some((item) => item.type === "image")) {
+        throw new Error("Claude native visual result did not include an image.")
+      }
+    })
+    const pathOnly = await time(async () => {
+      JSON.stringify(artifact.payload)
+    })
+    const followupLookup = await time(async () => {
+      await loadNativeVisualContextArtifact({
+        projectPath: artifact.projectDir,
+        payload: artifact.payload,
+      })
+    })
+    return {
+      nativeVisualReturnMs: nativeResult.elapsedMs,
+      pathOnlyReturnMs: pathOnly.elapsedMs,
+      followupImageLookupMs: followupLookup.elapsedMs,
+    }
+  } finally {
+    await artifact.cleanup()
+  }
+}
+
 async function main(): Promise<void> {
   if (!resolveProducerBrowserPath(repoRoot)) {
     throw new Error("Visual context benchmark requires an app-managed browser.")
@@ -153,6 +333,8 @@ async function main(): Promise<void> {
     backendId: "producer-capture",
     timestampsMs: threeSamples,
   })
+  const cliSnapshotMs = await benchmarkCliSnapshot()
+  const onDemandNative = await benchmarkOnDemandNativeVisualReturnFromArtifact()
   const results = {
     generatedAt: new Date().toISOString(),
     fixture: "test/fixtures/hyperframes/visual-capture-qa",
@@ -167,13 +349,27 @@ async function main(): Promise<void> {
     producerCapture3SampleMs: producer3.coldMs,
     producerCapture3SampleWarmMs: producer3.warmMs,
     producerCapture3SampleWarmSessionReused: producer3.warmSessionReused,
-    cliSnapshotMs: await benchmarkCliSnapshot(),
+    cliSnapshotMs,
+    onDemandNativeVisualReturnFromArtifactMs: onDemandNative.nativeVisualReturnMs,
+    pathOnlyVisualReturnFromArtifactMs: onDemandNative.pathOnlyReturnMs,
+    followupImageLookupFromArtifactMs: onDemandNative.followupImageLookupMs,
+    onDemandNativeVisualSavings: summarizeAgentVisualInjectionSavings(onDemandNative),
+    visualContextPipeline: summarizeVisualContextPipelineTimings({
+      warmEngineFramesMs: engine3.warmMs,
+      warmEngineSheetMs: engine8.warmMs,
+      coldCliSnapshotMs: cliSnapshotMs,
+      nativeVisualReturnMs: onDemandNative.nativeVisualReturnMs,
+      pathOnlyReturnMs: onDemandNative.pathOnlyReturnMs,
+      followupImageLookupMs: onDemandNative.followupImageLookupMs,
+    }),
   }
 
   console.log(JSON.stringify(results, null, 2))
 }
 
-main().catch((error) => {
-  console.error(error)
-  process.exit(1)
-})
+if (import.meta.main) {
+  main().catch((error) => {
+    console.error(error)
+    process.exit(1)
+  })
+}

@@ -74,6 +74,28 @@ export function hasActiveRevisionChanges(
   )
 }
 
+export function hasPendingCommentStartup(
+  thread: Pick<
+    RippleCommentThreadView,
+    "deletedAt" | "latestRevisionId" | "messages" | "revisions" | "status"
+  >,
+): boolean {
+  return !thread.deletedAt &&
+    thread.status === "open" &&
+    !thread.latestRevisionId &&
+    thread.revisions.length === 0 &&
+    thread.messages.some((message) => message.role === "user")
+}
+
+export function shouldPollCommentThread(
+  thread: Pick<
+    RippleCommentThreadView,
+    "deletedAt" | "latestRevisionId" | "messages" | "revisions" | "status"
+  >,
+): boolean {
+  return hasActiveRevisionChanges(thread) || hasPendingCommentStartup(thread)
+}
+
 export function canRefreshRevisionChanges(
   revision: RippleRevisionView | null | undefined,
   options: { deleted?: boolean } = {},

@@ -103,8 +103,39 @@ export class RippleVisualContextService implements VisualContextService {
     }
   }
 
-  async warmProject(): Promise<void> {
+  async warmProject(input: Pick<
+    VisualCaptureFramesRequest,
+    "projectPath" | "sourcePath" | "compositionPath" | "sourceRevisionId" | "fps" | "width" | "height" | "format"
+  >): Promise<void> {
     this.assertOpen()
+    const warmRequest: VisualCaptureFramesRequest = {
+      ...input,
+      timestampsMs: [0],
+      timeoutMs: 5_000,
+      reason: "agent-context",
+      intent: "specific-frame",
+    }
+    const order = this.backendOrder.filter((backend) => backend !== "preview")
+    let firstFailure: unknown = null
+
+    for (const backendId of order) {
+      const backend = this.backends[backendId]
+      if (!backend?.warmProject) continue
+      try {
+        await this.queue.run(
+          buildSessionKey({ ...warmRequest, preferredBackend: backendId }),
+          () => backend.warmProject!({
+            ...warmRequest,
+            preferredBackend: backendId,
+          }),
+        )
+        return
+      } catch (error) {
+        firstFailure ??= error
+      }
+    }
+
+    if (firstFailure instanceof Error) throw firstFailure
   }
 
   async captureSnapshot(input: VisualSnapshotInput): Promise<VisualCaptureFramesResult> {

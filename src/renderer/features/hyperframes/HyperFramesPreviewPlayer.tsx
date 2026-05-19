@@ -116,6 +116,7 @@ interface HyperFramesPreviewPlayerProps {
 const PREVIEW_FPS = 30
 const PREVIEW_PREWARM_LIMIT = 6
 const PREVIEW_BLOCKING_STATUS_DELAY_MS = 500
+const PREVIEW_SURFACE_HEARTBEAT_MS = 5_000
 
 const timelineThemeStyle = {
   "--preview-timeline-rail":
@@ -228,6 +229,7 @@ export function HyperFramesPreviewPlayer({
   const frameIndicatorRef = useRef<HTMLDivElement | null>(null)
   const durationRef = useRef(0)
   const previewFpsRef = useRef(PREVIEW_FPS)
+  const displayTimeRef = useRef(0)
   const settledDisplayTimeRef = useRef(0)
   const [zoom, setZoom] = useState<ZoomValue>("fit")
   const [previewStageSize, setPreviewStageSize] = useState({ width: 0, height: 0 })
@@ -400,6 +402,7 @@ export function HyperFramesPreviewPlayer({
     previewControlsReady,
     timelineInteractionsReady,
   } = previewNavigationHold
+  displayTimeRef.current = displayTime
   sourceRefreshSeekTimeRef.current = displayTime
 
   const handleHyperframesSourceChange = useCallback(() => {
@@ -554,6 +557,8 @@ export function HyperFramesPreviewPlayer({
     if (!element || !source || !projectPath || !isReady) return
     const rect = element.getBoundingClientRect()
     if (rect.width <= 0 || rect.height <= 0) return
+    const fps = Math.max(1, Math.round(previewFpsRef.current || PREVIEW_FPS))
+    const timeMs = Math.max(0, Math.round(displayTimeRef.current * 1000))
     void window.desktopApi?.updateVisualPreviewSurface?.({
       surfaceKey: previewSurfaceKey,
       projectId,
@@ -562,8 +567,11 @@ export function HyperFramesPreviewPlayer({
       chatId: chatId ?? null,
       projectPath: sourceQuery.data?.project?.path ?? null,
       sourcePath: projectPath,
+      compositionPath: sourceQuery.data?.composition?.filePath ?? null,
       sourceWidth: source.width,
       sourceHeight: source.height,
+      timeMs,
+      frame: timelineSecondsToFrame(timeMs / 1000, fps),
       bounds: {
         x: rect.x,
         y: rect.y,
@@ -580,6 +588,7 @@ export function HyperFramesPreviewPlayer({
     revisionId,
     source,
     sourceQuery.data?.project?.path,
+    sourceQuery.data?.composition?.filePath,
     sourceQuery.data?.projectPath,
   ])
 
@@ -600,7 +609,9 @@ export function HyperFramesPreviewPlayer({
     const observer = new ResizeObserver(updateVisualPreviewSurface)
     observer.observe(element)
     window.addEventListener("resize", updateVisualPreviewSurface)
+    const heartbeat = window.setInterval(updateVisualPreviewSurface, PREVIEW_SURFACE_HEARTBEAT_MS)
     return () => {
+      window.clearInterval(heartbeat)
       observer.disconnect()
       window.removeEventListener("resize", updateVisualPreviewSurface)
     }

@@ -13,6 +13,10 @@ export class ProducerCaptureVisualBackend implements VisualCaptureBackend {
     return this.runtime.captureFrames(input)
   }
 
+  warmProject(input: VisualCaptureFramesRequest): Promise<void> {
+    return this.runtime.warmProject(input)
+  }
+
   invalidateProject(input: { projectPath: string; sourcePath?: string | null }): Promise<void> {
     return this.runtime.invalidateProject(input)
   }

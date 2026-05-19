@@ -1,0 +1,1877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visual Context Pipeline - Ripple Spec</title>
+<style>
+  :root {
+    --bg: #181818;
+    --panel: #1f1f1f;
+    --panel-2: #242424;
+    --panel-3: #2a2a2a;
+    --border: #303030;
+    --border-2: #424242;
+    --text: #e8e8ea;
+    --muted: #a6a6a6;
+    --quiet: #747474;
+    --blue: #4f8eff;
+    --blue-soft: rgba(79, 142, 255, 0.15);
+    --green: #4ec9b0;
+    --green-soft: rgba(78, 201, 176, 0.14);
+    --violet: #a78bfa;
+    --violet-soft: rgba(167, 139, 250, 0.14);
+    --amber: #d4a72c;
+    --amber-soft: rgba(212, 167, 44, 0.14);
+    --red: #f48771;
+    --red-soft: rgba(244, 135, 113, 0.12);
+    --mono: ui-monospace, "SF Mono", "Menlo", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  a { color: inherit; }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    min-height: 100vh;
+  }
+
+  aside {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: 22px 14px;
+    border-right: 1px solid var(--border);
+    background: #1b1b1b;
+  }
+
+  .brand {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mark {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border-2);
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .brand-title {
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .brand-sub {
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  nav {
+    display: grid;
+    gap: 5px;
+  }
+
+  nav a {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 12px;
+  }
+
+  nav a:hover {
+    background: var(--panel-2);
+    color: var(--text);
+  }
+
+  nav span {
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+
+  main {
+    width: min(1180px, calc(100vw - 232px));
+    padding: 58px 72px 96px;
+  }
+
+  header {
+    max-width: 920px;
+    margin-bottom: 34px;
+  }
+
+  .eyebrow {
+    margin-bottom: 12px;
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0 0 14px;
+    max-width: 820px;
+    font-size: 38px;
+    line-height: 1.04;
+    letter-spacing: 0;
+  }
+
+  .lede {
+    max-width: 900px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 16px;
+  }
+
+  section { margin-top: 46px; }
+
+  h2 {
+    margin: 0 0 12px;
+    font-size: 22px;
+    line-height: 1.2;
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  code {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: #121212;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.94em;
+  }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    min-height: 24px;
+    padding: 3px 8px;
+    border: 1px solid var(--border-2);
+    border-radius: 999px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .pill.blue { border-color: rgba(79, 142, 255, 0.44); background: var(--blue-soft); color: #c9dcff; }
+  .pill.green { border-color: rgba(78, 201, 176, 0.44); background: var(--green-soft); color: #bef7e8; }
+  .pill.violet { border-color: rgba(167, 139, 250, 0.44); background: var(--violet-soft); color: #dfd8ff; }
+  .pill.amber { border-color: rgba(212, 167, 44, 0.46); background: var(--amber-soft); color: #f0d27b; }
+
+  .decision {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .decision-card {
+    min-height: 176px;
+    padding: 22px;
+    background: var(--panel);
+  }
+
+  .decision-card.primary {
+    background:
+      linear-gradient(135deg, rgba(79, 142, 255, 0.18), rgba(31, 31, 31, 0) 64%),
+      var(--panel);
+  }
+
+  .label {
+    margin-bottom: 8px;
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .decision-title {
+    margin-bottom: 10px;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.12;
+  }
+
+  .rule-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .rule-list li {
+    display: grid;
+    grid-template-columns: 112px 1fr;
+    gap: 12px;
+    color: var(--muted);
+  }
+
+  .rule-list strong {
+    color: var(--text);
+    font-weight: 650;
+  }
+
+  .pipeline {
+    display: grid;
+    grid-template-columns: 1.05fr 1.25fr 0.9fr 1.1fr;
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .pipe-stage {
+    min-height: 270px;
+    padding: 18px;
+    background: var(--panel);
+  }
+
+  .pipe-stage.capture {
+    background:
+      linear-gradient(180deg, var(--green-soft), rgba(31, 31, 31, 0) 48%),
+      var(--panel);
+  }
+
+  .pipe-stage.runtime {
+    background:
+      linear-gradient(180deg, var(--violet-soft), rgba(31, 31, 31, 0) 48%),
+      var(--panel);
+  }
+
+  .stage-title {
+    margin-bottom: 8px;
+    color: var(--text);
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .stage-copy {
+    min-height: 64px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .mini-flow {
+    display: grid;
+    gap: 8px;
+    margin-top: 15px;
+  }
+
+  .mini-step {
+    display: grid;
+    gap: 3px;
+    min-height: 54px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(18, 18, 18, 0.55);
+  }
+
+  .mini-step strong {
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  .mini-step span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .metric {
+    min-height: 128px;
+    padding: 18px;
+    background: var(--panel);
+  }
+
+  .metric-value {
+    margin: 4px 0;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 25px;
+    line-height: 1.1;
+  }
+
+  .metric-copy {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .bars {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .bar-row {
+    display: grid;
+    grid-template-columns: 168px minmax(140px, 1fr) 82px;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .bar-name {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .bar-name strong {
+    display: block;
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  .track {
+    height: 10px;
+    overflow: hidden;
+    border: 1px solid #303030;
+    border-radius: 999px;
+    background: #151515;
+  }
+
+  .fill {
+    height: 100%;
+    border-radius: inherit;
+    background: var(--blue);
+  }
+
+  .fill.green { background: var(--green); }
+  .fill.violet { background: var(--violet); }
+  .fill.amber { background: var(--amber); }
+  .fill.red { background: var(--red); }
+
+  .bar-value {
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: right;
+  }
+
+  .matrix-visual {
+    display: grid;
+    gap: 16px;
+    margin-top: 18px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+
+  .matrix-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .matrix-stat {
+    min-height: 96px;
+    padding: 14px;
+    background: #202020;
+  }
+
+  .matrix-stat strong {
+    display: block;
+    margin: 4px 0;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 20px;
+    line-height: 1.1;
+  }
+
+  .matrix-stat span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .matrix-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 99px;
+    background: var(--blue);
+  }
+
+  .legend-dot.auto { background: var(--amber); }
+  .legend-dot.wait { background: var(--violet); }
+  .legend-dot.exec { background: var(--green); }
+
+  .matrix-bars {
+    display: grid;
+    gap: 8px;
+  }
+
+  .matrix-row {
+    display: grid;
+    grid-template-columns: 235px minmax(160px, 1fr) 64px;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .matrix-row-meta {
+    min-width: 0;
+  }
+
+  .matrix-tags {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 3px;
+  }
+
+  .matrix-tag {
+    border: 1px solid var(--border-2);
+    border-radius: 999px;
+    padding: 1px 6px;
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+
+  .matrix-tag.codex {
+    border-color: rgba(167, 139, 250, 0.4);
+    color: #d8ceff;
+  }
+
+  .matrix-tag.claude {
+    border-color: rgba(212, 167, 44, 0.4);
+    color: #efd27b;
+  }
+
+  .matrix-path {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .matrix-track {
+    height: 17px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #151515;
+  }
+
+  .matrix-fill {
+    display: flex;
+    width: var(--total);
+    min-width: 3px;
+    height: 100%;
+    overflow: hidden;
+    border-radius: inherit;
+  }
+
+  .matrix-segment {
+    min-width: 0;
+    height: 100%;
+  }
+
+  .matrix-segment.start { width: var(--start, 0%); background: var(--blue); }
+  .matrix-segment.auto { width: var(--auto, 0%); background: var(--amber); }
+  .matrix-segment.wait { width: var(--wait, 0%); background: var(--violet); }
+  .matrix-segment.exec { width: var(--exec, 0%); background: var(--green); }
+
+  .matrix-time {
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: right;
+  }
+
+  .improvement-visual {
+    display: grid;
+    gap: 16px;
+    margin-top: 22px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background:
+      linear-gradient(180deg, rgba(78, 201, 176, 0.08), rgba(31, 31, 31, 0) 34%),
+      var(--panel);
+  }
+
+  .improvement-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .improvement-stat {
+    min-height: 108px;
+    padding: 14px;
+    background: #202020;
+  }
+
+  .improvement-stat strong {
+    display: block;
+    margin: 5px 0;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 22px;
+    line-height: 1.08;
+  }
+
+  .improvement-stat span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .improvement-bars {
+    display: grid;
+    gap: 14px;
+  }
+
+  .improvement-row {
+    display: grid;
+    grid-template-columns: 230px minmax(180px, 1fr) 120px;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .improvement-name {
+    min-width: 0;
+  }
+
+  .improvement-name strong {
+    display: block;
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.25;
+  }
+
+  .improvement-name span {
+    display: block;
+    margin-top: 3px;
+    color: var(--quiet);
+    font-size: 11px;
+  }
+
+  .improvement-stack {
+    display: grid;
+    gap: 5px;
+  }
+
+  .improvement-track {
+    position: relative;
+    height: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #151515;
+  }
+
+  .improvement-fill {
+    height: 100%;
+    width: var(--w);
+    min-width: 3px;
+    border-radius: inherit;
+    background: var(--red);
+  }
+
+  .improvement-fill.after {
+    background: var(--green);
+  }
+
+  .improvement-track-label {
+    position: absolute;
+    inset: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: rgba(232, 232, 234, 0.9);
+    font-family: var(--mono);
+    font-size: 10px;
+    pointer-events: none;
+  }
+
+  .improvement-save {
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    text-align: right;
+  }
+
+  .improvement-save span {
+    display: block;
+    margin-top: 3px;
+    color: var(--quiet);
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .choice-visual {
+    display: grid;
+    gap: 16px;
+    margin-top: 22px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background:
+      linear-gradient(180deg, rgba(174, 136, 255, 0.1), rgba(31,31,31,0) 38%),
+      var(--panel);
+  }
+
+  .choice-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .choice-stat {
+    min-height: 108px;
+    padding: 14px;
+    background: #202020;
+  }
+
+  .choice-stat strong {
+    display: block;
+    margin: 5px 0;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 22px;
+    line-height: 1.08;
+  }
+
+  .choice-stat span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .choice-bars {
+    display: grid;
+    gap: 11px;
+  }
+
+  .choice-row {
+    display: grid;
+    grid-template-columns: 230px minmax(180px, 1fr) 88px;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .choice-name {
+    min-width: 0;
+  }
+
+  .choice-name strong {
+    display: block;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  .choice-name span {
+    display: block;
+    margin-top: 3px;
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+
+  .choice-track {
+    position: relative;
+    height: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #151515;
+  }
+
+  .choice-fill {
+    width: var(--w);
+    min-width: 3px;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--green);
+  }
+
+  .choice-fill.over { background: var(--violet); }
+
+  .choice-budget {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    left: 44.4%;
+    width: 2px;
+    background: rgba(232, 232, 234, 0.82);
+  }
+
+  .choice-time {
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: right;
+  }
+
+  .change-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .change-card {
+    min-height: 132px;
+    padding: 14px;
+    background: rgba(18, 18, 18, 0.42);
+  }
+
+  .change-card strong {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  .change-card span {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .target-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .target-card {
+    min-height: 168px;
+    padding: 18px;
+    background: var(--panel);
+  }
+
+  .target-card.hot {
+    background:
+      linear-gradient(160deg, rgba(78, 201, 176, 0.15), rgba(31,31,31,0) 62%),
+      var(--panel);
+  }
+
+  .target-title {
+    margin-bottom: 8px;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .target-number {
+    margin: 8px 0;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 24px;
+    line-height: 1.1;
+  }
+
+  .target-bars {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+  }
+
+  .target-row {
+    display: grid;
+    grid-template-columns: 190px minmax(160px, 1fr) 138px;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .target-name {
+    min-width: 0;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .target-name span {
+    display: block;
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  .target-track {
+    position: relative;
+    height: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #151515;
+  }
+
+  .target-fill {
+    width: var(--current);
+    height: 100%;
+    border-radius: inherit;
+    background: var(--red);
+  }
+
+  .target-fill.ok { background: var(--green); }
+  .target-fill.warn { background: var(--amber); }
+
+  .target-budget {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    left: var(--budget);
+    width: 2px;
+    background: var(--text);
+  }
+
+  .target-value {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-align: right;
+  }
+
+  .table-wrap {
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+
+  table {
+    width: 100%;
+    min-width: 820px;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    color: var(--quiet);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  td {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  tr:last-child td { border-bottom: 0; }
+  td strong { color: var(--text); }
+
+  .scenario-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .scenario {
+    min-height: 210px;
+    padding: 19px;
+    background: var(--panel);
+  }
+
+  .scenario.blue { background: linear-gradient(180deg, var(--blue-soft), rgba(31,31,31,0) 46%), var(--panel); }
+  .scenario.green { background: linear-gradient(180deg, var(--green-soft), rgba(31,31,31,0) 46%), var(--panel); }
+  .scenario.violet { background: linear-gradient(180deg, var(--violet-soft), rgba(31,31,31,0) 46%), var(--panel); }
+
+  .scenario-title {
+    margin-bottom: 8px;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .scenario-time {
+    margin: 8px 0;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 22px;
+  }
+
+  .provider-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--border);
+  }
+
+  .provider {
+    min-height: 260px;
+    padding: 20px;
+    background: var(--panel);
+  }
+
+  .provider-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .provider-title {
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .callout {
+    display: grid;
+    grid-template-columns: 98px 1fr;
+    gap: 18px;
+    margin-top: 16px;
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--blue);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+
+  .callout.amber { border-left-color: var(--amber); }
+  .callout.green { border-left-color: var(--green); }
+  .callout .label { margin: 0; color: var(--blue); }
+  .callout.amber .label { color: var(--amber); }
+  .callout.green .label { color: var(--green); }
+  .callout strong { color: var(--text); }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    color: var(--quiet);
+    font-size: 12px;
+  }
+
+  @media (max-width: 1040px) {
+    .shell { display: block; }
+    aside {
+      position: static;
+      width: auto;
+      height: auto;
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    main {
+      width: 100%;
+      padding: 34px 20px 72px;
+    }
+    h1 { font-size: 30px; }
+    .decision,
+    .pipeline,
+    .metric-grid,
+    .target-grid,
+    .improvement-summary,
+    .choice-summary,
+    .change-grid,
+    .scenario-grid,
+    .provider-grid {
+      grid-template-columns: 1fr;
+    }
+    .bar-row {
+      grid-template-columns: 124px minmax(100px, 1fr) 62px;
+    }
+    .matrix-summary,
+    .matrix-row,
+    .improvement-row,
+    .choice-row,
+    .target-row {
+      grid-template-columns: 1fr;
+    }
+    .matrix-time {
+      text-align: left;
+    }
+    .improvement-save {
+      text-align: left;
+    }
+    .choice-time {
+      text-align: left;
+    }
+    .rule-list {
+      grid-template-columns: 1fr;
+    }
+    .callout {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <div class="brand">
+        <div class="mark">VC</div>
+        <div>
+          <div class="brand-title">Visual Context Pipeline</div>
+          <div class="brand-sub">architecture and evals</div>
+        </div>
+      </div>
+      <nav aria-label="Page sections">
+        <a href="#model">Model <span>01</span></a>
+        <a href="#pipeline">Pipeline <span>02</span></a>
+        <a href="#targets">Targets <span>03</span></a>
+        <a href="#evals">Evals <span>04</span></a>
+        <a href="#scenarios">Totals <span>05</span></a>
+        <a href="#providers">Providers <span>06</span></a>
+        <a href="#coverage">Coverage <span>07</span></a>
+      </nav>
+    </aside>
+
+    <main>
+      <header>
+        <div class="eyebrow">Ripple Spec / Visual Context Pipeline / May 2026</div>
+        <h1>Fast visual context is a pipeline, not one benchmark.</h1>
+        <p class="lede">Ripple makes two separate decisions for every visual: first, how to capture the right pixels; second, how to hand those pixels to the agent without wasting an extra turn. The winning path is the fastest correct capture route plus provider-native image return.</p>
+        <div class="meta-row">
+          <span class="pill blue">Comments: automatic first message visuals</span>
+          <span class="pill green">Chats: on-demand visual tools</span>
+          <span class="pill violet">Codex: dynamic tool image result</span>
+          <span class="pill amber">Claude: SDK MCP image result</span>
+        </div>
+      </header>
+
+      <section id="model">
+        <h2>Mental Model</h2>
+        <div class="decision">
+          <div class="decision-card primary">
+            <div class="label">Decision split</div>
+            <div class="decision-title">Capture time and handoff time answer different questions.</div>
+            <p>Warm Engine versus cold CLI is a capture-stage decision. Native image return versus path-only return is a runtime-handoff decision. They should be measured separately, then composed into an end-to-end local pipeline estimate.</p>
+          </div>
+          <div class="decision-card">
+            <div class="label">Chosen architecture</div>
+            <ul class="rule-list">
+              <li><strong>Capture</strong><span>Use live preview for the current frame. Use warm Engine for timestamped frames and sheets.</span></li>
+              <li><strong>Store</strong><span>Write a scoped local artifact and manifest so the result is auditable and reusable.</span></li>
+              <li><strong>Inject</strong><span>Return provider-native image content directly from the tool result.</span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="pipeline">
+        <h2>Pipeline</h2>
+        <p class="lede">The same service powers comments and chats. The difference is when the visual is requested: comments request it before the agent run starts; chats request it later when the agent asks to see something.</p>
+
+        <div class="pipeline" style="margin-top:18px">
+          <div class="pipe-stage">
+            <div class="label">Stage 01</div>
+            <div class="stage-title">Intent</div>
+            <p class="stage-copy">A surface asks for a typed visual. The surface does not choose a backend.</p>
+            <div class="mini-flow">
+              <div class="mini-step"><strong>Point comment</strong><span>Frame at the comment timestamp.</span></div>
+              <div class="mini-step"><strong>Range comment</strong><span>Frame sheet for the selected range.</span></div>
+              <div class="mini-step"><strong>Chat tool call</strong><span>Snapshot or frame sheet on demand.</span></div>
+            </div>
+          </div>
+
+          <div class="pipe-stage capture">
+            <div class="label">Stage 02</div>
+            <div class="stage-title">Capture Route</div>
+            <p class="stage-copy">The Visual Context Service picks the fastest correct source for the visual intent.</p>
+            <div class="mini-flow">
+              <div class="mini-step"><strong>Current frame</strong><span>Live preview capture, because those pixels already exist.</span></div>
+              <div class="mini-step"><strong>Specific timestamp</strong><span>Warm Engine render, because it is source-canonical.</span></div>
+              <div class="mini-step"><strong>Frame sheet</strong><span>Warm Engine samples plus sheet assembly.</span></div>
+            </div>
+          </div>
+
+          <div class="pipe-stage">
+            <div class="label">Stage 03</div>
+            <div class="stage-title">Artifact</div>
+            <p class="stage-copy">Ripple writes a safe project-scoped image artifact and keeps structured metadata.</p>
+            <div class="mini-flow">
+              <div class="mini-step"><strong>PNG</strong><span>Snapshot or composed sheet.</span></div>
+              <div class="mini-step"><strong>Manifest</strong><span>Times, frames, dimensions, and route metadata.</span></div>
+              <div class="mini-step"><strong>Guardrails</strong><span>No symlink escape or arbitrary absolute path trust.</span></div>
+            </div>
+          </div>
+
+          <div class="pipe-stage runtime">
+            <div class="label">Stage 04</div>
+            <div class="stage-title">Runtime Handoff</div>
+            <p class="stage-copy">The provider adapter converts the artifact into the provider's native image result.</p>
+            <div class="mini-flow">
+              <div class="mini-step"><strong>Codex</strong><span>Dynamic visual tool returns <code>inputImage</code>.</span></div>
+              <div class="mini-step"><strong>Claude</strong><span>SDK MCP visual tool returns an image block.</span></div>
+              <div class="mini-step"><strong>Fallback</strong><span>CLI can still return a path and JSON manifest.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout green">
+          <div class="label">Key rule</div>
+          <p><strong>The agent should not need a second turn to inspect an image it just asked Ripple to capture.</strong> The path and manifest remain useful for auditability, but the image itself is injected in the tool result.</p>
+        </div>
+      </section>
+
+      <section id="targets">
+        <h2>Optimization Goal</h2>
+        <p class="lede">Make visual context feel instant by driving app-owned latency below strict budgets, while tracking provider/model wait separately. A slow model choosing when to call a tool is different from Ripple taking too long after the tool has started.</p>
+
+        <div class="target-grid" style="margin-top:18px">
+          <div class="target-card hot">
+            <div class="label">North star</div>
+            <div class="target-title">No normal visual-context path should make the user wait on Ripple for more than two seconds.</div>
+            <div class="target-number">&lt;2s p95</div>
+            <p>Current frames should be effectively immediate. Timestamped frames and compact sheets should come from warm, source-valid capture paths. Cold CLI behavior remains a fallback, not the agent path.</p>
+          </div>
+          <div class="target-card">
+            <div class="label">Measurement rule</div>
+            <div class="target-title">Every row reports app-owned latency, budget status, and the dominant bottleneck.</div>
+            <p>For automatic comment visuals, app-owned latency is submit-to-visual-ready because that gates first-message image injection. For tool paths, app-owned latency is tool execution after the model calls Ripple. Model wait remains visible, but it is not mixed into the capture budget.</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:28px">Latency budgets</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Path family</th>
+                <th>Current live signal</th>
+                <th>Budget</th>
+                <th>Constraint</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Comment card visible</strong></td>
+                <td>69-87ms</td>
+                <td>&lt;150ms p50, &lt;300ms p95</td>
+                <td>The comment exists immediately. Visual work never blocks the card.</td>
+              </tr>
+              <tr>
+                <td><strong>Automatic point comment visual</strong></td>
+                <td>71-75ms gate</td>
+                <td>&lt;250ms hot, &lt;750ms p95</td>
+                <td>Prewarm the live preview frame while the composer is open, then attach the prepared image at send time.</td>
+              </tr>
+              <tr>
+                <td><strong>Automatic range comment sheet</strong></td>
+                <td>89-93ms gate</td>
+                <td>&lt;750ms hot, &lt;2s p95</td>
+                <td>Precompute while the range is being selected, reuse source-valid cached samples, and keep sheets compact enough to inject before the first agent message.</td>
+              </tr>
+              <tr>
+                <td><strong>Current snapshot tool</strong></td>
+                <td>0-127ms capture after tool start</td>
+                <td>&lt;250ms</td>
+                <td>The visible frame is already available; the tool should mostly adapt and inject it.</td>
+              </tr>
+              <tr>
+                <td><strong>Timestamp snapshot tool</strong></td>
+                <td>268-323ms capture in live matrix</td>
+                <td>&lt;1s warm, &lt;2s p95</td>
+                <td>Use the app's warm source-canonical engine, not a shell or cold CLI route.</td>
+              </tr>
+              <tr>
+                <td><strong>Frame sheet tool</strong></td>
+                <td>352-418ms capture in live matrix</td>
+                <td>&lt;1.5s warm, &lt;3s p95</td>
+                <td>Preserve readable samples and the timestamp manifest; reduce samples or resolution only inside bounded quality rules.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:28px">Bottleneck map</h3>
+        <div class="target-bars" aria-label="Visual-context optimization bottleneck map">
+          <div class="target-row">
+            <div class="target-name">Auto current gate<span>latest 79ms</span></div>
+            <div class="target-track"><div class="target-fill ok" style="--current:4%"></div><span class="target-budget" style="--budget:38%"></span></div>
+            <div class="target-value">target &lt;750ms</div>
+          </div>
+          <div class="target-row">
+            <div class="target-name">Auto range sheet gate<span>latest 73ms</span></div>
+            <div class="target-track"><div class="target-fill ok" style="--current:4%"></div><span class="target-budget" style="--budget:100%"></span></div>
+            <div class="target-value">target &lt;2s</div>
+          </div>
+          <div class="target-row">
+            <div class="target-name">Timestamp capture<span>latest up to 323ms</span></div>
+            <div class="target-track"><div class="target-fill ok" style="--current:32%"></div><span class="target-budget" style="--budget:100%"></span></div>
+            <div class="target-value">target &lt;1s</div>
+          </div>
+          <div class="target-row">
+            <div class="target-name">Frame sheet capture<span>latest up to 418ms</span></div>
+            <div class="target-track"><div class="target-fill ok" style="--current:28%"></div><span class="target-budget" style="--budget:100%"></span></div>
+            <div class="target-value">target &lt;1.5s</div>
+          </div>
+          <div class="target-row">
+            <div class="target-name">Current-frame tool<span>latest 0-127ms</span></div>
+            <div class="target-track"><div class="target-fill ok" style="--current:51%"></div><span class="target-budget" style="--budget:100%"></span></div>
+            <div class="target-value">already near target</div>
+          </div>
+          <div class="target-row">
+            <div class="target-name">Model wait before tool<span>latest 4-12s</span></div>
+            <div class="target-track"><div class="target-fill warn" style="--current:100%"></div></div>
+            <div class="target-value">tracked separately</div>
+          </div>
+        </div>
+
+        <div class="callout green">
+          <div class="label">Implementation bias</div>
+          <p><strong>Optimize the path the agent actually uses.</strong> Keep one warm visual-context engine per active project/composition, cache current frames and source-valid sampled frames, precompute range sheets during selection, inject provider-native images directly, and make the eval fail the app-owned budget before it blames provider/model latency. The active preview surface heartbeat is the prewarm signal: it keeps the current-frame identity fresh and warms the source-canonical render path before timestamp snapshots or sheets are requested.</p>
+        </div>
+
+        <div class="callout" style="margin-top:14px">
+          <div class="label">Latest optimization slice</div>
+          <p><strong>The frame-sheet problem moved from app capture to model tool choice.</strong> Range comments precompute a sheet while the user composes, point comments prewarm the current frame before send, comment agents reuse attached visuals when the requested frame or range matches, native tools keep backend choice app-owned, and app-managed timestamp or frame-sheet captures default to the fast browser path with bounded sheet-cell dimensions. In the corrected live matrix, every app-owned visual path is inside budget: automatic comment visuals land in 71-93ms and native tool captures stay at 0-456ms.</p>
+        </div>
+      </section>
+
+      <section id="evals">
+        <h2>Eval Stages</h2>
+        <p class="lede">These numbers should not be sorted into one chart as if they are alternatives for the same job. Capture-stage numbers compare pixel acquisition routes. Runtime-handoff numbers compare how an existing artifact gets into the model session.</p>
+
+        <h3>Stage A: capture route</h3>
+        <div class="metric-grid">
+          <div class="metric">
+            <div class="label">Live preview</div>
+            <div class="metric-value">9-10ms</div>
+            <div class="metric-copy">Prior real-preview spike result for current frame once the preview is ready.</div>
+          </div>
+          <div class="metric">
+            <div class="label">Warm Engine</div>
+            <div class="metric-value">147ms</div>
+            <div class="metric-copy">Fresh benchmark warm-session result for three source-canonical frames.</div>
+          </div>
+          <div class="metric">
+            <div class="label">Warm sheet</div>
+            <div class="metric-value">400ms</div>
+            <div class="metric-copy">Fresh benchmark warm-session result for an eight-frame sheet.</div>
+          </div>
+          <div class="metric">
+            <div class="label">Cold CLI</div>
+            <div class="metric-value">7398ms</div>
+            <div class="metric-copy">Standalone single-frame CLI baseline. Agents avoid this when the app service is available.</div>
+          </div>
+        </div>
+
+        <div class="bars" aria-label="Capture route latency chart">
+          <div class="bar-row">
+            <div class="bar-name"><strong>Live preview</strong>current frame</div>
+            <div class="track"><div class="fill" style="width:0.2%"></div></div>
+            <div class="bar-value">9ms</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name"><strong>Warm Engine</strong>3 frames</div>
+            <div class="track"><div class="fill green" style="width:2.1%"></div></div>
+            <div class="bar-value">147ms</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name"><strong>Warm Engine</strong>8-frame sheet</div>
+            <div class="track"><div class="fill green" style="width:5.4%"></div></div>
+            <div class="bar-value">400ms</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name"><strong>Cold CLI</strong>single frame</div>
+            <div class="track"><div class="fill red" style="width:100%"></div></div>
+            <div class="bar-value">7398ms</div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:28px">Stage B: runtime handoff after an artifact exists</h3>
+        <div class="metric-grid">
+          <div class="metric">
+            <div class="label">Native image return</div>
+            <div class="metric-value">0.61ms</div>
+            <div class="metric-copy">Load artifact and build Codex image content plus Claude image block.</div>
+          </div>
+          <div class="metric">
+            <div class="label">Path-only return</div>
+            <div class="metric-value">0.02ms</div>
+            <div class="metric-copy">Return JSON that points at the image path.</div>
+          </div>
+          <div class="metric">
+            <div class="label">Local lookup</div>
+            <div class="metric-value">0.12ms</div>
+            <div class="metric-copy">Local artifact load that would happen after a follow-up inspect step.</div>
+          </div>
+          <div class="metric">
+            <div class="label">Turn saved</div>
+            <div class="metric-value">1</div>
+            <div class="metric-copy">The important savings: avoid a second provider/model turn to inspect the returned path.</div>
+          </div>
+        </div>
+
+        <div class="callout amber">
+          <div class="label">Caveat</div>
+          <p><strong>The local path-only timing looks smaller because it does not include model latency.</strong> The real cost of path-only handoff is the extra agent turn where the model asks to read or view the image. The live matrix below now times the direct native-image path; the remaining comparison is a deliberate path-only control run.</p>
+        </div>
+
+        <h3 style="margin-top:28px">Stage C0: what improved</h3>
+        <p class="lede">The first live matrix showed the symptom: comments and frame sheets felt blocked because visuals were being captured or discovered too late in the agent path. The current matrix shows the fix: Ripple prepares the likely comment visual before send, injects images directly into the provider runtime, and keeps fresh tool captures on warm app-owned paths.</p>
+
+        <div class="improvement-visual" aria-label="Before and after visual-context timing improvements">
+          <div class="improvement-summary">
+            <div class="improvement-stat">
+              <div class="label">Slowest row</div>
+              <strong>55.4s -> 13.1s</strong>
+              <span>The old slowest path was a Codex comment frame sheet; the new slowest row is mostly model tool choice.</span>
+            </div>
+            <div class="improvement-stat">
+              <div class="label">Auto comment visuals</div>
+              <strong>12.1s -> &lt;100ms</strong>
+              <span>Prepared frame or sheet is attached at send instead of captured after the user waits.</span>
+            </div>
+            <div class="improvement-stat">
+              <div class="label">Fresh sheet capture</div>
+              <strong>364-456ms</strong>
+              <span>Frame-sheet generation is now warm, bounded, and app-owned.</span>
+            </div>
+            <div class="improvement-stat">
+              <div class="label">Turn loop removed</div>
+              <strong>1 turn saved</strong>
+              <span>Tools return provider-native image blocks instead of making the agent look up a path.</span>
+            </div>
+          </div>
+
+          <div class="improvement-bars">
+            <div class="improvement-row">
+              <div class="improvement-name"><strong>Automatic comment visual</strong><span>prewarm point frame or range sheet while composer is open</span></div>
+              <div class="improvement-stack">
+                <div class="improvement-track"><div class="improvement-fill" style="--w:21.8%"></div><div class="improvement-track-label"><span>before</span><span>12.1s</span></div></div>
+                <div class="improvement-track"><div class="improvement-fill after" style="--w:0.2%"></div><div class="improvement-track-label"><span>after</span><span>71-93ms</span></div></div>
+              </div>
+              <div class="improvement-save">~99% faster<span>visual ready before run</span></div>
+            </div>
+
+            <div class="improvement-row">
+              <div class="improvement-name"><strong>Codex comment frame sheet</strong><span>warm sheet capture plus direct native image injection</span></div>
+              <div class="improvement-stack">
+                <div class="improvement-track"><div class="improvement-fill" style="--w:100%"></div><div class="improvement-track-label"><span>before</span><span>55.4s</span></div></div>
+                <div class="improvement-track"><div class="improvement-fill after" style="--w:23.6%"></div><div class="improvement-track-label"><span>after</span><span>13.1s</span></div></div>
+              </div>
+              <div class="improvement-save">42.3s saved<span>remaining time is model choice</span></div>
+            </div>
+
+            <div class="improvement-row">
+              <div class="improvement-name"><strong>Claude comment frame sheet</strong><span>same visual tool contract through Claude SDK MCP image content</span></div>
+              <div class="improvement-stack">
+                <div class="improvement-track"><div class="improvement-fill" style="--w:73.1%"></div><div class="improvement-track-label"><span>before</span><span>40.5s</span></div></div>
+                <div class="improvement-track"><div class="improvement-fill after" style="--w:18%"></div><div class="improvement-track-label"><span>after</span><span>10.0s</span></div></div>
+              </div>
+              <div class="improvement-save">30.5s saved<span>same app service, provider adapter differs</span></div>
+            </div>
+
+            <div class="improvement-row">
+              <div class="improvement-name"><strong>Worst chat frame sheet</strong><span>chat still asks on demand, but the tool path is warm and direct</span></div>
+              <div class="improvement-stack">
+                <div class="improvement-track"><div class="improvement-fill" style="--w:49.3%"></div><div class="improvement-track-label"><span>before</span><span>27.3s</span></div></div>
+                <div class="improvement-track"><div class="improvement-fill after" style="--w:22.7%"></div><div class="improvement-track-label"><span>after</span><span>12.6s</span></div></div>
+              </div>
+              <div class="improvement-save">14.7s saved<span>no shell or file-lookup loop</span></div>
+            </div>
+
+            <div class="improvement-row">
+              <div class="improvement-name"><strong>Current snapshot in comments</strong><span>reuse attached comment frame when the agent asks for current</span></div>
+              <div class="improvement-stack">
+                <div class="improvement-track"><div class="improvement-fill" style="--w:44%"></div><div class="improvement-track-label"><span>before</span><span>24.4s</span></div></div>
+                <div class="improvement-track"><div class="improvement-fill after" style="--w:14.6%"></div><div class="improvement-track-label"><span>after</span><span>8.1s</span></div></div>
+              </div>
+              <div class="improvement-save">16.3s saved<span>0ms capture on reuse path</span></div>
+            </div>
+          </div>
+
+          <div class="change-grid" aria-label="Architecture changes behind the improvement">
+            <div class="change-card"><strong>Prepare before send</strong><span>Comment composer warms the frame or selected-range sheet and passes the prepared screenshot path into the comment anchor.</span></div>
+            <div class="change-card"><strong>Inject images directly</strong><span>Codex dynamic tools and Claude SDK MCP tools receive provider-native image content, so the agent does not spend another turn opening a file path.</span></div>
+            <div class="change-card"><strong>Keep capture app-owned</strong><span>Visual tools strip model-supplied backend choices and route current, timestamp, and sheet requests through the Visual Context Service.</span></div>
+            <div class="change-card"><strong>Warm and bound sheets</strong><span>Timestamp snapshots and frame sheets use the warm fast-browser path with sheet-cell-sized captures and readable manifests.</span></div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:28px">Stage C1: model tool-choice eval</h3>
+        <p class="lede">The purple work is now measured like an AI eval. The matrix records the order of native visual tools and a new <code>modelToolChoiceMs</code> value: first visual tool from run start, then each next visual tool from the previous visual result. This separates real tool-choice hesitation from cumulative time spent running earlier tools.</p>
+
+        <div class="choice-visual" aria-label="Model tool-choice latency eval">
+          <div class="choice-summary">
+            <div class="choice-stat">
+              <div class="label">Tool order</div>
+              <strong>12/12</strong>
+              <span>Codex and Claude used the expected native visual tool order for chat and comment evals.</span>
+            </div>
+            <div class="choice-stat">
+              <div class="label">Choice target</div>
+              <strong>9/12</strong>
+              <span>Visual tool choices landed inside the 4s eval target.</span>
+            </div>
+            <div class="choice-stat">
+              <div class="label">Slowest choice</div>
+              <strong>9.0s</strong>
+              <span>Codex chat current snapshot is still the biggest purple bar.</span>
+            </div>
+            <div class="choice-stat">
+              <div class="label">Fast choices</div>
+              <strong>1-3s</strong>
+              <span>Every second and third visual-tool choice is now within budget.</span>
+            </div>
+          </div>
+
+          <div class="choice-bars" aria-label="Model choice bars with a 4 second budget marker">
+            <div class="choice-row"><div class="choice-name"><strong>Codex chat current snapshot</strong><span>tool #1</span></div><div class="choice-track"><div class="choice-budget"></div><div class="choice-fill over" style="--w:100%"></div></div><div class="choice-time">9.0s</div></div>
+            <div class="choice-row"><div class="choice-name"><strong>Codex chat timestamp snapshot</strong><span>tool #2</span></div><div class="choice-track"><div class="choice-budget"></div><div class="choice-fill" style="--w:11.1%"></div></div><div class="choice-time">1.0s</div></div>
+            <div class="choice-row"><div class="choice-name"><strong>Codex chat frame sheet</strong><span>tool #3</span></div><div class="choice-track"><div class="choice-budget"></div><div class="choice-fill" style="--w:22.2%"></div></div><div class="choice-time">2.0s</div></div>
+            <div class="choice-row"><div class="choice-name"><strong>Codex comment current snapshot</strong><span>tool #1</span></div><div class="choice-track"><div class="choice-budget"></div><div class="choice-fill over" style="--w:88.9%"></div></div><div class="choice-time">8.0s</div></div>
+            <div class="choice-row"><div class="choice-name"><strong>Codex comment timestamp snapshot</strong><span>tool #2</span></div><div class="choice-track"><div class="choice-budget"></div><div class="choice-fill" style="--w:11.1%"></div></div><div class="choice-time">1.0s</div></div>
+            <div class="choice-row"><div class="choice-name"><strong>Codex comment frame sheet</strong><span>tool #3</span></div><div class="choice-track"><div class="choice-budget"></div><div class="choice-fill" style="--w:33.3%"></div></div><div class="choice-time">3.0s</div></div>
+            <div class="choice-row"><div class="choice-name"><strong>Claude chat current snapshot</strong><span>tool #1</span></div><div class="choice-track"><div class="choice-budget"></div><div class="choice-fill" style="--w:44.4%"></div></div><div class="choice-time">4.0s</div></div>
+            <div class="choice-row"><div class="choice-name"><strong>Claude chat timestamp snapshot</strong><span>tool #2</span></div><div class="choice-track"><div class="choice-budget"></div><div class="choice-fill" style="--w:33.3%"></div></div><div class="choice-time">3.0s</div></div>
+            <div class="choice-row"><div class="choice-name"><strong>Claude chat frame sheet</strong><span>tool #3</span></div><div class="choice-track"><div class="choice-budget"></div><div class="choice-fill" style="--w:22.2%"></div></div><div class="choice-time">2.0s</div></div>
+            <div class="choice-row"><div class="choice-name"><strong>Claude comment current snapshot</strong><span>tool #1</span></div><div class="choice-track"><div class="choice-budget"></div><div class="choice-fill over" style="--w:55.6%"></div></div><div class="choice-time">5.0s</div></div>
+            <div class="choice-row"><div class="choice-name"><strong>Claude comment timestamp snapshot</strong><span>tool #2</span></div><div class="choice-track"><div class="choice-budget"></div><div class="choice-fill" style="--w:22.2%"></div></div><div class="choice-time">2.0s</div></div>
+            <div class="choice-row"><div class="choice-name"><strong>Claude comment frame sheet</strong><span>tool #3</span></div><div class="choice-track"><div class="choice-budget"></div><div class="choice-fill" style="--w:33.3%"></div></div><div class="choice-time">3.0s</div></div>
+          </div>
+
+          <div class="change-grid" aria-label="Prompt and eval changes for model tool choice">
+            <div class="change-card"><strong>Policy first</strong><span>The run policy now starts with the native visual-tool decision table before the broader Ripple editing guidance.</span></div>
+            <div class="change-card"><strong>Tool copy</strong><span>Codex dynamic tools and Claude MCP tools say to use the native visual tool immediately and avoid shell, file lookup, browser, image-view, or video paths first.</span></div>
+            <div class="change-card"><strong>Skill trimmed</strong><span>The visual-context skill now emphasizes native snapshots and frame sheets, with CLI text clearly marked as fallback-only.</span></div>
+            <div class="change-card"><strong>Eval guards</strong><span>The live matrix asserts native tool order, rejects shell visual commands, and records per-tool model choice latency.</span></div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:28px">Stage C: live app provider matrix</h3>
+        <p class="lede">This is the end-to-end eval the app needs for diagnosis. It runs real Ripple, real Codex, and real Claude. Each row is one way a chat or comment can ask for visual context. The final generated report is <code>test-results/visual-context-live-timing-matrix.md</code>.</p>
+
+        <div class="matrix-visual" aria-label="Visual timing matrix chart">
+          <div class="matrix-summary">
+            <div class="matrix-stat">
+              <div class="label">Comment card visible</div>
+              <strong>69-87ms</strong>
+              <span>The user's comment appears quickly.</span>
+            </div>
+            <div class="matrix-stat">
+              <div class="label">Auto visual gate</div>
+              <strong>71-93ms</strong>
+              <span>Prepared frame or sheet is attached before the run.</span>
+            </div>
+            <div class="matrix-stat">
+              <div class="label">App-owned tool capture</div>
+              <strong>0-456ms</strong>
+              <span>Every native tool path is now within budget.</span>
+            </div>
+            <div class="matrix-stat">
+              <div class="label">Slowest E2E path</div>
+              <strong>13.1s</strong>
+              <span>Codex comment frame sheet, mostly cumulative model wait.</span>
+            </div>
+          </div>
+
+          <div class="matrix-legend" aria-hidden="true">
+            <span class="legend-item"><span class="legend-dot"></span>run observed / UI</span>
+            <span class="legend-item"><span class="legend-dot auto"></span>automatic comment visual</span>
+            <span class="legend-item"><span class="legend-dot wait"></span>model waits before tool</span>
+            <span class="legend-item"><span class="legend-dot exec"></span>tool execution / capture</span>
+          </div>
+
+          <div class="matrix-bars">
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag codex">Codex</span><span class="matrix-tag">Chat</span></div><div class="matrix-path">Current snapshot tool</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:73.2%; --start:1%; --wait:93.5%; --exec:1%"><span class="matrix-segment start"></span><span class="matrix-segment wait"></span><span class="matrix-segment exec"></span></div></div>
+              <div class="matrix-time">9.6s</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag codex">Codex</span><span class="matrix-tag">Chat</span></div><div class="matrix-path">Timestamp snapshot tool</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:80.8%; --start:0.9%; --wait:100%; --exec:3%"><span class="matrix-segment start"></span><span class="matrix-segment wait"></span><span class="matrix-segment exec"></span></div></div>
+              <div class="matrix-time">10.6s</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag codex">Codex</span><span class="matrix-tag">Chat</span></div><div class="matrix-path">Frame sheet tool</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:96%; --start:0.8%; --wait:100%; --exec:3.2%"><span class="matrix-segment start"></span><span class="matrix-segment wait"></span><span class="matrix-segment exec"></span></div></div>
+              <div class="matrix-time">12.6s</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag codex">Codex</span><span class="matrix-tag">Comment</span></div><div class="matrix-path">Auto current frame</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:0.5%; --start:97.2%; --auto:2.8%"><span class="matrix-segment start"></span><span class="matrix-segment auto"></span></div></div>
+              <div class="matrix-time">71ms</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag codex">Codex</span><span class="matrix-tag">Comment</span></div><div class="matrix-path">Auto range sheet</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:0.7%; --start:93.5%; --auto:6.5%"><span class="matrix-segment start"></span><span class="matrix-segment auto"></span></div></div>
+              <div class="matrix-time">93ms</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag codex">Codex</span><span class="matrix-tag">Comment</span></div><div class="matrix-path">Current snapshot tool</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:62%; --start:6.8%; --wait:98.2%; --exec:0%"><span class="matrix-segment start"></span><span class="matrix-segment wait"></span><span class="matrix-segment exec"></span></div></div>
+              <div class="matrix-time">8.1s</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag codex">Codex</span><span class="matrix-tag">Comment</span></div><div class="matrix-path">Timestamp snapshot tool</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:77.2%; --start:5.5%; --wait:88.7%; --exec:3.7%"><span class="matrix-segment start"></span><span class="matrix-segment wait"></span><span class="matrix-segment exec"></span></div></div>
+              <div class="matrix-time">10.1s</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag codex">Codex</span><span class="matrix-tag">Comment</span></div><div class="matrix-path">Frame sheet tool</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:100%; --start:4.2%; --wait:98.9%; --exec:3.5%"><span class="matrix-segment start"></span><span class="matrix-segment wait"></span><span class="matrix-segment exec"></span></div></div>
+              <div class="matrix-time">13.1s</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag claude">Claude</span><span class="matrix-tag">Chat</span></div><div class="matrix-path">Current snapshot tool</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:26.5%; --start:3.1%; --wait:100%; --exec:3%"><span class="matrix-segment start"></span><span class="matrix-segment wait"></span><span class="matrix-segment exec"></span></div></div>
+              <div class="matrix-time">3.5s</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag claude">Claude</span><span class="matrix-tag">Chat</span></div><div class="matrix-path">Timestamp snapshot tool</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:56.9%; --start:1.4%; --wait:93.6%; --exec:4.2%"><span class="matrix-segment start"></span><span class="matrix-segment wait"></span><span class="matrix-segment exec"></span></div></div>
+              <div class="matrix-time">7.5s</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag claude">Claude</span><span class="matrix-tag">Chat</span></div><div class="matrix-path">Frame sheet tool</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:79.7%; --start:1%; --wait:95.4%; --exec:3.6%"><span class="matrix-segment start"></span><span class="matrix-segment wait"></span><span class="matrix-segment exec"></span></div></div>
+              <div class="matrix-time">10.5s</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag claude">Claude</span><span class="matrix-tag">Comment</span></div><div class="matrix-path">Auto current frame</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:0.6%; --start:97.3%; --auto:2.7%"><span class="matrix-segment start"></span><span class="matrix-segment auto"></span></div></div>
+              <div class="matrix-time">75ms</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag claude">Claude</span><span class="matrix-tag">Comment</span></div><div class="matrix-path">Auto range sheet</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:0.7%; --start:93.3%; --auto:6.7%"><span class="matrix-segment start"></span><span class="matrix-segment auto"></span></div></div>
+              <div class="matrix-time">89ms</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag claude">Claude</span><span class="matrix-tag">Comment</span></div><div class="matrix-path">Current snapshot tool</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:38.3%; --start:11.1%; --wait:99.4%; --exec:0%"><span class="matrix-segment start"></span><span class="matrix-segment wait"></span><span class="matrix-segment exec"></span></div></div>
+              <div class="matrix-time">5.0s</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag claude">Claude</span><span class="matrix-tag">Comment</span></div><div class="matrix-path">Timestamp snapshot tool</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:53.5%; --start:7.9%; --wait:99.6%; --exec:3.8%"><span class="matrix-segment start"></span><span class="matrix-segment wait"></span><span class="matrix-segment exec"></span></div></div>
+              <div class="matrix-time">7.0s</div>
+            </div>
+            <div class="matrix-row">
+              <div class="matrix-row-meta"><div class="matrix-tags"><span class="matrix-tag claude">Claude</span><span class="matrix-tag">Comment</span></div><div class="matrix-path">Frame sheet tool</div></div>
+              <div class="matrix-track"><div class="matrix-fill" style="--total:76.3%; --start:5.6%; --wait:99.7%; --exec:3.6%"><span class="matrix-segment start"></span><span class="matrix-segment wait"></span><span class="matrix-segment exec"></span></div></div>
+              <div class="matrix-time">10.0s</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-top:18px">
+          <table>
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Surface</th>
+                <th>Path</th>
+                <th>UI card</th>
+                <th>Auto visual</th>
+                <th>Run observed</th>
+                <th>Tool choice</th>
+                <th>Tool wait</th>
+                <th>Tool exec</th>
+                <th>Capture</th>
+                <th>Provider run</th>
+                <th>E2E</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Codex</td><td>Chat</td><td><strong>Current snapshot tool</strong></td><td>-</td><td>-</td><td>99ms</td><td>9.0s</td><td>9.0s</td><td>1.0s</td><td>98ms</td><td>16.0s</td><td>9.6s</td></tr>
+              <tr><td>Codex</td><td>Chat</td><td><strong>Timestamp snapshot tool</strong></td><td>-</td><td>-</td><td>99ms</td><td>1.0s</td><td>11.0s</td><td>0ms</td><td>321ms</td><td>16.0s</td><td>10.6s</td></tr>
+              <tr><td>Codex</td><td>Chat</td><td><strong>Frame sheet tool</strong></td><td>-</td><td>-</td><td>99ms</td><td>2.0s</td><td>13.0s</td><td>0ms</td><td>404ms</td><td>16.0s</td><td>12.6s</td></tr>
+              <tr><td>Codex</td><td>Comment</td><td><strong>Auto current frame</strong></td><td>69ms</td><td>71ms</td><td>555ms</td><td>-</td><td>-</td><td>-</td><td>-</td><td>15.0s</td><td>71ms</td></tr>
+              <tr><td>Codex</td><td>Comment</td><td><strong>Auto range sheet</strong></td><td>87ms</td><td>93ms</td><td>472ms</td><td>-</td><td>-</td><td>-</td><td>-</td><td>7.0s</td><td>93ms</td></tr>
+              <tr><td>Codex</td><td>Comment</td><td><strong>Current snapshot tool</strong></td><td>-</td><td>-</td><td>555ms</td><td>8.0s</td><td>8.0s</td><td>0ms</td><td>0ms</td><td>15.0s</td><td>8.1s</td></tr>
+              <tr><td>Codex</td><td>Comment</td><td><strong>Timestamp snapshot tool</strong></td><td>-</td><td>-</td><td>555ms</td><td>1.0s</td><td>9.0s</td><td>1.0s</td><td>379ms</td><td>15.0s</td><td>10.1s</td></tr>
+              <tr><td>Codex</td><td>Comment</td><td><strong>Frame sheet tool</strong></td><td>-</td><td>-</td><td>555ms</td><td>3.0s</td><td>13.0s</td><td>0ms</td><td>456ms</td><td>15.0s</td><td>13.1s</td></tr>
+              <tr><td>Claude</td><td>Chat</td><td><strong>Current snapshot tool</strong></td><td>-</td><td>-</td><td>108ms</td><td>4.0s</td><td>4.0s</td><td>0ms</td><td>105ms</td><td>19.0s</td><td>3.5s</td></tr>
+              <tr><td>Claude</td><td>Chat</td><td><strong>Timestamp snapshot tool</strong></td><td>-</td><td>-</td><td>108ms</td><td>3.0s</td><td>7.0s</td><td>1.0s</td><td>313ms</td><td>19.0s</td><td>7.5s</td></tr>
+              <tr><td>Claude</td><td>Chat</td><td><strong>Frame sheet tool</strong></td><td>-</td><td>-</td><td>108ms</td><td>2.0s</td><td>10.0s</td><td>1.0s</td><td>374ms</td><td>19.0s</td><td>10.5s</td></tr>
+              <tr><td>Claude</td><td>Comment</td><td><strong>Auto current frame</strong></td><td>73ms</td><td>75ms</td><td>557ms</td><td>-</td><td>-</td><td>-</td><td>-</td><td>16.0s</td><td>75ms</td></tr>
+              <tr><td>Claude</td><td>Comment</td><td><strong>Auto range sheet</strong></td><td>83ms</td><td>89ms</td><td>459ms</td><td>-</td><td>-</td><td>-</td><td>-</td><td>5.0s</td><td>89ms</td></tr>
+              <tr><td>Claude</td><td>Comment</td><td><strong>Current snapshot tool</strong></td><td>-</td><td>-</td><td>557ms</td><td>5.0s</td><td>5.0s</td><td>0ms</td><td>0ms</td><td>16.0s</td><td>5.0s</td></tr>
+              <tr><td>Claude</td><td>Comment</td><td><strong>Timestamp snapshot tool</strong></td><td>-</td><td>-</td><td>557ms</td><td>2.0s</td><td>7.0s</td><td>0ms</td><td>265ms</td><td>16.0s</td><td>7.0s</td></tr>
+              <tr><td>Claude</td><td>Comment</td><td><strong>Frame sheet tool</strong></td><td>-</td><td>-</td><td>557ms</td><td>3.0s</td><td>10.0s</td><td>0ms</td><td>364ms</td><td>16.0s</td><td>10.0s</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout amber">
+          <div class="label">Finding</div>
+          <p><strong>The app-owned visual paths are now fast; the visible wait is mostly model tool choice.</strong> Cards appear in 69-87ms, automatic comment visuals are ready in 71-93ms, current-frame comment tools can reuse the attached image with 0ms capture, and every fresh native tool capture is under 456ms. The eval now shows 9 of 12 model tool choices inside the 4s target; the remaining over-budget cases are first visual-tool choices.</p>
+        </div>
+      </section>
+
+      <section id="scenarios">
+        <h2>Composed Local Totals</h2>
+        <p class="lede">These totals compose the measured stages without provider/model latency. They are useful for local architecture tuning, but they understate the native-injection win because they leave out the extra model turn avoided by direct image return.</p>
+
+        <div class="scenario-grid" style="margin-top:18px">
+          <div class="scenario blue">
+            <div class="label">Current frame</div>
+            <div class="scenario-title">Live preview + native return</div>
+            <div class="scenario-time">about 10-11ms</div>
+            <p>Best hot path when the user or agent asks for the visible frame. Uses the preview surface and injects the image directly.</p>
+          </div>
+          <div class="scenario green">
+            <div class="label">Specific frames</div>
+            <div class="scenario-title">Warm Engine + native return</div>
+            <div class="scenario-time">147.65ms</div>
+            <p>Measured as three source-canonical frames plus native image adaptation. Single-frame warm renders should sit within this route family.</p>
+          </div>
+          <div class="scenario violet">
+            <div class="label">Range sheet</div>
+            <div class="scenario-title">Warm sheet + native return</div>
+            <div class="scenario-time">400.48ms</div>
+            <p>Eight sampled frames, sheet assembly, and provider-native image return. This is the practical motion-reasoning path.</p>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-top:18px">
+          <table>
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>Capture stage</th>
+                <th>Handoff stage</th>
+                <th>Local measured total</th>
+                <th>Provider turn count</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Current frame direct</strong></td>
+                <td>Live preview, 9-10ms prior spike</td>
+                <td>Native image return, 0.61ms</td>
+                <td>About 10-11ms, not including model thinking</td>
+                <td>One tool call returns the image</td>
+              </tr>
+              <tr>
+                <td><strong>Warm Engine direct</strong></td>
+                <td>Warm Engine, 147.04ms</td>
+                <td>Native image return, 0.61ms</td>
+                <td>147.65ms</td>
+                <td>One tool call returns the image</td>
+              </tr>
+              <tr>
+                <td><strong>Warm sheet direct</strong></td>
+                <td>Warm Engine sheet, 399.87ms</td>
+                <td>Native image return, 0.61ms</td>
+                <td>400.48ms</td>
+                <td>One tool call returns the image</td>
+              </tr>
+              <tr>
+                <td><strong>Cold CLI path-only fallback</strong></td>
+                <td>Cold CLI, 7397.81ms</td>
+                <td>Path JSON plus local lookup, 0.14ms</td>
+                <td>7397.95ms plus provider/model turn</td>
+                <td>One tool call, then at least one follow-up image inspection turn</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="providers">
+        <h2>Provider Injection</h2>
+        <p class="lede">Codex and Claude use different extension APIs, but Ripple gives the agent the same product behavior: the tool result includes the image.</p>
+
+        <div class="provider-grid" style="margin-top:18px">
+          <div class="provider">
+            <div class="provider-head">
+              <div class="provider-title">Codex</div>
+              <span class="pill violet">dynamic tool</span>
+            </div>
+            <p>Ripple registers dynamic visual tools on the Codex App Server session. When Codex calls <code>ripple.snapshot</code> or <code>ripple.frame_sheet</code>, Ripple captures the visual and returns <code>inputImage</code> content with a data URL.</p>
+            <div class="mini-flow">
+              <div class="mini-step"><strong>Register</strong><span><code>buildRippleVisualDynamicToolSpecs()</code></span></div>
+              <div class="mini-step"><strong>Handle</strong><span><code>item/tool/call</code> for the <code>ripple</code> namespace.</span></div>
+              <div class="mini-step"><strong>Return</strong><span><code>inputText</code> summary plus <code>inputImage</code>.</span></div>
+            </div>
+          </div>
+
+          <div class="provider">
+            <div class="provider-head">
+              <div class="provider-title">Claude</div>
+              <span class="pill amber">SDK MCP tool</span>
+            </div>
+            <p>Claude Agent SDK exposes app-defined tools through an SDK-created MCP server. This is not a shell lookup loop. It is Claude's custom-tool lane, and the handler returns a native image content block directly.</p>
+            <div class="mini-flow">
+              <div class="mini-step"><strong>Register</strong><span><code>createSdkMcpServer("ripple_visual_context")</code></span></div>
+              <div class="mini-step"><strong>Handle</strong><span><code>ripple_snapshot</code> and <code>ripple_frame_sheet</code>.</span></div>
+              <div class="mini-step"><strong>Return</strong><span><code>text</code> summary plus <code>image</code> base64 content.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout green">
+          <div class="label">Shared core</div>
+          <p><strong>Both providers call the same visual context core.</strong> The only provider-specific part is the final wrapper: Codex wants <code>inputImage</code>, while Claude wants an SDK MCP result with <code>type: "image"</code>.</p>
+        </div>
+      </section>
+
+      <section id="coverage">
+        <h2>Coverage And Gaps</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Layer</th>
+                <th>Evidence</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Capture route quality</strong></td>
+                <td><code>test/quality/visual-context-matrix.test.ts</code></td>
+                <td>Regenerates artifacts and validates current-frame, snapshot, and sheet coverage.</td>
+              </tr>
+              <tr>
+                <td><strong>Capture route timing</strong></td>
+                <td><code>scripts/benchmark-visual-context.ts</code></td>
+                <td>Measures warm Engine, warm sheet, fast browser, and cold CLI routes.</td>
+              </tr>
+              <tr>
+                <td><strong>Preview-driven prewarm</strong></td>
+                <td><code>src/main/lib/visual-context/service.test.ts</code> and <code>src/renderer/features/hyperframes/preview-player-controls.test.ts</code></td>
+                <td>Verifies explicit render prewarm support and the preview-surface metadata that drives it.</td>
+              </tr>
+              <tr>
+                <td><strong>Native image adaptation</strong></td>
+                <td><code>src/main/lib/agent-runtime/visual-context-native-tool.test.ts</code></td>
+                <td>Verifies artifact loading and provider-native Codex and Claude image shapes.</td>
+              </tr>
+              <tr>
+                <td><strong>Codex provider path</strong></td>
+                <td><code>src/main/lib/agent-runtime/providers/codex-app-server-adapter.test.ts</code></td>
+                <td>Verifies no eager startup image for chats and dynamic visual tool image return.</td>
+              </tr>
+              <tr>
+                <td><strong>Claude provider path</strong></td>
+                <td><code>src/main/lib/agent-runtime/providers/claude-agent-sdk-adapter.test.ts</code></td>
+                <td>Verifies no eager startup image for chats and SDK MCP visual tool registration.</td>
+              </tr>
+              <tr>
+                <td><strong>True provider round-trip timing</strong></td>
+                <td><code>test:e2e:visual-context-live</code> plus <code>test-results/visual-context-live-timing-matrix.md</code></td>
+                <td>Covers every chat and comment visual path for Codex and Claude with UI, capture, handoff, provider, and E2E timing columns.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout amber">
+          <div class="label">Remaining control</div>
+          <p><strong>The live direct-image path is now measured.</strong> The remaining comparison is an intentionally slower path-only control that returns a file path and waits for the agent to request image inspection. That control will quantify the exact wall-clock savings from avoiding the extra turn.</p>
+        </div>
+      </section>
+
+      <footer>
+        Related docs: <a href="Visual Context.html#evidence">Visual Context spec evidence</a> and <a href="visual-context-eval.html">preserved render-path eval readout</a>. Current benchmark sources: <code>scripts/benchmark-visual-context.ts</code> and <code>test/e2e/agent-visual-context-provider-matrix-live.e2e.ts</code>.
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

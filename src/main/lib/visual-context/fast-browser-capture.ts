@@ -18,6 +18,7 @@ export interface VisualFastBrowserCaptureResult {
 
 export interface VisualFastBrowserCaptureInput {
   projectDir: string
+  compositionPath?: string | null
   timestampsMs: number[]
   timeoutMs: number
   columns: number
@@ -55,12 +56,14 @@ async function readProjectTextFile(projectDir: string, projectRelativePath: stri
   return readFile(resolved.path, "utf8")
 }
 
-async function readProjectMetadata(projectDir: string): Promise<{
+async function readProjectMetadata(projectDir: string, compositionPath?: string | null): Promise<{
   entry: string
   width: number
   height: number
 }> {
-  let entry = "index.html"
+  let entry = compositionPath?.trim()
+    ? normalizeProjectRelativePath(compositionPath.trim())
+    : "index.html"
   let width = 1920
   let height = 1080
 
@@ -68,7 +71,7 @@ async function readProjectMetadata(projectDir: string): Promise<{
     const metadataJson = await readProjectTextFile(projectDir, "hyperframes.json")
     const parsed = metadataJson ? JSON.parse(metadataJson) : null
     if (isRecord(parsed)) {
-      if (typeof parsed.entry === "string" && parsed.entry.trim()) {
+      if (!compositionPath?.trim() && typeof parsed.entry === "string" && parsed.entry.trim()) {
         entry = normalizeProjectRelativePath(parsed.entry.trim())
       }
       if (typeof parsed.width === "number" && Number.isFinite(parsed.width) && parsed.width > 0) {
@@ -192,7 +195,7 @@ export async function captureFramesWithFastBrowser(
     )
   }
 
-  const metadata = await readProjectMetadata(input.projectDir)
+  const metadata = await readProjectMetadata(input.projectDir, input.compositionPath)
   const cellWidth = Math.max(160, Math.floor(input.maxSheetWidth / input.columns))
   const cellHeight = Math.max(90, Math.round(cellWidth * (metadata.height / metadata.width)))
   const captureDir = join(

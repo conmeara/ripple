@@ -615,22 +615,32 @@ describe("Codex App Server input", () => {
     expect(source).toContain("buildCodexTurnSkillInputs")
   })
 
-  test("keeps preview-context capture off the default Codex startup path", async () => {
+  test("keeps preview-context capture out of the normal Codex startup path", async () => {
     const source = await readFile(
       "src/main/lib/agent-runtime/providers/codex-app-server-adapter.ts",
       "utf8",
     )
 
-    const handoffPromiseIndex = source.indexOf("const visualContextHandoffPromise")
-    const optInIndex = source.indexOf("shouldPrepareAgentVisualContextHandoff()", handoffPromiseIndex)
-    const clientStartIndex = source.indexOf("await client.start()", handoffPromiseIndex)
-    const handoffAwaitIndex = source.indexOf("visualContextHandoffPromise,", clientStartIndex)
+    expect(source).not.toContain("visualContextHandoffPromise")
+    expect(source).not.toContain("prepareAgentVisualContextHandoff")
+    expect(source).not.toContain("shouldPrepareAgentVisualContextHandoff")
+    expect(source).not.toContain('label: "Preparing preview context"')
+    expect(source).not.toContain("optionalAttachments: visualContextHandoff?.attachments")
+    expect(source).toContain("attachments: input.attachments")
+    expect(source).toContain("createAgentVisualContextEndpoint")
+    expect(source).toContain("createAgentVisualContextFileBridge")
+  })
 
-    expect(handoffPromiseIndex).toBeGreaterThan(-1)
-    expect(optInIndex).toBeGreaterThan(handoffPromiseIndex)
-    expect(clientStartIndex).toBeGreaterThan(handoffPromiseIndex)
-    expect(handoffAwaitIndex).toBeGreaterThan(clientStartIndex)
-    expect(source).toContain('label: "Preparing preview context"')
+  test("handles Ripple visual dynamic tools with native image content", async () => {
+    const source = await readFile(
+      "src/main/lib/agent-runtime/providers/codex-app-server-adapter.ts",
+      "utf8",
+    )
+
+    expect(source).toContain("isRippleVisualDynamicToolCall")
+    expect(source).toContain("runNativeVisualContextTool")
+    expect(source).toContain("buildCodexNativeVisualContextContentItems")
+    expect(source).toContain("dynamicTools: visualDynamicTools")
   })
 
   test("passes supported image attachments and typed skills as native inputs", () => {
