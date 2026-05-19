@@ -225,8 +225,11 @@ describe("agent runtime live context", () => {
       expect(snapshot).toEqual({
         projectPath: "/tmp/launch-promo",
         sourcePath: "/tmp/launch-promo",
+        projectId: "project-1",
+        compositionId: "composition-1",
         compositionPath: "index.html",
         sourceRevisionId: null,
+        previewSurfaceKey: "project-1:composition-1:main",
         timeMs: 1250,
         fps: 30,
         width: 1280,

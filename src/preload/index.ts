@@ -13,6 +13,7 @@ import type {
   HyperframesSourceWatchSubscription,
   HyperframesSourceWatchSubscriptionInput,
 } from "../shared/hyperframes-source-watch"
+import type { VisualPreviewSurfaceUpdate } from "../shared/visual-preview-surface"
 
 // Remote crash reporting is disabled until Ripple has a separate opt-in and
 // sanitized exception extras.
@@ -291,6 +292,12 @@ contextBridge.exposeInMainWorld("desktopApi", {
   unsubscribeFromHyperframesSourceWatcher: (subscriptionKey: string) =>
     ipcRenderer.invoke("hyperframes:unsubscribe-source-watcher", subscriptionKey),
 
+  // Visual context preview surface
+  updateVisualPreviewSurface: (input: VisualPreviewSurfaceUpdate) =>
+    ipcRenderer.invoke("visual-context:update-preview-surface", input) as Promise<{ ok: boolean }>,
+  clearVisualPreviewSurface: (input: { surfaceKey: string }) =>
+    ipcRenderer.invoke("visual-context:clear-preview-surface", input) as Promise<{ ok: boolean }>,
+
   // VS Code theme scanning
   scanVSCodeThemes: () => ipcRenderer.invoke("vscode:scan-themes"),
   loadVSCodeTheme: (themePath: string) => ipcRenderer.invoke("vscode:load-theme", themePath),
@@ -451,6 +458,9 @@ export interface DesktopApi {
   onHyperframesSourceChanged: (callback: (data: HyperframesSourceWatchEvent) => void) => () => void
   subscribeToHyperframesSourceWatcher: (input: HyperframesSourceWatchSubscriptionInput) => Promise<HyperframesSourceWatchSubscription | null>
   unsubscribeFromHyperframesSourceWatcher: (subscriptionKey: string) => Promise<void>
+  // Visual context preview surface
+  updateVisualPreviewSurface: (input: VisualPreviewSurfaceUpdate) => Promise<{ ok: boolean }>
+  clearVisualPreviewSurface: (input: { surfaceKey: string }) => Promise<{ ok: boolean }>
   // VS Code theme scanning
   scanVSCodeThemes: () => Promise<DiscoveredTheme[]>
   loadVSCodeTheme: (themePath: string) => Promise<VSCodeThemeData>

@@ -300,6 +300,33 @@ describe("Comments spec contract: B - visual context attachment", () => {
     expect(serviceSource).toContain("captureCommentVisualForAnchor({")
   })
 
+  test("comment agent run waits for automatic visual context before provider startup", () => {
+    const serviceSource = read(COMMENT_REVISIONS_PATH)
+    const createThreadSource = between(
+      serviceSource,
+      "export async function createCommentThread(",
+      "export async function addCommentReply(",
+    )
+    const revisionStartupSource = between(
+      serviceSource,
+      "function createRevisionForThreadInBackground(",
+      "async function prepareMissingRevisionWorkspaceForRecovery(",
+    )
+
+    expectBefore(
+      createThreadSource,
+      "const visualContextReady = shouldCaptureCommentVisualContext({",
+      "createRevisionForThreadInBackground({",
+    )
+    expect(createThreadSource).toContain("visualContextReady,")
+    expect(revisionStartupSource).toContain("await options.visualContextReady")
+    expectBefore(
+      revisionStartupSource,
+      "await options.visualContextReady",
+      "const revision = await createRevisionForThread(input)",
+    )
+  })
+
   test("T-B2 comment persists even when visual capture fails", () => {
     const serviceSource = read(COMMENT_REVISIONS_PATH)
     const captureBlock = between(

@@ -212,6 +212,7 @@ async function captureSingleFrameWithService(input: {
       format: "png",
       timeoutMs: FAST_FRAME_CAPTURE_TIMEOUT_MS,
       reason: "comment-frame",
+      intent: "specific-frame",
       outputDir: visualDir,
       env: process.env,
       repoRoot: input.repoRoot,

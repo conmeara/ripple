@@ -314,6 +314,7 @@ export const hyperframesRouter = router({
 
       return {
         project: context.project,
+        projectPath: context.projectPath,
         composition,
         source: buildHyperframesPlayerSourceDocument({ context, composition }),
       }
@@ -341,6 +342,7 @@ export const hyperframesRouter = router({
 
       return {
         project: context.project,
+        projectPath: context.projectPath,
         composition,
         model: buildHyperframesStaticTimelineModel({ context, composition }),
       }

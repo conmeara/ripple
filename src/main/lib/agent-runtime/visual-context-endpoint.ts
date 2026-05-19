@@ -7,6 +7,7 @@ import {
   type VisualContextSourceInvalidationHandle,
   type VisualContextEndpointHandle,
 } from "../visual-context"
+import { createPreviewSurfaceVisualBackend } from "../visual-context/preview-surface"
 
 export interface AgentVisualContextEndpoint {
   endpoint: string
@@ -23,7 +24,11 @@ export async function createAgentVisualContextEndpoint(
   workspaceRoot: string,
   options: AgentVisualContextEndpointOptions = {},
 ): Promise<AgentVisualContextEndpoint | null> {
-  const service = options.service ?? createVisualContextService()
+  const service = options.service ?? createVisualContextService({
+    backends: {
+      preview: createPreviewSurfaceVisualBackend(),
+    },
+  })
   let endpoint: VisualContextEndpointHandle | null = null
   let sourceInvalidation: VisualContextSourceInvalidationHandle | null = null
   try {

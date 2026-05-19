@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm"
 import { resolve } from "node:path"
+import { buildVisualPreviewSurfaceKey } from "../../../shared/visual-preview-surface"
 import {
   commentThreads,
   compositions,
@@ -304,6 +305,18 @@ export function resolveAgentRuntimeCurrentFrameSnapshot(input: {
   const fps = 30
   const timeMs = getRuntimePreviewTimeMs(runtimeContext, fps)
   if (timeMs === null) return null
+  const compositionId = composition?.id ?? runtimeContext?.compositionId ?? null
+  const previewSource = runtimeContext?.previewSource
+  const previewSurfaceKey = buildVisualPreviewSurfaceKey({
+    projectId: input.resolved.project.id,
+    compositionId,
+    revisionId: previewSource?.kind === "comment-revision"
+      ? previewSource.revisionId
+      : null,
+    chatId: previewSource?.kind === "chat-worktree"
+      ? previewSource.conversationId ?? previewSource.chatId ?? null
+      : null,
+  })
 
   return {
     projectPath: resolve(input.resolved.cwd),
@@ -312,12 +325,15 @@ export function resolveAgentRuntimeCurrentFrameSnapshot(input: {
       resolved: input.resolved,
       runtimeContext,
     }),
+    projectId: input.resolved.project.id,
+    compositionId,
     compositionPath: composition?.filePath ?? null,
     sourceRevisionId:
       runtimeContext?.revisionId ??
       (runtimeContext?.previewSource?.kind === "comment-revision"
         ? runtimeContext.previewSource.revisionId
         : null),
+    previewSurfaceKey,
     timeMs,
     fps,
     width: composition?.width,

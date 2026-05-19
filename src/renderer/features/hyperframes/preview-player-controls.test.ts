@@ -355,6 +355,19 @@ describe("HyperFrames preview player controls", () => {
     expect(source).toContain('iframeWindow.addEventListener("keydown", handlePreviewSpacebarKeyDown, true)')
   })
 
+  test("publishes the active preview surface for app-owned visual context", () => {
+    const source = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",
+      "utf8",
+    )
+
+    expect(source).toContain("buildVisualPreviewSurfaceKey")
+    expect(source).toContain("previewSurfaceRef")
+    expect(source).toContain("updateVisualPreviewSurface")
+    expect(source).toContain("clearVisualPreviewSurface")
+    expect(source).toContain("sourceQuery.data?.projectPath")
+  })
+
   test("delays transient preview loading indicators to avoid flicker", () => {
     const source = readFileSync(
       "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",

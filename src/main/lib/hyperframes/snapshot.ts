@@ -194,6 +194,7 @@ async function captureHyperframesSnapshotWithService(input: {
       format: "png",
       timeoutMs: input.timeout ?? 5000,
       reason: "snapshot",
+      intent: "specific-frame",
       repoRoot: input.repoRoot,
     })
     captureCleanupPaths = capture.cleanupPaths

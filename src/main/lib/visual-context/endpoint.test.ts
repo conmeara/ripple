@@ -156,8 +156,19 @@ describe("Visual Context endpoint", () => {
 
   test("captures frames through the app-scoped service", async () => {
     const workspaceRoot = await mkdtemp(join(tmpdir(), "ripple-visual-endpoint-workspace-"))
+    let snapshotRequest: VisualSnapshotInput | null = null
+    const service: VisualContextService = {
+      ...fakeService(),
+      captureSnapshot: async (request) => {
+        snapshotRequest = request
+        return makeResult({
+          ...request,
+          timestampsMs: [request.timeMs],
+        })
+      },
+    }
     const handle = await createVisualContextEndpoint({
-      service: fakeService(),
+      service,
       workspaceRoot,
       token: "token-test",
     })
@@ -182,6 +193,52 @@ describe("Visual Context endpoint", () => {
       expect(accepted.payload.result.backend).toBe("engine")
       expect(accepted.payload.result.frames[0].timeMs).toBe(500)
       expect(accepted.payload.result.frames[0].frame).toBe(15)
+      expect(snapshotRequest).toEqual(expect.objectContaining({
+        intent: "specific-frame",
+      }))
+    } finally {
+      await handle.close()
+      await rm(workspaceRoot, { recursive: true, force: true })
+    }
+  })
+
+  test("marks capture-frame requests as frame-sheet intents", async () => {
+    const workspaceRoot = await mkdtemp(join(tmpdir(), "ripple-visual-endpoint-workspace-"))
+    let captureRequest: VisualCaptureFramesRequest | null = null
+    const service: VisualContextService = {
+      ...fakeService(),
+      captureFrames: async (request) => {
+        captureRequest = request
+        return makeResult(request)
+      },
+    }
+    const handle = await createVisualContextEndpoint({
+      service,
+      workspaceRoot,
+      token: "token-test",
+    })
+    try {
+      const accepted = await postJson({
+        endpoint: handle.endpoint,
+        path: "/capture-frames",
+        token: "token-test",
+        body: {
+          projectPath: workspaceRoot,
+          timestampsMs: [0, 500, 1000],
+          fps: 30,
+          width: 1920,
+          height: 1080,
+          format: "png",
+          timeoutMs: 1000,
+          reason: "frame-sheet",
+        },
+      })
+
+      expect(accepted.status).toBe(200)
+      expect(accepted.payload.ok).toBe(true)
+      expect(captureRequest).toEqual(expect.objectContaining({
+        intent: "frame-sheet",
+      }))
     } finally {
       await handle.close()
       await rm(workspaceRoot, { recursive: true, force: true })
@@ -238,7 +295,10 @@ describe("Visual Context endpoint", () => {
       token: "token-test",
       resolveCurrentFrameSnapshot: async () => ({
         projectPath: workspaceRoot,
+        projectId: "project-1",
+        compositionId: "composition-1",
         compositionPath: "index.html",
+        previewSurfaceKey: "project-1:composition-1:main",
         timeMs: 733,
         fps: 24,
         width: 1280,
@@ -276,6 +336,9 @@ describe("Visual Context endpoint", () => {
         fps: 24,
         width: 1280,
         height: 720,
+        intent: "current-frame",
+        preferredBackend: "preview",
+        previewSurfaceKey: "project-1:composition-1:main",
       }))
     } finally {
       await handle.close()

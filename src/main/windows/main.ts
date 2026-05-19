@@ -30,6 +30,10 @@ import { hasActiveClaudeSessions, abortAllClaudeSessions } from "../lib/trpc/rou
 import { hasActiveCodexStreams, abortAllCodexStreams } from "../lib/trpc/routers/codex"
 import { getBuildAssetPath } from "../lib/packaged-assets"
 import { registerThemeScannerIPC } from "../lib/vscode-theme-scanner"
+import {
+  clearVisualPreviewSurfacesForWindow,
+  registerVisualPreviewSurfaceIpc,
+} from "../lib/visual-context/preview-surface-ipc"
 import { windowManager } from "./window-manager"
 
 // Flag to bypass close confirmation when app.quit() has already been confirmed
@@ -704,6 +708,7 @@ function registerIpcHandlers(): void {
   // Register git watcher IPC handlers
   registerGitWatcherIPC()
   registerHyperframesSourceWatcherIPC()
+  registerVisualPreviewSurfaceIpc()
 
   // Register VS Code theme scanner IPC handlers
   registerThemeScannerIPC()
@@ -951,6 +956,7 @@ export function createWindow(options?: { chatId?: string; subChatId?: string }):
   // Handle window close
   window.on("closed", () => {
     console.log(`[Main] Window ${window.id} closed`)
+    clearVisualPreviewSurfacesForWindow(window.id)
     // windowManager handles cleanup via 'closed' event listener
   })
 

@@ -1048,7 +1048,7 @@
   <!-- ═══ Workflow ═══ -->
   <section id="workflow">
     <h2>The workflow</h2>
-    <p class="lede-2">Comments fit into a specific moment in the user's day. Most projects begin in <a href="Chats.md">Chats</a> — the user asks the agent to scaffold the comp, build out the motion language, set the timing. By the time they open Comments, they have something playable. Comments is for the round of small, surgical fixes that come next.</p>
+    <p class="lede-2">Comments fit into a specific moment in the user's day. Most projects begin in Chats — the user asks the agent to scaffold the comp, build out the motion language, set the timing. By the time they open Comments, they have something playable. Comments is for the round of small, surgical fixes that come next.</p>
 
     <div class="workflow">
       <div class="workflow-step">
@@ -1070,7 +1070,7 @@
 
     <div class="callout info">
       <div class="callout-icon">Note</div>
-      <div class="callout-body"><strong>Comments ≠ Chats.</strong> Chats is for the broad creative direction — open-ended conversation that may rewrite large parts of the project. Comments is for the targeted round of feedback after the comp exists. See <a href="Chats.md">Chats</a> for the broader chat surface.</div>
+      <div class="callout-body"><strong>Comments ≠ Chats.</strong> Chats is for the broad creative direction — open-ended conversation that may rewrite large parts of the project. Comments is for the targeted round of feedback after the comp exists.</div>
     </div>
   </section>
 
@@ -1082,7 +1082,7 @@
     <div class="concept-grid">
       <div class="concept-card highlight">
         <div class="concept-name">Main <span class="concept-tag">primary</span></div>
-        <div class="concept-desc">The accepted project. What the user sees by default in <a href="Preview.md">Preview</a>. Only changes when a proposal is accepted.</div>
+        <div class="concept-desc">The accepted project. What the user sees by default in Preview. Only changes when a proposal is accepted.</div>
       </div>
       <div class="concept-card">
         <div class="concept-name">Comment <span class="concept-tag">CommentThread</span></div>
@@ -1094,7 +1094,7 @@
       </div>
       <div class="concept-card">
         <div class="concept-name">Proposed version <span class="concept-tag">Revision</span></div>
-        <div class="concept-desc">The agent-generated change set tied to a comment. Lives in isolation until accepted. Full lifecycle in <a href="Revisions.md">Revisions</a>.</div>
+        <div class="concept-desc">The agent-generated change set tied to a comment. Lives in isolation until accepted. Full lifecycle lives in Revisions.</div>
       </div>
       <div class="concept-card">
         <div class="concept-name">Reply <span class="concept-tag">CommentMessage</span></div>
@@ -1102,7 +1102,7 @@
       </div>
       <div class="concept-card">
         <div class="concept-name">Visual context <span class="concept-tag">frame attachment</span></div>
-        <div class="concept-desc">The frame or range image automatically attached to a comment so the agent can see what the user saw. See <a href="Visual Context.md">Visual Context</a>.</div>
+        <div class="concept-desc">The frame or range image automatically attached to a comment so the agent can see what the user saw. See <a href="Visual Context.html">Visual Context</a>.</div>
       </div>
     </div>
   </section>
@@ -1155,7 +1155,7 @@
       <li><strong>Enter sends.</strong> Shift+Enter inserts a newline. No mouse trip required.<a class="test-marker covered" href="#testplan">T-A4<span class="tip"><strong>Composer Enter sends; Shift+Enter newline</strong><em>component · covered · comment-composer.test.ts</em></span></a></li>
       <li><strong>Composer empties and refocuses.</strong> The user can immediately scrub to a new frame and type the next note.<a class="test-marker covered" href="#testplan">T-A5<span class="tip"><strong>Composer clears and refocuses on send</strong><em>component · covered</em></span></a></li>
       <li><strong>Anchor follows the user.</strong> Whatever frame or selection is visible when typing begins is the anchor. Ripple captures it; the user does not pick it.<a class="test-marker covered" href="#testplan">T-A1<span class="tip"><strong>Anchor captures current frame at compose time</strong><em>unit · covered</em></span></a><a class="test-marker covered" href="#testplan">T-A2<span class="tip"><strong>Anchor captures range when timeline selected</strong><em>component · covered</em></span></a><a class="test-marker covered" href="#testplan">T-A3<span class="tip"><strong>Reversed range start/end is normalized</strong><em>unit · covered · ripple-comments.test.ts</em></span></a></li>
-      <li><strong>Visual context attaches in the background.</strong> The current frame is captured asynchronously and attached to the agent run when ready. If capture fails, the comment still exists. See <a href="Visual Context.md">Visual Context</a>.<a class="test-marker covered" href="#testplan">T-B1<span class="tip"><strong>Visual capture is async; does not block card</strong><em>integration · covered</em></span></a><a class="test-marker covered" href="#testplan">T-B2<span class="tip"><strong>Comment persists if visual capture fails</strong><em>integration · covered</em></span></a><a class="test-marker covered" href="#testplan">T-B3<span class="tip"><strong>Range comments capture frame sheet (6 samples)</strong><em>integration · covered · comment-revisions.test.ts</em></span></a></li>
+      <li><strong>Visual context attaches in the background.</strong> The current frame is captured asynchronously and attached to the agent run when ready. If capture fails, the comment still exists. See <a href="Visual Context.html">Visual Context</a>.<a class="test-marker covered" href="#testplan">T-B1<span class="tip"><strong>Visual capture is async; does not block card</strong><em>integration · covered</em></span></a><a class="test-marker covered" href="#testplan">T-B2<span class="tip"><strong>Comment persists if visual capture fails</strong><em>integration · covered</em></span></a><a class="test-marker covered" href="#testplan">T-B3<span class="tip"><strong>Range comments capture frame sheet (6 samples)</strong><em>integration · covered · comment-revisions.test.ts</em></span></a></li>
     </ul>
   </section>
 
@@ -1403,7 +1403,7 @@
         <tr><td class="col-status">rejected</td><td class="col-label">Changes rejected</td><td>gray</td><td class="no">—</td><td><a class="test-marker covered" href="#testplan">T-D7<span class="tip"><strong>Status text mapping per status</strong><em>unit · covered · comment-formatting.test.ts</em></span></a></td></tr>
       </tbody>
     </table>
-    <p style="font-size:12px;color:var(--fg-3)">The four colors map to the same status family used everywhere in Ripple — see <a href="Revisions.md">Revisions</a> for the canonical lifecycle.</p>
+    <p style="font-size:12px;color:var(--fg-3)">The four colors map to the same status family used everywhere in Ripple; Revisions owns the canonical lifecycle.</p>
 
     <h4>Activity line rules</h4>
     <p>The working card reads the latest normalized <code>activity</code> event for that revision, falling back to older runtime events only when a provider has not emitted activity yet. Newer events replace older ones, so the line can move from thinking → checking → editing without opening Chat. Raw commands, file paths, provider setup labels, and tool output never appear on the card.</p>
@@ -1466,7 +1466,7 @@
       </div>
     </div>
 
-    <p>The four colors match the status colors used on the comment cards and across the rest of Ripple's review surfaces. See <a href="Timeline.md">Timeline</a> for the full timeline spec.</p>
+    <p>The four colors match the status colors used on the comment cards and across the rest of Ripple's review surfaces.</p>
 
     <h4>Marker rules</h4>
     <ul>
@@ -1539,7 +1539,7 @@
 
     <div class="callout note">
       <div class="callout-icon">Note</div>
-      <div class="callout-body">Preview player behavior — seek precision, scrubbing, frame stepping — lives in <a href="Preview.md">Preview</a>. This spec only covers what Comments contributes: the click-to-switch behavior and the View Main icon in the Comments pane.</div>
+      <div class="callout-body">Preview player behavior — seek precision, scrubbing, frame stepping — lives in Preview. This spec only covers what Comments contributes: the click-to-switch behavior and the View Main icon in the Comments pane.</div>
     </div>
   </section>
 
@@ -1590,7 +1590,7 @@
     <ul>
       <li><strong>The thread continues.</strong> Replies append to the existing conversation — the agent sees the full history.<a class="test-marker covered" href="#testplan">T-H1<span class="tip"><strong>Reply appends to conversation; agent sees full history</strong><em>integration · covered · comment-revisions.test.ts</em></span></a></li>
       <li><strong>Replies are cumulative.</strong> A comment thread behaves like the same chat: if the first agent pass edits the background and the user replies to make the logo bigger, the next pass keeps both changes in the same code state.<a class="test-marker covered" href="#testplan">T-H2<span class="tip"><strong>Replies continue same chat and cumulative code state</strong><em>integration · covered · comment-revisions.test.ts</em></span></a></li>
-      <li><strong>Open in Chat</strong> can happen at any time, even while the first run has only just started. It opens the full chat history for that comment and keeps the preview context. See <a href="Chats.md">Chats</a>.<a class="test-marker covered" href="#testplan">T-H3<span class="tip"><strong>Open in Chat shows full comment history at any state</strong><em>integration · covered</em></span></a></li>
+      <li><strong>Open in Chat</strong> can happen at any time, even while the first run has only just started. It opens the full chat history for that comment and keeps the preview context.<a class="test-marker covered" href="#testplan">T-H3<span class="tip"><strong>Open in Chat shows full comment history at any state</strong><em>integration · covered</em></span></a></li>
     </ul>
 
     <h4>Agent reply discipline</h4>
@@ -1624,7 +1624,7 @@
       <li><strong>Failure is honest.</strong> If accept fails, the card does not pretend it succeeded. Main remains safe and the user gets a clear message.<a class="test-marker covered" href="#testplan">T-I4<span class="tip"><strong>Failed accept atomically rolls back Main</strong><em>integration · covered · comment-revisions.test.ts</em></span></a></li>
     </ul>
 
-    <p>Full safety model — patch strategy, base-commit gate, atomic rollback — lives in <a href="Revisions.md">Revisions</a>.</p>
+    <p>Full safety model — patch strategy, base-commit gate, atomic rollback — lives in Revisions.</p>
   </section>
 
   <!-- ═══ Auto-merge cascade ═══ -->
@@ -1752,7 +1752,7 @@
     <p>The card moves to <em>Refresh needed</em>. The user can click the bottom-right Refresh action to restart the same agent run, or delete the comment if it is no longer useful.<a class="test-marker covered" href="#testplan">T-D4<span class="tip"><strong>Refresh needed: amber dot, bottom-right Refresh action</strong><em>component · covered</em></span></a></p>
 
     <h4>Ripple crashed mid-run</h4>
-    <p>On startup, any revision left in <code>preparing</code> or <code>running</code> is reset to <code>queued</code> and re-enters the queue.<a class="test-marker covered" href="#testplan">T-K1<span class="tip"><strong>preparing/running on startup reset to queued</strong><em>integration · covered · comment-revisions.test.ts</em></span></a> Anything that lost its workspace is recovered by the agent before it can be accepted again.<a class="test-marker covered" href="#testplan">T-K2<span class="tip"><strong>Lost workspace requeues agent recovery</strong><em>integration · covered · comment-revisions.test.ts</em></span></a> See <a href="Failure Recovery.md">Failure Recovery</a>.</p>
+    <p>On startup, any revision left in <code>preparing</code> or <code>running</code> is reset to <code>queued</code> and re-enters the queue.<a class="test-marker covered" href="#testplan">T-K1<span class="tip"><strong>preparing/running on startup reset to queued</strong><em>integration · covered · comment-revisions.test.ts</em></span></a> Anything that lost its workspace is recovered by the agent before it can be accepted again.<a class="test-marker covered" href="#testplan">T-K2<span class="tip"><strong>Lost workspace requeues agent recovery</strong><em>integration · covered · comment-revisions.test.ts</em></span></a></p>
 
     <h4>Soft-deletion and restore</h4>
     <p>Deleting a comment soft-deletes it.<a class="test-marker covered" href="#testplan">T-L1<span class="tip"><strong>Delete sets deletedAt; thread → archived</strong><em>unit · covered</em></span></a> The X stays available until acceptance, including while the agent is working or the Accept slot is updating. Once accepted, the comment is history and delete is hidden.<a class="test-marker covered" href="#testplan">T-L3<span class="tip"><strong>Delete available before acceptance; hidden after accepted</strong><em>component · covered</em></span></a> Deleted comments vanish from <em>Comments</em> but appear in <em>Rejected</em> with a Restore action. Restoration brings them back to <em>open</em> with full history.<a class="test-marker covered" href="#testplan">T-L2<span class="tip"><strong>Restore returns thread to open with history intact</strong><em>unit · covered</em></span></a></p>
@@ -1768,30 +1768,30 @@
     <p class="lede-2">Comments depends on or hands off to several other systems. Read these in tandem.</p>
 
     <div class="related-grid">
-      <a class="related-card" href="Revisions.md">
+      <div class="related-card">
         <div class="related-name">Revisions</div>
         <div class="related-desc">Canonical lifecycle for every proposed version. The status colors used on comment cards are defined here. Read this for the safety model.</div>
-      </a>
-      <a class="related-card" href="Visual Context.md">
+      </div>
+      <a class="related-card" href="Visual Context.html">
         <div class="related-name">Visual Context</div>
         <div class="related-desc">How the current frame is captured and attached to a comment so the agent can see what the user saw. Still being built.</div>
       </a>
-      <a class="related-card" href="Chats.md">
+      <div class="related-card">
         <div class="related-name">Chats</div>
         <div class="related-desc">The broader creative conversation surface. Where projects start; where Comments hands off when a thread needs full discussion.</div>
-      </a>
-      <a class="related-card" href="Preview.md">
+      </div>
+      <div class="related-card">
         <div class="related-name">Preview</div>
         <div class="related-desc">The center preview player. Owns scrubbing, seeking, and how the Comments pane switches back to Main.</div>
-      </a>
-      <a class="related-card" href="Timeline.md">
+      </div>
+      <div class="related-card">
         <div class="related-name">Timeline</div>
         <div class="related-desc">The bottom timeline strip. Hosts comment markers and selection ranges that anchor comments.</div>
-      </a>
-      <a class="related-card" href="Failure Recovery.md">
+      </div>
+      <div class="related-card">
         <div class="related-name">Failure Recovery</div>
         <div class="related-desc">How crashed agent runs and orphaned workspaces are handled on restart.</div>
-      </a>
+      </div>
     </div>
   </section>
 

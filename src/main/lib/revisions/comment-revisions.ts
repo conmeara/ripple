@@ -427,8 +427,8 @@ function captureCommentVisualContextInBackground(input: {
   anchor: RippleCommentAnchorInput
   threadId: string
   sourceRevisionId?: string | null
-}): void {
-  void (async () => {
+}): Promise<void> {
+  return (async () => {
     try {
       const db = getDatabase()
       const visual = await captureCommentVisualForAnchor({
@@ -457,14 +457,16 @@ function captureCommentVisualContextInBackground(input: {
   })()
 }
 
-function createRevisionForThreadInBackground(input: Parameters<typeof createRevisionForThread>[0]) {
-  void createRevisionForThread(input)
-    .then((revision) =>
-      import("../agent-runtime/generated-change-scheduler")
-        .then(({ scheduleGeneratedChangeQueue }) => {
-          scheduleGeneratedChangeQueue({ projectId: revision.projectId })
-        }),
-    )
+function createRevisionForThreadInBackground(
+  input: Parameters<typeof createRevisionForThread>[0],
+  options: { visualContextReady?: Promise<void> | null } = {},
+) {
+  void (async () => {
+    await options.visualContextReady
+    const revision = await createRevisionForThread(input)
+    const { scheduleGeneratedChangeQueue } = await import("../agent-runtime/generated-change-scheduler")
+    scheduleGeneratedChangeQueue({ projectId: revision.projectId })
+  })()
     .catch((error) => {
       console.warn("[Ripple] Could not start comment revision:", error)
     })
@@ -815,18 +817,18 @@ export async function createCommentThread(
     clientRequestId,
   })
 
-  if (shouldCaptureCommentVisualContext({
+  const visualContextReady = shouldCaptureCommentVisualContext({
     captureVisualContext: input.captureVisualContext,
     screenshotPath: anchor.screenshotPath,
-  })) {
-    captureCommentVisualContextInBackground({
+  })
+    ? captureCommentVisualContextInBackground({
       project,
       composition,
       anchor: input.anchor,
       threadId: thread.id,
       sourceRevisionId: input.sourceRevisionId,
     })
-  }
+    : null
 
   if (input.createRevision ?? true) {
     createRevisionForThreadInBackground({
@@ -837,6 +839,8 @@ export async function createCommentThread(
       attachments: input.attachments,
       agentProvider: input.agentProvider,
       model: input.model,
+    }, {
+      visualContextReady,
     })
   }
 

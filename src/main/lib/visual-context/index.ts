@@ -86,6 +86,7 @@ export type {
   VisualCaptureFramesResult,
   VisualCurrentFrameSnapshot,
   VisualCaptureReason,
+  VisualContextIntentKind,
   VisualContextService,
   VisualContextBackendId,
   VisualSnapshotInput,

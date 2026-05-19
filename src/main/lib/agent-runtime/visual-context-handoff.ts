@@ -73,6 +73,7 @@ async function captureHandoffSnapshot(input: {
       format: "png",
       timeoutMs: 5000,
       reason: "agent-context",
+      intent: "specific-frame",
       outputDir,
       repoRoot: input.repoRoot,
       env: process.env,

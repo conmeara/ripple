@@ -1,12 +1,19 @@
 #!/usr/bin/env node
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join, normalize } from "node:path"
 
 const repoRoot = process.cwd()
 const specsDir = "docs/specs"
+const archivedMdSpecsDir = "docs/z_archive/md_specs"
 const packageJsonPath = "package.json"
 
-const requiredSpecFiles = [
+const requiredActiveSpecFiles = [
+  "Comments.html",
+  "Visual Context.html",
+  "visual-context-eval.html",
+]
+
+const requiredArchivedSpecFiles = [
   "Active Conversations.md",
   "Advanced Utilities.md",
   "Agent Connections.md",
@@ -36,7 +43,8 @@ const requiredSpecFiles = [
   "Spec Index.md",
   "Templates.md",
   "Timeline.md",
-  "Visual Context.md",
+  "Visual Context/Visual Context.md",
+  "Visual Context - v2.md",
   "Voice Input.md",
 ]
 
@@ -88,6 +96,38 @@ function read(path) {
   return readFileSync(join(repoRoot, path), "utf8")
 }
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function localReferences(text) {
+  return [...text.matchAll(/\b(?:href|src)="([^"]+)"/g)]
+    .map((match) => match[1])
+    .filter((target) =>
+      target &&
+      !target.includes("${") &&
+      !/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(target)
+    )
+}
+
+function verifyLocalReference(sourcePath, target) {
+  const [rawPath, rawAnchor] = target.split("#")
+  const targetPath = rawPath
+    ? normalize(join(dirname(sourcePath), rawPath))
+    : sourcePath
+  if (!isFileOrDirectory(targetPath)) {
+    fail(`${sourcePath} points to missing local reference: ${target}`)
+    return
+  }
+  if (rawAnchor) {
+    const anchor = decodeURIComponent(rawAnchor)
+    const targetText = read(targetPath)
+    if (!new RegExp(`\\bid=["']${escapeRegex(anchor)}["']`).test(targetText)) {
+      fail(`${sourcePath} points to missing anchor: ${target}`)
+    }
+  }
+}
+
 function walk(path) {
   const fullPath = join(repoRoot, path)
   if (!existsSync(fullPath)) return []
@@ -108,6 +148,7 @@ function walk(path) {
 }
 
 mustExist(specsDir)
+mustExist(archivedMdSpecsDir)
 mustExist("scripts/smoke-packaged-ripple.mjs")
 mustExist("scripts/smoke-packaged-update.mjs")
 mustExist("scripts/smoke-ripple-export-formats.ts")
@@ -128,36 +169,52 @@ for (const scriptName of requiredScripts) {
   }
 }
 
-const specs = existsSync(join(repoRoot, specsDir))
-  ? readdirSync(join(repoRoot, specsDir)).filter((file) => file.endsWith(".md"))
+const activeSpecs = existsSync(join(repoRoot, specsDir))
+  ? readdirSync(join(repoRoot, specsDir)).filter((file) => file.endsWith(".html"))
   : []
-const specSet = new Set(specs)
-const specTexts = new Map(specs.map((file) => [file, read(join(specsDir, file))]))
-const specText = [...specTexts.values()].join("\n")
+const activeSpecSet = new Set(activeSpecs)
+const archivedSpecs = walk(archivedMdSpecsDir)
+  .filter((file) => file.endsWith(".md"))
+  .map((file) => file.slice(`${archivedMdSpecsDir}/`.length))
+const archivedSpecSet = new Set(archivedSpecs)
+const activeSpecTexts = new Map(activeSpecs.map((file) => [file, read(join(specsDir, file))]))
+const archivedSpecTexts = new Map(archivedSpecs.map((file) => [file, read(join(archivedMdSpecsDir, file))]))
+const specText = [...activeSpecTexts.values(), ...archivedSpecTexts.values()].join("\n")
 
-for (const file of requiredSpecFiles) {
-  if (!specSet.has(file)) {
-    fail(`Missing required spec: ${join(specsDir, file)}`)
+for (const file of requiredActiveSpecFiles) {
+  if (!activeSpecSet.has(file)) {
+    fail(`Missing required active spec: ${join(specsDir, file)}`)
   }
 }
 
-for (const [file, text] of specTexts) {
-  if (!text.includes("Screenshot")) {
-    fail(`${join(specsDir, file)} is missing a screenshot placeholder`)
+for (const file of requiredArchivedSpecFiles) {
+  if (!archivedSpecSet.has(file)) {
+    fail(`Missing required archived spec: ${join(archivedMdSpecsDir, file)}`)
   }
-  if (!text.includes("## Test Coverage")) {
-    fail(`${join(specsDir, file)} is missing a Test Coverage section`)
+}
+
+for (const [file, text] of activeSpecTexts) {
+  const path = join(specsDir, file)
+  if (!text.includes("<title>")) {
+    fail(`${path} is missing a document title`)
   }
-  if (/docs\/testing|docs\/release/.test(text)) {
-    fail(`${join(specsDir, file)} references retired testing/release docs`)
+  if (/href="[^"]+\.md(?:#[^"]*)?"/.test(text)) {
+    fail(`${path} links directly to a stale Markdown spec`)
   }
   if (/(^|\n)\s*(TBD|TODO|none)\s*($|\n)/i.test(text)) {
-    fail(`${join(specsDir, file)} contains an unfinished placeholder`)
+    fail(`${path} contains an unfinished placeholder`)
+  }
+  for (const target of localReferences(text)) {
+    verifyLocalReference(path, target)
   }
 }
 
-const index = specTexts.get("Spec Index.md") || ""
-for (const file of requiredSpecFiles.filter((file) => file !== "Spec Index.md")) {
+const index = archivedSpecTexts.get("Spec Index.md") || ""
+for (const file of requiredArchivedSpecFiles.filter((file) =>
+  file !== "Spec Index.md" &&
+  !file.includes("/") &&
+  file !== "Visual Context - v2.md"
+)) {
   const title = file.replace(/\.md$/, "")
   if (!index.includes(`[[${title}]]`)) {
     fail(`Spec Index does not link ${title}`)
@@ -167,13 +224,14 @@ for (const file of requiredSpecFiles.filter((file) => file !== "Spec Index.md"))
 const linkedSpecs = [...specText.matchAll(/\[\[([^\]#|]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g)]
   .map((match) => `${match[1]}.md`)
 for (const linkedSpec of linkedSpecs) {
-  if (!specSet.has(linkedSpec)) {
+  const nestedSpec = `${linkedSpec.replace(/\.md$/, "")}/${linkedSpec}`
+  if (!archivedSpecSet.has(linkedSpec) && !archivedSpecSet.has(nestedSpec)) {
     fail(`Spec link points to missing page: ${linkedSpec}`)
   }
 }
 
 const docsText = [
-  ...walk(specsDir).filter((path) => path.endsWith(".md")),
+  ...walk(specsDir).filter((path) => path.endsWith(".md") || path.endsWith(".html")),
   ...walk("docs/z_archive").filter((path) => path.endsWith(".md")),
 ]
   .map((path) => read(path))
@@ -204,4 +262,4 @@ if (process.exitCode) {
   process.exit()
 }
 
-console.log(`[quality-platform] verified ${specs.length} spec files, ${testFiles.length} local tests, and ${requiredScripts.length} package scripts`)
+console.log(`[quality-platform] verified ${activeSpecs.length} active specs, ${archivedSpecs.length} archived specs, ${testFiles.length} local tests, and ${requiredScripts.length} package scripts`)

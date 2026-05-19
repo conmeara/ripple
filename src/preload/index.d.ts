@@ -6,6 +6,7 @@ import type {
   UpdateContactPreferenceInput,
   UpdateContactPreferenceState,
 } from "../shared/ripple-analytics"
+import type { VisualPreviewSurfaceUpdate } from "../shared/visual-preview-surface"
 
 export type UpdateReleaseNotes = string | Array<{ version?: string; note?: string }>
 
@@ -130,6 +131,10 @@ export interface DesktopApi {
 
   // Worktree setup failures
   onWorktreeSetupFailed: (callback: (payload: WorktreeSetupFailurePayload) => void) => () => void
+
+  // Visual context preview surface
+  updateVisualPreviewSurface: (input: VisualPreviewSurfaceUpdate) => Promise<{ ok: boolean }>
+  clearVisualPreviewSurface: (input: { surfaceKey: string }) => Promise<{ ok: boolean }>
 }
 
 declare global {

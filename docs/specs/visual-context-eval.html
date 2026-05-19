@@ -583,7 +583,7 @@
       <nav aria-label="Page sections">
         <a href="#decision">Decision <span>01</span></a>
         <a href="#tested">What We Tested <span>02</span></a>
-        <a href="#evidence">Image Evidence <span>03</span></a>
+        <a href="#evidence">Evidence Status <span>03</span></a>
         <a href="#needs">Three Needs <span>04</span></a>
         <a href="#implementation">Implementation Read <span>05</span></a>
       </nav>
@@ -593,7 +593,7 @@
       <header>
         <div class="eyebrow">Ripple Spec / Visual Context Eval / May 2026</div>
         <h1>Fast visual context for agents</h1>
-        <p class="lede">This page is trimmed to the work we actually tested: capture latency, fidelity, normalization, and the resulting product split between current-frame capture and render-backed arbitrary frames.</p>
+        <p class="lede">This page preserves the eval readout that shaped the product split between current-frame capture and render-backed arbitrary frames. The original PNG evidence was not preserved in this repo; the implementation now rebuilds evidence through executable visual-context tests instead of relying on static image files.</p>
       </header>
 
       <section id="decision">
@@ -774,55 +774,41 @@
       </section>
 
       <section id="evidence">
-        <h2>Image Evidence</h2>
-        <p>The images below are the artifacts used in the eval. They are local PNG files, not inline data URIs.</p>
+        <h2>Evidence Status</h2>
+        <p>The original eval images were produced on another machine and are not present in this checkout. This page keeps the measured readout, while the repo now regenerates image evidence during <code>test/quality/visual-context-matrix.test.ts</code> and protects the current-frame route through the preview backend contract.</p>
 
-        <h3 style="margin-top:20px">Actual preview capture</h3>
-        <div class="thumb-grid">
-          <figure>
-            <img src="assets/visual-context-spike-03-000.png" alt="Actual Ripple preview capture at 0 ms">
-            <figcaption><span>actual preview</span><span>0ms</span></figcaption>
-          </figure>
-          <figure>
-            <img src="assets/visual-context-spike-03-500.png" alt="Actual Ripple preview capture at 500 ms">
-            <figcaption><span>actual preview</span><span>500ms</span></figcaption>
-          </figure>
-          <figure>
-            <img src="assets/visual-context-spike-03-1000.png" alt="Actual Ripple preview capture at 1000 ms">
-            <figcaption><span>actual preview</span><span>1000ms</span></figcaption>
-          </figure>
+        <div class="table-wrap" style="margin-top:18px">
+          <table>
+            <thead>
+              <tr>
+                <th>Artifact family</th>
+                <th>Current repo state</th>
+                <th>Rebuild path</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Actual preview capture</strong></td>
+                <td>Executable coverage rebuilt</td>
+                <td>Covered by preview-backed current-frame endpoint and service tests.</td>
+              </tr>
+              <tr>
+                <td><strong>Normalization sweep</strong></td>
+                <td>Preview identity coverage rebuilt</td>
+                <td>Covered by renderer preview-surface registration and current-frame fail-closed tests.</td>
+              </tr>
+              <tr>
+                <td><strong>Browser-render baseline</strong></td>
+                <td>Regenerated during quality runs</td>
+                <td>Covered by <code>test/quality/visual-context-matrix.test.ts</code> and <code>scripts/benchmark-visual-context.ts</code>.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        <h3 style="margin-top:22px">Normalization sweep</h3>
-        <div class="thumb-grid">
-          <figure>
-            <img src="assets/visual-context-spike-04-compact.png" alt="Actual preview capture in compact layout">
-            <figcaption><span>layout</span><span>compact</span></figcaption>
-          </figure>
-          <figure>
-            <img src="assets/visual-context-spike-04-wide.png" alt="Actual preview capture in wide layout">
-            <figcaption><span>layout</span><span>wide</span></figcaption>
-          </figure>
-          <figure>
-            <img src="assets/visual-context-spike-04-tall.png" alt="Actual preview capture in tall layout">
-            <figcaption><span>layout</span><span>tall</span></figcaption>
-          </figure>
-        </div>
-
-        <h3 style="margin-top:22px">Browser-render baseline</h3>
-        <div class="thumb-grid">
-          <figure>
-            <img src="assets/visual-context-spike-02-000.png" alt="Browser-render baseline at 0 ms">
-            <figcaption><span>baseline</span><span>0ms</span></figcaption>
-          </figure>
-          <figure>
-            <img src="assets/visual-context-spike-02-500.png" alt="Browser-render baseline at 500 ms">
-            <figcaption><span>baseline</span><span>500ms</span></figcaption>
-          </figure>
-          <figure>
-            <img src="assets/visual-context-spike-02-1000.png" alt="Browser-render baseline at 1000 ms">
-            <figcaption><span>baseline</span><span>1000ms</span></figcaption>
-          </figure>
+        <div class="callout">
+          <div class="label">Rebuild</div>
+          <p><strong>No broken images are rendered from this artifact.</strong> The next implementation slice should regenerate the PNG evidence, commit the generated fixture outputs only if they are intentionally part of the docs/test contract, and wire the benchmark into the acceptance suite.</p>
         </div>
       </section>
 
@@ -903,7 +889,7 @@
       </section>
 
       <footer>
-        Tested with <code>scripts/benchmark-visual-context.ts</code>, <code>test/e2e/visual-context-preview-surface.e2e.ts</code>, and the <code>test/fixtures/hyperframes/visual-capture-qa</code> fixture.
+        Preserved readout from the prior eval. Current evidence lives in <code>scripts/benchmark-visual-context.ts</code>, <code>test/quality/visual-context-matrix.test.ts</code>, the preview backend tests, and the <code>test/fixtures/hyperframes/visual-capture-qa</code> fixture.
       </footer>
     </main>
   </div>

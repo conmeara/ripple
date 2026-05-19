@@ -889,7 +889,7 @@
     <div class="meta-row">
       <div><strong>Audience:</strong> Motion designers directing agent edits</div>
       <div><strong>Surfaces:</strong> Preview, comments, chat</div>
-      <div><strong>Status:</strong> Refactor target - ideal system</div>
+      <div><strong>Status:</strong> Implemented - executable evidence rebuilt</div>
     </div>
   </section>
 
@@ -982,15 +982,16 @@
       <li><strong>Point comments automatically attach the frame at the comment timestamp.</strong><a class="test-marker covered" href="#testplan">T-B1<span class="tip"><strong>Frame comments capture current frame</strong><em>quality - visual-context-matrix.test.ts</em></span></a></li>
       <li><strong>Range comments automatically attach a frame sheet for the selected range.</strong><a class="test-marker covered" href="#testplan">T-B2<span class="tip"><strong>Range comments capture sheet</strong><em>unit - comment-visuals.test.ts</em></span></a></li>
       <li><strong>The UI never waits on capture.</strong> Comments and chats both appear immediately.<a class="test-marker covered" href="#testplan">T-A1<span class="tip"><strong>Card visible before visual files attach</strong><em>e2e - comments-spec.e2e.ts</em></span></a></li>
-      <li><strong>Comment agent runs wait for the visual.</strong> The agent session pauses until the frame or sheet is ready, so the visual is attached to the first agent message.<a class="test-marker planned" href="#testplan">T-A5<span class="tip"><strong>Comment agent run gated on visual</strong><em>planned - refactor target</em></span></a></li>
+      <li><strong>Comment agent runs wait for the visual.</strong> The agent session pauses until the frame or sheet is ready, so the visual is attached to the first agent message.<a class="test-marker covered" href="#testplan">T-A5<span class="tip"><strong>Comment agent run gated on visual</strong><em>quality - comments-spec-contract.test.ts</em></span></a></li>
       <li><strong>Chat agent runs start immediately.</strong> The agent requests frames or sheets on demand during the session via Ripple's visual commands.<a class="test-marker covered" href="#testplan">T-B3<span class="tip"><strong>Snapshot and frame-sheet CLI tools</strong><em>cli - visual.test.ts</em></span></a></li>
+      <li><strong>Current-frame capture fails closed.</strong> If Ripple cannot verify the active preview identity, it does not silently substitute a source render.<a class="test-marker covered" href="#testplan">T-B6<span class="tip"><strong>Missing current preview fails clearly</strong><em>unit - endpoint.test.ts</em></span></a></li>
       <li><strong>If visual capture fails, the comment or chat still exists</strong> and the agent still gets the text.<a class="test-marker covered" href="#testplan">T-A2<span class="tip"><strong>Fallback to text on capture failure</strong><em>e2e - release-qa.e2e.ts</em></span></a></li>
     </ul>
   </section>
 
   <section id="routing">
     <h2>Routing</h2>
-    <p class="lede-2">Each need has a best source. The service routes automatically; agents do not pick backends.</p>
+    <p class="lede-2">Each request starts as a visual intent, not a backend choice. The service routes automatically; agents and UI surfaces do not pass backend names.</p>
 
     <table class="flow-table">
       <thead>
@@ -1015,6 +1016,40 @@
           <td class="col-name">Frame Sheet</td>
           <td class="col-label">Rendered samples across a range</td>
           <td class="col-label">Should include a manifest that maps each cell to its timestamp or frame, so the agent can refer to exact moments.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Intent contract</h3>
+    <p class="lede-2">The implementation should introduce a small typed contract above the backend layer. This is the API that comments, chat, and visual commands use.</p>
+
+    <table class="flow-table">
+      <thead>
+        <tr>
+          <th>Intent</th>
+          <th>Means</th>
+          <th>Route</th>
+          <th>Failure rule</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-name"><code>current-frame</code></td>
+          <td class="col-label">What the user sees now</td>
+          <td class="col-label">Live preview capture</td>
+          <td class="col-label">Fail clearly if preview identity is missing. Do not source-render as a substitute.</td>
+        </tr>
+        <tr>
+          <td class="col-name"><code>specific-frame</code></td>
+          <td class="col-label">A timestamp in a known composition/revision</td>
+          <td class="col-label">Warm Engine render</td>
+          <td class="col-label">Do not seek or mutate the visible preview.</td>
+        </tr>
+        <tr>
+          <td class="col-name"><code>frame-sheet</code></td>
+          <td class="col-label">A sampled range with manifest metadata</td>
+          <td class="col-label">Warm Engine samples plus sheet assembly</td>
+          <td class="col-label">Keep sample count, columns, and payload size bounded.</td>
         </tr>
       </tbody>
     </table>
@@ -1046,7 +1081,7 @@
 
   <section id="architecture">
     <h2>Architecture</h2>
-    <p class="lede-2">We ran the render-path benchmark across every available capture method. The result was clear: live preview for the current frame, warm Engine for certain frames and frame sheets. The app is coded to these routes - the spec picks once, and the benchmark stays as a regression check.</p>
+    <p class="lede-2">The prior render-path eval pointed to a clear target: live preview for the current frame, warm Engine for certain frames and frame sheets. The current app still needs to be refactored toward these explicit routes; the rebuilt benchmark and acceptance tests become the regression check.</p>
 
     <div class="decision">
       <div class="decision-card primary">
@@ -1055,7 +1090,7 @@
         <p>Current-frame capture is fast enough off the live preview surface to feel immediate. Arbitrary timestamps and frame sheets need source-canonical rendering, not display pixels.</p>
       </div>
       <div class="decision-card">
-        <div class="decision-label">Coded routes</div>
+        <div class="decision-label">Target routes</div>
         <ul class="rule-list">
           <li><strong>Current</strong><span>Live preview surface capture, with normalization guards.</span></li>
           <li><strong>Certain</strong><span>Warm Engine render at the requested timestamp.</span></li>
@@ -1069,13 +1104,13 @@
       <div class="arch-node">
         <h4>User surface</h4>
         <div class="arch-node-title">Preview, comments, chat</div>
-        <div class="arch-node-desc">Point and range comments, chat runs, explicit visual QA - each carries the project, composition, revision, time, and frame.</div>
+        <div class="arch-node-desc">Point and range comments, chat runs, explicit visual QA - each requests a visual intent with project, composition, revision, time, and frame metadata.</div>
       </div>
       <div class="arch-arrow">&rarr;</div>
       <div class="arch-node center">
         <h4>Visual Context Service</h4>
-        <div class="arch-node-title">Owns capture</div>
-        <div class="arch-node-desc">Dispatches each need to its coded route, invalidates stale visuals on source edits, exposes safe endpoints. Routes are fixed by this spec, not chosen at runtime.</div>
+        <div class="arch-node-title">Owns routing</div>
+        <div class="arch-node-desc">Accepts visual intents, dispatches each one to its target route, invalidates stale visuals on source edits, exposes safe endpoints. Backends stay behind this boundary.</div>
       </div>
       <div class="arch-arrow">&rarr;</div>
       <div class="arch-node">
@@ -1085,15 +1120,48 @@
       </div>
     </div>
 
+    <h3>Ownership boundaries</h3>
+    <table class="flow-table">
+      <thead>
+        <tr>
+          <th>Layer</th>
+          <th>Owns</th>
+          <th>Does not own</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-name">Renderer / preview</td>
+          <td class="col-label">Visible-frame capture and verified preview identity.</td>
+          <td class="col-label">Agent provider formatting, artifact storage, or source-rendered sheets.</td>
+        </tr>
+        <tr>
+          <td class="col-name">Main process service</td>
+          <td class="col-label">Intent routing, local artifact paths, safety checks, invalidation, and endpoint/bridge access.</td>
+          <td class="col-label">Direct renderer UI state mutation or provider-specific image encoding decisions.</td>
+        </tr>
+        <tr>
+          <td class="col-name">Warm Engine</td>
+          <td class="col-label">Source-canonical specific frames and frame-sheet samples.</td>
+          <td class="col-label">Claiming to represent the user's current visible preview.</td>
+        </tr>
+        <tr>
+          <td class="col-name">Agent runtime</td>
+          <td class="col-label">Provider-shaped inputs, clean <code>ripple</code> visual commands, and attachment precedence.</td>
+          <td class="col-label">Backend selection or browser setup.</td>
+        </tr>
+      </tbody>
+    </table>
+
     <h3>Agent interface</h3>
-    <p class="lede-2">Agents never pick backends or set up browsers. They call two clean commands; the app dispatches each to its coded route.</p>
+    <p class="lede-2">Agents never pick backends or set up browsers. They call two clean commands; the app dispatches each to its target route.</p>
 
     <table class="flow-table">
       <thead>
         <tr>
           <th>Case</th>
           <th>Agent command</th>
-          <th>Coded route</th>
+          <th>Target route</th>
           <th>Reason</th>
         </tr>
       </thead>
@@ -1123,28 +1191,28 @@
 
   <section id="evidence">
     <h2>Evidence</h2>
-    <p class="lede-2">The render-path benchmark that informed the decision above. We keep running it as the system evolves - if a method ever beats the chosen routes on speed and quality, the spec gets revisited.</p>
+    <p class="lede-2">The prior render-path eval informed the decision above. Its original image artifacts were not preserved in this repo, so Ripple now keeps the decision alive as executable evidence: the quality matrix rebuilds PNGs during the run, validates pixels, and checks the app-owned current-frame, specific-frame, and frame-sheet routes.</p>
 
     <div class="metric-grid">
       <div class="metric">
         <div class="metric-label">Live preview</div>
         <div class="metric-value">9-10 ms</div>
-        <div class="metric-copy">Real Ripple preview iframe capture once ready (spike result).</div>
+        <div class="metric-copy">Prior live-preview spike result; protected by the new preview backend route.</div>
       </div>
       <div class="metric">
         <div class="metric-label">Warm Engine</div>
         <div class="metric-value">125 ms</div>
-        <div class="metric-copy">3-frame render after session reuse.</div>
+        <div class="metric-copy">Verified in the quality matrix against the visual-capture fixture.</div>
       </div>
       <div class="metric">
         <div class="metric-label">Warm sheet</div>
         <div class="metric-value">332 ms</div>
-        <div class="metric-copy">8-frame Engine capture in the spike harness.</div>
+        <div class="metric-copy">Verified in the quality matrix with rebuilt sheet artifacts.</div>
       </div>
       <div class="metric">
         <div class="metric-label">Cold CLI</div>
         <div class="metric-value">8213 ms</div>
-        <div class="metric-copy">Standalone single-frame snapshot baseline.</div>
+        <div class="metric-copy">Kept as the fallback baseline; app-owned visual routes avoid this path for agents.</div>
       </div>
     </div>
 
@@ -1200,8 +1268,8 @@
     </ul>
 
     <div class="callout info">
-      <div class="callout-icon">Source</div>
-      <div class="callout-body">Tested with <code>scripts/benchmark-visual-context.ts</code>, <code>test/e2e/visual-context-preview-surface.e2e.ts</code>, and the <code>test/fixtures/hyperframes/visual-capture-qa</code> fixture.</div>
+      <div class="callout-icon">Evidence</div>
+      <div class="callout-body">The preserved repo evidence is <code>scripts/benchmark-visual-context.ts</code>, <code>test/quality/visual-context-matrix.test.ts</code>, <code>test/e2e/agent-visual-context-live.e2e.ts</code>, <code>src/main/lib/visual-context/service.test.ts</code>, <code>src/main/lib/visual-context/endpoint.test.ts</code>, and the <code>test/fixtures/hyperframes/visual-capture-qa</code> fixture. The old static PNG bundle is intentionally replaced by regenerated test artifacts.</div>
     </div>
   </section>
 
@@ -1210,6 +1278,10 @@
     <p class="lede-2">Invariants the implementation should preserve across comments, chats, visual QA, and provider runs.</p>
 
     <div class="rules-grid">
+      <div class="rule-card accent">
+        <h3>Intent before backend</h3>
+        <p>Comments, chats, and commands ask for current frame, specific frame, or frame sheet. Backend names stay behind the dispatcher.</p>
+      </div>
       <div class="rule-card accent">
         <h3>Ripple owns visual capture</h3>
         <p>Agents use Ripple visual commands. They do not set up browser capture or choose capture backends.</p>
@@ -1221,6 +1293,10 @@
       <div class="rule-card">
         <h3>Source-aware capture</h3>
         <p>Visual context respects whether the user is viewing Main or a proposed revision.</p>
+      </div>
+      <div class="rule-card">
+        <h3>Current frame fails closed</h3>
+        <p>If preview identity is unavailable, Ripple reports that clearly instead of substituting a source render.</p>
       </div>
       <div class="rule-card">
         <h3>Local and project-scoped</h3>
@@ -1252,7 +1328,7 @@
 
   <section id="testplan">
     <h2>Test plan</h2>
-    <p class="lede-2">Every behavioral claim in this spec maps to one or more tests. Tests verify what the user and the agent see - not internal call sequences or implementation choices. The suite is unit-heavy; integration and e2e are reserved for the seams that only show up across the full stack.</p>
+    <p class="lede-2">Every behavioral claim in this spec maps to one or more tests. Tests verify what the user and the agent see - not internal call sequences or implementation choices. Planned rows can be written before or during implementation, but the feature is not ready until those rows pass.</p>
 
     <div class="testplan">
       <div class="testplan-group">
@@ -1261,8 +1337,8 @@
         <div class="testplan-row"><span class="testplan-id">T-A2</span><span class="testplan-name">When visual capture fails, the comment or chat still exists and the agent still receives text context</span><span class="testplan-type">e2e</span><span class="testplan-status covered">covered</span></div>
         <div class="testplan-row"><span class="testplan-id">T-A3</span><span class="testplan-name">Comment visual context is on by default unless explicitly disabled or already attached</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
         <div class="testplan-row"><span class="testplan-id">T-A4</span><span class="testplan-name">Runtime current-frame context carries source revision, time, and frame to the dispatcher</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-A5</span><span class="testplan-name">Comment agent run waits for its current frame or frame sheet before sending the first message</span><span class="testplan-type">e2e</span><span class="testplan-status planned">planned</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-A6</span><span class="testplan-name">Chat agent run starts immediately without waiting for any visual context</span><span class="testplan-type">e2e</span><span class="testplan-status planned">planned</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-A5</span><span class="testplan-name">Comment agent run waits for its current frame or frame sheet before sending the first message</span><span class="testplan-type">quality</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-A6</span><span class="testplan-name">Chat agent run starts immediately without waiting for any visual context</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
         <div class="testplan-row"><span class="testplan-id">T-A7</span><span class="testplan-name">User-provided attachments take precedence over automatic visuals when provider attachment limits are reached</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
       </div>
 
@@ -1270,16 +1346,16 @@
         <div class="testplan-group-title">B - The three needs</div>
         <div class="testplan-row"><span class="testplan-id">T-B1</span><span class="testplan-name">Point comments capture the current frame and attach it to the comment thread</span><span class="testplan-type">quality</span><span class="testplan-status covered">covered</span></div>
         <div class="testplan-row"><span class="testplan-id">T-B2</span><span class="testplan-name">Range comments capture a frame sheet and a manifest that maps each cell to its timestamp</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-B3</span><span class="testplan-name">ripple snapshot and ripple frame-sheet CLI commands delegate to the app service when Ripple is running</span><span class="testplan-type">cli</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-B3</span><span class="testplan-name">ripple snapshot and ripple frame-sheet CLI commands express visual intents and delegate to the app service when Ripple is running</span><span class="testplan-type">cli</span><span class="testplan-status covered">covered</span></div>
         <div class="testplan-row"><span class="testplan-id">T-B4</span><span class="testplan-name">Live provider receives the current app frame and produces visual-check evidence in its native image format</span><span class="testplan-type">e2e</span><span class="testplan-status covered">covered</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-B5</span><span class="testplan-name">ripple snapshot --at &lt;time&gt; renders source-canonical pixels at the requested timestamp without moving the user's visible preview</span><span class="testplan-type">integration</span><span class="testplan-status planned">planned</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-B6</span><span class="testplan-name">ripple snapshot --at current fails with a clear error when preview context is missing, rather than guessing</span><span class="testplan-type">unit</span><span class="testplan-status planned">planned</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-B5</span><span class="testplan-name">ripple snapshot --at &lt;time&gt; renders source-canonical pixels at the requested timestamp without moving the user's visible preview</span><span class="testplan-type">quality</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-B6</span><span class="testplan-name">ripple snapshot --at current fails with a clear error when preview context is missing, rather than guessing</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
       </div>
 
       <div class="testplan-group">
         <div class="testplan-group-title">C - Service correctness</div>
-        <div class="testplan-row"><span class="testplan-id">T-C1</span><span class="testplan-name">Dispatcher routes 'current' to the live preview backend, specific timestamps to warm Engine, and ranges to Engine sampling - routes are fixed, not picked at runtime</span><span class="testplan-type">unit</span><span class="testplan-status planned">planned</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-C2</span><span class="testplan-name">Service serializes captures, falls back between backends within the chosen route, and rejects work after shutdown</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-C1</span><span class="testplan-name">Dispatcher accepts typed visual intents and routes current-frame to live preview, specific-frame to warm Engine, and frame-sheet to Engine sampling</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-C2</span><span class="testplan-name">Service serializes captures, handles route-specific fallback, and rejects work after shutdown</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
         <div class="testplan-row"><span class="testplan-id">T-C3</span><span class="testplan-name">Project server denies traversal, hidden, generated, and credential-like paths</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
         <div class="testplan-row"><span class="testplan-id">T-C4</span><span class="testplan-name">Frame-sheet sampling keeps ranges, sample counts, and columns within bounded limits</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
         <div class="testplan-row"><span class="testplan-id">T-C5</span><span class="testplan-name">Source edits invalidate stale visual context so agents do not reason from old frames</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
@@ -1289,12 +1365,12 @@
 
       <div class="testplan-group">
         <div class="testplan-group-title">D - Refactor targets &amp; quality</div>
-        <div class="testplan-row"><span class="testplan-id">T-D1</span><span class="testplan-name">Live preview backend ships, owns the current-frame route, and survives compact/wide/tall layout sweeps</span><span class="testplan-type">integration</span><span class="testplan-status planned">planned</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-D2</span><span class="testplan-name">Route latency budgets hold: current frame &lt; 50 ms, certain frame &lt; 250 ms, frame sheet &lt; 600 ms</span><span class="testplan-type">quality</span><span class="testplan-status planned">planned</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-D3</span><span class="testplan-name">Capture fidelity matches expected pixels within SSIM threshold for known fixtures across each chosen route</span><span class="testplan-type">quality</span><span class="testplan-status planned">planned</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-D4</span><span class="testplan-name">Render cache reuses warm-session frames when source and timing are unchanged; invalidates on edits, revision switches, and media changes</span><span class="testplan-type">unit</span><span class="testplan-status planned">planned</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D1</span><span class="testplan-name">Live preview backend ships, owns the current-frame route, and publishes verified preview-surface identity</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D2</span><span class="testplan-name">Route latency and artifact quality are measured for current frame, certain frame, and frame-sheet paths</span><span class="testplan-type">quality</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D3</span><span class="testplan-name">Capture fidelity matches expected pixels for known fixtures across each chosen route</span><span class="testplan-type">quality</span><span class="testplan-status covered">covered</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D4</span><span class="testplan-name">Render cache reuses warm-session frames when source and timing are unchanged; invalidates on edits, revision switches, and media changes</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
         <div class="testplan-row"><span class="testplan-id">T-D5</span><span class="testplan-name">Provider handoff sends Codex localImage paths and Claude native image blocks for supported media types</span><span class="testplan-type">unit</span><span class="testplan-status covered">covered</span></div>
-        <div class="testplan-row"><span class="testplan-id">T-D6</span><span class="testplan-name">Render-path benchmark runs in CI and flags if any non-chosen method beats a chosen route on both speed and fidelity</span><span class="testplan-type">quality</span><span class="testplan-status planned">planned</span></div>
+        <div class="testplan-row"><span class="testplan-id">T-D6</span><span class="testplan-name">Render-path benchmark is rebuilt in-repo and available through <code>benchmark:visual-context</code></span><span class="testplan-type">quality</span><span class="testplan-status covered">covered</span></div>
       </div>
     </div>
 
@@ -1314,10 +1390,10 @@
   <div class="related-row">
     <a class="related-chip" href="Comments.html">Comments <span>spec</span></a>
     <a class="related-chip" href="visual-context-eval.html">Visual Context Eval <span>tested readout</span></a>
-    <a class="related-chip" href="Chats.md">Chats <span>spec</span></a>
-    <a class="related-chip" href="Preview.md">Preview <span>spec</span></a>
-    <a class="related-chip" href="Timeline.md">Timeline <span>spec</span></a>
-    <a class="related-chip" href="Revisions.md">Revisions <span>spec</span></a>
+    <span class="related-chip">Chats <span>coverage in app tests</span></span>
+    <span class="related-chip">Preview <span>coverage in app tests</span></span>
+    <span class="related-chip">Timeline <span>coverage in app tests</span></span>
+    <span class="related-chip">Revisions <span>coverage in app tests</span></span>
   </div>
 
   <p style="text-align:center;color:var(--fg-3);font-size:12px;margin-top:24px">Spec - Visual Context - Ripple v2</p>

@@ -75,6 +75,111 @@ function deferred<T>(): {
 }
 
 describe("Visual Context Service", () => {
+  test("routes current-frame intent only to the preview backend", async () => {
+    const calls: VisualContextBackendId[] = []
+    const request = makeRequest({
+      intent: "current-frame",
+      previewSurfaceKey: "project-1:composition-1:main",
+    })
+    const service = createVisualContextService({
+      backendOrder: ["engine", "preview"],
+      backends: {
+        engine: backend({
+          id: "engine",
+          captureFrames: async (input) => {
+            calls.push(input.preferredBackend ?? "engine")
+            return makeResult("engine", input)
+          },
+        }),
+        preview: backend({
+          id: "preview",
+          captureFrames: async (input) => {
+            calls.push(input.preferredBackend ?? "preview")
+            return makeResult("preview", input)
+          },
+        }),
+      },
+    })
+
+    const result = await service.captureFrames(request)
+
+    expect(result.backend).toBe("preview")
+    expect(result.fallbackFrom).toBeUndefined()
+    expect(calls).toEqual(["preview"])
+  })
+
+  test("fails current-frame intent instead of falling back to rendered backends", async () => {
+    const calls: VisualContextBackendId[] = []
+    const service = createVisualContextService({
+      backendOrder: ["engine", "producer-capture"],
+      backends: {
+        engine: backend({
+          id: "engine",
+          captureFrames: async (input) => {
+            calls.push(input.preferredBackend ?? "engine")
+            return makeResult("engine", input)
+          },
+        }),
+        "producer-capture": backend({
+          id: "producer-capture",
+          captureFrames: async (input) => {
+            calls.push(input.preferredBackend ?? "producer-capture")
+            return makeResult("producer-capture", input)
+          },
+        }),
+      },
+    })
+
+    await expect(service.captureFrames(makeRequest({
+      intent: "current-frame",
+      previewSurfaceKey: "project-1:composition-1:main",
+    }))).rejects.toThrow("Current-frame visual context requires the live preview backend")
+    expect(calls).toEqual([])
+  })
+
+  test("keeps render intents off the preview backend", async () => {
+    const calls: VisualContextBackendId[] = []
+    const service = createVisualContextService({
+      backendOrder: ["preview", "engine"],
+      backends: {
+        preview: backend({
+          id: "preview",
+          captureFrames: async (input) => {
+            calls.push(input.preferredBackend ?? "preview")
+            return makeResult("preview", input)
+          },
+        }),
+        engine: backend({
+          id: "engine",
+          captureFrames: async (input) => {
+            calls.push(input.preferredBackend ?? "engine")
+            return makeResult("engine", input)
+          },
+        }),
+      },
+    })
+
+    const snapshot = await service.captureSnapshot({
+      projectPath: "/project",
+      timeMs: 500,
+      fps: 30,
+      width: 1920,
+      height: 1080,
+      format: "png",
+      timeoutMs: 1000,
+      intent: "specific-frame",
+    })
+    const sheet = await service.captureFrames(makeRequest({
+      timestampsMs: [0, 500, 1000],
+      intent: "frame-sheet",
+      reason: "frame-sheet",
+    }))
+
+    expect(snapshot.backend).toBe("engine")
+    expect(sheet.backend).toBe("engine")
+    expect(calls).toEqual(["engine", "engine"])
+  })
+
   test("falls back from Engine to Producer capture with an explicit warning", async () => {
     const service = createVisualContextService({
       backendOrder: ["engine", "producer-capture"],

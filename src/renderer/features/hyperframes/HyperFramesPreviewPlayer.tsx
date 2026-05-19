@@ -38,6 +38,7 @@ import {
   getTimelineFrameIndicator,
   timelineSecondsToFrame,
 } from "../../../shared/hyperframes-timeline-model"
+import { buildVisualPreviewSurfaceKey } from "../../../shared/visual-preview-surface"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -218,6 +219,7 @@ export function HyperFramesPreviewPlayer({
 }: HyperFramesPreviewPlayerProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
+  const previewSurfaceRef = useRef<HTMLDivElement | null>(null)
   const controlsRef = useRef<HTMLDivElement | null>(null)
   const timelineRef = useRef<HTMLDivElement | null>(null)
   const timelineProgressRef = useRef<HTMLDivElement | null>(null)
@@ -342,6 +344,12 @@ export function HyperFramesPreviewPlayer({
     },
   })
   const aspectRatio = source ? `${source.width} / ${source.height}` : "16 / 9"
+  const previewSurfaceKey = useMemo(() => buildVisualPreviewSurfaceKey({
+    projectId,
+    compositionId,
+    revisionId,
+    chatId,
+  }), [chatId, compositionId, projectId, revisionId])
   const scale = zoom === "fit" ? 100 : Number(zoom)
   const fittedPreviewSize = useMemo(() => fitPreviewStageSize({
     containerWidth: previewStageSize.width,
@@ -540,6 +548,41 @@ export function HyperFramesPreviewPlayer({
       ? timelineQuery.error.message
       : null
 
+  const updateVisualPreviewSurface = useCallback(() => {
+    const element = previewSurfaceRef.current
+    const projectPath = sourceQuery.data?.projectPath ?? null
+    if (!element || !source || !projectPath || !isReady) return
+    const rect = element.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
+    void window.desktopApi?.updateVisualPreviewSurface?.({
+      surfaceKey: previewSurfaceKey,
+      projectId,
+      compositionId: compositionId ?? null,
+      revisionId: revisionId ?? null,
+      chatId: chatId ?? null,
+      projectPath: sourceQuery.data?.project?.path ?? null,
+      sourcePath: projectPath,
+      sourceWidth: source.width,
+      sourceHeight: source.height,
+      bounds: {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      },
+    }).catch(() => undefined)
+  }, [
+    chatId,
+    compositionId,
+    isReady,
+    previewSurfaceKey,
+    projectId,
+    revisionId,
+    source,
+    sourceQuery.data?.project?.path,
+    sourceQuery.data?.projectPath,
+  ])
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsElementFullscreen(document.fullscreenElement === rootRef.current)
@@ -548,6 +591,37 @@ export function HyperFramesPreviewPlayer({
     document.addEventListener("fullscreenchange", handleFullscreenChange)
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
   }, [])
+
+  useLayoutEffect(() => {
+    const element = previewSurfaceRef.current
+    if (!element || !source || !sourceQuery.data?.projectPath || !isReady) return
+
+    updateVisualPreviewSurface()
+    const observer = new ResizeObserver(updateVisualPreviewSurface)
+    observer.observe(element)
+    window.addEventListener("resize", updateVisualPreviewSurface)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("resize", updateVisualPreviewSurface)
+    }
+  }, [
+    isReady,
+    source,
+    sourceQuery.data?.projectPath,
+    updateVisualPreviewSurface,
+  ])
+
+  useEffect(() => {
+    if (!isReady) {
+      void window.desktopApi?.clearVisualPreviewSurface?.({ surfaceKey: previewSurfaceKey }).catch(() => undefined)
+    }
+  }, [isReady, previewSurfaceKey])
+
+  useEffect(() => {
+    return () => {
+      void window.desktopApi?.clearVisualPreviewSurface?.({ surfaceKey: previewSurfaceKey }).catch(() => undefined)
+    }
+  }, [previewSurfaceKey])
 
   useLayoutEffect(() => {
     const stage = stageRef.current
@@ -1076,6 +1150,7 @@ export function HyperFramesPreviewPlayer({
         data-testid="ripple-preview-stage"
       >
         <div
+          ref={previewSurfaceRef}
           className={cn(
             "relative max-h-full overflow-hidden rounded-md bg-black shadow-sm ring-1 ring-border/70",
             zoom === "fit" && "max-w-full",

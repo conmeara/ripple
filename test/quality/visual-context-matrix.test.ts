@@ -9,6 +9,9 @@ import {
   createVisualContextEndpoint,
   createVisualContextFileBridge,
   createVisualContextService,
+  type VisualCaptureBackend,
+  type VisualCaptureFramesRequest,
+  type VisualCaptureFramesResult,
 } from "../../src/main/lib/visual-context"
 import { buildRippleAgentToolEnvironment } from "../../src/main/lib/agent-runtime/cli-tools-env"
 import { prepareAgentVisualContextHandoff } from "../../src/main/lib/agent-runtime/visual-context-handoff"
@@ -308,6 +311,52 @@ function fakeDbReturning(thread: unknown) {
   } as any
 }
 
+async function capturePreviewFixture(input: VisualCaptureFramesRequest): Promise<VisualCaptureFramesResult> {
+  const renderService = createVisualContextService({ backendOrder: ["engine"] })
+  try {
+    const result = await renderService.captureFrames({
+      ...input,
+      intent: "specific-frame",
+      preferredBackend: "engine",
+      previewSurfaceKey: null,
+    })
+    return {
+      ...result,
+      backend: "preview",
+    }
+  } finally {
+    await renderService.shutdown()
+  }
+}
+
+function createVisualContextServiceWithPreviewHarness() {
+  const previewBackend: VisualCaptureBackend = {
+    id: "preview",
+    supportsWarmSession: true,
+    captureFrames: capturePreviewFixture,
+  }
+  return createVisualContextService({
+    backends: {
+      preview: previewBackend,
+    },
+  })
+}
+
+function currentFrameSnapshot(projectDir: string) {
+  return {
+    projectPath: projectDir,
+    sourcePath: projectDir,
+    projectId: "project-1",
+    compositionId: "main",
+    compositionPath: "index.html",
+    previewSurfaceKey: "project-1:main:main",
+    timeMs: 500,
+    fps: 30,
+    width: 1920,
+    height: 1080,
+  }
+}
+
 describe("Visual Context quality and speed matrix", () => {
   timedTest("covers explicit snapshot, quality, and timing", async () => {
     const projectDir = await makeProject()
@@ -347,18 +396,11 @@ describe("Visual Context quality and speed matrix", () => {
 
   timedTest("covers current-frame snapshot, quality, and timing", async () => {
     const projectDir = await makeProject()
-    const service = createVisualContextService()
+    const service = createVisualContextServiceWithPreviewHarness()
     const endpoint = await createVisualContextEndpoint({
       service,
       workspaceRoot: projectDir,
-      resolveCurrentFrameSnapshot: async () => ({
-        projectPath: projectDir,
-        compositionPath: "index.html",
-        timeMs: 500,
-        fps: 30,
-        width: 1920,
-        height: 1080,
-      }),
+      resolveCurrentFrameSnapshot: async () => currentFrameSnapshot(projectDir),
     })
 
     try {
@@ -589,19 +631,11 @@ describe("Visual Context quality and speed matrix", () => {
 
   timedTest("covers the agent chat CLI snapshot and frame-sheet paths, artifact quality, and timing", async () => {
     const projectDir = await makeProject()
-    const service = createVisualContextService()
+    const service = createVisualContextServiceWithPreviewHarness()
     const endpoint = await createVisualContextEndpoint({
       service,
       workspaceRoot: projectDir,
-      resolveCurrentFrameSnapshot: async () => ({
-        projectPath: projectDir,
-        sourcePath: projectDir,
-        compositionPath: "index.html",
-        timeMs: 500,
-        fps: 30,
-        width: 1920,
-        height: 1080,
-      }),
+      resolveCurrentFrameSnapshot: async () => currentFrameSnapshot(projectDir),
     })
 
     try {
@@ -677,20 +711,12 @@ describe("Visual Context quality and speed matrix", () => {
 
   timedTest("covers app-owned bridge visual checks without stale handoff fallback", async () => {
     const projectDir = await makeProject()
-    const service = createVisualContextService()
+    const service = createVisualContextServiceWithPreviewHarness()
     const bridge = await createVisualContextFileBridge({
       service,
       workspaceRoot: projectDir,
       requestDir: join(projectDir, ".ripple", "agent-visual-context", "matrix-bridge", "requests"),
-      resolveCurrentFrameSnapshot: async () => ({
-        projectPath: projectDir,
-        sourcePath: projectDir,
-        compositionPath: "index.html",
-        timeMs: 500,
-        fps: 30,
-        width: 1920,
-        height: 1080,
-      }),
+      resolveCurrentFrameSnapshot: async () => currentFrameSnapshot(projectDir),
     })
     try {
       const handoff = await prepareAgentVisualContextHandoff({

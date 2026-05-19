@@ -1,10 +1,17 @@
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync, statSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join, normalize } from "node:path"
 
 const specsDir = "docs/specs"
+const archivedMdSpecsDir = "docs/z_archive/md_specs"
 
-const requiredSpecFiles = [
+const requiredActiveSpecFiles = [
+  "Comments.html",
+  "Visual Context.html",
+  "visual-context-eval.html",
+]
+
+const requiredArchivedSpecFiles = [
   "Active Conversations.md",
   "Advanced Utilities.md",
   "Agent Connections.md",
@@ -34,7 +41,8 @@ const requiredSpecFiles = [
   "Spec Index.md",
   "Templates.md",
   "Timeline.md",
-  "Visual Context.md",
+  "Visual Context/Visual Context.md",
+  "Visual Context - v2.md",
   "Voice Input.md",
 ]
 
@@ -83,35 +91,81 @@ function isFileOrDirectory(path: string): boolean {
   }
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function localReferences(text: string): string[] {
+  return [...text.matchAll(/\b(?:href|src)="([^"]+)"/g)]
+    .map((match) => match[1])
+    .filter((target) =>
+      target &&
+      !target.includes("${") &&
+      !/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(target)
+    )
+}
+
+function assertLocalReferenceExists(sourcePath: string, target: string): void {
+  const [rawPath, rawAnchor] = target.split("#")
+  const targetPath = rawPath
+    ? normalize(join(dirname(sourcePath), rawPath))
+    : sourcePath
+  expect(isFileOrDirectory(targetPath)).toBe(true)
+
+  if (rawAnchor) {
+    const anchor = decodeURIComponent(rawAnchor)
+    const targetText = readFileSync(targetPath, "utf8")
+    expect(targetText).toMatch(new RegExp(`\\bid=["']${escapeRegex(anchor)}["']`))
+  }
+}
+
 describe("Ripple v1 draft specs", () => {
-  test("keeps the Obsidian specs as the product coverage map", () => {
-    const specs = readdirSync(specsDir).filter((file) => file.endsWith(".md"))
-    const specSet = new Set(specs)
-    const specText = specs
-      .map((file) => readFileSync(join(specsDir, file), "utf8"))
+  test("keeps the active HTML specs and archived Markdown specs as the product coverage map", () => {
+    const activeSpecs = readdirSync(specsDir).filter((file) => file.endsWith(".html"))
+    const activeSpecSet = new Set(activeSpecs)
+    const archivedSpecs = walk(archivedMdSpecsDir)
+      .filter((file) => file.endsWith(".md"))
+      .map((file) => file.slice(`${archivedMdSpecsDir}/`.length))
+    const archivedSpecSet = new Set(archivedSpecs)
+    const specText = [
+      ...activeSpecs.map((file) => join(specsDir, file)),
+      ...archivedSpecs.map((file) => join(archivedMdSpecsDir, file)),
+    ]
+      .map((file) => readFileSync(file, "utf8"))
       .join("\n")
 
-    for (const file of requiredSpecFiles) {
-      expect(specSet.has(file)).toBe(true)
+    for (const file of requiredActiveSpecFiles) {
+      expect(activeSpecSet.has(file)).toBe(true)
     }
 
-    for (const file of specs) {
+    for (const file of requiredArchivedSpecFiles) {
+      expect(archivedSpecSet.has(file)).toBe(true)
+    }
+
+    for (const file of activeSpecs) {
       const text = readFileSync(join(specsDir, file), "utf8")
-      expect(text).toContain("Screenshot")
-      expect(text).toContain("## Test Coverage")
-      expect(text).not.toMatch(/docs\/testing|docs\/release/)
+      expect(text).toContain("<title>")
+      expect(text).not.toMatch(/href="[^"]+\.md(?:#[^"]*)?"/)
       expect(text).not.toMatch(/(^|\n)\s*(TBD|TODO|none)\s*($|\n)/i)
+      for (const target of localReferences(text)) {
+        assertLocalReferenceExists(join(specsDir, file), target)
+      }
     }
 
-    const index = readFileSync(join(specsDir, "Spec Index.md"), "utf8")
-    for (const file of requiredSpecFiles.filter((file) => file !== "Spec Index.md")) {
+    const index = readFileSync(join(archivedMdSpecsDir, "Spec Index.md"), "utf8")
+    for (const file of requiredArchivedSpecFiles.filter((file) =>
+      file !== "Spec Index.md" &&
+      !file.includes("/") &&
+      file !== "Visual Context - v2.md"
+    )) {
       expect(index).toContain(`[[${file.replace(/\.md$/, "")}]]`)
     }
 
     const linkedSpecs = [...specText.matchAll(/\[\[([^\]#|]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g)]
       .map((match) => `${match[1]}.md`)
     for (const linkedSpec of linkedSpecs) {
-      expect(specSet.has(linkedSpec)).toBe(true)
+      const nestedSpec = `${linkedSpec.replace(/\.md$/, "")}/${linkedSpec}`
+      expect(archivedSpecSet.has(linkedSpec) || archivedSpecSet.has(nestedSpec)).toBe(true)
     }
   })
 

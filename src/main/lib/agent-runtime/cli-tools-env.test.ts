@@ -353,7 +353,7 @@ describe("Ripple agent CLI tool environment", () => {
         const framePath = join(String(input.outputDir), "current.png")
         writeFileSync(framePath, ONE_BY_ONE_PNG)
         return {
-          backend: "engine",
+          backend: "preview",
           frames: [{
             index: 0,
             timeMs: input.timeMs,
@@ -389,7 +389,10 @@ describe("Ripple agent CLI tool environment", () => {
       resolveCurrentFrameSnapshot: async () => ({
         projectPath: projectDir,
         sourcePath: projectDir,
+        projectId: "project-1",
+        compositionId: "main",
         compositionPath: "index.html",
+        previewSurfaceKey: "project-1:main:main",
         timeMs: 733,
         fps: 30,
         width: 1280,
@@ -429,8 +432,10 @@ describe("Ripple agent CLI tool environment", () => {
         fps: 30,
         width: 1280,
         height: 720,
+        intent: "current-frame",
+        preferredBackend: "preview",
+        previewSurfaceKey: "project-1:main:main",
       }))
-      expect(JSON.stringify(snapshotRequest)).not.toContain("preferredBackend")
       expect(stdout).not.toContain("backend")
       expect(stdout).not.toContain("endpoint")
       expect(stdout).not.toContain("handoff")

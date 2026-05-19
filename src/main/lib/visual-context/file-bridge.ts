@@ -6,6 +6,7 @@ import { isPathInsideDirectory } from "../../../shared/path-boundary"
 import type {
   VisualCaptureFramesRequest,
   VisualCurrentFrameSnapshot,
+  VisualContextIntentKind,
   VisualContextService,
   VisualSnapshotInput,
 } from "./types"
@@ -50,6 +51,13 @@ function stringField(body: Record<string, unknown>, key: string): string | null 
 function numberField(body: Record<string, unknown>, key: string): number | null {
   const value = body[key]
   return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function intentField(body: Record<string, unknown>): VisualContextIntentKind | null {
+  const value = body.intent
+  return value === "current-frame" || value === "specific-frame" || value === "frame-sheet"
+    ? value
+    : null
 }
 
 async function realpathExistingParent(path: string): Promise<string> {
@@ -150,8 +158,11 @@ function snapshotInputFromCurrentFrame(input: {
   return {
     projectPath: input.current.projectPath,
     sourcePath: input.current.sourcePath ?? stringField(input.requested, "sourcePath"),
+    projectId: input.current.projectId ?? stringField(input.requested, "projectId"),
+    compositionId: input.current.compositionId ?? stringField(input.requested, "compositionId"),
     compositionPath: input.current.compositionPath ?? stringField(input.requested, "compositionPath"),
     sourceRevisionId: input.current.sourceRevisionId ?? stringField(input.requested, "sourceRevisionId"),
+    previewSurfaceKey: input.current.previewSurfaceKey ?? stringField(input.requested, "previewSurfaceKey"),
     timeMs: input.current.timeMs,
     fps: input.current.fps ?? numberField(input.requested, "fps") ?? 30,
     width: input.current.width ?? numberField(input.requested, "width") ?? 1920,
@@ -164,9 +175,24 @@ function snapshotInputFromCurrentFrame(input: {
     outputDir: stringField(input.requested, "outputDir") ?? undefined,
     repoRoot: stringField(input.requested, "repoRoot") ?? undefined,
     env: undefined,
-    preferredBackend: typeof input.requested.preferredBackend === "string"
-      ? input.requested.preferredBackend as VisualSnapshotInput["preferredBackend"]
-      : undefined,
+    intent: "current-frame",
+    preferredBackend: "preview",
+  }
+}
+
+function framesInputFromBody(body: Record<string, unknown>): VisualCaptureFramesRequest {
+  return {
+    ...(body as unknown as VisualCaptureFramesRequest),
+    intent: intentField(body) ?? (
+      body.reason === "frame-sheet" ? "frame-sheet" : undefined
+    ),
+  }
+}
+
+function snapshotInputFromBody(body: Record<string, unknown>): VisualSnapshotInput {
+  return {
+    ...(body as unknown as VisualSnapshotInput),
+    intent: intentField(body) ?? "specific-frame",
   }
 }
 
@@ -224,7 +250,7 @@ async function handleBridgeRequest(input: {
   await assertRequestWorkspace({ workspaceRealPath: input.workspaceRealPath, body })
 
   if (input.request.kind === "capture-frames") {
-    return input.service.captureFrames(body as unknown as VisualCaptureFramesRequest)
+    return input.service.captureFrames(framesInputFromBody(body))
   }
 
   if (body.at === "current") {
@@ -246,7 +272,7 @@ async function handleBridgeRequest(input: {
     return input.service.captureSnapshot(snapshotInputFromCurrentFrame({ requested: body, current }))
   }
 
-  return input.service.captureSnapshot(body as unknown as VisualSnapshotInput)
+  return input.service.captureSnapshot(snapshotInputFromBody(body))
 }
 
 export async function createVisualContextFileBridge(

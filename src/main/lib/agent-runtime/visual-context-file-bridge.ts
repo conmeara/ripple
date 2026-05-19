@@ -8,6 +8,7 @@ import {
   type VisualCurrentFrameSnapshot,
   type VisualContextSourceInvalidationHandle,
 } from "../visual-context"
+import { createPreviewSurfaceVisualBackend } from "../visual-context/preview-surface"
 
 export interface AgentVisualContextFileBridge {
   requestDir: string
@@ -25,7 +26,11 @@ export async function createAgentVisualContextFileBridge(
   workspaceRoot: string,
   options: AgentVisualContextFileBridgeOptions,
 ): Promise<AgentVisualContextFileBridge | null> {
-  const service = options.service ?? createVisualContextService()
+  const service = options.service ?? createVisualContextService({
+    backends: {
+      preview: createPreviewSurfaceVisualBackend(),
+    },
+  })
   let bridge: VisualContextFileBridgeHandle | null = null
   let sourceInvalidation: VisualContextSourceInvalidationHandle | null = null
   try {

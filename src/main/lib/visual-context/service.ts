@@ -35,9 +35,30 @@ function getRequestBackendOrder(input: {
   ]
 }
 
+function getIntentBackendOrder(input: {
+  request: VisualCaptureFramesRequest
+  backendOrder: VisualContextBackendId[]
+}): VisualContextBackendId[] {
+  if (input.request.intent === "current-frame") {
+    return ["preview"]
+  }
+
+  const renderBackendOrder = input.backendOrder.filter((backend) => backend !== "preview")
+  const preferredBackend =
+    input.request.preferredBackend === "preview"
+      ? undefined
+      : input.request.preferredBackend
+  return getRequestBackendOrder({
+    preferredBackend,
+    backendOrder: renderBackendOrder,
+  })
+}
+
 function buildSessionKey(input: VisualCaptureFramesRequest): string {
   return [
+    input.intent ?? "render",
     input.preferredBackend ?? "auto",
+    input.previewSurfaceKey ?? "",
     input.projectPath,
     input.sourcePath ?? input.projectPath,
     input.compositionPath ?? "",
@@ -54,6 +75,10 @@ function fallbackWarning(input: {
   nextBackend: VisualContextBackendId
 }): string {
   return `Ripple visual capture could not use ${input.failedBackend}, so it used ${input.nextBackend}.`
+}
+
+function currentFramePreviewUnavailableError(): Error {
+  return new Error("Current-frame visual context requires the live preview backend.")
 }
 
 export class RippleVisualContextService implements VisualContextService {
@@ -118,10 +143,19 @@ export class RippleVisualContextService implements VisualContextService {
   private async captureFramesWithoutQueue(
     input: VisualCaptureFramesRequest,
   ): Promise<VisualCaptureFramesResult> {
-    const order = getRequestBackendOrder({
-      preferredBackend: input.preferredBackend,
+    const order = getIntentBackendOrder({
+      request: input,
       backendOrder: this.backendOrder,
     })
+    if (input.intent === "current-frame" && !this.backends.preview) {
+      const error = currentFramePreviewUnavailableError()
+      this.metrics.recordFailure({
+        backend: "preview",
+        reason: input.reason,
+        message: error.message,
+      })
+      throw error
+    }
     let firstFailure: { backend: VisualContextBackendId; error: unknown } | null = null
     let previousFailure: VisualContextBackendId | null = null
 

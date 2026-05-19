@@ -13,11 +13,20 @@ export type VisualCaptureReason =
   | "agent-context"
   | "qa"
 
+export type VisualContextIntentKind =
+  | "current-frame"
+  | "specific-frame"
+  | "frame-sheet"
+
 export interface VisualCaptureFramesRequest {
   projectPath: string
   sourcePath?: string | null
   compositionPath?: string | null
   sourceRevisionId?: string | null
+  projectId?: string | null
+  compositionId?: string | null
+  intent?: VisualContextIntentKind
+  previewSurfaceKey?: string | null
   timestampsMs: number[]
   fps: number
   width: number
@@ -70,8 +79,11 @@ export interface VisualSnapshotInput extends Omit<
 export interface VisualCurrentFrameSnapshot {
   projectPath: string
   sourcePath?: string | null
+  projectId?: string | null
+  compositionId?: string | null
   compositionPath?: string | null
   sourceRevisionId?: string | null
+  previewSurfaceKey?: string | null
   timeMs: number
   fps?: number
   width?: number
