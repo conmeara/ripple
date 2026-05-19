@@ -57,16 +57,27 @@ async function makeMediaProject(): Promise<string> {
     <script>
       const clip = document.getElementById("clip");
       const tone = document.getElementById("tone");
-      window.__hf = {
-        duration: 2,
-        seek: function (time) {
-          if (Number.isFinite(clip.duration) && clip.duration > 0) {
-            clip.currentTime = Math.min(time, clip.duration - 0.05);
-          }
-          if (Number.isFinite(tone.duration) && tone.duration > 0) {
-            tone.currentTime = Math.min(time, tone.duration - 0.01);
-          }
+      const duration = 2;
+      function seek(time) {
+        if (Number.isFinite(clip.duration) && clip.duration > 0) {
+          clip.currentTime = Math.min(time, clip.duration - 0.05);
         }
+        if (Number.isFinite(tone.duration) && tone.duration > 0) {
+          tone.currentTime = Math.min(time, tone.duration - 0.01);
+        }
+      }
+      window.__timelines = window.__timelines || {};
+      window.__timelines.media = {
+        pause: function () {},
+        seek: seek,
+        totalTime: seek,
+        duration: function () {
+          return duration;
+        }
+      };
+      window.__hf = {
+        duration: duration,
+        seek: seek
       };
     </script>
   </body>

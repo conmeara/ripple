@@ -55,9 +55,20 @@ async function makeNonEntryProject(): Promise<string> {
   <body>
     <main data-composition-id="alternate"></main>
     <script>
+      window.__timelines = window.__timelines || {};
+      var duration = 1;
+      function seek() {}
+      window.__timelines.alternate = {
+        pause: function () {},
+        seek: seek,
+        totalTime: seek,
+        duration: function () {
+          return duration;
+        }
+      };
       window.__hf = {
-        duration: 1,
-        seek: function () {}
+        duration: duration,
+        seek: seek
       };
     </script>
   </body>

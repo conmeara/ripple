@@ -15,6 +15,21 @@ import {
 
 const execFileAsync = promisify(execFile)
 
+const MANAGED_PROJECT_GITIGNORE = [
+  "# Ripple generated output",
+  "exports/",
+  "snapshots/",
+  ".ripple/snapshots/",
+  ".ripple/frame-sheets/",
+  ".ripple/comment-visuals/",
+  ".ripple/agent-visual-context/",
+  ".ripple/tmp/",
+  ".ripple/agent-attachments/",
+  "node_modules/",
+  ".DS_Store",
+  "",
+].join("\n")
+
 test.describe("Ripple release QA workflows", () => {
   test("opens an existing HyperFrames project through the trusted project dialog @workflow", async ({
     electronApp,
@@ -343,6 +358,7 @@ async function initializeManagedGitProject(projectDir: string): Promise<string> 
     "ripple.revisionManaged",
     "true",
   ])
+  await writeFile(join(projectDir, ".gitignore"), MANAGED_PROJECT_GITIGNORE, "utf8")
   await execFileAsync("git", ["-C", projectDir, "add", "-A"])
   await execFileAsync("git", ["-C", projectDir, "commit", "-m", "Base"])
   const { stdout } = await execFileAsync("git", ["-C", projectDir, "rev-parse", "HEAD"])

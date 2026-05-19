@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs"
 import { execFile } from "node:child_process"
-import { copyFile, cp, mkdir, readdir } from "node:fs/promises"
+import { copyFile, cp, mkdir, readdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import type { ElectronApplication, Page } from "@playwright/test"
@@ -12,6 +12,21 @@ import {
 } from "./helpers/ripple-electron"
 
 const execFileAsync = promisify(execFile)
+
+const MANAGED_PROJECT_GITIGNORE = [
+  "# Ripple generated output",
+  "exports/",
+  "snapshots/",
+  ".ripple/snapshots/",
+  ".ripple/frame-sheets/",
+  ".ripple/comment-visuals/",
+  ".ripple/agent-visual-context/",
+  ".ripple/tmp/",
+  ".ripple/agent-attachments/",
+  "node_modules/",
+  ".DS_Store",
+  "",
+].join("\n")
 
 test.describe("Comments spec workflow", () => {
   test("T-E2E full frame-comment review workflow from note to accepted history @workflow @comments", async ({
@@ -151,6 +166,7 @@ async function initializeManagedGitProject(projectDir: string): Promise<void> {
     "ripple.revisionManaged",
     "true",
   ])
+  await writeFile(join(projectDir, ".gitignore"), MANAGED_PROJECT_GITIGNORE, "utf8")
   await execFileAsync("git", ["-C", projectDir, "add", "-A"])
   await execFileAsync("git", ["-C", projectDir, "commit", "-m", "Base"])
 }

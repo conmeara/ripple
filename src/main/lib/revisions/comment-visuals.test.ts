@@ -62,9 +62,20 @@ async function makeNonEntryProject(): Promise<{ root: string; projectPath: strin
   <body>
     <main data-composition-id="app-showcase"></main>
     <script>
+      window.__timelines = window.__timelines || {};
+      var duration = 1;
+      function seek() {}
+      window.__timelines["app-showcase"] = {
+        pause: function () {},
+        seek: seek,
+        totalTime: seek,
+        duration: function () {
+          return duration;
+        }
+      };
       window.__hf = {
-        duration: 1,
-        seek: function () {}
+        duration: duration,
+        seek: seek
       };
     </script>
   </body>

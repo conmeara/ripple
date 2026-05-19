@@ -193,11 +193,16 @@ describe("HyperFrames packaged app configuration", () => {
     expect(asarUnpack.has("node_modules/@hyperframes/player/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/@hyperframes/producer/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/@hyperframes/studio/**/*")).toBe(true)
+    expect(asarUnpack.has("node_modules/@emnapi/**/*")).toBe(true)
+    expect(asarUnpack.has("node_modules/@img/**/*")).toBe(true)
+    expect(asarUnpack.has("node_modules/onnxruntime-common/**/*")).toBe(true)
+    expect(asarUnpack.has("node_modules/onnxruntime-node/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/@puppeteer/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/gsap/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/hyperframes/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/puppeteer/**/*")).toBe(true)
     expect(asarUnpack.has("node_modules/puppeteer-core/**/*")).toBe(true)
+    expect(asarUnpack.has("node_modules/sharp/**/*")).toBe(true)
   })
 
   test("keeps app-managed agent CLIs without duplicating Claude SDK platform binaries", () => {

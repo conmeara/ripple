@@ -48,7 +48,18 @@ async function makeTransparencyProject(): Promise<string> {
       <div class="box"></div>
     </main>
     <script>
-      window.__hf = { duration: 1, seek: function () {} };
+      window.__timelines = window.__timelines || {};
+      var duration = 1;
+      function seek() {}
+      window.__timelines.transparent = {
+        pause: function () {},
+        seek: seek,
+        totalTime: seek,
+        duration: function () {
+          return duration;
+        }
+      };
+      window.__hf = { duration: duration, seek: seek };
     </script>
   </body>
 </html>`)
