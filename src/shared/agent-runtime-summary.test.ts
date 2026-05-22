@@ -8,6 +8,7 @@ import {
   designerFacingAgentRuntimeLine,
   isAgentRuntimeMcpToolPart,
   isUnsafeAgentRuntimeDefaultCopy,
+  latestAgentRuntimeActivityLine,
   summarizeAgentRuntimePart,
   shouldHideAgentRuntimeDataPart,
   titleForAgentRuntimeDataPart,
@@ -206,5 +207,76 @@ describe("agent runtime product summaries", () => {
       status: "done",
       title: "Updated composition",
     }))
+  })
+
+  test("derives the latest shared activity line from persisted events", () => {
+    expect(latestAgentRuntimeActivityLine([
+      {
+        type: "status",
+        payload: { status: "running", label: "Codex session ready" },
+      },
+      { type: "reasoning", payload: { delta: "I need to inspect this." } },
+    ])).toBe("Thinking")
+
+    expect(latestAgentRuntimeActivityLine([
+      { type: "reasoning", payload: { delta: "I need to inspect this." } },
+      {
+        type: "tool_start",
+        providerType: "item/started",
+        payload: { toolName: "Edit", command: "git diff -- index.html" },
+      },
+    ])).toBe("Updating composition")
+
+    expect(latestAgentRuntimeActivityLine([
+      {
+        type: "tool_start",
+        providerType: "mcpToolCall",
+        payload: { server: "asset_library", tool: "search_media" },
+      },
+    ])).toBe("Working on project")
+  })
+
+  test("keeps unsafe latest activity copy out of comment/status lines", () => {
+    expect(latestAgentRuntimeActivityLine([
+      {
+        type: "activity",
+        payload: {
+          kind: "checking",
+          label: "Bash /Users/example/project/src/index.html stdout={\"ok\":true}",
+        },
+      },
+    ])).toBe("Checking project")
+
+    expect(latestAgentRuntimeActivityLine([
+      {
+        type: "activity",
+        payload: {
+          kind: "searching",
+          label: "Looking up brand references",
+          source: "claude_agent_sdk",
+        },
+      },
+    ])).toBe("Looking up brand references")
+
+    expect(latestAgentRuntimeActivityLine([
+      {
+        type: "status",
+        payload: {
+          status: "running",
+          message: "git diff -- src/index.html",
+        },
+      },
+    ])).toBe("Checking project")
+
+    expect(latestAgentRuntimeActivityLine([
+      { type: "reasoning", payload: { delta: "Inspect the request." } },
+      {
+        type: "status",
+        payload: {
+          label: "Loaded Codex context: 1 MCP server",
+          sessionInit: { tools: ["Bash"] },
+        },
+      },
+    ])).toBe("Thinking")
   })
 })

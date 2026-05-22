@@ -52,8 +52,11 @@ export interface AgentRuntimeDataPart extends AgentRuntimeSummaryPart {
 }
 
 export interface AgentRuntimeSummaryEventLike {
+  id?: string
   type?: string
+  providerId?: string | null
   providerType?: string | null
+  payloadJson?: string | null
   payload?: Record<string, unknown> | null
 }
 
@@ -86,6 +89,33 @@ const LEGACY_AGENT_RUNTIME_LINES = new Map<string, string>([
   ["Using a project tool", "Working on project"],
   ["Writing a response", "Thinking"],
   ["Waiting for approval", "Approval needed"],
+])
+
+const LATEST_DIRECT_ACTIVITY_LINES = new Map<string, string>([
+  ["reasoning", "Thinking"],
+  ["assistant_text_delta", "Thinking"],
+  ["assistant_message", "Thinking"],
+  ["approval_request", "Approval needed"],
+])
+
+const LATEST_STATUS_ACTIVITY_LINES = new Map<string, string>([
+  ["awaiting_approval", "Approval needed"],
+  ["preparing", "Preparing the composition"],
+  ["queued", "Thinking"],
+  ["running", "Thinking"],
+])
+
+const LATEST_ACTIVITY_KIND_LINES = new Map<string, string>([
+  ["thinking", "Thinking"],
+  ["preparing", "Preparing the composition"],
+  ["reviewing", "Checking current frame"],
+  ["checking", "Checking project"],
+  ["editing", "Updating composition"],
+  ["searching", "Explored project"],
+  ["reading", "Explored project"],
+  ["tooling", "Working on project"],
+  ["writing", "Thinking"],
+  ["waiting", "Approval needed"],
 ])
 
 export function isAgentRuntimeRecord(value: unknown): value is AgentRuntimeSummaryPart {
@@ -449,6 +479,129 @@ export function agentRuntimeSummaryPartFromEvent(
         label,
         payload,
       },
+    }
+  }
+
+  return null
+}
+
+function parseAgentRuntimeEventPayload(
+  event: AgentRuntimeSummaryEventLike,
+): Record<string, unknown> {
+  if (event.payload && typeof event.payload === "object") return event.payload
+  if (!event.payloadJson) return {}
+  try {
+    const parsed = JSON.parse(event.payloadJson)
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function latestActivityPayloadLine(payload: Record<string, unknown>): string | null {
+  if (payload.capabilities && typeof payload.capabilities === "object") return null
+  if (payload.sessionInit && typeof payload.sessionInit === "object") return null
+
+  const label = compactAgentRuntimeString(payload.label) ??
+    compactAgentRuntimeString(payload.message)
+  if (
+    label?.startsWith("Loaded Codex context") ||
+    label?.startsWith("Loaded Claude context") ||
+    label === "Codex session ready" ||
+    label === "Claude session ready"
+  ) {
+    return null
+  }
+
+  if (label) return designerFacingAgentRuntimeLine(label)
+
+  const kind = compactAgentRuntimeString(payload.kind)?.toLowerCase()
+  return kind ? LATEST_ACTIVITY_KIND_LINES.get(kind) ?? null : null
+}
+
+function signalTextForAgentRuntimeEvent(
+  event: AgentRuntimeSummaryEventLike,
+  payload: Record<string, unknown>,
+): string {
+  return [
+    event.type,
+    event.providerType,
+    payload.toolName,
+    payload.tool,
+    payload.server,
+    payload.action,
+    payload.title,
+    payload.label,
+    payload.message,
+  ]
+    .map(compactAgentRuntimeString)
+    .filter((value): value is string => Boolean(value))
+    .join(" ")
+    .toLowerCase()
+}
+
+function latestToolFallbackLine(
+  event: AgentRuntimeSummaryEventLike,
+  payload: Record<string, unknown>,
+): string | null {
+  const signal = signalTextForAgentRuntimeEvent(event, payload)
+  if (!signal) return null
+  if (/\b(approval|askuserquestion|elicitation)\b/.test(signal)) return "Approval needed"
+  if (/\b(filechange|file_change|files_persisted|diff\/updated|edit|write|multiedit)\b/.test(signal)) {
+    return "Updating composition"
+  }
+  if (/\b(frame|snapshot|screenshot|imageview|viewimage|visual)\b/.test(signal)) {
+    return signal.includes("sheet") ? "Checking frame sheet" : "Checking current frame"
+  }
+  if (/\b(export)\b/.test(signal)) return "Preparing export"
+  if (/\b(render)\b/.test(signal)) return "Rendering preview"
+  if (/\b(commandexecution|bash|shell|terminal|lint|check|test|validat)\b/.test(signal)) {
+    return "Checking project"
+  }
+  if (/\b(read|grep|glob|rg|search|find|sed|cat|ls|list|websearch|webfetch)\b/.test(signal)) {
+    return "Explored project"
+  }
+  return "Working on project"
+}
+
+export function latestAgentRuntimeActivityLine(
+  events: AgentRuntimeSummaryEventLike[],
+): string | null {
+  for (const event of [...events].reverse()) {
+    const payload = parseAgentRuntimeEventPayload(event)
+
+    if (event.type === "activity") {
+      const activityLine = latestActivityPayloadLine(payload)
+      if (activityLine) return activityLine
+      continue
+    }
+
+    if (event.type !== "status") {
+      const summaryPart = agentRuntimeSummaryPartFromEvent(event, payload)
+      if (summaryPart) return titleForAgentRuntimeSummaryPart(summaryPart)
+    }
+
+    const directLine = event.type ? LATEST_DIRECT_ACTIVITY_LINES.get(event.type) : null
+    if (directLine) return directLine
+
+    if (
+      event.type === "tool_start" ||
+      event.type === "tool_update" ||
+      event.type === "tool_end"
+    ) {
+      const fallbackLine = latestToolFallbackLine(event, payload)
+      if (fallbackLine) return fallbackLine
+    }
+
+    if (event.type === "status") {
+      const labelLine = latestActivityPayloadLine(payload)
+      if (labelLine) return labelLine
+
+      const status = compactAgentRuntimeString(payload.status)?.toLowerCase()
+      const statusLine = status ? LATEST_STATUS_ACTIVITY_LINES.get(status) : null
+      if (statusLine) return statusLine
     }
   }
 
