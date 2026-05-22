@@ -1571,6 +1571,7 @@ describe("motion runtime activity projection", () => {
       expect.objectContaining({
         kind: "project_tool",
         title: "Working on project",
+        subtitle: "",
         status: "pending",
       }),
     ])
@@ -1606,6 +1607,7 @@ describe("motion runtime activity projection", () => {
     expect(projection.items).toEqual([
       expect.objectContaining({
         title: "Checking project",
+        subtitle: "",
         status: "pending",
       }),
     ])
@@ -1634,9 +1636,44 @@ describe("motion runtime activity projection", () => {
     expect(projection.items).toEqual([
       expect.objectContaining({
         title: "Checking project",
+        subtitle: "",
       }),
     ])
     expect(projection.items.map((item) => item.title).join("\n"))
       .not.toMatch(/Bash|\/Users|src\/index/)
+  })
+
+  test("keeps command stdout out of default verification row copy", () => {
+    const projection = buildMotionRuntimeActivity({
+      parts: [
+        {
+          type: "tool-Bash",
+          toolCallId: "check-1",
+          input: {
+            command: "hyperframes lint /Users/example/project/src/index.html",
+          },
+          output: {
+            exitCode: 0,
+            stdout: "passed /Users/example/project/src/index.html",
+            stderr: "",
+          },
+          state: "output-available",
+        },
+      ],
+    })
+
+    expect(projection.items).toEqual([
+      expect.objectContaining({
+        title: "Checked project",
+        subtitle: "",
+        tags: ["ready"],
+      }),
+    ])
+    const visibleCopy = projection.items
+      .flatMap((item) => [item.title, item.subtitle, ...item.tags])
+      .join("\n")
+    expect(visibleCopy).not.toMatch(/passed|stdout|stderr|\/Users|src\/index|hyperframes lint/)
+    expect(projection.advancedDetails.map((detail) => detail.value).join("\n"))
+      .toContain("/Users/example")
   })
 })

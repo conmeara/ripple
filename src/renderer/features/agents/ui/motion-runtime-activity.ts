@@ -498,12 +498,6 @@ function verificationSubtitle(part: AnyRecord): string {
   if (isRecord(output) && output.exitCode !== undefined && output.exitCode !== 0) {
     return "The check needs attention before the preview is ready."
   }
-  const stdout = isRecord(output)
-    ? compactString(output.stdout) ?? compactString(output.output)
-    : typeof output === "string" ? output : null
-  if (stdout && /no issues|passed|success|ok/i.test(stdout)) {
-    return stdout.split("\n").find((line) => line.trim())?.trim() ?? "No issues found"
-  }
   return ""
 }
 
@@ -1506,7 +1500,7 @@ export function buildMotionRuntimeActivity(input: {
             title: label,
             subtitle: isMotionChange
               ? ""
-              : "Runtime status update.",
+              : "",
             status,
             tags: [],
           })
@@ -1520,7 +1514,7 @@ export function buildMotionRuntimeActivity(input: {
       id: `project-op-${index}`,
       kind: "project_tool",
       title: canonicalEventStatus(event) === "pending" ? "Working on project" : "Updated project",
-      subtitle: "Handled a project operation in the background.",
+      subtitle: "",
       status: canonicalEventStatus(event),
       tags: [],
     })
