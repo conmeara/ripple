@@ -161,4 +161,10 @@ describe("comment formatting", () => {
     }))).toBe("A purple fitness-app promo frame; no revision was needed.")
     expect(formatRevisionStatusLine(revision("answered"))).toBe("No changes needed")
   })
+
+  test("sanitizes failed revision status lines before rendering comment cards", () => {
+    expect(formatRevisionStatusLine(revision("failed", {
+      errorMessage: "Bash failed in /Users/example/project/src/index.html with stderr output.",
+    }))).toBe("Checking project")
+  })
 })

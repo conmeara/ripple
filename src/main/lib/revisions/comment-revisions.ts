@@ -1298,7 +1298,9 @@ export async function createRevisionForThread(input: {
       return updatedRevision
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = compactOneLineSummary(
+      error instanceof Error ? error.message : String(error),
+    ) || "Ripple could not prepare this generated change."
     revision = db.transaction(() => {
       const failedRevision = db
         .update(revisions)

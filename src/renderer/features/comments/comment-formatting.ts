@@ -151,6 +151,8 @@ export function formatRevisionStatusLine(revision: RippleRevisionView): string {
     : label
 
   return revision.status === "failed"
-    ? revision.errorMessage || revisionStatusLabel(revision.status)
+    ? revision.errorMessage
+      ? compactCommentLine(designerFacingAgentRuntimeLine(revision.errorMessage), null)
+      : revisionStatusLabel(revision.status)
     : resultLine
 }

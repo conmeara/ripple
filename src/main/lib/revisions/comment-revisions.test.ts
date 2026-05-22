@@ -12,7 +12,10 @@ import {
   resolveRevisionProjectPath,
 } from "./revision-acceptance"
 import { acceptIsolatedWorkspace } from "./isolated-workspace-acceptance"
-import { extractAssistantFinalResponseFromMessages } from "./comment-summary"
+import {
+  compactOneLineSummary,
+  extractAssistantFinalResponseFromMessages,
+} from "./comment-summary"
 import {
   appendRippleCommentPromptMessage,
   buildRevisionPrompt,
@@ -66,6 +69,12 @@ describe("comment revision summaries", () => {
     expect(extractAssistantFinalResponseFromMessages(messages)).toBe(
       "At 00:00:00:00, the main title now reads \"hi\" while keeping the same existing fade-up motion and timing.",
     )
+  })
+
+  test("sanitizes generated-change summary lines before they reach comment cards", () => {
+    expect(compactOneLineSummary(
+      "Running git diff -- /Users/example/Ripple/project/src/index.html and checking stdout.",
+    )).toBe("Checking project")
   })
 
   test("keeps the final assistant response available for read-more UI", () => {

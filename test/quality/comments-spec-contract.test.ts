@@ -954,7 +954,7 @@ describe("Comments spec contract: H - replies and threads", () => {
 
   test("T-H5 running replies show one progress summary line instead of logs", () => {
     expect(compactOneLineSummary("Running git diff\n\nand checking frames.")).toBe(
-      "Running git diff and checking frames.",
+      "Checking project",
     )
     const commentsPaneSource = read(COMMENTS_PANE_PATH)
     const statusLineSource = between(

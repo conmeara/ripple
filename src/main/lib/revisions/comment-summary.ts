@@ -1,3 +1,5 @@
+import { designerFacingAgentRuntimeLine } from "../../../shared/agent-runtime-summary"
+
 function parseStoredMessages(value: string | null | undefined): any[] {
   if (!value) return []
   try {
@@ -14,7 +16,8 @@ export function compactOneLineSummary(value: string | null | undefined): string 
     .replace(/^summary:\s*/i, "")
     .trim()
   if (!compacted) return null
-  return compacted.length > 180 ? `${compacted.slice(0, 177)}...` : compacted
+  const safe = designerFacingAgentRuntimeLine(compacted)
+  return safe.length > 180 ? `${safe.slice(0, 177)}...` : safe
 }
 
 function compactAssistantResponse(value: string | null | undefined): string | null {
