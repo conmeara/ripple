@@ -602,14 +602,9 @@
           "status": "done",
           "title": "Checked current frame",
           "visual": "snapshot"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after reasoning assistant:thinking",
@@ -693,14 +688,9 @@
           "kind": "explored",
           "status": "done",
           "title": "Explored 1 file"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after assistant_text_delta content_block_delta",
@@ -795,14 +785,9 @@
           "kind": "motion_change",
           "status": "done",
           "title": "Updated composition"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after tool_start content_block_start",
@@ -880,14 +865,9 @@
           "status": "done",
           "title": "Checked current frame",
           "visual": "snapshot"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after assistant_text_delta content_block_delta",

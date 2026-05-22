@@ -93,6 +93,8 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
       ? normalizeCodexApiKey(appStore.get(codexApiKeyAtom))
       : null
 
+    let cleanupStream: (() => void) | null = null
+
     return new ReadableStream<UIMessageChunk>({
       start: (controller) => {
         const projector = new AgentRuntimeUIProjector()
@@ -101,10 +103,25 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
         let started = false
         let closed = false
         let finishReason = "stop"
+        let abortHandler: (() => void) | null = null
         const messageMetadata: Record<string, unknown> = {
           agentRunId: null,
           provider: this.config.provider,
           model: this.config.model,
+        }
+
+        const cleanupSubscription = () => {
+          if (abortHandler) {
+            options.abortSignal?.removeEventListener("abort", abortHandler)
+            abortHandler = null
+          }
+          sub?.unsubscribe()
+          sub = null
+        }
+        cleanupStream = () => {
+          if (closed) return
+          closed = true
+          cleanupSubscription()
         }
 
         const enqueue = (chunk: UIMessageChunk) => {
@@ -164,7 +181,7 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
             // Stream already closed.
           }
           closed = true
-          sub?.unsubscribe()
+          cleanupSubscription()
           if (runId) agentChatStore.setStreamId(this.config.subChatId, null)
         }
 
@@ -212,7 +229,8 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
           finish()
         }
 
-        options.abortSignal?.addEventListener("abort", cancel, { once: true })
+        abortHandler = cancel
+        options.abortSignal?.addEventListener("abort", abortHandler, { once: true })
 
         sub = trpcClient.agentRuntime.chat.subscribe(
           {
@@ -267,6 +285,10 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
           },
         )
       },
+      cancel: () => {
+        cleanupStream?.()
+        cleanupStream = null
+      },
     })
   }
 
@@ -284,6 +306,8 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
       ? this.config.runtimeContext()
       : this.config.runtimeContext
 
+    let cleanupStream: (() => void) | null = null
+
     return new ReadableStream<UIMessageChunk>({
       start: (controller) => {
         const projector = new AgentRuntimeUIProjector()
@@ -297,6 +321,23 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
           model: this.config.model,
           replayed: true,
         }
+
+        const cleanupSubscription = () => {
+          sub?.unsubscribe()
+          sub = null
+        }
+        const closeQuietly = (clearStreamId: boolean) => {
+          if (closed) return
+          try {
+            controller.close()
+          } catch {
+            // Stream already closed.
+          }
+          closed = true
+          cleanupSubscription()
+          if (clearStreamId) agentChatStore.setStreamId(this.config.subChatId, null)
+        }
+        cleanupStream = () => closeQuietly(false)
 
         const enqueue = (chunk: UIMessageChunk) => {
           if (closed) return
@@ -354,7 +395,7 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
             // Stream already closed.
           }
           closed = true
-          sub?.unsubscribe()
+          cleanupSubscription()
           agentChatStore.setStreamId(this.config.subChatId, null)
         }
 
@@ -409,10 +450,7 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
                 return
               }
               if (message.type === "error") {
-                const errorText = message.message || "Agent run resume failed."
-                toast.error("Agent run resume failed", { description: errorText })
-                enqueueProjectedChunk({ type: "error", errorText })
-                finish()
+                closeQuietly(true)
                 return
               }
               if (message.type === "run-complete") {
@@ -421,13 +459,16 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
             },
             onError: (error: Error) => {
               if (closed) return
-              toast.error("Agent run resume failed", { description: error.message })
-              enqueueProjectedChunk({ type: "error", errorText: error.message })
-              finish()
+              void error
+              closeQuietly(true)
             },
             onComplete: () => finish(),
           },
         )
+      },
+      cancel: () => {
+        cleanupStream?.()
+        cleanupStream = null
       },
     })
   }

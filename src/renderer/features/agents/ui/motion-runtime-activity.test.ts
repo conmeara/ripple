@@ -734,7 +734,7 @@ describe("motion runtime activity projection", () => {
     })).toBe(false)
   })
 
-  test("adds a live fallback after completed thinking and settled work", () => {
+  test("does not add a live thinking fallback after settled visible work", () => {
     const timeline = buildMotionRuntimeTimeline({
       parts: [
         {
@@ -758,10 +758,10 @@ describe("motion runtime activity projection", () => {
       sandboxSetupStatus: "ready",
       isStreaming: true,
       isLastMessage: true,
-    })).toBe(true)
+    })).toBe(false)
   })
 
-  test("adds one live fallback when settled runtime work has no current item", () => {
+  test("does not add a live thinking fallback after a completed visual check", () => {
     const timeline = buildMotionRuntimeTimeline({
       parts: [
         {
@@ -781,10 +781,10 @@ describe("motion runtime activity projection", () => {
       sandboxSetupStatus: "ready",
       isStreaming: true,
       isLastMessage: true,
-    })).toBe(true)
+    })).toBe(false)
   })
 
-  test("adds a live fallback after earlier narration and settled work", () => {
+  test("does not add a live thinking fallback after earlier narration and settled work", () => {
     const timeline = buildMotionRuntimeTimeline({
       parts: [
         {
@@ -817,7 +817,7 @@ describe("motion runtime activity projection", () => {
       sandboxSetupStatus: "ready",
       isStreaming: true,
       isLastMessage: true,
-    })).toBe(true)
+    })).toBe(false)
   })
 
   test("does not add a fallback while visible assistant text is streaming", () => {

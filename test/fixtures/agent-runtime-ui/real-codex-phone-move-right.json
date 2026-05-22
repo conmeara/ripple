@@ -1354,14 +1354,9 @@
           "status": "done",
           "title": "Checked current frame",
           "visual": "snapshot"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after assistant_text_delta item/agentMessage/delta",
@@ -1426,14 +1421,9 @@
           "kind": "verification",
           "status": "done",
           "title": "Checked project"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after tool_start item/started",
@@ -1489,14 +1479,9 @@
           "kind": "explored",
           "status": "done",
           "title": "Explored 1 file"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after tool_start item/started",
@@ -1552,14 +1537,9 @@
           "kind": "explored",
           "status": "done",
           "title": "Explored 1 file, 1 search"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after assistant_text_delta item/agentMessage/delta",
@@ -1669,14 +1649,9 @@
           "kind": "explored",
           "status": "done",
           "title": "Explored 1 file"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after tool_start item/started",
@@ -1752,14 +1727,9 @@
           "kind": "explored",
           "status": "done",
           "title": "Explored 1 file, 1 search"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after tool_start item/started",
@@ -1835,14 +1805,9 @@
           "kind": "explored",
           "status": "done",
           "title": "Explored 1 file, 1 search"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after tool_start item/started",
@@ -1918,14 +1883,9 @@
           "kind": "explored",
           "status": "done",
           "title": "Explored 1 file, 1 search"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after assistant_text_delta item/agentMessage/delta",
@@ -2065,14 +2025,9 @@
           "kind": "motion_change",
           "status": "done",
           "title": "Updated composition"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after tool_start item/started",
@@ -2178,14 +2133,9 @@
           "kind": "verification",
           "status": "done",
           "title": "Checked changes"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after tool_start item/started",
@@ -2301,14 +2251,9 @@
           "kind": "verification",
           "status": "done",
           "title": "Checked project"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after reasoning item/reasoning/summaryTextDelta",
@@ -2574,14 +2519,9 @@
           "status": "done",
           "title": "Checked current frame",
           "visual": "snapshot"
-        },
-        {
-          "kind": "thinking",
-          "status": "pending",
-          "title": "Thinking"
         }
       ],
-      "shimmerCount": 1
+      "shimmerCount": 0
     },
     {
       "name": "after assistant_text_delta item/agentMessage/delta",

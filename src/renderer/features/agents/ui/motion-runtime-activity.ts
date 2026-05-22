@@ -1278,6 +1278,7 @@ export function shouldShowMotionRuntimeThinkingFallback(input: {
   let hasRuntimeEntry = false
   let hasPendingItem = false
   let hasThinkingItem = false
+  let hasVisibleRuntimeItem = false
 
   for (const entry of input.timeline) {
     if (entry.kind !== "runtime") continue
@@ -1286,13 +1287,14 @@ export function shouldShowMotionRuntimeThinkingFallback(input: {
       events: entry.events,
       projectPath: input.projectPath,
     })
+    if (projection.items.length > 0) hasVisibleRuntimeItem = true
     for (const item of projection.items) {
       if (item.kind === "thinking") hasThinkingItem = true
       if (item.status === "pending") hasPendingItem = true
     }
   }
 
-  return hasRuntimeEntry && !hasPendingItem && !hasThinkingItem
+  return hasRuntimeEntry && !hasVisibleRuntimeItem && !hasPendingItem && !hasThinkingItem
 }
 
 export function activeMotionRuntimeItemId(

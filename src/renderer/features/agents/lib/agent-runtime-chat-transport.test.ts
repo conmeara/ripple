@@ -53,10 +53,13 @@ const resumeRunSubscriptions: Array<{
   handlers: SubscriptionHandlers
   unsubscribed: boolean
 }> = []
+const toastErrors: Array<{ title: string; description?: string }> = []
 
 mock.module("sonner", () => ({
   toast: {
-    error: () => {},
+    error: (title: string, options?: { description?: string }) => {
+      toastErrors.push({ title, description: options?.description })
+    },
   },
 }))
 
@@ -103,9 +106,17 @@ async function readAll(stream: ReadableStream<any>): Promise<any[]> {
   }
 }
 
+function resetTestState() {
+  resumeRunSubscriptions.length = 0
+  toastErrors.length = 0
+  localStorage.clear()
+  sessionStorage.clear()
+  agentChatStore.clear()
+}
+
 describe("AgentRuntimeChatTransport", () => {
   test("replays persisted run events through the AI SDK stream", async () => {
-    resumeRunSubscriptions.length = 0
+    resetTestState()
     agentChatStore.setStreamId("sub-chat-1", "agent-run-run-1")
 
     const transport = new AgentRuntimeChatTransport({
@@ -198,5 +209,49 @@ describe("AgentRuntimeChatTransport", () => {
     }))
     expect(agentChatStore.getStreamId("sub-chat-1")).toBeNull()
     expect(resumeRunSubscriptions[0]?.unsubscribed).toBe(true)
+  })
+
+  test("unsubscribes replay streams when the reader is cancelled", async () => {
+    resetTestState()
+    agentChatStore.setStreamId("sub-chat-cancel", "agent-run-run-1")
+
+    const transport = new AgentRuntimeChatTransport({
+      chatId: "chat-1",
+      subChatId: "sub-chat-cancel",
+      mode: "agent",
+      provider: "codex",
+      model: "gpt-5.1-codex",
+    })
+    const stream = await transport.reconnectToStream()
+    expect(stream).not.toBeNull()
+    expect(resumeRunSubscriptions).toHaveLength(1)
+
+    await stream!.cancel("renderer remounted")
+
+    expect(resumeRunSubscriptions[0]?.unsubscribed).toBe(true)
+    expect(agentChatStore.getStreamId("sub-chat-cancel")).toBe("agent-run-run-1")
+  })
+
+  test("quietly closes failed resume attempts without showing an agent failure", async () => {
+    resetTestState()
+    agentChatStore.setStreamId("sub-chat-duplicate", "agent-run-run-1")
+
+    const transport = new AgentRuntimeChatTransport({
+      chatId: "chat-1",
+      subChatId: "sub-chat-duplicate",
+      mode: "agent",
+      provider: "codex",
+      model: "gpt-5.1-codex",
+    })
+    const stream = await transport.reconnectToStream()
+    expect(stream).not.toBeNull()
+
+    const chunksPromise = readAll(stream!)
+    resumeRunSubscriptions[0]!.handlers.onError(new Error("Duplicate id 1-1:4"))
+
+    await expect(chunksPromise).resolves.toEqual([])
+    expect(toastErrors).toEqual([])
+    expect(resumeRunSubscriptions[0]?.unsubscribed).toBe(true)
+    expect(agentChatStore.getStreamId("sub-chat-duplicate")).toBeNull()
   })
 })
