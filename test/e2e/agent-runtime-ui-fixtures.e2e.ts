@@ -241,7 +241,7 @@ test.describe("agent runtime UI real-session fixtures", () => {
           "Updated composition",
           "Checked project",
         ],
-        hiddenText: ["Codex needs permission to check the project"],
+        hiddenText: ["Approval needed to check the project"],
       },
       {
         id: "codex-phone-move-edit-live",
@@ -251,7 +251,7 @@ test.describe("agent runtime UI real-session fixtures", () => {
           "Checked current frame",
           "Updating composition",
         ],
-        hiddenText: ["Thinking", "Codex needs permission"],
+        hiddenText: ["Thinking", "Approval needed"],
       },
       {
         id: "codex-phone-move-right-post-check-thinking",
@@ -267,7 +267,7 @@ test.describe("agent runtime UI real-session fixtures", () => {
           "Checked project",
           "Thinking",
         ],
-        hiddenText: ["Explored 3 files", "Codex needs permission"],
+        hiddenText: ["Explored 3 files", "Approval needed"],
       },
       {
         id: "claude-phone-move-project-local-approval-hidden",
@@ -278,7 +278,7 @@ test.describe("agent runtime UI real-session fixtures", () => {
           "Checked current frame",
           "Updated composition",
         ],
-        hiddenText: ["Thinking", "Claude needs permission to update the project"],
+        hiddenText: ["Thinking", "Approval needed to update the project"],
       },
       {
         id: "claude-phone-move-right-final-reply",
@@ -289,7 +289,7 @@ test.describe("agent runtime UI real-session fixtures", () => {
           "Checked current frame",
           "The phone group has moved 100px to the right",
         ],
-        hiddenText: ["Claude needs permission"],
+        hiddenText: ["Approval needed"],
       },
     ]
 

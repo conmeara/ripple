@@ -505,7 +505,7 @@ describe("AgentRuntimeUIProjector", () => {
       expect.objectContaining({
         type: "data-agent-runtime",
         data: expect.objectContaining({
-          label: "Bash /Users/example/project/src/index.html stdout={\"ok\":true}",
+          label: "Checking project",
           summary: expect.objectContaining({
             kind: "status",
             title: "Checking project",

@@ -4,7 +4,7 @@ import { useAtomValue } from "jotai"
 import { Check, ListTree, MoreHorizontal, X } from "lucide-react"
 import { memo, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { normalizeCodexToolPart } from "../../../../shared/codex-tool-normalizer"
-import { agentRuntimeSummaryFromPart } from "../../../../shared/agent-runtime-summary"
+import { titleForAgentRuntimeDataPart } from "../../../../shared/agent-runtime-summary"
 
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -43,6 +43,7 @@ import {
 } from "../ui/motion-runtime-activity"
 import {
   approvalSummaryLines,
+  approvalTechnicalLines,
   approvalTitle,
   shouldHideResolvedProjectLocalApproval,
 } from "../ui/agent-runtime-approval-copy"
@@ -277,33 +278,7 @@ function toThinkingToolPart(part: any, messageId: string | undefined, index: num
 }
 
 function getRuntimeDataLabel(part: any): string | null {
-  const summary = agentRuntimeSummaryFromPart(part)
-  if (summary) return summary.title
-
-  const data = part?.data
-  if (!data || typeof data !== "object") return null
-  if (typeof data.label === "string" && data.label.trim()) return data.label
-
-  switch (data.kind) {
-    case "approval":
-      return "Approved request"
-    case "file_change":
-      return "Updated proposal diff"
-    case "status": {
-      const label = typeof data.payload?.label === "string" ? data.payload.label : null
-      if (
-        data.payload?.capabilities ||
-        data.payload?.sessionInit ||
-        label?.startsWith("Loaded Codex context") ||
-        label?.startsWith("Loaded Claude context")
-      ) {
-        return null
-      }
-      return typeof data.payload?.label === "string" ? data.payload.label : null
-    }
-    default:
-      return null
-  }
+  return titleForAgentRuntimeDataPart(part)
 }
 
 function stringifyApprovalValue(value: unknown): string | null {
@@ -388,6 +363,7 @@ function AgentRuntimeApprovalCard({ data }: { data: any }) {
   const canRespond = Boolean(approvalId && status === "pending" && payload.canApprove !== false)
   const warning = stringifyApprovalValue(payload.approvalWarning)
   const lines = approvalSummaryLines(payload)
+  const technicalLines = approvalTechnicalLines(payload)
   const questions = approvalQuestions(payload)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const isQuestionPrompt = questions.length > 0 && payload.kind === "user_input"
@@ -476,10 +452,25 @@ function AgentRuntimeApprovalCard({ data }: { data: any }) {
           {lines.map((line) => (
             <div key={line.label} className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2">
               <span>{line.label}</span>
-              <span className="truncate font-mono text-[11px]">{line.value}</span>
+              <span className="truncate">{line.value}</span>
             </div>
           ))}
         </div>
+      )}
+      {technicalLines.length > 0 && (
+        <details className="mt-2 text-muted-foreground">
+          <summary className="cursor-pointer select-none text-[11px] text-muted-foreground">
+            Technical details
+          </summary>
+          <div className="mt-1 grid gap-1">
+            {technicalLines.map((line) => (
+              <div key={line.label} className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2">
+                <span>{line.label}</span>
+                <span className="truncate font-mono text-[11px]">{line.value}</span>
+              </div>
+            ))}
+          </div>
+        </details>
       )}
       {canRespond && isQuestionPrompt && (
         <div className="mt-2 grid gap-2">

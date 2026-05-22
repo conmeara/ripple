@@ -34,6 +34,23 @@ export interface AgentRuntimeSummaryDetail {
 
 export type AgentRuntimeSummaryPart = Record<string, any>
 
+export type AgentRuntimeDataPartKind = "status" | "file_change" | "approval"
+
+export interface AgentRuntimeDataPartData {
+  kind: AgentRuntimeDataPartKind
+  label?: string
+  providerRefs?: AgentRuntimeProviderRefs | AgentRuntimeProviderRefs[]
+  payload?: Record<string, unknown>
+  summary?: AgentRuntimeProductSummary
+}
+
+export interface AgentRuntimeDataPart extends AgentRuntimeSummaryPart {
+  type: "data-agent-runtime"
+  id?: string
+  data: AgentRuntimeDataPartData
+  providerRefs?: AgentRuntimeProviderRefs | AgentRuntimeProviderRefs[]
+}
+
 export interface AgentRuntimeSummaryEventLike {
   type?: string
   providerType?: string | null
@@ -91,6 +108,29 @@ export function agentRuntimeSummaryFromPart(
 ): AgentRuntimeProductSummary | null {
   const summary = part.summary ?? part.data?.summary
   return isAgentRuntimeProductSummary(summary) ? summary : null
+}
+
+export function shouldHideAgentRuntimeDataPart(part: AgentRuntimeSummaryPart): boolean {
+  if (part.type !== "data-agent-runtime" || part.data?.kind !== "status") return false
+  const label = compactAgentRuntimeString(part.data?.label) ??
+    compactAgentRuntimeString(part.data?.payload?.label)
+  return Boolean(
+    part.data?.payload?.capabilities ||
+      part.data?.payload?.sessionInit ||
+      label?.startsWith("Loaded Codex context") ||
+      label?.startsWith("Loaded Claude context"),
+  )
+}
+
+export function titleForAgentRuntimeDataPart(
+  part: AgentRuntimeSummaryPart,
+  status?: AgentRuntimeSummaryStatus,
+): string | null {
+  if (part.type !== "data-agent-runtime") return null
+  if (shouldHideAgentRuntimeDataPart(part)) return null
+  const summary = agentRuntimeSummaryFromPart(part)
+  if (summary) return summary.title
+  return titleForAgentRuntimeSummaryPart(part, status ?? agentRuntimePartStatus(part))
 }
 
 export function compactAgentRuntimeString(value: unknown): string | null {

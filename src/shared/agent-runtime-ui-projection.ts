@@ -1,4 +1,7 @@
-import { summarizeAgentRuntimePart } from "./agent-runtime-summary"
+import {
+  designerFacingAgentRuntimeLine,
+  summarizeAgentRuntimePart,
+} from "./agent-runtime-summary"
 
 type AnyRecord = Record<string, any>
 
@@ -455,13 +458,20 @@ function runtimeDataChunk(input: {
     providerRefs: [input.providerRefs],
     data: input.data,
   }
+  const summary = summarizeAgentRuntimePart(part)
+  const label = input.data.kind === "approval"
+    ? summary.title
+    : typeof input.data.label === "string"
+    ? designerFacingAgentRuntimeLine(input.data.label)
+    : summary.title
   return {
     type: "data-agent-runtime",
     id: input.id,
     providerRefs: input.providerRefs,
     data: {
       ...input.data,
-      summary: summarizeAgentRuntimePart(part),
+      label,
+      summary,
     },
   }
 }

@@ -26,11 +26,26 @@ export function approvalCommandAction(command: string | null): string {
 export function approvalSummaryLines(payload: Record<string, any>): ApprovalLine[] {
   const lines: ApprovalLine[] = []
   const reason = stringifyApprovalValue(payload.reason)
+  const command = stringifyApprovalValue(payload.command)
+  const description = stringifyApprovalValue(payload.description)
+
+  if (payload.kind === "command") {
+    lines.push({ label: "Action", value: approvalCommandAction(command) })
+  } else if (payload.kind === "file_change") {
+    lines.push({ label: "Action", value: "update the project" })
+  }
+  if (reason) lines.push({ label: "Reason", value: reason })
+  if (description && description !== reason) lines.push({ label: "Details", value: description })
+  return lines.slice(0, 5)
+}
+
+export function approvalTechnicalLines(payload: Record<string, any>): ApprovalLine[] {
+  const lines: ApprovalLine[] = []
+  const providerName = stringifyApprovalValue(payload.providerName)
   const toolName = stringifyApprovalValue(payload.toolName)
   const command = stringifyApprovalValue(payload.command)
   const cwd = stringifyApprovalValue(payload.cwd)
   const blockedPath = stringifyApprovalValue(payload.blockedPath)
-  const description = stringifyApprovalValue(payload.description)
   const serverName = stringifyApprovalValue(payload.serverName)
   const url = stringifyApprovalValue(payload.url)
   const networkHost = stringifyApprovalValue(payload.networkApprovalContext?.host)
@@ -41,58 +56,47 @@ export function approvalSummaryLines(payload: Record<string, any>): ApprovalLine
     ? payload.requestedPermissionPaths.filter((path: unknown): path is string => typeof path === "string")
     : []
 
-  if (payload.kind === "command") {
-    lines.push({ label: "Action", value: approvalCommandAction(command) })
-  } else if (payload.kind === "file_change") {
-    lines.push({ label: "Action", value: "update the project" })
-  }
-  if (reason) lines.push({ label: "Reason", value: reason })
-  if (description && description !== reason) lines.push({ label: "Details", value: description })
+  if (providerName) lines.push({ label: "Agent", value: providerName })
   if (serverName) lines.push({ label: "Source", value: serverName })
-  if (toolName && payload.kind !== "command") lines.push({ label: "Tool", value: toolName })
-  if (command && payload.showTechnicalDetails === true) {
-    lines.push({ label: "Command", value: command })
-  }
+  if (toolName) lines.push({ label: "Tool", value: toolName })
+  if (command) lines.push({ label: "Command", value: command })
   if (url) lines.push({ label: "URL", value: url })
   if (networkHost) lines.push({ label: "Network", value: networkHost })
   if (blockedPath) lines.push({ label: "Path", value: blockedPath })
-  if (cwd && payload.showTechnicalDetails === true) {
-    lines.push({ label: "Location", value: cwd })
-  }
+  if (cwd) lines.push({ label: "Location", value: cwd })
   if (paths.length > 0) lines.push({ label: "Files", value: paths.slice(0, 3).join(", ") })
   if (requestedPaths.length > 0) {
     lines.push({ label: "Access", value: requestedPaths.slice(0, 3).join(", ") })
   }
-  return lines.slice(0, 5)
+  return lines.slice(0, 8)
 }
 
 export function approvalTitle(payload: Record<string, any>, statusOverride?: string | null): string {
-  const providerName = stringifyApprovalValue(payload.providerName) ?? "Agent"
   const status = statusOverride ?? stringifyApprovalValue(payload.status)
   switch (status) {
     case "approved":
-      return `${providerName} permission approved`
+      return "Permission approved"
     case "denied":
-      return `${providerName} permission denied`
+      return "Permission denied"
     case "cancelled":
-      return `${providerName} permission request cancelled`
+      return "Permission request cancelled"
     case "unavailable":
-      return `${providerName} permission request unavailable`
+      return "Permission request unavailable"
   }
 
   switch (payload.kind) {
     case "network":
-      return `${providerName} needs permission to connect to the web`
+      return "Approval needed to connect to the web"
     case "command":
-      return `${providerName} needs permission to ${approvalCommandAction(stringifyApprovalValue(payload.command))}`
+      return `Approval needed to ${approvalCommandAction(stringifyApprovalValue(payload.command))}`
     case "file_change":
-      return `${providerName} needs permission to update the project`
+      return "Approval needed to update the project"
     case "permission":
-      return `${providerName} needs more access`
+      return "Approval needed for project access"
     case "user_input":
-      return `${providerName} asked for input`
+      return "Input needed"
     default:
-      return "Agent approval requested"
+      return "Approval needed"
   }
 }
 

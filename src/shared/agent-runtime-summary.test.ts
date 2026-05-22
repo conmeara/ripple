@@ -8,6 +8,8 @@ import {
   designerFacingAgentRuntimeLine,
   isUnsafeAgentRuntimeDefaultCopy,
   summarizeAgentRuntimePart,
+  shouldHideAgentRuntimeDataPart,
+  titleForAgentRuntimeDataPart,
   titleForAgentRuntimeSummaryPart,
 } from "./agent-runtime-summary"
 
@@ -135,6 +137,31 @@ describe("agent runtime product summaries", () => {
     expect(designerFacingAgentRuntimeLine("MCP provider stdout /Users/me/project"))
       .toBe("Working on project")
     expect(designerFacingAgentRuntimeLine("Codex session ready")).toBe("Working on project")
+  })
+
+  test("uses shared data-part titles for legacy renderer fallbacks", () => {
+    const statusPart = {
+      type: "data-agent-runtime",
+      data: {
+        kind: "status",
+        label: "Bash /Users/me/project/src/index.html stdout={\"ok\":true}",
+      },
+    }
+    const capabilityPart = {
+      type: "data-agent-runtime",
+      data: {
+        kind: "status",
+        label: "Loaded Codex context: 1 MCP server",
+        payload: {
+          label: "Loaded Codex context: 1 MCP server",
+          sessionInit: { tools: ["Bash"] },
+        },
+      },
+    }
+
+    expect(titleForAgentRuntimeDataPart(statusPart)).toBe("Checking project")
+    expect(shouldHideAgentRuntimeDataPart(capabilityPart)).toBe(true)
+    expect(titleForAgentRuntimeDataPart(capabilityPart)).toBeNull()
   })
 
   test("derives shared summary parts from persisted runtime events", () => {

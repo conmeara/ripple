@@ -2,17 +2,18 @@ import { describe, expect, test } from "bun:test"
 import {
   approvalCommandAction,
   approvalSummaryLines,
+  approvalTechnicalLines,
   approvalTitle,
   shouldHideResolvedProjectLocalApproval,
 } from "./agent-runtime-approval-copy"
 
 describe("agent runtime approval copy", () => {
-  test("keeps agent name while translating commands into product actions", () => {
+  test("uses product-facing approval titles while translating commands into product actions", () => {
     expect(approvalTitle({
       providerName: "Claude",
       kind: "command",
       command: "hyperframes export --output dist/",
-    })).toBe("Claude needs permission to export a preview")
+    })).toBe("Approval needed to export a preview")
 
     expect(approvalSummaryLines({
       providerName: "Claude",
@@ -23,14 +24,13 @@ describe("agent runtime approval copy", () => {
       { label: "Action", value: "export a preview" },
     ])
 
-    expect(approvalSummaryLines({
+    expect(approvalTechnicalLines({
       providerName: "Claude",
       kind: "command",
       command: "hyperframes export --output dist/",
       cwd: "/Users/me/project",
-      showTechnicalDetails: true,
     })).toEqual([
-      { label: "Action", value: "export a preview" },
+      { label: "Agent", value: "Claude" },
       { label: "Command", value: "hyperframes export --output dist/" },
       { label: "Location", value: "/Users/me/project" },
     ])
@@ -43,16 +43,26 @@ describe("agent runtime approval copy", () => {
       providerName: "Codex",
       kind: "command",
       command: "hyperframes lint",
-    })).toBe("Codex needs permission to check the project")
+    })).toBe("Approval needed to check the project")
 
-    const labels = approvalSummaryLines({
+    const summaryLabels = approvalSummaryLines({
       providerName: "Codex",
       kind: "command",
       command: "hyperframes lint",
     }).map((line) => line.label)
 
-    expect(labels).toContain("Action")
-    expect(labels).not.toContain("Command")
+    expect(summaryLabels).toContain("Action")
+    expect(summaryLabels).not.toContain("Agent")
+    expect(summaryLabels).not.toContain("Command")
+
+    const technicalLabels = approvalTechnicalLines({
+      providerName: "Codex",
+      kind: "command",
+      command: "hyperframes lint",
+    }).map((line) => line.label)
+
+    expect(technicalLabels).toContain("Agent")
+    expect(technicalLabels).toContain("Command")
   })
 
   test("hides only already-approved project-local approval cards", () => {
@@ -98,12 +108,12 @@ describe("agent runtime approval copy", () => {
       providerName: "Claude",
       kind: "file_change",
       status: "cancelled",
-    })).toBe("Claude permission request cancelled")
+    })).toBe("Permission request cancelled")
 
     expect(approvalTitle({
       providerName: "Codex",
       kind: "command",
       command: "hyperframes validate .",
-    }, "denied")).toBe("Codex permission denied")
+    }, "denied")).toBe("Permission denied")
   })
 })

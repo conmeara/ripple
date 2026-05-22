@@ -13,6 +13,7 @@ import {
   isAgentRuntimeProjectInspectionCommand as isProjectInspectionCommand,
   isAgentRuntimeRecord as isRecord,
   pluralAgentRuntimeCount as plural,
+  titleForAgentRuntimeDataPart,
   titleForAgentRuntimeSummaryPart,
   truncateAgentRuntimeString as truncate,
   type AgentRuntimeSummaryPart,
@@ -564,9 +565,7 @@ function canonicalPartLabel(part: AnyRecord): string | undefined {
   const summaryTitle = productSummaryTitle(part)
   if (summaryTitle) return summaryTitle
   if (part.type === "data-agent-runtime") {
-    return compactString(part.data?.label) ??
-      compactString(part.data?.payload?.label) ??
-      undefined
+    return titleForAgentRuntimeDataPart(part) ?? undefined
   }
   return compactString(part.toolName) ??
     compactString(part.type)?.replace(/^tool-/, "") ??
@@ -743,9 +742,7 @@ function canProduceRuntimeActivityItem(
     return true
   }
   if (part.type === "data-agent-runtime") {
-    const label = productSummaryTitle(part) ??
-      compactString(part.data?.label) ??
-      compactString(part.data?.payload?.label)
+    const label = titleForAgentRuntimeDataPart(part)
     return Boolean(label)
   }
   return true
@@ -913,9 +910,7 @@ function activityStartedAt(event: MotionRuntimeCanonicalEvent): number | undefin
 
 function isThinkingStatusPart(part: AnyRecord): boolean {
   if (part.type !== "data-agent-runtime" || part.data?.kind !== "status") return false
-  const label = productSummaryTitle(part) ??
-    compactString(part.data?.label) ??
-    compactString(part.data?.payload?.label)
+  const label = titleForAgentRuntimeDataPart(part)
   return label === "Thinking"
 }
 
@@ -932,9 +927,7 @@ function runtimeDedupeKey(part: AnyRecord, projectPath: string | undefined): str
   if (fileKey) return fileKey
 
   if (part.type === "data-agent-runtime" && part.data?.kind === "status") {
-    const label = productSummaryTitle(part) ??
-      compactString(part.data?.label) ??
-      compactString(part.data?.payload?.label)
+    const label = titleForAgentRuntimeDataPart(part)
     return label ? `status:${label}` : null
   }
 
@@ -1484,9 +1477,7 @@ export function buildMotionRuntimeActivity(input: {
 
     if (part.type === "data-agent-runtime") {
       const summary = productSummaryForPart(part)
-      const label = compactString(summary?.title) ??
-        compactString(part.data?.label) ??
-        compactString(part.data?.payload?.label)
+      const label = titleForAgentRuntimeDataPart(part)
       if (label) {
         const status = canonicalEventStatus(event, {
           allowPending: allowPendingForActivityAt(events, index, input.projectPath),

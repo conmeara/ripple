@@ -1584,4 +1584,30 @@ describe("motion runtime activity projection", () => {
     expect(visibleCopy).not.toMatch(/Bash|\/Users|src\/index/)
     expect(projection.advancedDetails.map((detail) => detail.value).join("\n")).toContain("/Users/example")
   })
+
+  test("sanitizes legacy runtime status labels without a projected summary", () => {
+    const projection = buildMotionRuntimeActivity({
+      parts: [
+        {
+          type: "data-agent-runtime",
+          id: "legacy-status-1",
+          data: {
+            kind: "status",
+            label: "Bash /Users/example/project/src/index.html",
+            payload: {
+              label: "Bash /Users/example/project/src/index.html",
+            },
+          },
+        },
+      ],
+    })
+
+    expect(projection.items).toEqual([
+      expect.objectContaining({
+        title: "Checking project",
+      }),
+    ])
+    expect(projection.items.map((item) => item.title).join("\n"))
+      .not.toMatch(/Bash|\/Users|src\/index/)
+  })
 })
