@@ -417,6 +417,75 @@ describe("AgentRuntimeUIProjector", () => {
     ])
   })
 
+  test("projects runtime data with shared product summaries", () => {
+    const projector = new AgentRuntimeUIProjector()
+    const chunks = [
+      ...projector.project({
+        id: "event-file-change",
+        agentRunId: "run-1",
+        sequence: 7,
+        type: "file_change",
+        provider: "codex",
+        providerId: "file-change-1",
+        payload: {
+          path: "/Users/example/project/src/index.html",
+          diff: "diff --git a/src/index.html b/src/index.html\n-Bash\n+Preview",
+        },
+      }),
+      ...projector.project({
+        id: "event-approval",
+        agentRunId: "run-1",
+        sequence: 8,
+        type: "approval_request",
+        provider: "claude",
+        providerId: "approval-1",
+        payload: {
+          approvalId: "approval-1",
+          kind: "command",
+          status: "pending",
+          command: "Bash hyperframes lint /Users/example/project",
+        },
+      }),
+    ]
+
+    const summaries = chunks
+      .filter((chunk) => chunk.type === "data-agent-runtime")
+      .map((chunk) => chunk.data?.summary)
+
+    expect(summaries).toEqual([
+      expect.objectContaining({
+        kind: "motion_edit",
+        status: "done",
+        title: "Updated composition",
+        providerRefs: [
+          expect.objectContaining({
+            eventId: "event-file-change",
+            sequence: 7,
+            provider: "codex",
+            runId: "run-1",
+          }),
+        ],
+      }),
+      expect.objectContaining({
+        kind: "approval",
+        status: "pending",
+        title: "Approval needed",
+        providerRefs: [
+          expect.objectContaining({
+            eventId: "event-approval",
+            sequence: 8,
+            provider: "claude",
+            runId: "run-1",
+          }),
+        ],
+      }),
+    ])
+
+    for (const summary of summaries) {
+      expect(summary.title).not.toMatch(/Bash|Edit|Write|\/Users|src\/index|codex|claude/i)
+    }
+  })
+
   test("preserves provider refs on projected runtime parts", () => {
     const projection = buildAgentRuntimeAssistantProjection({
       fallbackText: "Fallback",

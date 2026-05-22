@@ -333,6 +333,135 @@ export const agentRuntimeRouter = router({
       })
     }),
 
+  resumeRun: publicProcedure
+    .input(z.object({ runId: z.string().min(1) }))
+    .subscription(({ input }) => {
+      return observable<any>((emit) => {
+        let active = true
+        let unsubscribe: (() => void) | null = null
+
+        const safeNext = (value: any) => {
+          if (!active) return
+          try {
+            emit.next(value)
+          } catch {
+            active = false
+          }
+        }
+
+        const safeComplete = () => {
+          if (!active) return
+          active = false
+          unsubscribe?.()
+          unsubscribe = null
+          try {
+            emit.complete()
+          } catch {
+            // Ignore double completion.
+          }
+        }
+
+        const eventPayload = (event: any): Record<string, any> => {
+          if (event?.payload && typeof event.payload === "object") return event.payload
+          if (typeof event?.payloadJson !== "string") return {}
+          try {
+            const parsed = JSON.parse(event.payloadJson || "{}")
+            return parsed && typeof parsed === "object" ? parsed : {}
+          } catch {
+            return {}
+          }
+        }
+
+        const isTerminalStatusEvent = (event: any): boolean => {
+          if (event?.type !== "status") return false
+          const status = eventPayload(event).status
+          return typeof status === "string" && !isActiveAgentRunStatus(status)
+        }
+
+        const emittedEvents = new Set<string>()
+        const safeEvent = (event: any) => {
+          const key = event?.id ?? `${event?.agentRunId}:${event?.sequence}`
+          if (key && emittedEvents.has(key)) return
+          if (key) emittedEvents.add(key)
+          safeNext({ type: "event", event })
+        }
+
+        let replaying = true
+        const bufferedLiveEvents: any[] = []
+
+        const completeWithRun = () => {
+          const run = getAgentRun(input.runId)
+          if (run) safeNext({ type: "run-complete", run })
+          safeComplete()
+        }
+
+        ;(async () => {
+          try {
+            const run = getAgentRun(input.runId)
+            if (!run) {
+              safeNext({
+                type: "error",
+                runId: input.runId,
+                message: "Agent run is no longer available.",
+              })
+              safeComplete()
+              return
+            }
+
+            safeNext({ type: "run", run, reused: true, replayed: true })
+            unsubscribe = subscribeToAgentRunEvents(input.runId, (event) => {
+              if (replaying) {
+                bufferedLiveEvents.push(event)
+                return
+              }
+              safeEvent(event)
+              if (isTerminalStatusEvent(event)) {
+                completeWithRun()
+              }
+            })
+            for (const event of listAgentRunEvents(input.runId)) {
+              safeEvent(event)
+              if (isTerminalStatusEvent(event)) {
+                completeWithRun()
+                return
+              }
+            }
+            replaying = false
+            for (const event of bufferedLiveEvents.sort((a, b) =>
+              (typeof a?.sequence === "number" ? a.sequence : 0) -
+              (typeof b?.sequence === "number" ? b.sequence : 0)
+            )) {
+              safeEvent(event)
+              if (isTerminalStatusEvent(event)) {
+                completeWithRun()
+                return
+              }
+            }
+            bufferedLiveEvents.length = 0
+
+            const current = getAgentRun(input.runId)
+            if (!current || !isActiveAgentRunStatus(current.status)) {
+              completeWithRun()
+              return
+            }
+          } catch (error) {
+            safeNext({
+              type: "error",
+              runId: input.runId,
+              message: error instanceof Error ? error.message : String(error),
+            })
+            safeComplete()
+          }
+        })()
+
+        return () => {
+          active = false
+          unsubscribe?.()
+          unsubscribe = null
+        }
+      })
+    }),
+
   generatedChangeEvents: publicProcedure
     .input(z.object({ projectId: z.string() }))
     .subscription(({ input }) => {

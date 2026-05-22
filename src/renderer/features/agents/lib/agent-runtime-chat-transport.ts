@@ -16,6 +16,7 @@ import {
   type AgentRuntimePreviewContext,
   type RuntimeSourceEvent,
 } from "../../hyperframes/runtime-source-change-events"
+import { agentChatStore } from "../stores/agent-chat-store"
 import { buildAgentRuntimeMessageInput } from "./agent-runtime-message-input"
 
 type UIMessageChunk = any
@@ -30,6 +31,7 @@ type AgentRuntimeChatTransportConfig = {
   mode: "plan" | "agent"
   provider: AgentRuntimeProvider
   model?: string | null
+  streamId?: string | null
   runtimeContext?: AgentRuntimeChatContext | (() => AgentRuntimeChatContext | null) | null
 }
 
@@ -163,6 +165,7 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
           }
           closed = true
           sub?.unsubscribe()
+          if (runId) agentChatStore.setStreamId(this.config.subChatId, null)
         }
 
         const handleRuntimeEvent = (event: RuntimeSourceEvent) => {
@@ -187,7 +190,12 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
             if (status === "failed") {
               finishReason = "error"
             }
-            if (status === "completed" || status === "failed" || status === "cancelled") {
+            if (
+              status === "completed" ||
+              status === "failed" ||
+              status === "cancelled" ||
+              status === "recoverable"
+            ) {
               finish()
             }
           }
@@ -229,6 +237,7 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
               if (message.type === "run") {
                 runId = message.run?.id ?? runId
                 messageMetadata.agentRunId = runId
+                if (runId) agentChatStore.setStreamId(this.config.subChatId, runId)
                 ensureStarted()
                 if (options.abortSignal?.aborted) cancel()
                 return
@@ -262,7 +271,165 @@ export class AgentRuntimeChatTransport implements ChatTransport<UIMessage> {
   }
 
   async reconnectToStream(): Promise<ReadableStream<UIMessageChunk> | null> {
-    return null
+    const streamId =
+      agentChatStore.getStreamId(this.config.subChatId) ??
+      this.config.streamId ??
+      null
+    const runId = streamId?.startsWith("agent-run-")
+      ? streamId.slice("agent-run-".length)
+      : streamId
+    if (!runId) return null
+
+    const runtimeContext = typeof this.config.runtimeContext === "function"
+      ? this.config.runtimeContext()
+      : this.config.runtimeContext
+
+    return new ReadableStream<UIMessageChunk>({
+      start: (controller) => {
+        const projector = new AgentRuntimeUIProjector()
+        let sub: { unsubscribe: () => void } | null = null
+        let closed = false
+        let started = false
+        let finishReason = "stop"
+        const messageMetadata: Record<string, unknown> = {
+          agentRunId: runId,
+          provider: this.config.provider,
+          model: this.config.model,
+          replayed: true,
+        }
+
+        const enqueue = (chunk: UIMessageChunk) => {
+          if (closed) return
+          try {
+            controller.enqueue(chunk)
+          } catch {
+            closed = true
+          }
+        }
+
+        const ensureStarted = () => {
+          if (started) return
+          started = true
+          enqueue({
+            type: "start",
+            messageId: `agent-run-${runId}`,
+            messageMetadata: { ...messageMetadata },
+          })
+        }
+
+        const enqueueProjectedChunk = (chunk: UIMessageChunk) => {
+          ensureStarted()
+          if (chunk.type === "message-metadata") {
+            Object.assign(messageMetadata, chunk.messageMetadata ?? {})
+            enqueue({
+              ...chunk,
+              messageMetadata: { ...messageMetadata },
+            })
+            return
+          }
+          if (chunk.type === "error") {
+            finishReason = "error"
+          }
+          enqueue(chunk)
+        }
+
+        const finish = () => {
+          if (closed) return
+          ensureStarted()
+          for (const chunk of projector.finish()) {
+            enqueueProjectedChunk(chunk)
+          }
+          enqueue({
+            type: "message-metadata",
+            messageMetadata: { ...messageMetadata, agentRunId: runId },
+          })
+          enqueue({
+            type: "finish",
+            finishReason,
+            messageMetadata: { ...messageMetadata, agentRunId: runId },
+          })
+          try {
+            controller.close()
+          } catch {
+            // Stream already closed.
+          }
+          closed = true
+          sub?.unsubscribe()
+          agentChatStore.setStreamId(this.config.subChatId, null)
+        }
+
+        const handleRuntimeEvent = (event: RuntimeSourceEvent) => {
+          const payload = parseRuntimeEventPayload(event)
+          applyRuntimeSessionInfo(payload)
+
+          if (event.type === "file_change") {
+            dispatchRuntimeSourceChange({
+              payload,
+              runtimeContext,
+              chatId: this.config.chatId,
+              subChatId: this.config.subChatId,
+            })
+          }
+
+          for (const chunk of projector.project(event)) {
+            enqueueProjectedChunk(chunk)
+          }
+
+          if (event.type === "status") {
+            const status = payload.status
+            if (status === "failed") {
+              finishReason = "error"
+            }
+            if (
+              status === "completed" ||
+              status === "failed" ||
+              status === "cancelled" ||
+              status === "recoverable"
+            ) {
+              finish()
+            }
+          }
+        }
+
+        sub = trpcClient.agentRuntime.resumeRun.subscribe(
+          { runId },
+          {
+            onData: (message: any) => {
+              if (closed) return
+              if (message.type === "run") {
+                messageMetadata.agentRunId = message.run?.id ?? runId
+                messageMetadata.provider = message.run?.provider ?? this.config.provider
+                messageMetadata.model = message.run?.model ?? this.config.model
+                agentChatStore.setStreamId(this.config.subChatId, runId)
+                ensureStarted()
+                return
+              }
+              if (message.type === "event") {
+                handleRuntimeEvent(message.event)
+                return
+              }
+              if (message.type === "error") {
+                const errorText = message.message || "Agent run resume failed."
+                toast.error("Agent run resume failed", { description: errorText })
+                enqueueProjectedChunk({ type: "error", errorText })
+                finish()
+                return
+              }
+              if (message.type === "run-complete") {
+                finish()
+              }
+            },
+            onError: (error: Error) => {
+              if (closed) return
+              toast.error("Agent run resume failed", { description: error.message })
+              enqueueProjectedChunk({ type: "error", errorText: error.message })
+              finish()
+            },
+            onComplete: () => finish(),
+          },
+        )
+      },
+    })
   }
 
   cleanup(): void {

@@ -140,7 +140,7 @@ describe("comment formatting", () => {
         files: [],
         summary: "Agent is thinking",
       }),
-    }))).toBe("Planning the change")
+    }))).toBe("Thinking")
     expect(formatRevisionStatusLine(revision("proposed", {
       diffSummary: JSON.stringify({
         fileCount: 1,

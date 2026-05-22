@@ -34,12 +34,65 @@ export interface AgentRuntimeSummaryDetail {
 
 export type AgentRuntimeSummaryPart = Record<string, any>
 
+const SUMMARY_KINDS = new Set<AgentRuntimeSummaryKind>([
+  "thinking",
+  "project_inspection",
+  "visual_context",
+  "motion_edit",
+  "verification",
+  "approval",
+  "status",
+  "assistant_text",
+  "project_tool",
+])
+
+const SUMMARY_STATUSES = new Set<AgentRuntimeSummaryStatus>([
+  "pending",
+  "done",
+  "error",
+])
+
+const LEGACY_AGENT_RUNTIME_LINES = new Map<string, string>([
+  ["Agent is thinking", "Thinking"],
+  ["Agent is working", "Thinking"],
+  ["Editing files", "Updating composition"],
+  ["Checking the project", "Checking project"],
+  ["Reviewing the frame", "Checking current frame"],
+  ["Reading context", "Explored project"],
+  ["Looking up reference", "Explored project"],
+  ["Using a project tool", "Working on project"],
+  ["Writing a response", "Thinking"],
+  ["Waiting for approval", "Approval needed"],
+])
+
 export function isAgentRuntimeRecord(value: unknown): value is AgentRuntimeSummaryPart {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
+export function isAgentRuntimeProductSummary(
+  value: unknown,
+): value is AgentRuntimeProductSummary {
+  return isAgentRuntimeRecord(value) &&
+    typeof value.id === "string" &&
+    SUMMARY_KINDS.has(value.kind) &&
+    SUMMARY_STATUSES.has(value.status) &&
+    typeof value.title === "string" &&
+    value.title.trim().length > 0
+}
+
+export function agentRuntimeSummaryFromPart(
+  part: AgentRuntimeSummaryPart,
+): AgentRuntimeProductSummary | null {
+  const summary = part.summary ?? part.data?.summary
+  return isAgentRuntimeProductSummary(summary) ? summary : null
+}
+
 export function compactAgentRuntimeString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+export function designerFacingAgentRuntimeLine(value: string): string {
+  return LEGACY_AGENT_RUNTIME_LINES.get(value) ?? value
 }
 
 export function truncateAgentRuntimeString(value: string, max = 600): string {
@@ -104,6 +157,11 @@ export function agentRuntimePartStatus(
   part: AgentRuntimeSummaryPart,
   options: { allowPending?: boolean } = {},
 ): AgentRuntimeSummaryStatus {
+  const summaryStatus = agentRuntimeSummaryFromPart(part)?.status
+  if (summaryStatus === "error") return "error"
+  if (summaryStatus === "pending") {
+    return options.allowPending === false ? "done" : "pending"
+  }
   const state = compactAgentRuntimeString(part.state)?.toLowerCase()
   if (state?.includes("error")) return "error"
   const runtimeStatus = compactAgentRuntimeString(part.data?.payload?.status)?.toLowerCase() ??

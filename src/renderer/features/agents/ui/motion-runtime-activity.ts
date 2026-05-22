@@ -5,6 +5,7 @@ import {
   agentRuntimePartId as partId,
   agentRuntimePartStatus as partStatus,
   agentRuntimeProviderRefsFromPart as providerRefsFromPart,
+  agentRuntimeSummaryFromPart,
   agentRuntimeVisualToolKind,
   compactAgentRuntimeString as compactString,
   formatAgentRuntimeJson as formatJson,
@@ -15,6 +16,7 @@ import {
   truncateAgentRuntimeString as truncate,
   type AgentRuntimeSummaryPart,
   type AgentRuntimeSummaryStatus,
+  type AgentRuntimeProductSummary,
 } from "../../../../shared/agent-runtime-summary"
 
 export type MotionRuntimeActivityKind =
@@ -176,6 +178,14 @@ const TECHNICAL_TOOL_TYPES = new Set([
 
 function latestProviderRefs(part: AnyRecord): AgentRuntimeProviderRefs | null {
   return providerRefsFromPart(part).at(-1) ?? null
+}
+
+function productSummaryForPart(part: AnyRecord): AgentRuntimeProductSummary | null {
+  return agentRuntimeSummaryFromPart(part)
+}
+
+function productSummaryTitle(part: AnyRecord): string | null {
+  return compactString(productSummaryForPart(part)?.title)
 }
 
 export function visualToolKind(part: AnyRecord): "snapshot" | "frame_sheet" | null {
@@ -557,6 +567,8 @@ function canonicalStreamKindForPart(part: AnyRecord): MotionRuntimeCanonicalStre
 }
 
 function canonicalPartLabel(part: AnyRecord): string | undefined {
+  const summaryTitle = productSummaryTitle(part)
+  if (summaryTitle) return summaryTitle
   if (part.type === "data-agent-runtime") {
     return compactString(part.data?.label) ??
       compactString(part.data?.payload?.label) ??
@@ -601,11 +613,13 @@ function partToMotionRuntimeCanonicalEvent(
   const label = canonicalPartLabel(part)
   const text = isReasoningPart(part) ? reasoningText(part) : undefined
   const visualKind = visualToolKind(part)
+  const productSummary = productSummaryForPart(part)
 
   if (sourceType) event.sourceType = sourceType
   if (streamKind) event.streamKind = streamKind
   if (toolName) event.toolName = toolName
   if (sourceType?.startsWith("tool-")) event.toolType = sourceType
+  if (productSummary?.title) event.title = productSummary.title
   if (label) event.label = label
   if (text) event.text = text
   if (part.input !== undefined) event.input = part.input
@@ -735,7 +749,9 @@ function canProduceRuntimeActivityItem(
     return true
   }
   if (part.type === "data-agent-runtime") {
-    const label = compactString(part.data?.label) ?? compactString(part.data?.payload?.label)
+    const label = productSummaryTitle(part) ??
+      compactString(part.data?.label) ??
+      compactString(part.data?.payload?.label)
     return Boolean(label)
   }
   return true
@@ -903,7 +919,9 @@ function activityStartedAt(event: MotionRuntimeCanonicalEvent): number | undefin
 
 function isThinkingStatusPart(part: AnyRecord): boolean {
   if (part.type !== "data-agent-runtime" || part.data?.kind !== "status") return false
-  const label = compactString(part.data?.label) ?? compactString(part.data?.payload?.label)
+  const label = productSummaryTitle(part) ??
+    compactString(part.data?.label) ??
+    compactString(part.data?.payload?.label)
   return label === "Thinking"
 }
 
@@ -920,7 +938,9 @@ function runtimeDedupeKey(part: AnyRecord, projectPath: string | undefined): str
   if (fileKey) return fileKey
 
   if (part.type === "data-agent-runtime" && part.data?.kind === "status") {
-    const label = compactString(part.data?.label) ?? compactString(part.data?.payload?.label)
+    const label = productSummaryTitle(part) ??
+      compactString(part.data?.label) ??
+      compactString(part.data?.payload?.label)
     return label ? `status:${label}` : null
   }
 
@@ -1472,11 +1492,15 @@ export function buildMotionRuntimeActivity(input: {
     }
 
     if (part.type === "data-agent-runtime") {
-      const label = compactString(part.data?.label) ?? compactString(part.data?.payload?.label)
+      const summary = productSummaryForPart(part)
+      const label = compactString(summary?.title) ??
+        compactString(part.data?.label) ??
+        compactString(part.data?.payload?.label)
       if (label) {
         const status = canonicalEventStatus(event, {
           allowPending: allowPendingForActivityAt(events, index, input.projectPath),
         })
+        const isMotionChange = summary?.kind === "motion_edit" || part.data?.kind === "file_change"
         if (isThinkingStatusPart(part)) {
           if (!hasReasoning && (status === "pending" || !hasVisibleActivityAfter(events, index, input.projectPath))) {
             items.push({
@@ -1493,9 +1517,9 @@ export function buildMotionRuntimeActivity(input: {
         } else {
           items.push({
             id: `status-${partId(part, index, "status")}`,
-            kind: part.data?.kind === "file_change" ? "motion_change" : "status",
-            title: part.data?.kind === "file_change" ? "Updated composition" : label,
-            subtitle: part.data?.kind === "file_change"
+            kind: isMotionChange ? "motion_change" : "status",
+            title: label,
+            subtitle: isMotionChange
               ? ""
               : "Runtime status update.",
             status,

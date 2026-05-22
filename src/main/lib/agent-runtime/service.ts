@@ -69,6 +69,37 @@ function activeStatuses() {
   return ["queued", "preparing", "running", "awaiting_approval", "cancelling"] as const
 }
 
+function setConversationStreamForRun(
+  db: Db,
+  run: Pick<AgentRun, "id" | "conversationId" | "runKind">,
+): void {
+  if (run.runKind !== "chat" || !run.conversationId) return
+  db.update(conversations)
+    .set({
+      streamId: run.id,
+      updatedAt: new Date(),
+    })
+    .where(eq(conversations.id, run.conversationId))
+    .run()
+}
+
+function clearConversationStreamForRun(
+  db: Db,
+  run: Pick<AgentRun, "id" | "conversationId" | "runKind">,
+): void {
+  if (run.runKind !== "chat" || !run.conversationId) return
+  db.update(conversations)
+    .set({
+      streamId: null,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(conversations.id, run.conversationId),
+      eq(conversations.streamId, run.id),
+    ))
+    .run()
+}
+
 function getNextEventSequence(db: Db, runId: string): number {
   const last = db
     .select({ sequence: agentRunEvents.sequence })
@@ -478,7 +509,7 @@ function cancelStaleAgentApproval(input: {
 }): void {
   const now = new Date()
   const run = input.db
-    .select({ status: agentRuns.status })
+    .select()
     .from(agentRuns)
     .where(eq(agentRuns.id, input.approval.agentRunId))
     .get()
@@ -498,7 +529,7 @@ function cancelStaleAgentApproval(input: {
     .run()
 
   if (run && isActiveAgentRunStatus(run.status)) {
-    input.db
+    const recoverable = input.db
       .update(agentRuns)
       .set({
         status: "recoverable",
@@ -508,7 +539,9 @@ function cancelStaleAgentApproval(input: {
         updatedAt: now,
       })
       .where(eq(agentRuns.id, input.approval.agentRunId))
-      .run()
+      .returning()
+      .get()
+    clearConversationStreamForRun(input.db, recoverable)
   }
 
   updateApprovalRequestEventPayload({
@@ -630,6 +663,7 @@ async function markAgentRunCancelled(input: {
     .where(eq(agentRuns.id, input.runId))
     .returning()
     .get()
+  clearConversationStreamForRun(input.db, cancelled)
   const sessionEvent = insertRunEvent(input.db, input.runId, {
     type: "session.exited",
     providerType: "ripple:runtime",
@@ -756,6 +790,9 @@ export function startAgentRun(input: StartAgentRunInput): StartAgentRunResult {
     ))
     .get()
   if (existingByRequest) {
+    if (isActiveAgentRunStatus(existingByRequest.status)) {
+      setConversationStreamForRun(db, existingByRequest)
+    }
     return {
       run: existingByRequest,
       thread,
@@ -775,6 +812,7 @@ export function startAgentRun(input: StartAgentRunInput): StartAgentRunResult {
     .orderBy(desc(agentRuns.createdAt))
     .get()
   if (activeRun) {
+    setConversationStreamForRun(db, activeRun)
     return {
       run: activeRun,
       thread,
@@ -836,6 +874,7 @@ export function startAgentRun(input: StartAgentRunInput): StartAgentRunResult {
       .where(eq(agentThreads.id, thread.id))
       .run()
 
+    setConversationStreamForRun(db, created)
     recordRunUserPromptProjection({ db, thread, run: created })
     insertRunEvent(db, created.id, {
       type: "status",
@@ -1139,6 +1178,7 @@ export async function executeAgentRun(
       .where(eq(agentRuns.id, runId))
       .returning()
       .get()
+    clearConversationStreamForRun(db, completed)
     const assistantProjection = buildAgentRuntimeAssistantProjection({
       events: listAgentRunEvents(runId),
       messageId: `agent-run-${completed.id}`,
@@ -1221,6 +1261,7 @@ export async function executeAgentRun(
       .where(eq(agentRuns.id, runId))
       .returning()
       .get()
+    clearConversationStreamForRun(db, failed)
     const failedEvent = insertRunEvent(db, runId, {
       type: "status",
       payload: { status: "failed" },
@@ -1310,6 +1351,7 @@ export function recoverAgentRunsOnStartup(): { recoverable: number } {
       })
       .where(eq(agentRuns.id, run.id))
       .run()
+    clearConversationStreamForRun(db, run)
     const pendingApprovals = db
       .select()
       .from(agentApprovals)

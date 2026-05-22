@@ -1550,4 +1550,38 @@ describe("motion runtime activity projection", () => {
       ],
     }))
   })
+
+  test("prefers shared product summaries over raw runtime labels", () => {
+    const projection = buildMotionRuntimeActivity({
+      parts: [
+        {
+          type: "data-agent-runtime",
+          id: "status-1",
+          data: {
+            kind: "status",
+            label: "Bash /Users/example/project/src/index.html",
+            summary: {
+              id: "summary-1",
+              kind: "verification",
+              status: "pending",
+              title: "Checking project",
+            },
+            payload: {
+              label: "Bash /Users/example/project/src/index.html",
+            },
+          },
+        },
+      ],
+    })
+
+    expect(projection.items).toEqual([
+      expect.objectContaining({
+        title: "Checking project",
+        status: "pending",
+      }),
+    ])
+    const visibleCopy = projection.items.map((item) => item.title).join("\n")
+    expect(visibleCopy).not.toMatch(/Bash|\/Users|src\/index/)
+    expect(projection.advancedDetails.map((detail) => detail.value).join("\n")).toContain("/Users/example")
+  })
 })

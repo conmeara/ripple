@@ -11,16 +11,25 @@ function delay(ms: number): Promise<void> {
 
 async function listenOnce(server: Server, host: string): Promise<number> {
   return new Promise<number>((resolvePort, rejectPort) => {
+    let settled = false
     const cleanup = () => {
       server.off("error", onError)
     }
     const onError = (error: Error) => {
+      if (settled) return
+      settled = true
       cleanup()
-      rejectPort(error)
+      try {
+        server.close(() => rejectPort(error))
+      } catch {
+        rejectPort(error)
+      }
     }
 
     server.once("error", onError)
     server.listen(0, host, () => {
+      if (settled) return
+      settled = true
       cleanup()
       const address = server.address()
       if (typeof address === "object" && address?.port) {
@@ -39,12 +48,13 @@ export async function listenOnLocalhost(
   const host = "127.0.0.1"
   let lastError: unknown = null
 
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  const maxAttempts = 8
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       return await listenOnce(server, host)
     } catch (error) {
       lastError = error
-      if (!isRetryableListenError(error) || attempt === 4) break
+      if (!isRetryableListenError(error) || attempt === maxAttempts - 1) break
       await delay(10 + attempt * 25)
     }
   }

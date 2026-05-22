@@ -5,6 +5,7 @@ import {
   type RippleRevisionView,
 } from "../../../shared/ripple-comments"
 import { formatTimelineTimecode } from "../../../shared/hyperframes-timeline-model"
+import { designerFacingAgentRuntimeLine } from "../../../shared/agent-runtime-summary"
 
 export function formatCommentTimecode(
   startTimeMs: number,
@@ -83,15 +84,12 @@ export function formatRevisionResultLine(
 function designerFacingRevisionLine(value: string): string {
   const compact = compactCommentLine(value, null)
   switch (compact) {
-    case "Agent is thinking":
-    case "Agent is working":
-      return "Planning the change"
     case "Editing files":
       return "Updating composition"
     case "Updating against Main":
       return "Refreshing proposal"
     default:
-      return compact
+      return designerFacingAgentRuntimeLine(compact)
   }
 }
 

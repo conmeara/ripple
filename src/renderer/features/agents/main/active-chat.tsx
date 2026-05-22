@@ -6969,6 +6969,7 @@ Make sure to preserve all functionality from both branches when resolving confli
           mode: subChatMode,
           provider: chatProvider === "codex" ? "codex" : "claude",
           model: getSelectedAgentRuntimeModel(subChatId, chatProvider),
+          streamId: subChat?.stream_id ?? null,
           runtimeContext: () => buildAgentRuntimeContext(subChatId),
         })
       }
@@ -7248,6 +7249,7 @@ Make sure to preserve all functionality from both branches when resolving confli
         mode: newSubChatMode,
         provider: chatProvider === "codex" ? "codex" : "claude",
         model: getSelectedAgentRuntimeModel(newId, chatProvider),
+        streamId: null,
         runtimeContext: () => buildAgentRuntimeContext(newId),
       })
     }

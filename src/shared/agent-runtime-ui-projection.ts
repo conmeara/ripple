@@ -1,3 +1,5 @@
+import { summarizeAgentRuntimePart } from "./agent-runtime-summary"
+
 type AnyRecord = Record<string, any>
 
 export type RuntimeEventLike = {
@@ -441,6 +443,29 @@ function approvalRequestLabel(payload: Record<string, unknown>): string {
   return "Approved tool request"
 }
 
+function runtimeDataChunk(input: {
+  id: string
+  providerRefs: AgentRuntimeProviderRefs
+  data: Record<string, unknown>
+  summaryPart?: AnyRecord
+}): UIMessageChunkLike {
+  const part = input.summaryPart ?? {
+    type: "data-agent-runtime",
+    id: input.id,
+    providerRefs: [input.providerRefs],
+    data: input.data,
+  }
+  return {
+    type: "data-agent-runtime",
+    id: input.id,
+    providerRefs: input.providerRefs,
+    data: {
+      ...input.data,
+      summary: summarizeAgentRuntimePart(part),
+    },
+  }
+}
+
 export function extractRuntimeUsageMetadata(
   payload: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -616,24 +641,23 @@ export class AgentRuntimeUIProjector {
       case "tool_end":
         return this.projectToolEnd(event, payload)
       case "file_change":
+        const fileChangeId = stableEventId("file-change", event)
         return [
           ...this.endText(),
           ...this.endReasoning(),
-          {
-            type: "data-agent-runtime",
-            id: stableEventId("file-change", event),
+          runtimeDataChunk({
+            id: fileChangeId,
             providerRefs,
             data: {
               kind: "file_change",
-              label: "Updated proposal diff",
+              label: "Updated composition",
               providerRefs,
               payload,
             },
-          },
+          }),
         ]
       case "approval_request":
-        return [{
-          type: "data-agent-runtime",
+        return [runtimeDataChunk({
           id: stableEventId("approval", event),
           providerRefs,
           data: {
@@ -642,7 +666,7 @@ export class AgentRuntimeUIProjector {
             providerRefs,
             payload,
           },
-        }]
+        })]
       case "usage": {
         const messageMetadata = extractRuntimeUsageMetadata(payload)
         return Object.keys(messageMetadata).length > 0
@@ -656,8 +680,7 @@ export class AgentRuntimeUIProjector {
           ? this.closeOpenRuntimeItems(providerRefs, status, payload)
           : []
         if (!shouldProjectStatusEvent(event, payload)) return closure
-        return [...closure, {
-          type: "data-agent-runtime",
+        return [...closure, runtimeDataChunk({
           id: stableEventId("status", event),
           providerRefs,
           data: {
@@ -666,7 +689,7 @@ export class AgentRuntimeUIProjector {
             providerRefs,
             payload,
           },
-        }]
+        })]
       }
       case "activity":
         return this.projectActivity(event, payload)
@@ -712,17 +735,17 @@ export class AgentRuntimeUIProjector {
     if (this.lastActivityKey === key) return []
     this.lastActivityKey = key
 
-    return [{
-      type: "data-agent-runtime",
+    const providerRefs = eventProviderRefs(event, payload)
+    return [runtimeDataChunk({
       id: stableEventId("activity", event),
-      providerRefs: eventProviderRefs(event, payload),
+      providerRefs,
       data: {
         kind: "status",
         label,
-        providerRefs: eventProviderRefs(event, payload),
+        providerRefs,
         payload,
       },
-    }]
+    })]
   }
 
   private endText(): UIMessageChunkLike[] {

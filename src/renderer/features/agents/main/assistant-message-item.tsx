@@ -4,6 +4,7 @@ import { useAtomValue } from "jotai"
 import { Check, ListTree, MoreHorizontal, X } from "lucide-react"
 import { memo, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { normalizeCodexToolPart } from "../../../../shared/codex-tool-normalizer"
+import { agentRuntimeSummaryFromPart } from "../../../../shared/agent-runtime-summary"
 
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -276,6 +277,9 @@ function toThinkingToolPart(part: any, messageId: string | undefined, index: num
 }
 
 function getRuntimeDataLabel(part: any): string | null {
+  const summary = agentRuntimeSummaryFromPart(part)
+  if (summary) return summary.title
+
   const data = part?.data
   if (!data || typeof data !== "object") return null
   if (typeof data.label === "string" && data.label.trim()) return data.label

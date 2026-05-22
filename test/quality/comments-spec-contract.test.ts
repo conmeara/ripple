@@ -52,6 +52,8 @@ import {
 import { compactOneLineSummary } from "../../src/main/lib/revisions/comment-summary"
 import { canReuseRevisionAsFollowUpBase } from "../../src/main/lib/revisions/revision-follow-up-policy"
 import { extractRevisionRunActivityLine } from "../../src/main/lib/revisions/revision-activity"
+import { buildAgentRuntimeAssistantProjection, type RuntimeEventLike } from "../../src/shared/agent-runtime-ui-projection"
+import { buildMotionRuntimeActivity } from "../../src/renderer/features/agents/ui/motion-runtime-activity"
 
 const SPEC_PATH = "docs/specs/Comments.html"
 const CONTRACT_PATH = "test/quality/comments-spec-contract.test.ts"
@@ -640,6 +642,71 @@ describe("Comments spec contract: D - card by status", () => {
         },
       },
     ])).toBe("Checking project")
+  })
+
+  test("T-D11 chat and comment progress share runtime interpretation", () => {
+    const cases: Array<{
+      name: string
+      events: RuntimeEventLike[]
+      expected: string
+    }> = [
+      {
+        name: "edit",
+        expected: "Updating composition",
+        events: [
+          {
+            type: "tool_start",
+            providerId: "edit-1",
+            payload: {
+              toolName: "Edit",
+              input: { file_path: "/Users/example/project/src/index.html" },
+            },
+          },
+        ],
+      },
+      {
+        name: "current frame",
+        expected: "Checking current frame",
+        events: [
+          {
+            type: "tool_start",
+            providerId: "snapshot-1",
+            payload: {
+              toolName: "Bash",
+              command: "ripple snapshot --at current --json",
+            },
+          },
+        ],
+      },
+      {
+        name: "project check",
+        expected: "Checking project",
+        events: [
+          {
+            type: "tool_start",
+            providerId: "check-1",
+            payload: {
+              toolName: "Bash",
+              command: "hyperframes lint",
+            },
+          },
+        ],
+      },
+    ]
+
+    for (const item of cases) {
+      const projection = buildAgentRuntimeAssistantProjection({
+        events: item.events,
+        fallbackText: "",
+        finalize: false,
+        includeFallback: false,
+      })
+      const chatLine = buildMotionRuntimeActivity({ parts: projection.parts }).items[0]?.title
+      const commentLine = extractRevisionRunActivityLine(item.events)
+
+      expect(chatLine, item.name).toBe(item.expected)
+      expect(commentLine, item.name).toBe(item.expected)
+    }
   })
 })
 

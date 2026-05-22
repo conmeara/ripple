@@ -4,6 +4,7 @@ import {
 } from "../agent-runtime/activity"
 import {
   compactAgentRuntimeString,
+  designerFacingAgentRuntimeLine,
   titleForAgentRuntimeSummaryPart,
   type AgentRuntimeSummaryPart,
 } from "../../../shared/agent-runtime-summary"
@@ -69,19 +70,6 @@ const STATUS_ACTIVITY_LINES = new Map<string, string>([
   ["running", "Thinking"],
 ])
 
-const LEGACY_ACTIVITY_LINE_MAP = new Map<string, string>([
-  ["Agent is thinking", "Thinking"],
-  ["Agent is working", "Thinking"],
-  ["Editing files", "Updating composition"],
-  ["Checking the project", "Checking project"],
-  ["Reviewing the frame", "Checking current frame"],
-  ["Reading context", "Explored project"],
-  ["Looking up reference", "Explored project"],
-  ["Using a project tool", "Working on project"],
-  ["Writing a response", "Thinking"],
-  ["Waiting for approval", "Approval needed"],
-])
-
 function toolActivityLine(
   event: RevisionActivityEvent,
   payload: Record<string, unknown>,
@@ -100,7 +88,7 @@ function toolActivityLine(
 }
 
 function designerFacingActivityLine(label: string): string {
-  return LEGACY_ACTIVITY_LINE_MAP.get(label) ?? label
+  return designerFacingAgentRuntimeLine(label)
 }
 
 function summaryPartForRuntimeEvent(
