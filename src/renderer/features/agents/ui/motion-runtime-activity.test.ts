@@ -1551,6 +1551,35 @@ describe("motion runtime activity projection", () => {
     }))
   })
 
+  test("routes generic MCP tools through the runtime feed without default MCP names", () => {
+    const mcpPart = {
+      type: "tool-mcp__asset_library__search_media",
+      toolCallId: "mcp-asset-search",
+      toolName: "mcp__asset_library__search_media",
+      input: { query: "hero background" },
+      state: "input-available",
+    }
+    const timeline = buildMotionRuntimeTimeline({ parts: [mcpPart] })
+    const projection = buildMotionRuntimeActivity({ parts: [mcpPart] })
+
+    expect(timeline).toHaveLength(1)
+    expect(timeline[0]).toEqual(expect.objectContaining({
+      kind: "runtime",
+      parts: [mcpPart],
+    }))
+    expect(projection.items).toEqual([
+      expect.objectContaining({
+        kind: "project_tool",
+        title: "Working on project",
+        status: "pending",
+      }),
+    ])
+    expect(projection.items.map((item) => item.title).join("\n"))
+      .not.toMatch(/mcp__|MCP|asset_library|search_media/)
+    expect(projection.advancedDetails.map((detail) => detail.value).join("\n"))
+      .toContain("asset_library")
+  })
+
   test("prefers shared product summaries over raw runtime labels", () => {
     const projection = buildMotionRuntimeActivity({
       parts: [

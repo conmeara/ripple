@@ -6,6 +6,7 @@ import {
   agentRuntimeVisualToolKind,
   classifyAgentRuntimeSummaryPart,
   designerFacingAgentRuntimeLine,
+  isAgentRuntimeMcpToolPart,
   isUnsafeAgentRuntimeDefaultCopy,
   summarizeAgentRuntimePart,
   shouldHideAgentRuntimeDataPart,
@@ -81,6 +82,21 @@ describe("agent runtime product summaries", () => {
       type: "text",
       text: "Done.",
     })).toBe("assistant_text")
+  })
+
+  test("recognizes generic MCP tools without exposing their server names as product copy", () => {
+    const part = {
+      type: "tool-mcp__asset_library__search_media",
+      toolName: "mcp__asset_library__search_media",
+      state: "input-available",
+    }
+
+    expect(isAgentRuntimeMcpToolPart(part)).toBe(true)
+    expect(summarizeAgentRuntimePart(part)).toEqual(expect.objectContaining({
+      kind: "project_tool",
+      status: "pending",
+      title: "Working on project",
+    }))
   })
 
   test("preserves provider refs for debug and replay while summarizing default copy", () => {

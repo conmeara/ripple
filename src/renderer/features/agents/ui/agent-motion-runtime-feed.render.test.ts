@@ -85,6 +85,8 @@ function expectNoRuntimeLeak(markup: string): void {
   expect(markup).not.toContain("Edit")
   expect(markup).not.toContain("commandExecution")
   expect(markup).not.toContain("fileChange")
+  expect(markup).not.toContain("mcp__")
+  expect(markup).not.toContain("MCP")
   expect(markup).not.toContain("tool-")
 }
 
@@ -346,6 +348,26 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
 
     expect(markup).toContain("Thinking")
     expect(shimmerCount(markup)).toBe(1)
+  })
+
+  test("renders generic MCP tools as product activity without server names", () => {
+    const markup = renderFeed({
+      isLive: true,
+      parts: [
+        {
+          type: "tool-mcp__asset_library__search_media",
+          toolCallId: "mcp-asset-search",
+          toolName: "mcp__asset_library__search_media",
+          input: { query: "hero background" },
+          state: "input-available",
+        },
+      ],
+    })
+
+    expect(markup).toContain("Working on project")
+    expect(markup).not.toContain("asset_library")
+    expect(markup).not.toContain("search_media")
+    expectNoRuntimeLeak(markup)
   })
 
   test("uses the same fixed line box for provisional and runtime activity rows", () => {

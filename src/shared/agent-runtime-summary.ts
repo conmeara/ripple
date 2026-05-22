@@ -277,6 +277,12 @@ export function agentRuntimeCommandForPart(part: AgentRuntimeSummaryPart): strin
   return compactAgentRuntimeString(command)
 }
 
+export function isAgentRuntimeMcpToolPart(part: AgentRuntimeSummaryPart): boolean {
+  const type = compactAgentRuntimeString(part.type) ?? ""
+  const toolName = compactAgentRuntimeString(part.toolName) ?? ""
+  return type.startsWith("tool-mcp__") || toolName.startsWith("mcp__")
+}
+
 export function isAgentRuntimeVisualCommand(command: string | null): boolean {
   return Boolean(command && /\bripple\s+(snapshot|frame-sheet)\b/.test(command))
 }

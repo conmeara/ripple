@@ -10,6 +10,7 @@ import {
   compactAgentRuntimeString as compactString,
   formatAgentRuntimeJson as formatJson,
   isAgentRuntimeChangeReviewCommand as isChangeReviewCommand,
+  isAgentRuntimeMcpToolPart as isMcpToolPart,
   isAgentRuntimeProjectInspectionCommand as isProjectInspectionCommand,
   isAgentRuntimeRecord as isRecord,
   pluralAgentRuntimeCount as plural,
@@ -526,6 +527,7 @@ export function isMotionRuntimeActivityPart(part: AnyRecord): boolean {
     return part.data?.kind === "status" || part.data?.kind === "file_change"
   }
   if (TECHNICAL_TOOL_TYPES.has(part.type)) return true
+  if (isMcpToolPart(part)) return true
   if (visualToolKind(part)) return true
   return false
 }
@@ -543,6 +545,7 @@ function canonicalItemTypeForPart(part: AnyRecord): MotionRuntimeCanonicalItemTy
   if (part.type === "data-agent-runtime") {
     return part.data?.kind === "file_change" ? "file_change" : "status"
   }
+  if (isMcpToolPart(part)) return "project_tool"
   return "project_tool"
 }
 
@@ -1514,7 +1517,7 @@ export function buildMotionRuntimeActivity(input: {
     }
 
     items.push({
-      id: `tool-${partId(part, index, "tool")}`,
+      id: `project-op-${index}`,
       kind: "project_tool",
       title: canonicalEventStatus(event) === "pending" ? "Working on project" : "Updated project",
       subtitle: "Handled a project operation in the background.",
