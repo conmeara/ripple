@@ -26,11 +26,11 @@ interface McpServersIndicatorProps {
 /**
  * MCP Servers Indicator
  *
- * Shows a badge with the count of connected MCP servers.
+ * Shows a badge with the count of connected project tool servers.
  * Clicking it opens a popover with:
  * - List of MCP servers with status (connected/failed/pending)
  * - Expandable servers showing their tools
- * - Link to configure in ~/.claude.json
+ * - A product-facing hint for advanced configuration
  */
 export const McpServersIndicator = memo(function McpServersIndicator({
   projectPath,
@@ -217,17 +217,17 @@ export const McpServersIndicator = memo(function McpServersIndicator({
               variant="ghost"
               size="sm"
               className="h-6 px-2 gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md"
-              aria-label="MCP Servers"
+              aria-label="Project tools"
               aria-haspopup="dialog"
               aria-expanded={isOpen}
             >
               <OriginalMCPIcon className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{connectedCount} MCP</span>
+              <span>{connectedCount} tools</span>
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent>
-          {connectedCount} MCP server{connectedCount !== 1 ? "s" : ""} connected
+          {connectedCount} project tool connection{connectedCount !== 1 ? "s" : ""}
         </TooltipContent>
       </Tooltip>
 
@@ -237,14 +237,14 @@ export const McpServersIndicator = memo(function McpServersIndicator({
         onOpenAutoFocus={(e) => e.preventDefault()}
         onKeyDown={handleKeyDown}
         role="dialog"
-        aria-label="MCP Servers"
+        aria-label="Project tools"
       >
         <div className="px-3 py-2 border-b">
           <h4 className="font-medium text-sm" id="mcp-servers-title">
-            MCP Servers
+            Project tools
           </h4>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Model Context Protocol servers
+            Connected tools for this project
           </p>
         </div>
 
@@ -370,9 +370,7 @@ export const McpServersIndicator = memo(function McpServersIndicator({
 
         {/* Footer with config hint */}
         <div className="border-t px-3 py-2 text-xs text-muted-foreground">
-          Configure in{" "}
-          <code className="bg-muted px-1 py-0.5 rounded">~/.claude.json</code>{" "}
-          or <code className="bg-muted px-1 py-0.5 rounded">.mcp.json</code>
+          Manage tool connections in advanced settings.
         </div>
       </PopoverContent>
     </Popover>

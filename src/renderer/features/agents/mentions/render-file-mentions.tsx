@@ -349,7 +349,7 @@ function MentionChip({ mention }: { mention: ParsedMention }) {
     : mention.type === "agent"
       ? `Agent: ${mention.label}`
       : mention.type === "tool"
-        ? `MCP Tool: ${mention.path}`
+        ? `Project tool: ${mention.path}`
         : `${mention.repository}:${mention.path}`
 
   return (

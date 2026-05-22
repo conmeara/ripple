@@ -124,7 +124,7 @@ const CATEGORY_OPTIONS: FileMentionOption[] = [
   { id: "files", label: "Files & Folders", type: "category", path: "", repository: "" },
   { id: "skills", label: "Skills", type: "category", path: "", repository: "" },
   { id: "agents", label: "Agents", type: "category", path: "", repository: "" },
-  { id: "tools", label: "MCP", type: "category", path: "", repository: "" },
+  { id: "tools", label: "Project tools", type: "category", path: "", repository: "" },
 ]
 
 // Known file extensions with icons
@@ -968,7 +968,7 @@ export const AgentsFileMention = memo(function AgentsFileMention({
       return agentOptions // already filtered by search in agentOptions memo
     }
 
-    // SUBPAGE: MCP Tools
+    // SUBPAGE: Project tools
     if (showingToolsList) {
       return toolOptions // already filtered by search in toolOptions memo
     }
@@ -1228,7 +1228,7 @@ export const AgentsFileMention = memo(function AgentsFileMention({
                       {(showingFilesList || hasOnlyFiles) ? "Files & Folders" :
                        showingSkillsList ? "Skills" :
                        showingAgentsList ? "Agents" :
-                       showingToolsList ? "MCP Servers" :
+                       showingToolsList ? "Project tools" :
                        "Results"}
                     </span>
                     {isFetching && !isLoading && (
@@ -1335,4 +1335,3 @@ export const AgentsFileMention = memo(function AgentsFileMention({
     document.body
   )
 })
-
