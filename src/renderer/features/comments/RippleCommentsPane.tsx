@@ -893,6 +893,8 @@ function RevisionStatusLine({
 
   return (
     <div
+      data-comment-revision-status-line="true"
+      data-comment-revision-status={revision.status}
       className={cn(
         "mt-3 min-w-0 px-1 text-xs font-medium",
         revision.status === "failed" && "text-destructive",
@@ -927,6 +929,8 @@ function PendingCommentStartupLine() {
 
   return (
     <div
+      data-comment-revision-status-line="true"
+      data-comment-revision-status="pending-startup"
       className="mt-3 min-w-0 px-1 text-xs font-medium"
       title={line}
     >
@@ -1021,7 +1025,7 @@ function revisionAcceptControl(revision: RippleRevisionView, options: {
         }
       }
       return {
-        label: "Generating changes",
+        label: "Generating preview",
         disabled: true,
         busy: true,
       }
@@ -1364,6 +1368,37 @@ function CommentCard({
   )
 }
 
+export function RippleCommentCardFixture({
+  thread,
+  selected = false,
+  activePreviewRevisionId = null,
+  agentTextResetKey = null,
+}: {
+  thread: RippleCommentThreadView
+  selected?: boolean
+  activePreviewRevisionId?: string | null
+  agentTextResetKey?: string | number | null
+}) {
+  return (
+    <CommentCard
+      thread={thread}
+      index={0}
+      selected={selected}
+      deletedFilter={false}
+      activePreviewRevisionId={activePreviewRevisionId}
+      agentTextResetKey={agentTextResetKey}
+      onSelect={() => {}}
+      onReply={() => {}}
+      onDelete={() => {}}
+      onRestore={() => {}}
+      onRefreshRevision={() => {}}
+      onAcceptRevision={() => {}}
+      reviewActionPending={false}
+      onOpenChat={() => {}}
+    />
+  )
+}
+
 export function RippleCommentsPane({
   projectId,
   compositionId,
@@ -1534,9 +1569,9 @@ export function RippleCommentsPane({
   const restartFailedRevision = trpc.revisions.createFromThread.useMutation({
     onSuccess: async () => {
       await utils.revisions.listThreads.invalidate()
-      toast.success("Agent run restarted")
+      toast.success("Trying again")
     },
-    onError: (error) => toast.error("Agent run was not restarted", { description: error.message }),
+    onError: (error) => toast.error("Could not retry changes", { description: error.message }),
   })
   const acceptRevision = trpc.revisions.accept.useMutation({
     onSuccess: async () => {

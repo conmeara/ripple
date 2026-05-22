@@ -3,6 +3,10 @@ type AnyRecord = Record<string, any>
 export type RuntimeEventLike = {
   id?: string
   type?: string
+  agentRunId?: string | null
+  sequence?: number | null
+  createdAt?: Date | string | number | null
+  provider?: string | null
   providerId?: string | null
   providerType?: string | null
   payloadJson?: string | null
@@ -10,6 +14,21 @@ export type RuntimeEventLike = {
 }
 
 export type UIMessageChunkLike = Record<string, any>
+
+export interface AgentRuntimeProviderRefs {
+  eventId?: string | null
+  sequence?: number | null
+  createdAt?: string | null
+  provider?: string | null
+  runId?: string | null
+  requestId?: string | null
+  turnId?: string | null
+  itemId?: string | null
+  providerId?: string | null
+  providerType?: string | null
+  rawProviderMethod?: string | null
+  rawPayload?: unknown
+}
 
 function isRecord(value: unknown): value is AnyRecord {
   return typeof value === "object" && value !== null
@@ -34,8 +53,148 @@ function compactLabel(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+function normalizeTimestamp(value: unknown): string | null {
+  if (value instanceof Date) return value.toISOString()
+  if (typeof value === "string" && value.trim()) return value
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return new Date(value).toISOString()
+  }
+  return null
+}
+
+function normalizeRefsValue(value: unknown): AgentRuntimeProviderRefs | null {
+  return isRecord(value) ? value as AgentRuntimeProviderRefs : null
+}
+
+function eventProviderRefs(
+  event: RuntimeEventLike,
+  payload: Record<string, unknown>,
+): AgentRuntimeProviderRefs {
+  const payloadRefs = normalizeRefsValue(payload.providerRefs)
+  return {
+    ...(payloadRefs ?? {}),
+    eventId: compactLabel(payloadRefs?.eventId) ?? compactLabel(event.id) ?? null,
+    sequence: typeof event.sequence === "number" ? event.sequence : payloadRefs?.sequence ?? null,
+    createdAt:
+      normalizeTimestamp(event.createdAt) ??
+      normalizeTimestamp(payloadRefs?.createdAt),
+    provider:
+      compactLabel(event.provider) ??
+      compactLabel(payloadRefs?.provider) ??
+      null,
+    runId:
+      compactLabel(event.agentRunId) ??
+      compactLabel(payloadRefs?.runId) ??
+      null,
+    requestId:
+      compactLabel(payloadRefs?.requestId) ??
+      compactLabel(payload.requestId) ??
+      null,
+    turnId:
+      compactLabel(payloadRefs?.turnId) ??
+      compactLabel(payload.turnId) ??
+      compactLabel((payload.turn as AnyRecord | undefined)?.id) ??
+      null,
+    itemId:
+      compactLabel(payloadRefs?.itemId) ??
+      compactLabel(payload.itemId) ??
+      compactLabel(payload.toolCallId) ??
+      compactLabel(payload.tool_use_id) ??
+      compactLabel(payload.callId) ??
+      compactLabel(event.providerId) ??
+      null,
+    providerId:
+      compactLabel(event.providerId) ??
+      compactLabel(payloadRefs?.providerId) ??
+      null,
+    providerType:
+      compactLabel(event.providerType) ??
+      compactLabel(payloadRefs?.providerType) ??
+      null,
+    rawProviderMethod:
+      compactLabel(payloadRefs?.rawProviderMethod) ??
+      compactLabel(event.providerType) ??
+      compactLabel(event.type) ??
+      null,
+    rawPayload:
+      payloadRefs && "rawPayload" in payloadRefs
+        ? payloadRefs.rawPayload
+        : payload,
+  }
+}
+
 function stableEventId(prefix: string, event: RuntimeEventLike): string {
   return `${prefix}-${event.providerId || event.id || Math.random().toString(36).slice(2)}`
+}
+
+function textStreamKey(
+  event: RuntimeEventLike,
+  payload: Record<string, unknown>,
+  refs: AgentRuntimeProviderRefs,
+): string | null {
+  return (
+    compactLabel(refs.itemId) ??
+    compactLabel(refs.providerId) ??
+    compactLabel(payload.itemId) ??
+    compactLabel(event.providerId) ??
+    compactLabel(event.id) ??
+    null
+  )
+}
+
+function appendProviderRefs(part: AnyRecord, refs: unknown): void {
+  if (!isRecord(refs)) return
+  const existing = Array.isArray(part.providerRefs)
+    ? part.providerRefs.filter(isRecord)
+    : []
+  const eventId = compactLabel((refs as AnyRecord).eventId)
+  if (eventId && existing.some((item) => item.eventId === eventId)) return
+  part.providerRefs = [...existing, refs]
+}
+
+function chunkRefs(chunk: UIMessageChunkLike): AgentRuntimeProviderRefs | null {
+  return normalizeRefsValue(chunk.providerRefs)
+}
+
+function terminalStatus(value: unknown): "completed" | "failed" | "cancelled" | "recoverable" | null {
+  if (value === "completed" || value === "failed" || value === "cancelled" || value === "recoverable") {
+    return value
+  }
+  return null
+}
+
+type RuntimeClosureStatus =
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "recoverable"
+  | "awaiting_approval"
+  | "interrupted"
+
+function runtimeClosureStatus(value: unknown): RuntimeClosureStatus {
+  if (
+    value === "completed" ||
+    value === "failed" ||
+    value === "cancelled" ||
+    value === "recoverable" ||
+    value === "awaiting_approval"
+  ) {
+    return value
+  }
+  return "interrupted"
+}
+
+function runtimeClosureErrorText(
+  status: RuntimeClosureStatus,
+  payload?: Record<string, unknown>,
+): string {
+  const message = compactLabel(payload?.message) ?? compactLabel(payload?.error)
+  if (message) return message
+  if (status === "cancelled") return "Tool stopped because the run was cancelled."
+  if (status === "recoverable") return "Tool stopped because Ripple restarted during the run."
+  if (status === "awaiting_approval") return "Tool paused while waiting for approval."
+  if (status === "failed") return "Tool stopped because the run failed."
+  return "Tool stopped before it completed."
 }
 
 function normalizeMcpToolName(payload: Record<string, unknown>): string | null {
@@ -251,6 +410,26 @@ function shouldProjectStatusEvent(
   return Boolean(label || recovery)
 }
 
+function activityStatusLabel(payload: Record<string, unknown>): string | null {
+  const kind = compactLabel(payload.kind)?.toLowerCase()
+  const label = compactLabel(payload.label)
+  const normalizedLabel = label?.toLowerCase()
+
+  if (kind === "writing" || normalizedLabel?.includes("writing a response")) {
+    return null
+  }
+
+  if (kind === "thinking" || normalizedLabel?.includes("thinking")) {
+    return "Thinking"
+  }
+
+  if (kind === "loading" || kind === "preparing") {
+    return label ?? "Preparing project"
+  }
+
+  return null
+}
+
 function approvalRequestLabel(payload: Record<string, unknown>): string {
   if (payload.kind === "user_input") return "Agent asked for input"
   if (payload.status === "pending") return "Approval needed"
@@ -331,56 +510,101 @@ export function extractRuntimeUsageMetadata(
 export class AgentRuntimeUIProjector {
   private textPartId: string | null = null
   private reasoningPartId: string | null = null
-  private sawTextDelta = false
+  private reasoningText = ""
+  private streamedTextKeys = new Set<string>()
+  private lastActivityKey: string | null = null
   private startedTools = new Map<string, { toolName: string; output: string }>()
 
   project(event: RuntimeEventLike): UIMessageChunkLike[] {
     const payload = parseRuntimeEventPayload(event)
+    const providerRefs = eventProviderRefs(event, payload)
 
     switch (event.type) {
+      case "request.opened":
+      case "turn.started":
+        return []
+      case "user-input.requested":
+        return this.closeOpenRuntimeItems(providerRefs, "awaiting_approval", payload)
+      case "item.completed":
+        return this.closeRuntimeItem(event, payload, providerRefs)
+      case "request.completed":
+      case "turn.completed":
+      case "session.exited":
+        return this.closeOpenRuntimeItems(
+          providerRefs,
+          runtimeClosureStatus(payload.status),
+          payload,
+        )
       case "assistant_text_delta": {
         const delta = typeof payload.delta === "string" ? payload.delta : ""
         if (!delta) return []
         const endReasoning = this.endReasoning()
-        this.sawTextDelta = true
+        const streamKey = textStreamKey(event, payload, providerRefs)
+        if (streamKey) this.streamedTextKeys.add(streamKey)
         return [
           ...endReasoning,
           ...this.ensureTextStarted(event),
-          { type: "text-delta", id: this.textPartId, delta },
+          { type: "text-delta", id: this.textPartId, delta, providerRefs },
         ]
       }
       case "assistant_message": {
-        if (this.sawTextDelta) return []
+        if (event.providerType === "user" || event.providerType?.startsWith("user:")) {
+          return []
+        }
+        const streamKey = textStreamKey(event, payload, providerRefs)
+        if (streamKey && this.streamedTextKeys.has(streamKey)) return []
+        if (!streamKey && this.textPartId) return []
         const text = typeof payload.text === "string" ? payload.text : ""
         if (!text) return []
         const endReasoning = this.endReasoning()
-        this.sawTextDelta = true
         return [
           ...endReasoning,
           ...this.ensureTextStarted(event),
-          { type: "text-delta", id: this.textPartId, delta: text },
+          { type: "text-delta", id: this.textPartId, delta: text, providerRefs },
         ]
       }
       case "reasoning": {
-        const delta =
+        const streamKind =
+          payload.streamKind === "reasoning_summary"
+            ? "reasoning_summary"
+            : payload.streamKind === "reasoning_text"
+              ? "reasoning_text"
+              : undefined
+        const isSummary = streamKind === "reasoning_summary"
+        const text =
           typeof payload.delta === "string"
             ? payload.delta
             : typeof payload.text === "string"
               ? payload.text
               : ""
-        if (!delta) return []
-        const id = stableEventId("reasoning", event)
+        if (!text) return []
         const chunks: UIMessageChunkLike[] = []
-        if (this.reasoningPartId && this.reasoningPartId !== id) {
-          chunks.push(...this.endReasoning())
-        }
         if (!this.reasoningPartId) {
           chunks.push(...this.endText())
-          this.reasoningPartId = id
-          chunks.push({ type: "reasoning-start", id })
+          this.reasoningPartId = stableEventId("reasoning", event)
+          chunks.push({ type: "reasoning-start", id: this.reasoningPartId, providerRefs })
         }
-        chunks.push({ type: "reasoning-delta", id, delta })
-        if (typeof payload.text === "string" && !payload.delta) {
+
+        // The startsWith de-dupe only applies to full-text replacements (Claude
+        // persisted thinking). Summary deltas are routed to the part's summary
+        // headline, so they must not advance this.reasoningText (the detail stream).
+        const delta = !isSummary && typeof payload.text === "string" && !payload.delta && this.reasoningText
+          ? text.startsWith(this.reasoningText)
+            ? text.slice(this.reasoningText.length)
+            : ""
+          : text
+
+        if (delta) {
+          if (!isSummary) this.reasoningText += delta
+          chunks.push({
+            type: "reasoning-delta",
+            id: this.reasoningPartId,
+            delta,
+            ...(streamKind ? { streamKind } : {}),
+            providerRefs,
+          })
+        }
+        if (!isSummary && typeof payload.text === "string" && !payload.delta) {
           chunks.push(...this.endReasoning())
         }
         return chunks
@@ -398,9 +622,11 @@ export class AgentRuntimeUIProjector {
           {
             type: "data-agent-runtime",
             id: stableEventId("file-change", event),
+            providerRefs,
             data: {
               kind: "file_change",
               label: "Updated proposal diff",
+              providerRefs,
               payload,
             },
           },
@@ -409,9 +635,11 @@ export class AgentRuntimeUIProjector {
         return [{
           type: "data-agent-runtime",
           id: stableEventId("approval", event),
+          providerRefs,
           data: {
             kind: "approval",
             label: approvalRequestLabel(payload),
+            providerRefs,
             payload,
           },
         }]
@@ -423,25 +651,34 @@ export class AgentRuntimeUIProjector {
       }
       case "status": {
         const label = compactLabel(payload.label)
-        if (!shouldProjectStatusEvent(event, payload)) return []
-        return [{
+        const status = terminalStatus(payload.status)
+        const closure = status
+          ? this.closeOpenRuntimeItems(providerRefs, status, payload)
+          : []
+        if (!shouldProjectStatusEvent(event, payload)) return closure
+        return [...closure, {
           type: "data-agent-runtime",
           id: stableEventId("status", event),
+          providerRefs,
           data: {
             kind: "status",
             label: label ?? "Recovered provider thread",
+            providerRefs,
             payload,
           },
         }]
       }
       case "activity":
-        return []
+        return this.projectActivity(event, payload)
       case "error": {
         const errorText =
           typeof payload.message === "string"
             ? payload.message
             : "The agent run failed."
-        return [{ type: "error", errorText }]
+        return [
+          ...this.closeOpenRuntimeItems(providerRefs, "failed", payload),
+          { type: "error", errorText },
+        ]
       }
       default:
         return []
@@ -449,13 +686,43 @@ export class AgentRuntimeUIProjector {
   }
 
   finish(): UIMessageChunkLike[] {
-    return [...this.endText(), ...this.endReasoning()]
+    return this.closeOpenRuntimeItems()
   }
 
   private ensureTextStarted(event: RuntimeEventLike): UIMessageChunkLike[] {
     if (this.textPartId) return []
     this.textPartId = stableEventId("text", event)
-    return [{ type: "text-start", id: this.textPartId }]
+    return [{
+      type: "text-start",
+      id: this.textPartId,
+      providerRefs: eventProviderRefs(event, parseRuntimeEventPayload(event)),
+    }]
+  }
+
+  private projectActivity(
+    event: RuntimeEventLike,
+    payload: Record<string, unknown>,
+  ): UIMessageChunkLike[] {
+    if (this.textPartId || this.reasoningPartId || this.startedTools.size > 0) return []
+
+    const label = activityStatusLabel(payload)
+    if (!label) return []
+
+    const key = `${compactLabel(payload.kind) ?? "activity"}:${label}`
+    if (this.lastActivityKey === key) return []
+    this.lastActivityKey = key
+
+    return [{
+      type: "data-agent-runtime",
+      id: stableEventId("activity", event),
+      providerRefs: eventProviderRefs(event, payload),
+      data: {
+        kind: "status",
+        label,
+        providerRefs: eventProviderRefs(event, payload),
+        payload,
+      },
+    }]
   }
 
   private endText(): UIMessageChunkLike[] {
@@ -469,7 +736,73 @@ export class AgentRuntimeUIProjector {
     if (!this.reasoningPartId) return []
     const id = this.reasoningPartId
     this.reasoningPartId = null
+    this.reasoningText = ""
     return [{ type: "reasoning-end", id }]
+  }
+
+  private closeRuntimeItem(
+    event: RuntimeEventLike,
+    payload: Record<string, unknown>,
+    providerRefs: AgentRuntimeProviderRefs,
+  ): UIMessageChunkLike[] {
+    const toolCallId = toolCallIdFor(event, payload)
+    const state = this.startedTools.get(toolCallId)
+    if (!state) {
+      return [...this.endText(), ...this.endReasoning()]
+    }
+    this.startedTools.delete(toolCallId)
+    const status = runtimeClosureStatus(payload.status ?? (isToolFailure(payload) ? "failed" : "completed"))
+    if (status !== "completed") {
+      return [{
+        type: "tool-output-error",
+        toolCallId,
+        errorText: runtimeClosureErrorText(status, payload),
+        providerExecuted: true,
+        providerRefs,
+      }]
+    }
+    return [{
+      type: "tool-output-available",
+      toolCallId,
+      output: toolOutputFor(state.toolName, {
+        ...payload,
+        status: payload.status ?? "completed",
+      }, state.output || undefined),
+      providerExecuted: true,
+      providerRefs,
+    }]
+  }
+
+  private closeOpenRuntimeItems(
+    providerRefs?: AgentRuntimeProviderRefs | null,
+    status: RuntimeClosureStatus = "completed",
+    payload?: Record<string, unknown>,
+  ): UIMessageChunkLike[] {
+    const chunks: UIMessageChunkLike[] = [
+      ...this.endText(),
+      ...this.endReasoning(),
+    ]
+    for (const [toolCallId, state] of this.startedTools.entries()) {
+      if (status !== "completed") {
+        chunks.push({
+          type: "tool-output-error",
+          toolCallId,
+          errorText: runtimeClosureErrorText(status, payload),
+          providerExecuted: true,
+          providerRefs,
+        })
+        continue
+      }
+      chunks.push({
+        type: "tool-output-available",
+        toolCallId,
+        output: toolOutputFor(state.toolName, { status: "completed" }, state.output || undefined),
+        providerExecuted: true,
+        providerRefs,
+      })
+    }
+    this.startedTools.clear()
+    return chunks
   }
 
   private ensureToolStarted(
@@ -481,6 +814,7 @@ export class AgentRuntimeUIProjector {
     if (existing) return []
 
     const toolName = toolNameFromPayload(event, payload)
+    const providerRefs = eventProviderRefs(event, payload)
     this.startedTools.set(toolCallId, { toolName, output: "" })
     return [
       ...this.endText(),
@@ -491,6 +825,7 @@ export class AgentRuntimeUIProjector {
         toolName,
         providerExecuted: true,
         title: compactLabel(payload.title),
+        providerRefs,
       },
     ]
   }
@@ -502,6 +837,7 @@ export class AgentRuntimeUIProjector {
     const toolCallId = toolCallIdFor(event, payload)
     const toolName = toolNameFromPayload(event, payload)
     const chunks = this.ensureToolStarted(event, payload)
+    const providerRefs = eventProviderRefs(event, payload)
     if (payload.inputStreaming === true) return chunks
     return [
       ...chunks,
@@ -512,6 +848,7 @@ export class AgentRuntimeUIProjector {
         input: toolInputFor(toolName, payload),
         providerExecuted: true,
         title: compactLabel(payload.title),
+        providerRefs,
       },
     ]
   }
@@ -523,6 +860,7 @@ export class AgentRuntimeUIProjector {
     const toolCallId = toolCallIdFor(event, payload)
     const toolName = toolNameFromPayload(event, payload)
     const chunks = this.ensureToolStarted(event, payload)
+    const providerRefs = eventProviderRefs(event, payload)
 
     if (typeof payload.inputTextDelta === "string") {
       return [
@@ -531,6 +869,7 @@ export class AgentRuntimeUIProjector {
           type: "tool-input-delta",
           toolCallId,
           inputTextDelta: payload.inputTextDelta,
+          providerRefs,
         },
       ]
     }
@@ -545,6 +884,7 @@ export class AgentRuntimeUIProjector {
           input: toolInputFor(toolName, payload),
           providerExecuted: true,
           title: compactLabel(payload.title),
+          providerRefs,
         },
       ]
     }
@@ -562,6 +902,7 @@ export class AgentRuntimeUIProjector {
         output: toolOutputFor(toolName, payload, accumulated),
         providerExecuted: true,
         preliminary: true,
+        providerRefs,
       },
     ]
   }
@@ -573,6 +914,7 @@ export class AgentRuntimeUIProjector {
     const toolCallId = toolCallIdFor(event, payload)
     const toolName = toolNameFromPayload(event, payload)
     const chunks = this.ensureToolStarted(event, payload)
+    const providerRefs = eventProviderRefs(event, payload)
 
     if (isToolFailure(payload)) {
       this.startedTools.delete(toolCallId)
@@ -586,6 +928,7 @@ export class AgentRuntimeUIProjector {
               ? payload.error
               : "Tool execution failed.",
           providerExecuted: true,
+          providerRefs,
         },
       ]
     }
@@ -599,6 +942,7 @@ export class AgentRuntimeUIProjector {
         toolCallId,
         output: toolOutputFor(toolName, payload, accumulated),
         providerExecuted: true,
+        providerRefs,
       },
     ]
   }
@@ -608,13 +952,19 @@ function applyChunkToAssistantParts(
   parts: AnyRecord[],
   chunk: UIMessageChunkLike,
 ): void {
+  const refs = chunkRefs(chunk)
   if (chunk.type === "text-start") {
-    parts.push({ type: "text", text: "", state: "streaming", id: chunk.id })
+    const part = { type: "text", text: "", state: "streaming", id: chunk.id }
+    appendProviderRefs(part, refs)
+    parts.push(part)
     return
   }
   if (chunk.type === "text-delta") {
     const part = parts.find((item) => item.id === chunk.id && item.type === "text")
-    if (part) part.text += chunk.delta
+    if (part) {
+      part.text += chunk.delta
+      appendProviderRefs(part, refs)
+    }
     return
   }
   if (chunk.type === "text-end") {
@@ -623,12 +973,21 @@ function applyChunkToAssistantParts(
     return
   }
   if (chunk.type === "reasoning-start") {
-    parts.push({ type: "reasoning", text: "", state: "streaming", id: chunk.id })
+    const part = { type: "reasoning", text: "", state: "streaming", id: chunk.id }
+    appendProviderRefs(part, refs)
+    parts.push(part)
     return
   }
   if (chunk.type === "reasoning-delta") {
     const part = parts.find((item) => item.id === chunk.id && item.type === "reasoning")
-    if (part) part.text += chunk.delta
+    if (part) {
+      if (chunk.streamKind === "reasoning_summary") {
+        part.summary = `${typeof part.summary === "string" ? part.summary : ""}${chunk.delta}`
+      } else {
+        part.text += chunk.delta
+      }
+      appendProviderRefs(part, refs)
+    }
     return
   }
   if (chunk.type === "reasoning-end") {
@@ -648,6 +1007,7 @@ function applyChunkToAssistantParts(
       }
       parts.push(part)
     }
+    appendProviderRefs(part, refs)
     part.type = type
     part.toolName = chunk.toolName
     if (chunk.title) part.title = chunk.title
@@ -661,6 +1021,7 @@ function applyChunkToAssistantParts(
   if (chunk.type === "tool-input-delta") {
     const part = parts.find((item) => item.toolCallId === chunk.toolCallId)
     if (!part) return
+    appendProviderRefs(part, refs)
     part.inputText = `${typeof part.inputText === "string" ? part.inputText : ""}${chunk.inputTextDelta ?? ""}`
     part.state = "input-streaming"
     return
@@ -668,6 +1029,7 @@ function applyChunkToAssistantParts(
   if (chunk.type === "tool-output-available" || chunk.type === "tool-output-error") {
     const part = parts.find((item) => item.toolCallId === chunk.toolCallId)
     if (!part) return
+    appendProviderRefs(part, refs)
     if (chunk.type === "tool-output-error") {
       part.state = "output-error"
       part.errorText = chunk.errorText
@@ -683,6 +1045,7 @@ function applyChunkToAssistantParts(
     parts.push({
       type: chunk.type,
       id: chunk.id,
+      providerRefs: refs ? [refs] : undefined,
       data: chunk.data,
     })
   }
@@ -693,6 +1056,8 @@ export function buildAgentRuntimeAssistantProjection(input: {
   messageId?: string
   metadata?: Record<string, unknown>
   fallbackText: string
+  finalize?: boolean
+  includeFallback?: boolean
 }): {
   id: string
   role: "assistant"
@@ -712,11 +1077,16 @@ export function buildAgentRuntimeAssistantProjection(input: {
       }
     }
   }
-  for (const chunk of projector.finish()) {
-    applyChunkToAssistantParts(parts, chunk)
+  if (input.finalize !== false) {
+    for (const chunk of projector.finish()) {
+      applyChunkToAssistantParts(parts, chunk)
+    }
   }
 
-  if (!parts.some((part) => part.type === "text" && part.text?.trim())) {
+  if (
+    input.includeFallback !== false &&
+    !parts.some((part) => part.type === "text" && part.text?.trim())
+  ) {
     parts.push({ type: "text", text: input.fallbackText, state: "done" })
   }
 

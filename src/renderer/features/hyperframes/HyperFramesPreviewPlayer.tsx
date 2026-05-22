@@ -1162,6 +1162,8 @@ export function HyperFramesPreviewPlayer({
       >
         <div
           ref={previewSurfaceRef}
+          role="img"
+          aria-label={compositionId ? `${compositionId} composition preview` : "Composition preview"}
           className={cn(
             "relative max-h-full overflow-hidden rounded-md bg-black shadow-sm ring-1 ring-border/70",
             zoom === "fit" && "max-w-full",
@@ -1173,7 +1175,7 @@ export function HyperFramesPreviewPlayer({
             maxWidth: zoom === "fit" ? "100%" : "none",
           }}
         >
-          <div ref={containerRef} className="absolute inset-0" />
+          <div ref={containerRef} className="absolute inset-0" aria-hidden="true" inert />
           {isCaptionOverlayVisible && activeCaptionClips.length > 0 ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex flex-col items-center gap-1 px-6">
               {activeCaptionClips.map((clip) => (

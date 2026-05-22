@@ -67,15 +67,6 @@ function CodeSelectIcon({ className }: { className?: string }) {
   )
 }
 
-// Chat history icon - message square
-function ChatHistoryIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  )
-}
-
 // Custom folder icon matching design
 function FolderOpenIcon({ className }: { className?: string }) {
   return (
@@ -100,7 +91,7 @@ interface ParsedMention {
   label: string
   path: string
   repository: string
-  type: "file" | "folder" | "skill" | "agent" | "tool" | "quote" | "diff" | "pasted" | "chatHistory"
+  type: "file" | "folder" | "skill" | "agent" | "tool" | "quote" | "diff" | "pasted"
   // Extra data for quote/diff/pasted mentions
   fullText?: string
   lineNumber?: number
@@ -113,8 +104,9 @@ interface ParsedMention {
  * Quote format: quote:preview_text:full_text (base64 encoded full text)
  * Diff format: diff:filepath:lineNumber:preview_text:full_text (base64 encoded full text)
  * Pasted format: pasted:size:preview|filepath
- * ChatHistory format: chatHistory:size:preview|filepath
  */
+const LEGACY_CHAT_HISTORY_PREFIX = "chatHistory:"
+
 function parseMention(id: string): ParsedMention | null {
   const isFile = id.startsWith(MENTION_PREFIXES.FILE)
   const isFolder = id.startsWith(MENTION_PREFIXES.FOLDER)
@@ -124,9 +116,8 @@ function parseMention(id: string): ParsedMention | null {
   const isQuote = id.startsWith(MENTION_PREFIXES.QUOTE)
   const isDiff = id.startsWith(MENTION_PREFIXES.DIFF)
   const isPasted = id.startsWith(MENTION_PREFIXES.PASTED)
-  const isChatHistory = id.startsWith(MENTION_PREFIXES.CHAT_HISTORY)
 
-  if (!isFile && !isFolder && !isSkill && !isAgent && !isTool && !isQuote && !isDiff && !isPasted && !isChatHistory) return null
+  if (!isFile && !isFolder && !isSkill && !isAgent && !isTool && !isQuote && !isDiff && !isPasted) return null
 
   // Handle quote mentions (format: quote:preview_text:base64_full_text)
   if (isQuote) {
@@ -217,31 +208,6 @@ function parseMention(id: string): ParsedMention | null {
       path: filePath,
       repository: "",
       type: "pasted",
-      size,
-    }
-  }
-
-  // Handle chat history mentions (same format as pasted: chatHistory:size:preview|filepath)
-  if (isChatHistory) {
-    const content = id.slice(MENTION_PREFIXES.CHAT_HISTORY.length)
-    const pipeIndex = content.lastIndexOf("|")
-    if (pipeIndex === -1) return null
-
-    const beforePipe = content.slice(0, pipeIndex)
-    const filePath = content.slice(pipeIndex + 1)
-
-    const colonIndex = beforePipe.indexOf(":")
-    if (colonIndex === -1) return null
-
-    const size = parseInt(beforePipe.slice(0, colonIndex) || "0", 10)
-    const preview = beforePipe.slice(colonIndex + 1)
-
-    return {
-      id,
-      label: preview,
-      path: filePath,
-      repository: "",
-      type: "chatHistory",
       size,
     }
   }
@@ -526,13 +492,13 @@ export function extractTextMentions(text: string): {
       id.startsWith(MENTION_PREFIXES.QUOTE) ||
       id.startsWith(MENTION_PREFIXES.DIFF) ||
       id.startsWith(MENTION_PREFIXES.PASTED) ||
-      id.startsWith(MENTION_PREFIXES.CHAT_HISTORY)
+      id.startsWith(LEGACY_CHAT_HISTORY_PREFIX)
     ) {
       const parsed = parseMention(id)
       if (parsed) {
         textMentions.push(parsed)
-        mentionsToRemove.push(match[0])
       }
+      mentionsToRemove.push(match[0])
     }
   }
 
@@ -569,11 +535,9 @@ function formatSize(bytes: number): string {
  * Used for displaying above message bubbles, not inline
  */
 export function TextMentionBlock({ mention }: { mention: ParsedMention }) {
-  if (mention.type !== "quote" && mention.type !== "diff" && mention.type !== "pasted" && mention.type !== "chatHistory") return null
+  if (mention.type !== "quote" && mention.type !== "diff" && mention.type !== "pasted") return null
 
-  const displayTitle = mention.type === "chatHistory"
-    ? (mention.label?.trim() || "Previous Chat")
-    : mention.type === "quote"
+  const displayTitle = mention.type === "quote"
       ? (mention.label.split('\n')[0]?.slice(0, 20) || mention.label.slice(0, 20))
       : mention.type === "pasted"
         ? (mention.label.split('\n')[0]?.slice(0, 20) || mention.label.slice(0, 20))
@@ -581,9 +545,7 @@ export function TextMentionBlock({ mention }: { mention: ParsedMention }) {
 
   const title = displayTitle.length < 20 ? displayTitle : `${displayTitle}...`
 
-  const subtitle = mention.type === "chatHistory"
-    ? "Past chat"
-    : mention.type === "quote"
+  const subtitle = mention.type === "quote"
       ? "Selected Text"
       : mention.type === "pasted"
         ? `Pasted Text · ${formatSize(mention.size || 0)}`
@@ -591,9 +553,7 @@ export function TextMentionBlock({ mention }: { mention: ParsedMention }) {
           ? `Line ${mention.lineNumber}`
           : "Code selection"
 
-  const icon = mention.type === "chatHistory"
-    ? <ChatHistoryIcon className="size-4 text-muted-foreground" />
-    : mention.type === "quote" || mention.type === "pasted"
+  const icon = mention.type === "quote" || mention.type === "pasted"
       ? <TextSelectIcon className="size-4 text-muted-foreground" />
       : <CodeSelectIcon className="size-4 text-muted-foreground" />
 
@@ -618,7 +578,7 @@ export function TextMentionBlock({ mention }: { mention: ParsedMention }) {
  * Component to render multiple text mention blocks
  */
 export function TextMentionBlocks({ mentions }: { mentions: ParsedMention[] }) {
-  const textMentions = mentions.filter(m => m.type === "quote" || m.type === "diff" || m.type === "pasted" || m.type === "chatHistory")
+  const textMentions = mentions.filter(m => m.type === "quote" || m.type === "diff" || m.type === "pasted")
   if (textMentions.length === 0) return null
 
   return (

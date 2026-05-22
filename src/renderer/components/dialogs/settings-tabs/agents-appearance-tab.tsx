@@ -1,7 +1,7 @@
 import { useTheme } from "next-themes"
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { IconSpinner } from "../../../icons"
-import { useAtom, useSetAtom } from "jotai"
+import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import { motion, AnimatePresence } from "motion/react"
 import { cn } from "../../../lib/utils"
 import {
@@ -17,9 +17,14 @@ import {
 import {
   BUILTIN_THEMES,
   getBuiltinThemeById,
-  BUILTIN_THEME_NAMES,
   normalizeBuiltinThemeId,
 } from "../../../lib/themes/builtin-themes"
+import {
+  getAppearanceThemeLabel,
+  getVisibleAppearanceThemes,
+  isVisibleAppearanceThemeId,
+  normalizeVisibleAppearanceThemeId,
+} from "../../../lib/themes/appearance-theme-options"
 import {
   generateCSSVariables,
   applyCSSVariables,
@@ -31,9 +36,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectSeparator,
-  SelectLabel,
-  SelectGroup,
 } from "../../../components/ui/select"
 import { Switch } from "../../../components/ui/switch"
 
@@ -142,7 +144,7 @@ export function AgentsAppearanceTab() {
     systemDarkThemeIdAtom,
   )
   const setFullThemeData = useSetAtom(fullThemeDataAtom)
-  const [importedThemes, setImportedThemes] = useAtom(importedThemesAtom)
+  const importedThemes = useAtomValue(importedThemesAtom)
 
   // Sidebar settings
   const [showWorkspaceIcon, setShowWorkspaceIcon] = useAtom(showWorkspaceIconAtom)
@@ -150,93 +152,101 @@ export function AgentsAppearanceTab() {
   // To-do list preference
   const [alwaysExpandTodoList, setAlwaysExpandTodoList] = useAtom(alwaysExpandTodoListAtom)
 
-  // VS Code themes state
-  const [isScanning, setIsScanning] = useState(false)
-
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Scan and load VS Code themes on mount
-  useEffect(() => {
-    if (!mounted) return
-    const api = window.desktopApi
-    if (typeof api?.scanVSCodeThemes !== "function") return
-    if (typeof api?.loadVSCodeTheme !== "function") return
-
-    const loadAllThemes = async () => {
-      setIsScanning(true)
-      try {
-        const discovered = await api.scanVSCodeThemes()
-        // Filter out themes that are already builtin
-        const newThemes = discovered.filter(
-          (t) => !BUILTIN_THEME_NAMES.has(t.name.toLowerCase())
-        )
-
-        // Load all themes in parallel
-        const loadedThemes = await Promise.all(
-          newThemes.map(async (theme) => {
-            try {
-              const fullTheme = await api.loadVSCodeTheme(theme.path)
-              return {
-                ...fullTheme,
-                id: theme.id,
-                source: "imported" as const,
-              } as VSCodeFullTheme
-            } catch (err) {
-              console.error("[appearance-tab] Failed to load theme:", theme.name, err)
-              return null
-            }
-          })
-        )
-
-        // Filter out failed loads and update imported themes
-        const validThemes = loadedThemes.filter((t): t is VSCodeFullTheme => t !== null)
-        setImportedThemes(validThemes)
-      } catch (error) {
-        console.error("Failed to load VS Code themes:", error)
-      } finally {
-        setIsScanning(false)
-      }
-    }
-
-    loadAllThemes()
-  }, [mounted, setImportedThemes])
-
-  // Group themes by type
+  // Visible appearance themes. Other built-in/imported themes stay defined for
+  // later, but the settings UI exposes only the curated Cool/Warm pair.
   const darkThemes = useMemo(
-    () => BUILTIN_THEMES.filter((t) => t.type === "dark"),
+    () => getVisibleAppearanceThemes("dark"),
     [],
   )
   const lightThemes = useMemo(
-    () => BUILTIN_THEMES.filter((t) => t.type === "light"),
+    () => getVisibleAppearanceThemes("light"),
     [],
   )
 
   // Is system mode selected
   const isSystemMode = selectedThemeId === null
 
+  const selectedThemeType = useMemo<VSCodeFullTheme["type"]>(() => {
+    if (selectedThemeId === null) {
+      return resolvedTheme === "dark" ? "dark" : "light"
+    }
+
+    const normalizedThemeId = normalizeBuiltinThemeId(selectedThemeId)
+    const theme =
+      BUILTIN_THEMES.find((t) => t.id === normalizedThemeId) ||
+      importedThemes.find((t) => t.id === selectedThemeId)
+
+    return theme?.type ?? (resolvedTheme === "dark" ? "dark" : "light")
+  }, [selectedThemeId, importedThemes, resolvedTheme])
+
+  const visibleSelectedThemeId = useMemo(
+    () =>
+      selectedThemeId === null
+        ? null
+        : normalizeVisibleAppearanceThemeId(selectedThemeId, selectedThemeType),
+    [selectedThemeId, selectedThemeType],
+  )
+
   // Get the current theme for display
   const currentTheme = useMemo(() => {
-    if (selectedThemeId === null) {
+    if (visibleSelectedThemeId === null) {
       return null // System mode
     }
-    const normalizedThemeId = normalizeBuiltinThemeId(selectedThemeId)
-    // Check in both builtin and imported themes
-    return BUILTIN_THEMES.find((t) => t.id === normalizedThemeId) ||
-           importedThemes.find((t) => t.id === selectedThemeId) ||
-           null
-  }, [selectedThemeId, importedThemes])
+
+    return getBuiltinThemeById(visibleSelectedThemeId) ?? null
+  }, [visibleSelectedThemeId])
 
   // Get theme objects for system mode selectors
-  const systemLightTheme = useMemo(
-    () => getBuiltinThemeById(systemLightThemeId),
+  const visibleSystemLightThemeId = useMemo(
+    () => normalizeVisibleAppearanceThemeId(systemLightThemeId, "light"),
     [systemLightThemeId],
   )
-  const systemDarkTheme = useMemo(
-    () => getBuiltinThemeById(systemDarkThemeId),
+  const visibleSystemDarkThemeId = useMemo(
+    () => normalizeVisibleAppearanceThemeId(systemDarkThemeId, "dark"),
     [systemDarkThemeId],
   )
+  const systemLightTheme = useMemo(
+    () => getBuiltinThemeById(visibleSystemLightThemeId),
+    [visibleSystemLightThemeId],
+  )
+  const systemDarkTheme = useMemo(
+    () => getBuiltinThemeById(visibleSystemDarkThemeId),
+    [visibleSystemDarkThemeId],
+  )
+
+  useEffect(() => {
+    if (!mounted) return
+
+    if (visibleSystemLightThemeId !== systemLightThemeId) {
+      setSystemLightThemeId(visibleSystemLightThemeId)
+    }
+
+    if (visibleSystemDarkThemeId !== systemDarkThemeId) {
+      setSystemDarkThemeId(visibleSystemDarkThemeId)
+    }
+
+    if (
+      selectedThemeId !== null &&
+      !isVisibleAppearanceThemeId(selectedThemeId)
+    ) {
+      setSelectedThemeId(visibleSelectedThemeId)
+    }
+  }, [
+    mounted,
+    selectedThemeId,
+    setSelectedThemeId,
+    setSystemLightThemeId,
+    setSystemDarkThemeId,
+    systemLightThemeId,
+    systemDarkThemeId,
+    visibleSelectedThemeId,
+    visibleSystemLightThemeId,
+    visibleSystemDarkThemeId,
+  ])
 
   // Apply theme based on current settings
   const applyTheme = useCallback(
@@ -250,8 +260,8 @@ export function AgentsAppearanceTab() {
         // Apply the appropriate system theme
         const isDark = resolvedTheme === "dark"
         const systemTheme = isDark
-          ? getBuiltinThemeById(systemDarkThemeId)
-          : getBuiltinThemeById(systemLightThemeId)
+          ? getBuiltinThemeById(visibleSystemDarkThemeId)
+          : getBuiltinThemeById(visibleSystemLightThemeId)
 
         if (systemTheme) {
           const cssVars = generateCSSVariables(systemTheme.colors)
@@ -262,8 +272,9 @@ export function AgentsAppearanceTab() {
 
       // Check in both builtin and imported themes
       const normalizedThemeId = normalizeBuiltinThemeId(themeId)
-      const theme = BUILTIN_THEMES.find((t) => t.id === normalizedThemeId) ||
-                    importedThemes.find((t) => t.id === themeId)
+      const theme =
+        BUILTIN_THEMES.find((t) => t.id === normalizedThemeId) ||
+        importedThemes.find((t) => t.id === themeId)
       if (theme) {
         setFullThemeData(theme)
 
@@ -285,8 +296,8 @@ export function AgentsAppearanceTab() {
     },
     [
       resolvedTheme,
-      systemLightThemeId,
-      systemDarkThemeId,
+      visibleSystemLightThemeId,
+      visibleSystemDarkThemeId,
       setFullThemeData,
       setNextTheme,
       importedThemes,
@@ -339,23 +350,13 @@ export function AgentsAppearanceTab() {
     [setSystemDarkThemeId, resolvedTheme, selectedThemeId],
   )
 
-  // Group imported themes by type
-  const importedDarkThemes = useMemo(
-    () => importedThemes.filter((t) => t.type === "dark"),
-    [importedThemes],
-  )
-  const importedLightThemes = useMemo(
-    () => importedThemes.filter((t) => t.type === "light"),
-    [importedThemes],
-  )
-
   // Re-apply theme when system preference changes
   useEffect(() => {
     if (selectedThemeId === null && mounted) {
       const isDark = resolvedTheme === "dark"
       const systemTheme = isDark
-        ? getBuiltinThemeById(systemDarkThemeId)
-        : getBuiltinThemeById(systemLightThemeId)
+        ? getBuiltinThemeById(visibleSystemDarkThemeId)
+        : getBuiltinThemeById(visibleSystemLightThemeId)
 
       if (systemTheme) {
         const cssVars = generateCSSVariables(systemTheme.colors)
@@ -365,8 +366,8 @@ export function AgentsAppearanceTab() {
   }, [
     resolvedTheme,
     selectedThemeId,
-    systemLightThemeId,
-    systemDarkThemeId,
+    visibleSystemLightThemeId,
+    visibleSystemDarkThemeId,
     mounted,
   ])
 
@@ -406,7 +407,7 @@ export function AgentsAppearanceTab() {
           </div>
 
           <Select
-            value={selectedThemeId ?? "system"}
+            value={visibleSelectedThemeId ?? "system"}
             onValueChange={handleThemeChange}
           >
             <SelectTrigger className="w-auto px-2">
@@ -426,7 +427,9 @@ export function AgentsAppearanceTab() {
                   <>
                     <ThemePreviewBox theme={currentTheme} />
                     <span className="text-xs truncate">
-                      {currentTheme?.name || "Select"}
+                      {getAppearanceThemeLabel(currentTheme, {
+                        includeType: true,
+                      })}
                     </span>
                   </>
                 )}
@@ -453,7 +456,9 @@ export function AgentsAppearanceTab() {
                 <SelectItem key={theme.id} value={theme.id}>
                   <div className="flex items-center gap-2">
                     <ThemePreviewBox theme={theme} size="sm" />
-                    <span className="truncate">{theme.name}</span>
+                    <span className="truncate">
+                      {getAppearanceThemeLabel(theme, { includeType: true })}
+                    </span>
                   </div>
                 </SelectItem>
               ))}
@@ -463,41 +468,12 @@ export function AgentsAppearanceTab() {
                 <SelectItem key={theme.id} value={theme.id}>
                   <div className="flex items-center gap-2">
                     <ThemePreviewBox theme={theme} size="sm" />
-                    <span className="truncate">{theme.name}</span>
+                    <span className="truncate">
+                      {getAppearanceThemeLabel(theme, { includeType: true })}
+                    </span>
                   </div>
                 </SelectItem>
               ))}
-
-              {/* Imported themes from VS Code / Cursor / Windsurf */}
-              {importedThemes.length > 0 && (
-                <>
-                  <SelectSeparator />
-                  <SelectGroup>
-                    <SelectLabel className="text-xs text-muted-foreground px-2">
-                      From editors
-                    </SelectLabel>
-                    {importedThemes.map((theme) => (
-                      <SelectItem key={theme.id} value={theme.id}>
-                        <div className="flex items-center gap-2">
-                          <ThemePreviewBox theme={theme} size="sm" />
-                          <span className="truncate">{theme.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </>
-              )}
-
-              {/* Loading indicator */}
-              {isScanning && (
-                <>
-                  <SelectSeparator />
-                  <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
-                    <IconSpinner className="h-3 w-3" />
-                    <span>Loading themes from editors...</span>
-                  </div>
-                </>
-              )}
             </SelectContent>
           </Select>
         </div>
@@ -527,14 +503,14 @@ export function AgentsAppearanceTab() {
                 </div>
 
                 <Select
-                  value={systemLightThemeId}
+                  value={visibleSystemLightThemeId}
                   onValueChange={handleSystemLightThemeChange}
                 >
                   <SelectTrigger className="w-auto px-2">
                     <div className="flex items-center gap-2 min-w-0 -ml-[3px]">
                       <ThemePreviewBox theme={systemLightTheme || null} />
                       <span className="text-xs truncate">
-                        {systemLightTheme?.name || "Select"}
+                        {getAppearanceThemeLabel(systemLightTheme)}
                       </span>
                     </div>
                   </SelectTrigger>
@@ -543,7 +519,9 @@ export function AgentsAppearanceTab() {
                       <SelectItem key={theme.id} value={theme.id}>
                         <div className="flex items-center gap-2">
                           <ThemePreviewBox theme={theme} size="sm" />
-                          <span className="truncate">{theme.name}</span>
+                          <span className="truncate">
+                            {getAppearanceThemeLabel(theme)}
+                          </span>
                         </div>
                       </SelectItem>
                     ))}
@@ -563,14 +541,14 @@ export function AgentsAppearanceTab() {
                 </div>
 
                 <Select
-                  value={systemDarkThemeId}
+                  value={visibleSystemDarkThemeId}
                   onValueChange={handleSystemDarkThemeChange}
                 >
                   <SelectTrigger className="w-auto px-2">
                     <div className="flex items-center gap-2 min-w-0 -ml-[3px]">
                       <ThemePreviewBox theme={systemDarkTheme || null} />
                       <span className="text-xs truncate">
-                        {systemDarkTheme?.name || "Select"}
+                        {getAppearanceThemeLabel(systemDarkTheme)}
                       </span>
                     </div>
                   </SelectTrigger>
@@ -579,7 +557,9 @@ export function AgentsAppearanceTab() {
                       <SelectItem key={theme.id} value={theme.id}>
                         <div className="flex items-center gap-2">
                           <ThemePreviewBox theme={theme} size="sm" />
-                          <span className="truncate">{theme.name}</span>
+                          <span className="truncate">
+                            {getAppearanceThemeLabel(theme)}
+                          </span>
                         </div>
                       </SelectItem>
                     ))}

@@ -1,0 +1,452 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "provider": "claude",
+    "model": "sonnet",
+    "runKind": "chat",
+    "status": "completed",
+    "originalEventCount": 39,
+    "selectedEventCount": 13,
+    "note": "Sanitized from a real local Ripple Dev run. Prompt summary: Use Ripple visual context to describe the current frame in one sentence. Do not edit files."
+  },
+  "projectPath": "/Users/motion/Ripple Projects/Fixture Project",
+  "events": [
+    {
+      "id": "real-claude-visual-context-event-005",
+      "type": "reasoning",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 1,
+      "createdAt": "2026-05-21T12:00:04.000Z",
+      "provider": "claude",
+      "providerType": "content_block_delta",
+      "providerId": "fixture-id-002",
+      "payload": {
+        "delta": "The user wants me to use Ripple visual context to describe the current frame. Let me use the ripple-visual-context skill to capture a"
+      }
+    },
+    {
+      "id": "real-claude-visual-context-event-007",
+      "type": "reasoning",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 2,
+      "createdAt": "2026-05-21T12:00:06.000Z",
+      "provider": "claude",
+      "providerType": "assistant:thinking",
+      "providerId": "fixture-id-004",
+      "payload": {
+        "text": "The user wants me to use Ripple visual context to describe the current frame. Let me use the ripple-visual-context skill to capture a snapshot of the current frame."
+      }
+    },
+    {
+      "id": "real-claude-visual-context-event-014",
+      "type": "reasoning",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 3,
+      "createdAt": "2026-05-21T12:00:13.000Z",
+      "provider": "claude",
+      "providerType": "content_block_delta",
+      "providerId": "fixture-id-009",
+      "payload": {
+        "delta": "The user wants me to use Ripple visual context to describe the"
+      }
+    },
+    {
+      "id": "real-claude-visual-context-event-015",
+      "type": "reasoning",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 4,
+      "createdAt": "2026-05-21T12:00:14.000Z",
+      "provider": "claude",
+      "providerType": "content_block_delta",
+      "providerId": "fixture-id-010",
+      "payload": {
+        "delta": " current frame. Let me take a snapshot of the current frame using the `ripple snapshot --at current --json` command."
+      }
+    },
+    {
+      "id": "real-claude-visual-context-event-016",
+      "type": "reasoning",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 5,
+      "createdAt": "2026-05-21T12:00:15.000Z",
+      "provider": "claude",
+      "providerType": "assistant:thinking",
+      "providerId": "fixture-id-011",
+      "payload": {
+        "text": "The user wants me to use Ripple visual context to describe the current frame. Let me take a snapshot of the current frame using the `ripple snapshot --at current --json` command."
+      }
+    },
+    {
+      "id": "real-claude-visual-context-event-018",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 6,
+      "createdAt": "2026-05-21T12:00:17.000Z",
+      "provider": "claude",
+      "providerType": "content_block_delta",
+      "providerId": "fixture-id-013",
+      "payload": {
+        "delta": "I'll capture the current frame using the Ripple snapshot command."
+      }
+    },
+    {
+      "id": "real-claude-visual-context-event-021",
+      "type": "tool_start",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 7,
+      "createdAt": "2026-05-21T12:00:20.000Z",
+      "provider": "claude",
+      "providerType": "content_block_start",
+      "providerId": "fixture-id-015",
+      "payload": {
+        "toolCallId": "fixture-id-015",
+        "toolName": "Bash",
+        "input": {},
+        "inputStreaming": true
+      }
+    },
+    {
+      "id": "real-claude-visual-context-event-022",
+      "type": "tool_update",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 8,
+      "createdAt": "2026-05-21T12:00:21.000Z",
+      "provider": "claude",
+      "providerType": "assistant:tool_use",
+      "providerId": "fixture-id-015",
+      "payload": {
+        "toolCallId": "fixture-id-015",
+        "toolName": "Bash",
+        "input": {
+          "command": "ripple snapshot --at current --json",
+          "description": "Capture current frame snapshot"
+        },
+        "inputAvailable": true
+      }
+    },
+    {
+      "id": "real-claude-visual-context-event-024",
+      "type": "tool_end",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 9,
+      "createdAt": "2026-05-21T12:00:23.000Z",
+      "provider": "claude",
+      "providerType": "user:tool_result",
+      "providerId": "fixture-id-015",
+      "payload": {
+        "toolCallId": "fixture-id-015",
+        "toolName": "Bash",
+        "output": "{\n  \"ok\": true,\n  \"type\": \"snapshot\",\n  \"snapshot\": {\n    \"id\": \"snap_3cf8f5529f7c\",\n    \"path\": \".ripple/visual-context/snapshots/snap_3cf8f5529f7c/current.png\",\n    \"sample\": {\n      \"timeMs\": 0,\n      \"frame\": 0\n    },\n    \"width\": 1920,\n    \"height\": 1080\n  },\n  \"context\": {\n    \"compositionPath\": null,\n    \"sampl...",
+        "status": "completed"
+      }
+    },
+    {
+      "id": "real-claude-visual-context-event-025",
+      "type": "tool_start",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 10,
+      "createdAt": "2026-05-21T12:00:24.000Z",
+      "provider": "claude",
+      "providerType": "content_block_start",
+      "providerId": "fixture-id-017",
+      "payload": {
+        "toolCallId": "fixture-id-017",
+        "toolName": "Read",
+        "input": {},
+        "inputStreaming": true
+      }
+    },
+    {
+      "id": "real-claude-visual-context-event-028",
+      "type": "tool_end",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 11,
+      "createdAt": "2026-05-21T12:00:27.000Z",
+      "provider": "claude",
+      "providerType": "user:tool_result",
+      "providerId": "fixture-id-017",
+      "payload": {
+        "toolCallId": "fixture-id-017",
+        "toolName": "Read",
+        "output": {
+          "content": [
+            {
+              "type": "image",
+              "source": {
+                "type": "base64",
+                "data": "iVBORw0KGgo=",
+                "media_type": "image/png"
+              }
+            }
+          ]
+        },
+        "status": "completed"
+      }
+    },
+    {
+      "id": "real-claude-visual-context-event-029",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 12,
+      "createdAt": "2026-05-21T12:00:28.000Z",
+      "provider": "claude",
+      "providerType": "content_block_delta",
+      "providerId": "fixture-id-019",
+      "payload": {
+        "delta": "At"
+      }
+    },
+    {
+      "id": "real-claude-visual-context-event-039",
+      "type": "status",
+      "agentRunId": "real-claude-visual-context",
+      "sequence": 13,
+      "createdAt": "2026-05-21T12:00:38.000Z",
+      "provider": "claude",
+      "providerType": null,
+      "providerId": null,
+      "payload": {
+        "status": "completed"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "name": "after reasoning content_block_delta",
+      "eventCount": 1,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after reasoning assistant:thinking",
+      "eventCount": 2,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "thinking",
+          "status": "done",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after reasoning content_block_delta",
+      "eventCount": 3,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after reasoning assistant:thinking",
+      "eventCount": 5,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "thinking",
+          "status": "done",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after assistant_text_delta content_block_delta",
+      "eventCount": 6,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start content_block_start",
+      "eventCount": 7,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "pending",
+          "title": "Verifying preview"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_update assistant:tool_use",
+      "eventCount": 8,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end user:tool_result",
+      "eventCount": 9,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start content_block_start",
+      "eventCount": 10,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end user:tool_result",
+      "eventCount": 11,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta content_block_delta",
+      "eventCount": 12,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after status",
+      "eventCount": 13,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    }
+  ]
+}

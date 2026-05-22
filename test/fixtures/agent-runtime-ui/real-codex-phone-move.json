@@ -1,0 +1,2404 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "provider": "codex",
+    "model": "gpt-5.5/low",
+    "runKind": "chat",
+    "status": "completed",
+    "originalEventCount": 689,
+    "selectedEventCount": 34,
+    "note": "Sanitized from a real local Ripple Dev run. Prompt summary: whats on the screen, move the phone to the left"
+  },
+  "projectPath": "/Users/motion/Ripple Projects/Fixture Project",
+  "events": [
+    {
+      "id": "real-codex-phone-move-event-007",
+      "type": "activity",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 1,
+      "createdAt": "2026-05-21T12:00:06.000Z",
+      "provider": "codex",
+      "providerType": "turn/started",
+      "providerId": "fixture-id-002",
+      "payload": {
+        "kind": "thinking",
+        "label": "Agent is thinking",
+        "source": "codex_app_server",
+        "providerRefs": {
+          "rawProviderMethod": "turn/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-002",
+          "createdAt": "2026-05-22T00:44:44.036Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-002",
+          "providerType": "turn/started",
+          "eventId": "real-codex-phone-move-event-007",
+          "sequence": 7
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-008",
+      "type": "tool_start",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 2,
+      "createdAt": "2026-05-21T12:00:07.000Z",
+      "provider": "codex",
+      "providerType": "item/tool/call",
+      "providerId": "fixture-id-003",
+      "payload": {
+        "toolCallId": "fixture-id-003",
+        "toolName": "snapshot",
+        "arguments": {
+          "at": "current"
+        },
+        "providerRefs": {
+          "createdAt": "2026-05-22T00:44:50.114Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-003",
+          "providerId": "fixture-id-003",
+          "providerType": "item/tool/call",
+          "rawProviderMethod": "item/tool/call",
+          "eventId": "real-codex-phone-move-event-008",
+          "sequence": 8
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-010",
+      "type": "tool_end",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 3,
+      "createdAt": "2026-05-21T12:00:09.000Z",
+      "provider": "codex",
+      "providerType": "item/tool/call",
+      "providerId": "fixture-id-003",
+      "payload": {
+        "toolCallId": "fixture-id-003",
+        "toolName": "snapshot",
+        "status": "completed",
+        "output": {
+          "artifactPath": ".ripple/visual-context/snapshots/snap_b6e6aa56cf04/current.png",
+          "type": "snapshot",
+          "payload": {
+            "ok": true,
+            "type": "snapshot",
+            "snapshot": {
+              "id": "fixture-id-004",
+              "path": ".ripple/visual-context/snapshots/snap_b6e6aa56cf04/current.png",
+              "sample": {
+                "timeMs": 0,
+                "frame": 0
+              },
+              "width": 824,
+              "height": 472
+            },
+            "context": {
+              "compositionPath": null,
+              "source": {
+                "kind": "live-app",
+                "preEdit": false
+              },
+              "samples": [
+                {
+                  "timeMs": 0,
+                  "frame": 0
+                }
+              ]
+            },
+            "elapsedMs": 96
+          },
+          "byteLength": 21640
+        },
+        "providerRefs": {
+          "createdAt": "2026-05-22T00:44:50.213Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-003",
+          "providerId": "fixture-id-003",
+          "providerType": "item/tool/call",
+          "rawProviderMethod": "item/tool/call",
+          "eventId": "real-codex-phone-move-event-010",
+          "sequence": 10
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-011",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 4,
+      "createdAt": "2026-05-21T12:00:10.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-005",
+      "payload": {
+        "delta": "I",
+        "providerRefs": {
+          "rawProviderMethod": "item/agentMessage/delta",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-005",
+          "createdAt": "2026-05-22T00:44:51.970Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-005",
+          "providerType": "item/agentMessage/delta",
+          "eventId": "real-codex-phone-move-event-011",
+          "sequence": 11
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-103",
+      "type": "tool_start",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 5,
+      "createdAt": "2026-05-21T12:00:42.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-006",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc pwd",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "pwd"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null,
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-006",
+          "createdAt": "2026-05-22T00:44:55.474Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-006",
+          "providerType": "item/started",
+          "eventId": "real-codex-phone-move-event-103",
+          "sequence": 103
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-104",
+      "type": "tool_end",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 6,
+      "createdAt": "2026-05-21T12:00:43.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-006",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc pwd",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "pwd"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "/Users/motion/Ripple Projects/Fixture Project\n",
+        "durationMs": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-006",
+          "createdAt": "2026-05-22T00:44:55.475Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-006",
+          "providerType": "item/completed",
+          "eventId": "real-codex-phone-move-event-104",
+          "sequence": 104
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-107",
+      "type": "tool_start",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 7,
+      "createdAt": "2026-05-21T12:00:46.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-007",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg --files'",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "listFiles",
+            "command": "rg --files",
+            "path": null
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null,
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-007",
+          "createdAt": "2026-05-22T00:44:55.485Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-007",
+          "providerType": "item/started",
+          "eventId": "real-codex-phone-move-event-107",
+          "sequence": 107
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-108",
+      "type": "tool_end",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 8,
+      "createdAt": "2026-05-21T12:00:47.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-007",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg --files'",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "listFiles",
+            "command": "rg --files",
+            "path": null
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "meta.json\nCLAUDE.md\nassets/vendor/gsap.min.js\nAGENTS.md\ncompositions/transitions-3d.html\nindex.html\nhyperframes.json\n",
+        "durationMs": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-007",
+          "createdAt": "2026-05-22T00:44:55.486Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-007",
+          "providerType": "item/completed",
+          "eventId": "real-codex-phone-move-event-108",
+          "sequence": 108
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-111",
+      "type": "tool_start",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 9,
+      "createdAt": "2026-05-21T12:00:50.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-008",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '1,240p' index.html\"",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '1,240p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null,
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-008",
+          "createdAt": "2026-05-22T00:44:55.506Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-008",
+          "providerType": "item/started",
+          "eventId": "real-codex-phone-move-event-111",
+          "sequence": 111
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-113",
+      "type": "tool_end",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 10,
+      "createdAt": "2026-05-21T12:00:52.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-008",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '1,240p' index.html\"",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '1,240p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=1920, height=1080\" />\n    <title>main</title>\n    <style>\n      * {\n        margin: 0;\n        padding: 0;\n        box-sizing: border-box;\n      }\n      html,\n      body {\n        margin: 0;\n        width: 1...",
+        "durationMs": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-008",
+          "createdAt": "2026-05-22T00:44:55.507Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-008",
+          "providerType": "item/completed",
+          "eventId": "real-codex-phone-move-event-113",
+          "sequence": 113
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-116",
+      "type": "tool_start",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 11,
+      "createdAt": "2026-05-21T12:00:55.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-009",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '240,620p' index.html\"",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '240,620p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null,
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-009",
+          "createdAt": "2026-05-22T00:45:01.268Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-009",
+          "providerType": "item/started",
+          "eventId": "real-codex-phone-move-event-116",
+          "sequence": 116
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-117",
+      "type": "tool_end",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 12,
+      "createdAt": "2026-05-21T12:00:56.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-009",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '240,620p' index.html\"",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '240,620p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "                          y=\"6\"\n                          width=\"10\"\n                          height=\"6\"\n                          rx=\"1\"\n                          stroke=\"#e4fa72\"\n                          stroke-width=\"1.5\"\n                        />\n                        <path d=\"M6 6V4a2 2 0 014 0v2\" stroke=\"#e...",
+        "durationMs": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-009",
+          "createdAt": "2026-05-22T00:45:01.269Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-009",
+          "providerType": "item/completed",
+          "eventId": "real-codex-phone-move-event-117",
+          "sequence": 117
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-120",
+      "type": "tool_start",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 13,
+      "createdAt": "2026-05-21T12:00:59.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-010",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg -n \"s3-phone-center|s3PhoneCenter|s3-stage|transform|left:\" index.html'",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "search",
+            "command": "rg -n 's3-phone-center|s3PhoneCenter|s3-stage|transform|left:' index.html",
+            "query": "s3-phone-center|s3PhoneCenter|s3-stage|transform|left:",
+            "path": "index.html"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null,
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-010",
+          "createdAt": "2026-05-22T00:45:01.271Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-010",
+          "providerType": "item/started",
+          "eventId": "real-codex-phone-move-event-120",
+          "sequence": 120
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-121",
+      "type": "tool_end",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 14,
+      "createdAt": "2026-05-21T12:00:00.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-010",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg -n \"s3-phone-center|s3PhoneCenter|s3-stage|transform|left:\" index.html'",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "search",
+            "command": "rg -n 's3-phone-center|s3PhoneCenter|s3-stage|transform|left:' index.html",
+            "query": "s3-phone-center|s3PhoneCenter|s3-stage|transform|left:",
+            "path": "index.html"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "36:      <div class=\"s3-stage\" id=\"s3Stage\">\n127:        <div class=\"s3-phone s3-phone-center\" id=\"s3PhoneCenter\">\n181:                      transform=\"rotate(-90 70 70)\"\n385:          left: 50%;\n386:          transform: translate(-50%, -50%);\n392:        [data-composition-id=\"main\"] .s3-stage {\n395:          transfor...",
+        "durationMs": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-010",
+          "createdAt": "2026-05-22T00:45:01.271Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-010",
+          "providerType": "item/completed",
+          "eventId": "real-codex-phone-move-event-121",
+          "sequence": 121
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-125",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 15,
+      "createdAt": "2026-05-21T12:00:04.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-011",
+      "payload": {
+        "delta": "The",
+        "providerRefs": {
+          "rawProviderMethod": "item/agentMessage/delta",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-011",
+          "createdAt": "2026-05-22T00:45:02.787Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-011",
+          "providerType": "item/agentMessage/delta",
+          "eventId": "real-codex-phone-move-event-125",
+          "sequence": 125
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-217",
+      "type": "tool_start",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 16,
+      "createdAt": "2026-05-21T12:00:36.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-012",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '760,850p' index.html\"",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '760,850p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null,
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-012",
+          "createdAt": "2026-05-22T00:45:05.773Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-012",
+          "providerType": "item/started",
+          "eventId": "real-codex-phone-move-event-217",
+          "sequence": 217
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-223",
+      "type": "tool_end",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 17,
+      "createdAt": "2026-05-21T12:00:42.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-012",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '760,850p' index.html\"",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '760,850p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "        }\n        [data-composition-id=\"main\"] .stat-num {\n          font-size: 13px;\n          font-weight: 700;\n          color: #271f15;\n        }\n      </style>\n\n      <script src=\"./assets/vendor/gsap.min.js\"></script>\n      <script>\n        (function () {\n          var S = '[data-composition-id=\"main\"] ';\n      ...",
+        "durationMs": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-012",
+          "createdAt": "2026-05-22T00:45:05.774Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-012",
+          "providerType": "item/completed",
+          "eventId": "real-codex-phone-move-event-223",
+          "sequence": 223
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-226",
+      "type": "tool_start",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 18,
+      "createdAt": "2026-05-21T12:00:45.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-014",
+      "payload": {
+        "toolName": "Edit",
+        "changes": [
+          {
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html",
+            "kind": {
+              "type": "update",
+              "move_path": null
+            },
+            "diff": "@@ -403,3 +403,3 @@\n           top: 215px;\n-          left: 680px;\n+          left: 560px;\n         }\n"
+          }
+        ],
+        "status": "inProgress",
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-014",
+          "createdAt": "2026-05-22T00:45:09.057Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-014",
+          "providerType": "item/started",
+          "eventId": "real-codex-phone-move-event-226",
+          "sequence": 226
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-229",
+      "type": "tool_end",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 19,
+      "createdAt": "2026-05-21T12:00:48.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-014",
+      "payload": {
+        "toolName": "Edit",
+        "changes": [
+          {
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html",
+            "kind": {
+              "type": "update",
+              "move_path": null
+            },
+            "diff": "@@ -403,3 +403,3 @@\n           top: 215px;\n-          left: 680px;\n+          left: 560px;\n         }\n"
+          }
+        ],
+        "status": "completed",
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-014",
+          "createdAt": "2026-05-22T00:45:09.119Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-014",
+          "providerType": "item/completed",
+          "eventId": "real-codex-phone-move-event-229",
+          "sequence": 229
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-233",
+      "type": "file_change",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 20,
+      "createdAt": "2026-05-21T12:00:52.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-002",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex ce656a56fd32ca764e02c7858e0acf4352c10aa0..83c16b12c37c8320f4785e29d2deb88761bcc5b3\n--- a/index.html\n+++ b/index.html\n@@ -401,7 +401,7 @@\n           width: 320px;\n           height: 650px;\n           top: 215px;\n-          left: 680px;\n+          left: 560px;\n         }\n      ...",
+        "providerRefs": {
+          "rawProviderMethod": "turn/diff/updated",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-002",
+          "createdAt": "2026-05-22T00:45:09.120Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-002",
+          "providerType": "turn/diff/updated",
+          "eventId": "real-codex-phone-move-event-233",
+          "sequence": 233
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-235",
+      "type": "file_change",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 21,
+      "createdAt": "2026-05-21T12:00:54.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-002",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex ce656a56fd32ca764e02c7858e0acf4352c10aa0..83c16b12c37c8320f4785e29d2deb88761bcc5b3\n--- a/index.html\n+++ b/index.html\n@@ -401,7 +401,7 @@\n           width: 320px;\n           height: 650px;\n           top: 215px;\n-          left: 680px;\n+          left: 560px;\n         }\n      ...",
+        "providerRefs": {
+          "rawProviderMethod": "turn/diff/updated",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-002",
+          "createdAt": "2026-05-22T00:45:09.157Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-002",
+          "providerType": "turn/diff/updated",
+          "eventId": "real-codex-phone-move-event-235",
+          "sequence": 235
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-237",
+      "type": "tool_start",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 22,
+      "createdAt": "2026-05-21T12:00:56.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-015",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'git diff -- index.html'",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "git diff -- index.html"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null,
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-015",
+          "createdAt": "2026-05-22T00:45:12.347Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-015",
+          "providerType": "item/started",
+          "eventId": "real-codex-phone-move-event-237",
+          "sequence": 237
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-238",
+      "type": "tool_end",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 23,
+      "createdAt": "2026-05-21T12:00:57.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-015",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'git diff -- index.html'",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "git diff -- index.html"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "diff --git a/index.html b/index.html\nindex 04cd6e4..83c16b1 100644\n--- a/index.html\n+++ b/index.html\n@@ -400,8 +400,8 @@\n           position: absolute;\n           width: 320px;\n           height: 650px;\n-          top: 295px;\n-          left: 680px;\n+          top: 215px;\n+          left: 560px;\n         }\n         [d...",
+        "durationMs": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-015",
+          "createdAt": "2026-05-22T00:45:12.348Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-015",
+          "providerType": "item/completed",
+          "eventId": "real-codex-phone-move-event-238",
+          "sequence": 238
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-242",
+      "type": "tool_start",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 24,
+      "createdAt": "2026-05-21T12:00:01.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-016",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'hyperframes lint .'",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "hyperframes lint ."
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null,
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-016",
+          "createdAt": "2026-05-22T00:45:12.438Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-016",
+          "providerType": "item/started",
+          "eventId": "real-codex-phone-move-event-242",
+          "sequence": 242
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-342",
+      "type": "file_change",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 25,
+      "createdAt": "2026-05-21T12:00:41.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-002",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex ce656a56fd32ca764e02c7858e0acf4352c10aa0..83c16b12c37c8320f4785e29d2deb88761bcc5b3\n--- a/index.html\n+++ b/index.html\n@@ -401,7 +401,7 @@\n           width: 320px;\n           height: 650px;\n           top: 215px;\n-          left: 680px;\n+          left: 560px;\n         }\n      ...",
+        "providerRefs": {
+          "rawProviderMethod": "turn/diff/updated",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-002",
+          "createdAt": "2026-05-22T00:45:12.587Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-002",
+          "providerType": "turn/diff/updated",
+          "eventId": "real-codex-phone-move-event-342",
+          "sequence": 342
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-344",
+      "type": "tool_end",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 26,
+      "createdAt": "2026-05-21T12:00:43.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-016",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'hyperframes lint .'",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "hyperframes lint ."
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "◆  Linting test-project/2 files\n\n  ⚠ [index.html] composition_self_attribute_selector: Selector matches the block's own id; will leak to sibling instances when the block is embedded twice.\n    Fix: Use #main for clearer authoring intent and instance-isolated styling.\n  ⚠ [index.html] composition_self_attribute_selecto...",
+        "durationMs": 230,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-016",
+          "createdAt": "2026-05-22T00:45:12.668Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-016",
+          "providerType": "item/completed",
+          "eventId": "real-codex-phone-move-event-344",
+          "sequence": 344
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-346",
+      "type": "reasoning",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 27,
+      "createdAt": "2026-05-21T12:00:45.000Z",
+      "provider": "codex",
+      "providerType": "item/reasoning/summaryTextDelta",
+      "providerId": "fixture-id-017",
+      "payload": {
+        "delta": "**Verifying changes**\n\nI",
+        "streamKind": "reasoning_summary",
+        "summaryIndex": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/reasoning/summaryTextDelta",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-017",
+          "createdAt": "2026-05-22T00:45:16.268Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-017",
+          "providerType": "item/reasoning/summaryTextDelta",
+          "eventId": "real-codex-phone-move-event-346",
+          "sequence": 346
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-508",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 28,
+      "createdAt": "2026-05-21T12:00:27.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-018",
+      "payload": {
+        "delta": "The",
+        "providerRefs": {
+          "rawProviderMethod": "item/agentMessage/delta",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-018",
+          "createdAt": "2026-05-22T00:45:17.780Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-018",
+          "providerType": "item/agentMessage/delta",
+          "eventId": "real-codex-phone-move-event-508",
+          "sequence": 508
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-596",
+      "type": "tool_start",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 29,
+      "createdAt": "2026-05-21T12:00:55.000Z",
+      "provider": "codex",
+      "providerType": "item/tool/call",
+      "providerId": "fixture-id-019",
+      "payload": {
+        "toolCallId": "fixture-id-019",
+        "toolName": "snapshot",
+        "arguments": {
+          "at": "current"
+        },
+        "providerRefs": {
+          "createdAt": "2026-05-22T00:45:18.327Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-019",
+          "providerId": "fixture-id-019",
+          "providerType": "item/tool/call",
+          "rawProviderMethod": "item/tool/call",
+          "eventId": "real-codex-phone-move-event-596",
+          "sequence": 596
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-598",
+      "type": "tool_end",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 30,
+      "createdAt": "2026-05-21T12:00:57.000Z",
+      "provider": "codex",
+      "providerType": "item/tool/call",
+      "providerId": "fixture-id-019",
+      "payload": {
+        "toolCallId": "fixture-id-019",
+        "toolName": "snapshot",
+        "status": "completed",
+        "output": {
+          "artifactPath": ".ripple/visual-context/snapshots/snap_3efa6f1c872f/current.png",
+          "type": "snapshot",
+          "payload": {
+            "ok": true,
+            "type": "snapshot",
+            "snapshot": {
+              "id": "fixture-id-020",
+              "path": ".ripple/visual-context/snapshots/snap_3efa6f1c872f/current.png",
+              "sample": {
+                "timeMs": 0,
+                "frame": 0
+              },
+              "width": 824,
+              "height": 472
+            },
+            "context": {
+              "compositionPath": null,
+              "source": {
+                "kind": "live-app",
+                "preEdit": false
+              },
+              "samples": [
+                {
+                  "timeMs": 0,
+                  "frame": 0
+                }
+              ]
+            },
+            "elapsedMs": 54
+          },
+          "byteLength": 21738
+        },
+        "providerRefs": {
+          "createdAt": "2026-05-22T00:45:18.384Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-019",
+          "providerId": "fixture-id-019",
+          "providerType": "item/tool/call",
+          "rawProviderMethod": "item/tool/call",
+          "eventId": "real-codex-phone-move-event-598",
+          "sequence": 598
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-599",
+      "type": "file_change",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 31,
+      "createdAt": "2026-05-21T12:00:58.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-002",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex ce656a56fd32ca764e02c7858e0acf4352c10aa0..83c16b12c37c8320f4785e29d2deb88761bcc5b3\n--- a/index.html\n+++ b/index.html\n@@ -401,7 +401,7 @@\n           width: 320px;\n           height: 650px;\n           top: 215px;\n-          left: 680px;\n+          left: 560px;\n         }\n      ...",
+        "providerRefs": {
+          "rawProviderMethod": "turn/diff/updated",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-002",
+          "createdAt": "2026-05-22T00:45:18.404Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-002",
+          "providerType": "turn/diff/updated",
+          "eventId": "real-codex-phone-move-event-599",
+          "sequence": 599
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-601",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 32,
+      "createdAt": "2026-05-21T12:00:00.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-021",
+      "payload": {
+        "delta": "On",
+        "providerRefs": {
+          "rawProviderMethod": "item/agentMessage/delta",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-021",
+          "createdAt": "2026-05-22T00:45:19.962Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-021",
+          "providerType": "item/agentMessage/delta",
+          "eventId": "real-codex-phone-move-event-601",
+          "sequence": 601
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-684",
+      "type": "file_change",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 33,
+      "createdAt": "2026-05-21T12:00:23.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-002",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex ce656a56fd32ca764e02c7858e0acf4352c10aa0..83c16b12c37c8320f4785e29d2deb88761bcc5b3\n--- a/index.html\n+++ b/index.html\n@@ -401,7 +401,7 @@\n           width: 320px;\n           height: 650px;\n           top: 215px;\n-          left: 680px;\n+          left: 560px;\n         }\n      ...",
+        "providerRefs": {
+          "rawProviderMethod": "turn/diff/updated",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-002",
+          "createdAt": "2026-05-22T00:45:21.028Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "providerId": "fixture-id-002",
+          "providerType": "turn/diff/updated",
+          "eventId": "real-codex-phone-move-event-684",
+          "sequence": 684
+        }
+      }
+    },
+    {
+      "id": "real-codex-phone-move-event-689",
+      "type": "status",
+      "agentRunId": "real-codex-phone-move",
+      "sequence": 34,
+      "createdAt": "2026-05-21T12:00:28.000Z",
+      "provider": "codex",
+      "providerType": null,
+      "providerId": null,
+      "payload": {
+        "status": "completed",
+        "providerRefs": {
+          "createdAt": "2026-05-22T00:45:21.040Z",
+          "provider": "codex",
+          "runId": "real-codex-phone-move",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": null,
+          "providerId": null,
+          "providerType": null,
+          "rawProviderMethod": "status",
+          "eventId": "real-codex-phone-move-event-689",
+          "sequence": 689
+        }
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "name": "after activity turn/started",
+      "eventCount": 1,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/tool/call",
+      "eventCount": 2,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/tool/call",
+      "eventCount": 3,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 4,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 5,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "pending",
+          "title": "Verifying preview"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 6,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 7,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 search"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 8,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 9,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file, 1 search"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 10,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 11,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file, 1 search"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 12,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 13,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file, 2 searches"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 14,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 15,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 16,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 17,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 18,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "motion_change",
+          "status": "pending",
+          "title": "Updating composition"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 19,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 22,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "verification",
+          "status": "pending",
+          "title": "Checking changes"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 23,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 24,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "pending",
+          "title": "Checking project"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 26,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after reasoning item/reasoning/summaryTextDelta",
+      "eventCount": 27,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 28,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/tool/call",
+      "eventCount": 29,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/tool/call",
+      "eventCount": 30,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 32,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after file_change turn/diff/updated",
+      "eventCount": 33,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    }
+  ]
+}

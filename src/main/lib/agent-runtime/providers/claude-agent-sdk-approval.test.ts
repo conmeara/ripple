@@ -4,6 +4,7 @@ import {
   buildClaudeElicitationResult,
   buildClaudeToolApprovalRequest,
   isRippleClaudeAutoAllowedTool,
+  isRippleClaudeProjectLocalAutoAllowedTool,
 } from "./claude-agent-sdk-approval"
 
 describe("Claude Agent SDK approval bridge", () => {
@@ -54,6 +55,68 @@ describe("Claude Agent SDK approval bridge", () => {
     })).toBe(true)
     expect(isRippleClaudeAutoAllowedTool("mcp__other_server__ripple_snapshot", {
       at: "current",
+    })).toBe(false)
+  })
+
+  test("auto-allows project-local Claude tools without asking the user", () => {
+    const workspaceRoot = "/tmp/ripple-project"
+
+    expect(isRippleClaudeProjectLocalAutoAllowedTool({
+      toolName: "Edit",
+      toolInput: { file_path: "index.html" },
+      options: { toolUseID: "edit-1" },
+      workspaceRoot,
+    })).toBe(true)
+
+    expect(isRippleClaudeProjectLocalAutoAllowedTool({
+      toolName: "Write",
+      toolInput: { file_path: `${workspaceRoot}/compositions/main.html` },
+      options: { toolUseID: "write-1" },
+      workspaceRoot,
+    })).toBe(true)
+
+    expect(isRippleClaudeProjectLocalAutoAllowedTool({
+      toolName: "Bash",
+      toolInput: { command: "bun test" },
+      options: { toolUseID: "bash-1" },
+      workspaceRoot,
+    })).toBe(true)
+  })
+
+  test("auto-allows project-local Claude paths with macOS path casing", () => {
+    const workspaceRoot = "/Users/conmeara/Ripple/test-project"
+    const sameProjectPath = "/Users/conmeara/ripple/test-project/index.html"
+
+    expect(isRippleClaudeProjectLocalAutoAllowedTool({
+      toolName: "Edit",
+      toolInput: { file_path: sameProjectPath },
+      options: { toolUseID: "edit-case-1" },
+      workspaceRoot,
+    })).toBe(process.platform === "darwin")
+  })
+
+  test("keeps network and outside-project Claude tools behind approval", () => {
+    const workspaceRoot = "/tmp/ripple-project"
+
+    expect(isRippleClaudeProjectLocalAutoAllowedTool({
+      toolName: "Edit",
+      toolInput: { file_path: "/tmp/other-project/index.html" },
+      options: { toolUseID: "edit-2", blockedPath: "/tmp/other-project/index.html" },
+      workspaceRoot,
+    })).toBe(false)
+
+    expect(isRippleClaudeProjectLocalAutoAllowedTool({
+      toolName: "Bash",
+      toolInput: { command: "curl https://example.com" },
+      options: { toolUseID: "bash-2", decisionReason: "Network access" },
+      workspaceRoot,
+    })).toBe(false)
+
+    expect(isRippleClaudeProjectLocalAutoAllowedTool({
+      toolName: "AskUserQuestion",
+      toolInput: { questions: [] },
+      options: { toolUseID: "question-1" },
+      workspaceRoot,
     })).toBe(false)
   })
 

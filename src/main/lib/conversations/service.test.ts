@@ -344,4 +344,58 @@ describe("Ripple conversation service", () => {
       sqlite.close()
     }
   })
+
+  test("recovers saved agent reply bodies when old parts missed the final text", () => {
+    const { sqlite, db } = createTestDb()
+    try {
+      seedProject(db)
+      const conversation = service.createProjectConversation({
+        projectId: "project-1",
+        initialBody: "Move the phone to the right.",
+        db,
+      })
+
+      db.insert(conversationMessages)
+        .values({
+          id: "assistant-old-projection",
+          conversationId: conversation.id,
+          agentRunId: "run-1",
+          role: "assistant",
+          body: "The phone group has moved 100px to the right.",
+          partsJson: JSON.stringify([
+            {
+              type: "data-agent-runtime",
+              data: { kind: "tool", label: "Checked current frame" },
+            },
+            { type: "text", text: "I'll move it to the right." },
+          ]),
+          metadataJson: JSON.stringify({ agentRunId: "run-1" }),
+          createdAt: new Date(2),
+        })
+        .run()
+
+      expect(service.getConversationUiMessages(conversation.id, db)).toEqual([
+        {
+          id: "assistant-old-projection",
+          role: "assistant",
+          parts: [
+            {
+              type: "data-agent-runtime",
+              data: { kind: "tool", label: "Checked current frame" },
+            },
+            { type: "text", text: "I'll move it to the right." },
+            {
+              type: "text",
+              text: "The phone group has moved 100px to the right.",
+              state: "done",
+              id: "recovered-assistant-old-projection",
+            },
+          ],
+          metadata: { agentRunId: "run-1" },
+        },
+      ])
+    } finally {
+      sqlite.close()
+    }
+  })
 })

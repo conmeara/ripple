@@ -11,7 +11,7 @@ import {
   trackChatCreated,
   trackChatDeleted,
 } from "../../analytics"
-import { conversations, getDatabase, projects } from "../../db"
+import { compositions, conversations, getDatabase, projects } from "../../db"
 import {
   createConversation,
   getConversationMessagesJson,
@@ -37,6 +37,10 @@ import { getLocalChatReusePaths } from "../../ripple-projects/chat-reuse"
 import { acceptIsolatedWorkspace } from "../../revisions/isolated-workspace-acceptance"
 import { markStaleProjectRevisionsUpdating } from "../../revisions/revision-staleness"
 import { scheduleGeneratedChangeQueue } from "../../agent-runtime/generated-change-scheduler"
+import {
+  titleFromConversationBody,
+  type RippleConversationTitleContext,
+} from "../../../../shared/ripple-conversations"
 import { windowManager } from "../../../windows/window-manager"
 import { publicProcedure, router } from "../index"
 
@@ -181,81 +185,43 @@ function revealRippleCommentChatMessages(chatId: string): void {
   }
 }
 
-// Fallback to truncated user message if AI generation fails
-function getFallbackName(userMessage: string): string {
-  const trimmed = userMessage.trim()
-  if (trimmed.length <= 25) {
-    return trimmed || "New Chat"
+function getConversationTitleContext(
+  conversationId?: string | null,
+): RippleConversationTitleContext | null {
+  if (!conversationId) return null
+
+  const row = getDatabase()
+    .select({
+      projectName: projects.name,
+      compositionName: compositions.name,
+    })
+    .from(conversations)
+    .innerJoin(projects, eq(projects.id, conversations.projectId))
+    .leftJoin(compositions, eq(compositions.id, conversations.compositionId))
+    .where(eq(conversations.id, conversationId))
+    .get()
+
+  if (!row) return null
+
+  return {
+    projectName: row.projectName,
+    compositionName: row.compositionName,
   }
-  return trimmed.substring(0, 25) + "..."
 }
 
-/**
- * Generate text using local Ollama model
- * Used for chat title generation in offline mode
- * @param userMessage - The user message to generate a title for
- * @param model - Optional model to use (if not provided, uses recommended model)
- */
-async function generateChatNameWithOllama(
-  userMessage: string,
-  model?: string | null
-): Promise<string | null> {
-  try {
-    const ollamaStatus = await checkOllamaStatus()
-    if (!ollamaStatus.available) {
-      return null
-    }
-
-    // Use provided model, or recommended, or first available
-    const modelToUse = model || ollamaStatus.recommendedModel || ollamaStatus.models[0]
-    if (!modelToUse) {
-      console.error("[Ollama] No model available")
-      return null
-    }
-
-    const prompt = `Generate a very short (2-5 words) title for a coding chat that starts with this message. The title MUST be in the same language as the user's message. Only output the title, nothing else. No quotes, no explanations.
-
-User message: "${userMessage.slice(0, 500)}"
-
-Title:`
-
-    const response = await fetch("http://localhost:11434/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: modelToUse,
-        prompt,
-        stream: false,
-        options: {
-          temperature: 0.3,
-          num_predict: 50,
-        },
-      }),
-    })
-
-    if (!response.ok) {
-      console.error("[Ollama] Generate chat name failed:", response.status)
-      return null
-    }
-
-    const data = await response.json()
-    const result = data.response?.trim()
-    if (result) {
-      // Clean up the result - remove quotes, trim, limit length
-      const cleaned = result
-        .replace(/^["']|["']$/g, "")
-        .replace(/^title:\s*/i, "")
-        .trim()
-        .slice(0, 50)
-      if (cleaned.length > 0) {
-        return cleaned
-      }
-    }
-    return null
-  } catch (error) {
-    console.error("[Ollama] Generate chat name error:", error)
-    return null
+function mergeTitleContext(
+  ...contexts: Array<RippleConversationTitleContext | null | undefined>
+): RippleConversationTitleContext | null {
+  const merged: RippleConversationTitleContext = {}
+  for (const context of contexts) {
+    if (!context) continue
+    merged.projectName ??= context.projectName ?? null
+    merged.compositionName ??= context.compositionName ?? null
+    merged.previewLabel ??= context.previewLabel ?? null
   }
+  return merged.projectName || merged.compositionName || merged.previewLabel
+    ? merged
+    : null
 }
 
 /**
@@ -1656,76 +1622,26 @@ export const chatsRouter = router({
     }),
 
   /**
-   * Generate a name for a sub-chat using AI
-   * Uses Ollama when offline, otherwise calls web API
+   * Generate a deterministic local name for a sub-chat from the user's message.
+   * This keeps Ripple's database title as the source of truth.
    */
   generateSubChatName: publicProcedure
     .input(z.object({
       userMessage: z.string(),
-      ollamaModel: z.string().nullish(), // Optional model for offline mode
+      chatId: z.string().nullish(),
+      subChatId: z.string().nullish(),
+      context: z.object({
+        projectName: z.string().nullish(),
+        compositionName: z.string().nullish(),
+        previewLabel: z.string().nullish(),
+      }).nullish(),
     }))
     .mutation(async ({ input }) => {
-      try {
-        // Check internet first - if offline, use Ollama
-        const hasInternet = await checkInternetConnection()
-
-        if (!hasInternet) {
-          console.log("[generateSubChatName] Offline - trying Ollama...")
-          const ollamaName = await generateChatNameWithOllama(input.userMessage, input.ollamaModel)
-          if (ollamaName) {
-            console.log("[generateSubChatName] Generated name via Ollama:", ollamaName)
-            return { name: ollamaName }
-          }
-          console.log("[generateSubChatName] Ollama failed, using fallback")
-          return { name: getFallbackName(input.userMessage) }
-        }
-
-        // Online - use web API
-        const authManager = getAuthManager()
-        const token = await authManager.getValidToken()
-        const apiUrl = getApiUrl()
-
-        if (!apiUrl) {
-          console.log("[generateSubChatName] Hosted API not configured, using fallback")
-          return { name: getFallbackName(input.userMessage) }
-        }
-
-        console.log(
-          "[generateSubChatName] Online - calling API with token:",
-          token ? "present" : "missing",
-        )
-
-        const response = await fetch(
-          `${apiUrl}/api/agents/sub-chat/generate-name`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { "X-Desktop-Token": token }),
-            },
-            body: JSON.stringify({ userMessage: input.userMessage }),
-          },
-        )
-
-        console.log("[generateSubChatName] Response status:", response.status)
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error(
-            "[generateSubChatName] API error:",
-            response.status,
-            errorText,
-          )
-          return { name: getFallbackName(input.userMessage) }
-        }
-
-        const data = await response.json()
-        console.log("[generateSubChatName] Generated name:", data.name)
-        return { name: data.name || getFallbackName(input.userMessage) }
-      } catch (error) {
-        console.error("[generateSubChatName] Error:", error)
-        return { name: getFallbackName(input.userMessage) }
-      }
+      const titleContext = mergeTitleContext(
+        input.context,
+        getConversationTitleContext(input.subChatId ?? input.chatId ?? null),
+      )
+      return { name: titleFromConversationBody(input.userMessage, titleContext) }
     }),
 
   // ============ PR-related procedures ============

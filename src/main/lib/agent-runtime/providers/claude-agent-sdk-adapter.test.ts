@@ -30,13 +30,33 @@ describe("Claude Agent SDK visual context contract", () => {
     expect(source).toContain("ripple_visual_context")
   })
 
-  test("returns updated input when auto-allowing Claude visual tools", async () => {
+  test("streams Claude text deltas into the visible assistant transcript", async () => {
     const source = await readFile(
       "src/main/lib/agent-runtime/providers/claude-agent-sdk-adapter.ts",
       "utf8",
     )
 
-    expect(source).toContain("isRippleClaudeAutoAllowedTool(toolName, normalizedInput)")
+    expect(source).toContain("event.delta?.type === \"text_delta\"")
+    expect(source).toContain("type: \"assistant_text_delta\"")
+    expect(source).toContain("payload: { delta }")
+    expect(source).not.toContain("Keep that out of the visible transcript")
+    expect(source).not.toContain("isInterimToolNarration")
+  })
+
+  test("returns updated input when auto-allowing Claude project-local tools", async () => {
+    const source = await readFile(
+      "src/main/lib/agent-runtime/providers/claude-agent-sdk-adapter.ts",
+      "utf8",
+    )
+
+    expect(source).toContain("const permissionOptions = {")
+    expect(source).toContain("...options,")
+    expect(source).toContain("toolUseID,")
+    expect(source).toContain("isRippleClaudeProjectLocalAutoAllowedTool({")
+    expect(source).toContain("toolName,")
+    expect(source).toContain("toolInput: normalizedInput,")
+    expect(source).toContain("options: permissionOptions,")
+    expect(source).toContain("workspaceRoot: input.cwd,")
     expect(source).toContain("updatedInput: normalizedInput")
     expect(source).toContain("updatedInput: asRecord(approval.response) ?? normalizedInput")
   })

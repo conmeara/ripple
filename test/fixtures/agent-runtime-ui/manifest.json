@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "id": "codex-visual-edit",
+      "label": "Codex visual edit",
+      "required": true,
+      "description": "Codex checks the preview, edits the composition, and verifies the project-facing result.",
+      "requires": {
+        "provider": "codex",
+        "status": "completed",
+        "minRowKinds": {
+          "visual_check": 1,
+          "motion_change": 1,
+          "verification": 1
+        }
+      }
+    },
+    {
+      "id": "claude-visual-check",
+      "label": "Claude visual check",
+      "required": true,
+      "description": "Claude uses Ripple visual context and returns a designer-facing answer.",
+      "requires": {
+        "provider": "claude",
+        "status": "completed",
+        "minRowKinds": {
+          "visual_check": 1,
+          "reply": 1
+        },
+        "visualKinds": ["snapshot"]
+      }
+    },
+    {
+      "id": "comment-revision",
+      "label": "Comment revision",
+      "required": true,
+      "description": "A frame-anchored comment run goes through the same visible activity grammar.",
+      "requires": {
+        "runKind": "generated_change",
+        "status": "completed",
+        "minRowKinds": {
+          "motion_change": 1,
+          "reply": 1
+        }
+      }
+    },
+    {
+      "id": "approval",
+      "label": "Project-local approval hidden",
+      "required": true,
+      "description": "A real run may carry a provider approval event for project-local work, but the designer-facing UI must not surface it as an approval card.",
+      "requires": {
+        "provider": "codex",
+        "minEventTypes": {
+          "approval_request": 1
+        },
+        "absentRowKinds": ["approval"]
+      }
+    },
+    {
+      "id": "error",
+      "label": "Error",
+      "required": true,
+      "description": "A provider failure is represented by a real failed run and error event.",
+      "requires": {
+        "status": "failed",
+        "minEventTypes": {
+          "error": 1
+        }
+      }
+    },
+    {
+      "id": "cancelled",
+      "label": "Cancelled",
+      "required": true,
+      "description": "A cancelled run remains replayable without stale shimmer or raw runtime leakage.",
+      "requires": {
+        "provider": "codex",
+        "status": "cancelled"
+      }
+    },
+    {
+      "id": "streaming-reply-tool",
+      "label": "Streaming reply and tool",
+      "required": true,
+      "description": "The fixture includes both streaming assistant text and live runtime work.",
+      "requires": {
+        "hasPendingReplyCheckpoint": true,
+        "hasPendingRuntimeCheckpoint": true,
+        "minEventTypes": {
+          "assistant_text_delta": 1,
+          "tool_start": 1
+        }
+      }
+    },
+    {
+      "id": "multi-edit",
+      "label": "Multi-edit",
+      "required": true,
+      "description": "Multiple recorded project changes collapse into motion-editor activity rather than raw file noise.",
+      "requires": {
+        "runKind": "generated_change",
+        "minEventTypes": {
+          "file_change": 2
+        },
+        "minRowKinds": {
+          "motion_change": 1
+        }
+      }
+    },
+    {
+      "id": "answer-only",
+      "label": "Answer only",
+      "required": true,
+      "description": "A visual question can complete without a project edit.",
+      "requires": {
+        "status": "completed",
+        "maxEventTypes": {
+          "file_change": 0
+        },
+        "minRowKinds": {
+          "reply": 1
+        },
+        "absentRowKinds": ["motion_change"]
+      }
+    },
+    {
+      "id": "codex-phone-move",
+      "label": "Codex phone move",
+      "required": true,
+      "description": "Codex handles the full manual smoke path: visual snapshot, narration, project exploration, composition edit, and post-edit verification.",
+      "requires": {
+        "provider": "codex",
+        "status": "completed",
+        "minRowKinds": {
+          "visual_check": 2,
+          "explored": 2,
+          "motion_change": 1,
+          "verification": 2,
+          "reply": 3
+        },
+        "visualKinds": ["snapshot"],
+        "hasPendingReplyCheckpoint": true,
+        "hasPendingRuntimeCheckpoint": true,
+        "forbidStaleThinkingAfterReply": true
+      }
+    },
+    {
+      "id": "codex-phone-move-right",
+      "label": "Codex phone move right",
+      "required": true,
+      "description": "Codex handles the harder manual smoke path where it narrates, edits, checks the project, thinks again, and captures a final frame.",
+      "requires": {
+        "provider": "codex",
+        "status": "completed",
+        "minRowKinds": {
+          "visual_check": 2,
+          "explored": 2,
+          "motion_change": 1,
+          "verification": 3,
+          "reply": 3
+        },
+        "visualKinds": ["snapshot"],
+        "hasPendingReplyCheckpoint": true,
+        "hasPendingRuntimeCheckpoint": true,
+        "forbidStaleThinkingAfterReply": true
+      }
+    },
+    {
+      "id": "claude-phone-move",
+      "label": "Claude phone move",
+      "required": true,
+      "description": "Claude handles the full manual smoke path: visual snapshot, narration, project exploration, composition edit, and post-edit verification.",
+      "requires": {
+        "provider": "claude",
+        "status": "completed",
+        "minRowKinds": {
+          "visual_check": 2,
+          "explored": 1,
+          "motion_change": 1,
+          "reply": 3
+        },
+        "visualKinds": ["snapshot"],
+        "hasPendingReplyCheckpoint": true,
+        "hasPendingRuntimeCheckpoint": true,
+        "forbidStaleThinkingAfterReply": true
+      }
+    },
+    {
+      "id": "claude-post-tool-final-reply",
+      "label": "Claude post-tool final reply",
+      "required": true,
+      "description": "Claude keeps a final assistant message after editing and checking the frame instead of dropping it as duplicate narration.",
+      "requires": {
+        "provider": "claude",
+        "status": "completed",
+        "minEventTypes": {
+          "assistant_message": 2,
+          "tool_start": 3
+        },
+        "minRowKinds": {
+          "visual_check": 2,
+          "explored": 1,
+          "motion_change": 1,
+          "reply": 2
+        },
+        "visualKinds": ["snapshot"],
+        "hasPendingReplyCheckpoint": true,
+        "hasPendingRuntimeCheckpoint": true,
+        "forbidStaleThinkingAfterReply": true
+      }
+    }
+  ],
+  "fixtures": [
+    {
+      "file": "real-codex-visual-edit.json",
+      "scenarios": ["codex-visual-edit", "streaming-reply-tool"]
+    },
+    {
+      "file": "real-claude-visual-context.json",
+      "scenarios": ["claude-visual-check", "answer-only"]
+    },
+    {
+      "file": "real-codex-comment-revision.json",
+      "scenarios": ["comment-revision", "multi-edit"]
+    },
+    {
+      "file": "real-codex-approval.json",
+      "scenarios": ["approval"]
+    },
+    {
+      "file": "real-claude-error.json",
+      "scenarios": ["error"]
+    },
+    {
+      "file": "real-codex-cancelled.json",
+      "scenarios": ["cancelled"]
+    },
+    {
+      "file": "real-codex-phone-move.json",
+      "scenarios": ["codex-phone-move", "streaming-reply-tool"]
+    },
+    {
+      "file": "real-codex-phone-move-right.json",
+      "scenarios": ["codex-phone-move-right", "streaming-reply-tool"]
+    },
+    {
+      "file": "real-claude-phone-move.json",
+      "scenarios": ["claude-phone-move", "streaming-reply-tool"]
+    },
+    {
+      "file": "real-claude-phone-move-right.json",
+      "scenarios": ["claude-post-tool-final-reply"]
+    }
+  ]
+}

@@ -13,21 +13,11 @@ function TextSelectIcon({ className }: { className?: string }) {
   )
 }
 
-// Chat history icon - message square
-function ChatHistoryIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  )
-}
-
 interface AgentPastedTextItemProps {
   filePath: string
   filename: string
   size: number
   preview: string
-  kind?: "pasted" | "chatHistory"
   onRemove?: () => void
 }
 
@@ -36,20 +26,15 @@ export function AgentPastedTextItem({
   filename,
   size,
   preview,
-  kind = "pasted",
   onRemove,
 }: AgentPastedTextItemProps) {
   const [isHovered, setIsHovered] = useState(false)
 
-  const isChatHistory = kind === "chatHistory"
-
   // Get a short title from the preview
-  const title = isChatHistory
-    ? (preview?.trim() || "Previous Chat")
-    : (preview.split("\n")[0]?.trim() || preview.trim())
+  const title = preview.split("\n")[0]?.trim() || preview.trim()
   const displayTitle = title.length > 20 ? `${title.slice(0, 20)}...` : title
 
-  const subtitle = isChatHistory ? "Past chat" : "Pasted Text"
+  const subtitle = "Pasted Text"
 
   return (
     <div
@@ -59,11 +44,7 @@ export function AgentPastedTextItem({
     >
       {/* Icon container */}
       <div className="flex items-center justify-center w-8 self-stretch rounded-md bg-muted shrink-0">
-        {isChatHistory ? (
-          <ChatHistoryIcon className="size-4 text-muted-foreground" />
-        ) : (
-          <TextSelectIcon className="size-4 text-muted-foreground" />
-        )}
+        <TextSelectIcon className="size-4 text-muted-foreground" />
       </div>
 
       {/* Text content */}

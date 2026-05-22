@@ -56,6 +56,7 @@ import {
   assessCodexAppServerApprovalRequest,
   buildCodexPermissionApprovalResponse,
   isCodexAppServerAutoApprovedVisualCommand,
+  isCodexAppServerProjectLocalAutoApprovedRequest,
 } from "./codex-app-server-approval"
 
 function getRepoRoot(): string | undefined {
@@ -578,6 +579,10 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
             params: message.params,
             workspaceRoot: input.cwd,
             assessment,
+          }) || isCodexAppServerProjectLocalAutoApprovedRequest({
+            params: message.params,
+            workspaceRoot: input.cwd,
+            assessment,
           })) {
             return assessment.approveResponse
           }
@@ -643,6 +648,17 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
             workspaceRoot: input.cwd,
           })
           const approvalWarning = pathApprovalWarning ?? assessment.approvalWarning
+          if (isCodexAppServerProjectLocalAutoApprovedRequest({
+            params: message.params,
+            workspaceRoot: input.cwd,
+            assessment: {
+              ...assessment,
+              approvalWarning,
+            },
+            paths,
+          })) {
+            return assessment.approveResponse
+          }
           const approval = await sink.requestApproval({
             providerRequestId,
             kind: "file_change",
@@ -688,6 +704,16 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
             params: message.params,
             workspaceRoot: input.cwd,
           })
+          if (isCodexAppServerProjectLocalAutoApprovedRequest({
+            params: message.params,
+            workspaceRoot: input.cwd,
+            assessment,
+          })) {
+            return buildCodexPermissionApprovalResponse({
+              params: message.params,
+              approved: true,
+            })
+          }
           const approval = await sink.requestApproval({
             providerRequestId,
             kind: assessment.requestedNetwork ? "network" : "file_change",

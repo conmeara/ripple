@@ -220,6 +220,9 @@ function CompositionPreview({
         >
           <iframe
             title={`${compositionDisplayName(composition)} preview`}
+            aria-hidden="true"
+            inert
+            tabIndex={-1}
             src={previewUrl}
             sandbox="allow-scripts"
             scrolling="no"

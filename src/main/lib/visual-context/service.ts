@@ -1,4 +1,4 @@
-import { getVisualCaptureBackend } from "./backend-registry"
+import { createVisualCaptureBackend } from "./backend-registry"
 import { visualContextMetrics, type VisualContextMetrics } from "./metrics"
 import { VisualContextRequestQueue } from "./session-pool"
 import type {
@@ -95,10 +95,10 @@ export class RippleVisualContextService implements VisualContextService {
     this.backendOrder = options.backendOrder ?? deterministicBackendOrder
     this.metrics = options.metrics ?? visualContextMetrics
     this.backends = {
-      engine: getVisualCaptureBackend("engine") ?? undefined,
-      "producer-capture": getVisualCaptureBackend("producer-capture") ?? undefined,
-      "fast-browser": getVisualCaptureBackend("fast-browser") ?? undefined,
-      "hyperframes-cli": getVisualCaptureBackend("hyperframes-cli") ?? undefined,
+      engine: createVisualCaptureBackend("engine") ?? undefined,
+      "producer-capture": createVisualCaptureBackend("producer-capture") ?? undefined,
+      "fast-browser": createVisualCaptureBackend("fast-browser") ?? undefined,
+      "hyperframes-cli": createVisualCaptureBackend("hyperframes-cli") ?? undefined,
       ...options.backends,
     }
   }

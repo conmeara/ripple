@@ -53,6 +53,10 @@ const requiredScripts = [
   "test:quality",
   "test:ux",
   "test:agent",
+  "test:agent-ui",
+  "test:agent-ui:e2e",
+  "test:agent-ui:e2e:live-fixtures",
+  "test:agent-evals",
   "test:export",
   "test:export:smoke",
   "test:e2e",
@@ -64,6 +68,11 @@ const requiredScripts = [
   "test:update:smoke",
   "test:closeout",
   "test:release",
+  "eval:agent-runtime-ui",
+  "eval:agent-runtime-ui:export",
+  "eval:agent-runtime-ui:live",
+  "eval:agent-runtime-ui:report",
+  "eval:agent-runtime-ui:refresh",
 ]
 
 function walk(directory: string): string[] {
@@ -196,6 +205,7 @@ describe("Ripple v1 draft specs", () => {
     const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
       scripts: Record<string, string>
     }
+    const qualityWorkflow = readFileSync(".github/workflows/ripple-quality.yml", "utf8")
 
     for (const script of requiredScripts) {
       expect(packageJson.scripts[script]).toBeTruthy()
@@ -204,8 +214,28 @@ describe("Ripple v1 draft specs", () => {
     expect(isFileOrDirectory("scripts/smoke-packaged-ripple.mjs")).toBe(true)
     expect(isFileOrDirectory("scripts/smoke-packaged-update.mjs")).toBe(true)
     expect(isFileOrDirectory("scripts/smoke-ripple-export-formats.ts")).toBe(true)
+    expect(isFileOrDirectory("scripts/agent-runtime-ui-eval.ts")).toBe(true)
+    expect(isFileOrDirectory("scripts/export-agent-runtime-ui-fixture.ts")).toBe(true)
+    expect(isFileOrDirectory("scripts/agent-runtime-ui-live-eval.ts")).toBe(true)
+    expect(isFileOrDirectory("scripts/agent-runtime-ui-report.ts")).toBe(true)
+    expect(isFileOrDirectory("scripts/refresh-agent-runtime-ui-fixtures.ts")).toBe(true)
+    expect(isFileOrDirectory("test/e2e/agent-runtime-ui-live-fixtures.e2e.ts")).toBe(true)
+    expect(isFileOrDirectory("test/fixtures/agent-runtime-ui/manifest.json")).toBe(true)
+    expect(isFileOrDirectory("test/quality/agent-runtime-ui-fixtures.test.ts")).toBe(true)
+    expect(packageJson.scripts["test:agent"]).toContain("test:agent-ui")
+    expect(packageJson.scripts["test:agent-ui"]).toContain("src/renderer/features/agents/ui")
+    expect(packageJson.scripts["test:agent-ui"]).toContain("agent-runtime-ui-replay-eval.test.ts")
+    expect(packageJson.scripts["test:agent-ui:e2e"]).toContain("agent-runtime-ui-fixtures.e2e.ts")
+    expect(packageJson.scripts["test:agent-ui:e2e:live-fixtures"]).toContain("agent-runtime-ui-live-fixtures.e2e.ts")
+    expect(qualityWorkflow).toContain("bun run test:agent-ui:e2e")
+    expect(packageJson.scripts["test:agent-evals"]).toContain("agent-runtime-ui-replay-eval.test.ts")
+    expect(packageJson.scripts["eval:agent-runtime-ui:live"]).toContain("agent-runtime-ui-live-eval.ts")
+    expect(packageJson.scripts["eval:agent-runtime-ui:report"]).toContain("agent-runtime-ui-report.ts")
+    expect(packageJson.scripts["eval:agent-runtime-ui:export"]).toContain("export-agent-runtime-ui-fixture.ts")
+    expect(packageJson.scripts["eval:agent-runtime-ui:refresh"]).toContain("refresh-agent-runtime-ui-fixtures.ts")
     expect(packageJson.scripts["test:ripple"]).toContain("src/renderer/features/onboarding")
     expect(packageJson.scripts["test:ripple"]).toContain("src/renderer/features/templates")
+    expect(packageJson.scripts["test:ripple"]).toContain("src/renderer/features/agents/ui")
     expect(packageJson.scripts["test:release"]).toContain("test:export:smoke")
     expect(packageJson.scripts["test:release"]).toContain("test:package:smoke")
     expect(packageJson.scripts["test:closeout"]).toContain("test:e2e")

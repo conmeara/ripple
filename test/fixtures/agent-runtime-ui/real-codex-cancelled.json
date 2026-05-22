@@ -1,0 +1,1363 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "provider": "codex",
+    "model": "gpt-5.5/high",
+    "runKind": "chat",
+    "status": "cancelled",
+    "originalEventCount": 798,
+    "selectedEventCount": 23,
+    "note": "Sanitized from a real local Ripple Dev run. Prompt summary: whats on the screen? move the phones to the right"
+  },
+  "projectPath": "/Users/motion/Ripple Projects/Fixture Project",
+  "events": [
+    {
+      "id": "real-codex-cancelled-event-007",
+      "type": "activity",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 1,
+      "createdAt": "2026-05-21T12:00:06.000Z",
+      "provider": "codex",
+      "providerType": "turn/started",
+      "providerId": "fixture-id-002",
+      "payload": {
+        "kind": "thinking",
+        "label": "Agent is thinking",
+        "source": "codex_app_server",
+        "providerRefs": {
+          "rawProviderMethod": "turn/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-002",
+          "createdAt": "2026-05-21T17:00:22.154Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-002",
+          "providerType": "turn/started",
+          "eventId": "real-codex-cancelled-event-007",
+          "sequence": 7
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-168",
+      "type": "tool_start",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 2,
+      "createdAt": "2026-05-21T12:00:47.000Z",
+      "provider": "codex",
+      "providerType": "item/tool/call",
+      "providerId": "fixture-id-004",
+      "payload": {
+        "toolCallId": "fixture-id-004",
+        "toolName": "snapshot",
+        "arguments": {
+          "at": "current"
+        },
+        "providerRefs": {
+          "createdAt": "2026-05-21T17:00:33.934Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-004",
+          "providerId": "fixture-id-004",
+          "providerType": "item/tool/call",
+          "rawProviderMethod": "item/tool/call",
+          "eventId": "real-codex-cancelled-event-168",
+          "sequence": 168
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-170",
+      "type": "tool_end",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 3,
+      "createdAt": "2026-05-21T12:00:49.000Z",
+      "provider": "codex",
+      "providerType": "item/tool/call",
+      "providerId": "fixture-id-004",
+      "payload": {
+        "toolCallId": "fixture-id-004",
+        "toolName": "snapshot",
+        "status": "completed",
+        "output": {
+          "artifactPath": ".ripple/visual-context/snapshots/snap_da694ed6c6c6/current.png",
+          "type": "snapshot",
+          "payload": {
+            "ok": true,
+            "type": "snapshot",
+            "snapshot": {
+              "id": "fixture-id-005",
+              "path": ".ripple/visual-context/snapshots/snap_da694ed6c6c6/current.png",
+              "sample": {
+                "timeMs": 0,
+                "frame": 0
+              },
+              "width": 1382,
+              "height": 786
+            },
+            "context": {
+              "compositionPath": null,
+              "source": {
+                "kind": "live-app",
+                "preEdit": false
+              },
+              "samples": [
+                {
+                  "timeMs": 0,
+                  "frame": 0
+                }
+              ]
+            },
+            "elapsedMs": 93
+          },
+          "byteLength": 41689
+        },
+        "providerRefs": {
+          "createdAt": "2026-05-21T17:00:34.031Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-004",
+          "providerId": "fixture-id-004",
+          "providerType": "item/tool/call",
+          "rawProviderMethod": "item/tool/call",
+          "eventId": "real-codex-cancelled-event-170",
+          "sequence": 170
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-171",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 4,
+      "createdAt": "2026-05-21T12:00:50.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-006",
+      "payload": {
+        "delta": "I",
+        "providerRefs": {
+          "rawProviderMethod": "item/agentMessage/delta",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-006",
+          "createdAt": "2026-05-21T17:00:37.743Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-006",
+          "providerType": "item/agentMessage/delta",
+          "eventId": "real-codex-cancelled-event-171",
+          "sequence": 171
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-248",
+      "type": "tool_start",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 5,
+      "createdAt": "2026-05-21T12:00:07.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-007",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '1,260p' index.html\"",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '1,260p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null,
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-007",
+          "createdAt": "2026-05-21T17:00:42.050Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-007",
+          "providerType": "item/started",
+          "eventId": "real-codex-cancelled-event-248",
+          "sequence": 248
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-249",
+      "type": "tool_end",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 6,
+      "createdAt": "2026-05-21T12:00:08.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-007",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '1,260p' index.html\"",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '1,260p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=1920, height=1080\" />\n    <title>main</title>\n    <style>\n      * {\n        margin: 0;\n        padding: 0;\n        box-sizing: border-box;\n      }\n      html,\n      body {\n        margin: 0;\n        width: 1...",
+        "durationMs": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-007",
+          "createdAt": "2026-05-21T17:00:42.051Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-007",
+          "providerType": "item/completed",
+          "eventId": "real-codex-cancelled-event-249",
+          "sequence": 249
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-252",
+      "type": "tool_start",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 7,
+      "createdAt": "2026-05-21T12:00:11.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-008",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg --files'",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "listFiles",
+            "command": "rg --files",
+            "path": null
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null,
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-008",
+          "createdAt": "2026-05-21T17:00:42.058Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-008",
+          "providerType": "item/started",
+          "eventId": "real-codex-cancelled-event-252",
+          "sequence": 252
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-253",
+      "type": "tool_start",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 8,
+      "createdAt": "2026-05-21T12:00:12.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-009",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg -n \"phone|iphone|mockup|device|transform|left|translate|hero|screen\" index.html'",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "search",
+            "command": "rg -n 'phone|iphone|mockup|device|transform|left|translate|hero|screen' index.html",
+            "query": "phone|iphone|mockup|device|transform|left|translate|hero|screen",
+            "path": "index.html"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null,
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-009",
+          "createdAt": "2026-05-21T17:00:42.059Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-009",
+          "providerType": "item/started",
+          "eventId": "real-codex-cancelled-event-253",
+          "sequence": 253
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-254",
+      "type": "tool_end",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 9,
+      "createdAt": "2026-05-21T12:00:13.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-008",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg --files'",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "listFiles",
+            "command": "rg --files",
+            "path": null
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "meta.json\nCLAUDE.md\nassets/vendor/gsap.min.js\nAGENTS.md\ncompositions/transitions-3d.html\nindex.html\nhyperframes.json\n",
+        "durationMs": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-008",
+          "createdAt": "2026-05-21T17:00:42.059Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-008",
+          "providerType": "item/completed",
+          "eventId": "real-codex-cancelled-event-254",
+          "sequence": 254
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-258",
+      "type": "tool_end",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 10,
+      "createdAt": "2026-05-21T12:00:17.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-009",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg -n \"phone|iphone|mockup|device|transform|left|translate|hero|screen\" index.html'",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "search",
+            "command": "rg -n 'phone|iphone|mockup|device|transform|left|translate|hero|screen' index.html",
+            "query": "phone|iphone|mockup|device|transform|left|translate|hero|screen",
+            "path": "index.html"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "40:        <div class=\"s3-phone s3-phone-left\" id=\"s3PhoneLeft\">\n43:            <div class=\"s3-screen s3-screen-left\">\n45:              <div class=\"left-shapes\">\n116:              <div class=\"left-bottom\">\n117:                <div class=\"left-tagline\" id=\"s3Tagline\">Unleash Full Potential</div>\n118:                <di...",
+        "durationMs": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-009",
+          "createdAt": "2026-05-21T17:00:42.061Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-009",
+          "providerType": "item/completed",
+          "eventId": "real-codex-cancelled-event-258",
+          "sequence": 258
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-260",
+      "type": "reasoning",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 11,
+      "createdAt": "2026-05-21T12:00:19.000Z",
+      "provider": "codex",
+      "providerType": "item/reasoning/summaryTextDelta",
+      "providerId": "fixture-id-010",
+      "payload": {
+        "delta": "**Inspecting CSS/JS Positions**\n\nI",
+        "providerRefs": {
+          "rawProviderMethod": "item/reasoning/summaryTextDelta",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-010",
+          "createdAt": "2026-05-21T17:00:44.279Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-010",
+          "providerType": "item/reasoning/summaryTextDelta",
+          "eventId": "real-codex-cancelled-event-260",
+          "sequence": 260
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-432",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 12,
+      "createdAt": "2026-05-21T12:00:11.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-011",
+      "payload": {
+        "delta": "The",
+        "providerRefs": {
+          "rawProviderMethod": "item/agentMessage/delta",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-011",
+          "createdAt": "2026-05-21T17:00:46.265Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-011",
+          "providerType": "item/agentMessage/delta",
+          "eventId": "real-codex-cancelled-event-432",
+          "sequence": 432
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-522",
+      "type": "tool_start",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 13,
+      "createdAt": "2026-05-21T12:00:41.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-012",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '860,930p' index.html\"",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '860,930p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null,
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-012",
+          "createdAt": "2026-05-21T17:00:48.258Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-012",
+          "providerType": "item/started",
+          "eventId": "real-codex-cancelled-event-522",
+          "sequence": 522
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-525",
+      "type": "tool_end",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 14,
+      "createdAt": "2026-05-21T12:00:44.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-012",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '860,930p' index.html\"",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '860,930p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "\n          // Activity bars stagger in\n          tl.to(S + \"#s3Bar1\", { width: \"75%\", duration: 0.8, ease: \"power3.out\" }, 2.1);\n          tl.to(S + \"#s3Bar2\", { width: \"50%\", duration: 0.8, ease: \"power3.out\" }, 2.3);\n          tl.to(S + \"#s3Bar3\", { width: \"90%\", duration: 0.8, ease: \"power3.out\" }, 2.5);\n\n         ...",
+        "durationMs": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-012",
+          "createdAt": "2026-05-21T17:00:48.259Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-012",
+          "providerType": "item/completed",
+          "eventId": "real-codex-cancelled-event-525",
+          "sequence": 525
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-527",
+      "type": "tool_end",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 15,
+      "createdAt": "2026-05-21T12:00:46.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-013",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '760,860p' index.html\"",
+        "cwd": "/Users/motion/Ripple Projects/Fixture Project",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '760,860p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "        }\n        [data-composition-id=\"main\"] .stat-num {\n          font-size: 13px;\n          font-weight: 700;\n          color: #271f15;\n        }\n      </style>\n\n      <script src=\"./assets/vendor/gsap.min.js\"></script>\n      <script>\n        (function () {\n          var S = '[data-composition-id=\"main\"] ';\n      ...",
+        "durationMs": 0,
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-013",
+          "createdAt": "2026-05-21T17:00:48.260Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-013",
+          "providerType": "item/completed",
+          "eventId": "real-codex-cancelled-event-527",
+          "sequence": 527
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-535",
+      "type": "reasoning",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 16,
+      "createdAt": "2026-05-21T12:00:54.000Z",
+      "provider": "codex",
+      "providerType": "item/reasoning/summaryTextDelta",
+      "providerId": "fixture-id-015",
+      "payload": {
+        "delta": "**Adjusting placement**\n\nI",
+        "providerRefs": {
+          "rawProviderMethod": "item/reasoning/summaryTextDelta",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-015",
+          "createdAt": "2026-05-21T17:00:58.635Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-015",
+          "providerType": "item/reasoning/summaryTextDelta",
+          "eventId": "real-codex-cancelled-event-535",
+          "sequence": 535
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-723",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 17,
+      "createdAt": "2026-05-21T12:00:02.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-016",
+      "payload": {
+        "delta": "I",
+        "providerRefs": {
+          "rawProviderMethod": "item/agentMessage/delta",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-016",
+          "createdAt": "2026-05-21T17:01:00.450Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-016",
+          "providerType": "item/agentMessage/delta",
+          "eventId": "real-codex-cancelled-event-723",
+          "sequence": 723
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-781",
+      "type": "tool_start",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 18,
+      "createdAt": "2026-05-21T12:00:00.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-017",
+      "payload": {
+        "toolName": "Edit",
+        "changes": [
+          {
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html",
+            "kind": {
+              "type": "update",
+              "move_path": null
+            },
+            "diff": "@@ -403,3 +403,3 @@\n           top: 215px;\n-          left: 760px;\n+          left: 880px;\n         }\n"
+          }
+        ],
+        "status": "inProgress",
+        "providerRefs": {
+          "rawProviderMethod": "item/started",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-017",
+          "createdAt": "2026-05-21T17:01:01.041Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-017",
+          "providerType": "item/started",
+          "eventId": "real-codex-cancelled-event-781",
+          "sequence": 781
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-785",
+      "type": "tool_end",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 19,
+      "createdAt": "2026-05-21T12:00:04.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-017",
+      "payload": {
+        "toolName": "Edit",
+        "changes": [
+          {
+            "path": "/Users/motion/Ripple Projects/Fixture Project/index.html",
+            "kind": {
+              "type": "update",
+              "move_path": null
+            },
+            "diff": "@@ -403,3 +403,3 @@\n           top: 215px;\n-          left: 760px;\n+          left: 880px;\n         }\n"
+          }
+        ],
+        "status": "completed",
+        "providerRefs": {
+          "rawProviderMethod": "item/completed",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-017",
+          "createdAt": "2026-05-21T17:01:01.109Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-017",
+          "providerType": "item/completed",
+          "eventId": "real-codex-cancelled-event-785",
+          "sequence": 785
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-788",
+      "type": "file_change",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 20,
+      "createdAt": "2026-05-21T12:00:07.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-002",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex d3a94562f7289f119695f5ca858d0cbd33d975b4..9d46fed6edb3a0a8023ac325df23f41954c11043\n--- a/index.html\n+++ b/index.html\n@@ -401,7 +401,7 @@\n           width: 320px;\n           height: 650px;\n           top: 215px;\n-          left: 760px;\n+          left: 880px;\n         }\n      ...",
+        "providerRefs": {
+          "rawProviderMethod": "turn/diff/updated",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-002",
+          "createdAt": "2026-05-21T17:01:01.110Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-002",
+          "providerType": "turn/diff/updated",
+          "eventId": "real-codex-cancelled-event-788",
+          "sequence": 788
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-790",
+      "type": "file_change",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 21,
+      "createdAt": "2026-05-21T12:00:09.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-002",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex d3a94562f7289f119695f5ca858d0cbd33d975b4..9d46fed6edb3a0a8023ac325df23f41954c11043\n--- a/index.html\n+++ b/index.html\n@@ -401,7 +401,7 @@\n           width: 320px;\n           height: 650px;\n           top: 215px;\n-          left: 760px;\n+          left: 880px;\n         }\n      ...",
+        "providerRefs": {
+          "rawProviderMethod": "turn/diff/updated",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": "fixture-id-002",
+          "createdAt": "2026-05-21T17:01:01.133Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "providerId": "fixture-id-002",
+          "providerType": "turn/diff/updated",
+          "eventId": "real-codex-cancelled-event-790",
+          "sequence": 790
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-795",
+      "type": "status",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 22,
+      "createdAt": "2026-05-21T12:00:14.000Z",
+      "provider": "codex",
+      "providerType": null,
+      "providerId": null,
+      "payload": {
+        "status": "cancelled",
+        "providerRefs": {
+          "createdAt": "2026-05-21T17:01:02.875Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": null,
+          "providerId": null,
+          "providerType": null,
+          "rawProviderMethod": "status",
+          "eventId": "real-codex-cancelled-event-795",
+          "sequence": 795
+        }
+      }
+    },
+    {
+      "id": "real-codex-cancelled-event-798",
+      "type": "status",
+      "agentRunId": "real-codex-cancelled",
+      "sequence": 23,
+      "createdAt": "2026-05-21T12:00:17.000Z",
+      "provider": "codex",
+      "providerType": null,
+      "providerId": null,
+      "payload": {
+        "status": "cancelled",
+        "providerRefs": {
+          "createdAt": "2026-05-21T17:01:02.876Z",
+          "provider": "codex",
+          "runId": "real-codex-cancelled",
+          "requestId": "fixture-id-001",
+          "turnId": "fixture-id-002",
+          "itemId": null,
+          "providerId": null,
+          "providerType": null,
+          "rawProviderMethod": "status",
+          "eventId": "real-codex-cancelled-event-798",
+          "sequence": 798
+        }
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "name": "after activity turn/started",
+      "eventCount": 1,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/tool/call",
+      "eventCount": 2,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/tool/call",
+      "eventCount": 3,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 4,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 5,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 6,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 7,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file, 1 search"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 8,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file, 2 searches"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 10,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after reasoning item/reasoning/summaryTextDelta",
+      "eventCount": 11,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 12,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 13,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 14,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 15,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after reasoning item/reasoning/summaryTextDelta",
+      "eventCount": 16,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 17,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 18,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "pending",
+          "title": "Updating composition"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 19,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 2 searches"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    }
+  ]
+}

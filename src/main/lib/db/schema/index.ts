@@ -424,6 +424,13 @@ export const agentRunEvents = sqliteTable("agent_run_events", {
     .$type<
       | "status"
       | "activity"
+      | "request.opened"
+      | "request.completed"
+      | "turn.started"
+      | "turn.completed"
+      | "session.exited"
+      | "item.completed"
+      | "user-input.requested"
       | "assistant_text_delta"
       | "assistant_message"
       | "reasoning"

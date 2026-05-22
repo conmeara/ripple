@@ -124,14 +124,14 @@ describe("comment formatting", () => {
   })
 
   test("maps running revision statuses to specific activity labels", () => {
-    expect(revisionStatusLabel("queued")).toBe("Agent is thinking")
+    expect(revisionStatusLabel("queued")).toBe("Planning the change")
     expect(revisionStatusLabel("preparing")).toBe("Preparing the composition")
-    expect(revisionStatusLabel("running")).toBe("Editing files")
+    expect(revisionStatusLabel("running")).toBe("Updating composition")
     expect(revisionStatusLabel("running")).not.toBe("Agent is working")
   })
 
   test("formats the card status line from live activity or fallback labels", () => {
-    expect(formatRevisionStatusLine(revision("running"))).toBe("Editing files")
+    expect(formatRevisionStatusLine(revision("running"))).toBe("Updating composition")
     expect(formatRevisionStatusLine(revision("queued", {
       diffSummary: JSON.stringify({
         fileCount: 0,
@@ -140,7 +140,7 @@ describe("comment formatting", () => {
         files: [],
         summary: "Agent is thinking",
       }),
-    }))).toBe("Agent is thinking")
+    }))).toBe("Planning the change")
     expect(formatRevisionStatusLine(revision("proposed", {
       diffSummary: JSON.stringify({
         fileCount: 1,

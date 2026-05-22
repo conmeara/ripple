@@ -1,0 +1,2258 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ripple Agent Runtime Visual Atlas</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #11110f;
+      --paper: #f2eee4;
+      --ink: #24211c;
+      --muted: #6a6458;
+      --quiet: #938b7d;
+      --line: #d7cebf;
+      --dark: #191815;
+      --dark-2: #22201c;
+      --dark-3: #2d2a25;
+      --cream: #f7f1e6;
+      --cream-2: #e9decd;
+      --teal: #0c8f87;
+      --teal-soft: #d9f2ef;
+      --blue: #3869d8;
+      --blue-soft: #dde7ff;
+      --gold: #ad7a13;
+      --gold-soft: #f8e6bd;
+      --coral: #c7563c;
+      --coral-soft: #f7d6ca;
+      --violet: #6e58b9;
+      --violet-soft: #e7defd;
+      --green: #3b7c47;
+      --green-soft: #ddefd8;
+      --shadow: 0 22px 70px rgba(0, 0, 0, 0.26);
+      --radius: 8px;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(0deg, rgba(255,255,255,0.018) 1px, transparent 1px) 0 0 / 48px 48px,
+        var(--page);
+      color: var(--cream);
+      font-family: var(--sans);
+      letter-spacing: 0;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font: inherit;
+      letter-spacing: 0;
+    }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 232px minmax(0, 1fr);
+    }
+
+    .rail {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 18px 14px;
+      border-right: 1px solid rgba(247, 241, 230, 0.12);
+      background: rgba(17, 17, 15, 0.94);
+      backdrop-filter: blur(16px);
+      overflow: auto;
+    }
+
+    .brand {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(247, 241, 230, 0.2);
+      border-radius: 8px;
+      color: var(--cream);
+      background: linear-gradient(135deg, #25231f, #171613);
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .brand h1 {
+      margin: 0;
+      color: var(--cream);
+      font-size: 18px;
+      line-height: 1.1;
+      font-weight: 760;
+    }
+
+    .brand p {
+      margin: 0;
+      max-width: 190px;
+      color: rgba(247, 241, 230, 0.64);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .nav {
+      display: grid;
+      gap: 4px;
+      margin: 16px 0;
+    }
+
+    .nav a {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      color: rgba(247, 241, 230, 0.62);
+      font-size: 12px;
+    }
+
+    .nav a:hover,
+    .nav a.active {
+      background: rgba(247, 241, 230, 0.08);
+      color: var(--cream);
+    }
+
+    .nav-code {
+      color: rgba(247, 241, 230, 0.42);
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .legend {
+      display: grid;
+      gap: 7px;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(247, 241, 230, 0.12);
+    }
+
+    .legend-title {
+      color: rgba(247, 241, 230, 0.52);
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .legend-row {
+      display: grid;
+      grid-template-columns: 12px minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+      color: rgba(247, 241, 230, 0.7);
+      font-size: 11px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--teal);
+    }
+
+    .dot.blue { background: var(--blue); }
+    .dot.gold { background: var(--gold); }
+    .dot.coral { background: var(--coral); }
+    .dot.violet { background: var(--violet); }
+    .dot.green { background: var(--green); }
+
+    main {
+      min-width: 0;
+    }
+
+    .band {
+      border-bottom: 1px solid rgba(247, 241, 230, 0.1);
+    }
+
+    .inner {
+      width: min(1460px, 100%);
+      margin: 0 auto;
+      padding: 34px 34px;
+    }
+
+    .topline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 24px;
+      padding: 4px 8px;
+      border: 1px solid rgba(247, 241, 230, 0.16);
+      border-radius: 999px;
+      color: rgba(247, 241, 230, 0.72);
+      background: rgba(247, 241, 230, 0.06);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .pill strong {
+      color: var(--cream);
+      font-weight: 680;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.02fr) minmax(380px, 0.98fr);
+      gap: 28px;
+      align-items: stretch;
+    }
+
+    .hero-copy {
+      display: grid;
+      align-content: center;
+      gap: 18px;
+      min-height: 430px;
+    }
+
+    .eyebrow {
+      color: rgba(247, 241, 230, 0.56);
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    .hero h1 {
+      max-width: 760px;
+      color: var(--cream);
+      font-size: 56px;
+      line-height: 0.98;
+      font-weight: 790;
+    }
+
+    .hero-copy p {
+      max-width: 700px;
+      color: rgba(247, 241, 230, 0.72);
+      font-size: 15px;
+      line-height: 1.62;
+    }
+
+    .thesis {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .thesis-item {
+      min-height: 96px;
+      padding: 12px;
+      border: 1px solid rgba(247, 241, 230, 0.13);
+      border-radius: 8px;
+      background: rgba(247, 241, 230, 0.05);
+    }
+
+    .thesis-item strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--cream);
+      font-size: 13px;
+    }
+
+    .thesis-item span {
+      color: rgba(247, 241, 230, 0.62);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .runtime-slab {
+      min-height: 430px;
+      padding: 16px;
+      border: 1px solid rgba(247, 241, 230, 0.16);
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 76% 22%, rgba(12, 143, 135, 0.22), transparent 30%),
+        radial-gradient(circle at 18% 74%, rgba(199, 86, 60, 0.18), transparent 34%),
+        #181713;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .slab-frame {
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid rgba(247, 241, 230, 0.14);
+      border-radius: 8px;
+      background: rgba(17, 17, 15, 0.72);
+    }
+
+    .slab-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .slab-title {
+      color: rgba(247, 241, 230, 0.84);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .slab-mini {
+      color: rgba(247, 241, 230, 0.48);
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .constellation {
+      position: relative;
+      min-height: 296px;
+    }
+
+    .constellation::before,
+    .constellation::after {
+      content: "";
+      position: absolute;
+      inset: 15% 10%;
+      border: 1px solid rgba(247, 241, 230, 0.13);
+      border-radius: 50%;
+      transform: rotate(-10deg);
+    }
+
+    .constellation::after {
+      inset: 26% 20%;
+      transform: rotate(18deg);
+      border-color: rgba(247, 241, 230, 0.09);
+    }
+
+    .node {
+      position: absolute;
+      z-index: 1;
+      width: 128px;
+      min-height: 52px;
+      display: grid;
+      align-content: center;
+      gap: 4px;
+      padding: 9px;
+      border: 1px solid rgba(247, 241, 230, 0.16);
+      border-radius: 8px;
+      background: rgba(247, 241, 230, 0.08);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+    }
+
+    .node strong {
+      color: var(--cream);
+      font-size: 12px;
+    }
+
+    .node span {
+      color: rgba(247, 241, 230, 0.56);
+      font-family: var(--mono);
+      font-size: 9px;
+    }
+
+    .node.center {
+      left: calc(50% - 75px);
+      top: calc(50% - 46px);
+      width: 150px;
+      min-height: 84px;
+      place-items: center;
+      text-align: center;
+      border-color: rgba(247, 241, 230, 0.32);
+      background: var(--cream);
+    }
+
+    .node.center strong {
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .node.center span {
+      color: var(--muted);
+    }
+
+    .n-ui { left: 2%; top: 7%; border-color: rgba(56,105,216,0.7); }
+    .n-db { right: 2%; top: 10%; border-color: rgba(173,122,19,0.76); }
+    .n-context { left: 8%; bottom: 6%; border-color: rgba(12,143,135,0.78); }
+    .n-provider { right: 7%; bottom: 4%; border-color: rgba(110,88,185,0.8); }
+    .n-visual { left: calc(50% - 64px); top: 2%; border-color: rgba(199,86,60,0.75); }
+
+    .slab-foot {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .counter {
+      padding: 8px;
+      border: 1px solid rgba(247, 241, 230, 0.12);
+      border-radius: 7px;
+      background: rgba(247, 241, 230, 0.05);
+    }
+
+    .counter b {
+      display: block;
+      color: var(--cream);
+      font-size: 17px;
+      line-height: 1;
+    }
+
+    .counter span {
+      color: rgba(247, 241, 230, 0.48);
+      font-size: 10px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    .section-head h2 {
+      color: var(--cream);
+      font-size: 28px;
+      line-height: 1.08;
+      font-weight: 760;
+    }
+
+    .section-head p {
+      max-width: 620px;
+      color: rgba(247, 241, 230, 0.62);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .segmented {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid rgba(247, 241, 230, 0.14);
+      border-radius: 8px;
+      background: rgba(247, 241, 230, 0.06);
+    }
+
+    .segmented button,
+    .ghost-button {
+      min-height: 30px;
+      padding: 5px 10px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: rgba(247, 241, 230, 0.68);
+      background: transparent;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .segmented button[aria-pressed="true"] {
+      border-color: rgba(247, 241, 230, 0.2);
+      color: var(--dark);
+      background: var(--cream);
+    }
+
+    .ghost-button {
+      border-color: rgba(247, 241, 230, 0.14);
+      background: rgba(247, 241, 230, 0.05);
+    }
+
+    .ghost-button:hover,
+    .segmented button:hover {
+      color: var(--cream);
+      border-color: rgba(247, 241, 230, 0.26);
+    }
+
+    .pipeline-board {
+      display: grid;
+      grid-template-columns: 1.05fr minmax(280px, 0.58fr);
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .map-canvas {
+      position: relative;
+      min-height: 680px;
+      padding: 18px;
+      border: 1px solid rgba(247, 241, 230, 0.14);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(247,241,230,0.05) 1px, transparent 1px) 0 0 / 36px 36px,
+        linear-gradient(0deg, rgba(247,241,230,0.035) 1px, transparent 1px) 0 0 / 36px 36px,
+        rgba(247, 241, 230, 0.045);
+      overflow: hidden;
+    }
+
+    .map-grid {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      height: 100%;
+    }
+
+    .lane {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 10px;
+    }
+
+    .lane-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      min-height: 34px;
+      padding: 8px 10px;
+      border: 1px solid rgba(247, 241, 230, 0.14);
+      border-radius: 8px;
+      color: rgba(247, 241, 230, 0.78);
+      background: rgba(17, 17, 15, 0.74);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .lane-title span {
+      color: rgba(247, 241, 230, 0.44);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .lane-stack {
+      position: relative;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .stage-card {
+      position: relative;
+      min-height: 104px;
+      display: grid;
+      gap: 7px;
+      align-content: start;
+      padding: 11px;
+      border: 1px solid rgba(247, 241, 230, 0.13);
+      border-radius: 8px;
+      background: rgba(17, 17, 15, 0.72);
+      cursor: pointer;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .stage-card:hover {
+      transform: translateY(-1px);
+      border-color: rgba(247, 241, 230, 0.26);
+      background: rgba(247, 241, 230, 0.08);
+    }
+
+    .stage-card.active {
+      border-color: var(--cream);
+      background: var(--cream);
+      color: var(--ink);
+      box-shadow: 0 18px 42px rgba(0,0,0,0.28);
+    }
+
+    .stage-card.highlight {
+      border-color: var(--accent, var(--teal));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent, var(--teal)) 55%, transparent);
+    }
+
+    .stage-kicker {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      color: rgba(247, 241, 230, 0.42);
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .stage-card.active .stage-kicker {
+      color: var(--muted);
+    }
+
+    .stage-card h3 {
+      color: var(--cream);
+      font-size: 14px;
+      line-height: 1.22;
+      font-weight: 740;
+    }
+
+    .stage-card.active h3 {
+      color: var(--ink);
+    }
+
+    .stage-card p {
+      color: rgba(247, 241, 230, 0.58);
+      font-size: 11px;
+      line-height: 1.42;
+    }
+
+    .stage-card.active p {
+      color: var(--muted);
+    }
+
+    .stage-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: auto;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 18px;
+      padding: 2px 5px;
+      border: 1px solid rgba(247, 241, 230, 0.14);
+      border-radius: 999px;
+      color: rgba(247, 241, 230, 0.52);
+      font-family: var(--mono);
+      font-size: 9px;
+      white-space: nowrap;
+    }
+
+    .stage-card.active .tag {
+      border-color: rgba(36, 33, 28, 0.2);
+      color: var(--muted);
+    }
+
+    .rail-lines {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .path-line {
+      position: absolute;
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(247, 241, 230, 0.14);
+      transform-origin: left center;
+      opacity: 0.72;
+    }
+
+    .path-line.on {
+      background: var(--accent, var(--teal));
+      box-shadow: 0 0 20px color-mix(in srgb, var(--accent, var(--teal)) 50%, transparent);
+      opacity: 1;
+    }
+
+    .inspector {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid rgba(247, 241, 230, 0.14);
+      border-radius: 8px;
+      background: rgba(17, 17, 15, 0.82);
+      box-shadow: var(--shadow);
+    }
+
+    .inspector-grid {
+      display: grid;
+      gap: 14px;
+      position: sticky;
+      top: 18px;
+    }
+
+    .inspector-label {
+      color: rgba(247, 241, 230, 0.46);
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .inspector h3 {
+      color: var(--cream);
+      font-size: 22px;
+      line-height: 1.12;
+    }
+
+    .inspector p {
+      color: rgba(247, 241, 230, 0.68);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .detail-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .detail-row {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap: 10px;
+      padding: 8px 0;
+      border-top: 1px solid rgba(247, 241, 230, 0.1);
+    }
+
+    .detail-row:first-child {
+      border-top: 0;
+    }
+
+    .detail-key {
+      color: rgba(247, 241, 230, 0.42);
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .detail-value {
+      color: rgba(247, 241, 230, 0.74);
+      font-size: 12px;
+      line-height: 1.42;
+      overflow-wrap: anywhere;
+    }
+
+    code {
+      padding: 1px 4px;
+      border-radius: 4px;
+      color: inherit;
+      background: rgba(247, 241, 230, 0.1);
+      font-family: var(--mono);
+      font-size: 0.92em;
+    }
+
+    .light-band {
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    .light-band .section-head h2,
+    .light-band h3 {
+      color: var(--ink);
+    }
+
+    .light-band .section-head p,
+    .light-band p {
+      color: var(--muted);
+    }
+
+    .light-band .eyebrow {
+      color: var(--quiet);
+    }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: 0.85fr 1.15fr;
+      gap: 14px;
+    }
+
+    .scenario-panel {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .scenario-button {
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      width: 100%;
+      min-height: 62px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffaf0;
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .scenario-button[aria-pressed="true"] {
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+
+    .scenario-icon {
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      color: #fffaf0;
+      background: var(--accent);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .scenario-copy {
+      min-width: 0;
+    }
+
+    .scenario-copy strong {
+      display: block;
+      color: var(--ink);
+      font-size: 13px;
+    }
+
+    .scenario-copy span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .scenario-state {
+      color: var(--quiet);
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .scenario-view {
+      min-height: 430px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffaf0;
+      overflow: hidden;
+    }
+
+    .scenario-view-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: start;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .scenario-view-head h3 {
+      font-size: 22px;
+      line-height: 1.12;
+    }
+
+    .scenario-view-head p {
+      max-width: 620px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .route-diagram {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      align-content: start;
+    }
+
+    .route-step {
+      position: relative;
+      min-height: 130px;
+      display: grid;
+      align-content: start;
+      gap: 7px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f7efe2;
+    }
+
+    .route-step::after {
+      content: "";
+      position: absolute;
+      top: 30px;
+      right: -10px;
+      width: 10px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .route-step:last-child::after {
+      display: none;
+    }
+
+    .route-step.active {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 70%, #fffaf0);
+    }
+
+    .route-step strong {
+      color: var(--ink);
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .route-step span {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.42;
+    }
+
+    .route-num {
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      color: white;
+      background: var(--accent);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .dual-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .provider-sheet {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffaf0;
+      overflow: hidden;
+    }
+
+    .provider-sheet.active {
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+
+    .provider-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: #f7efe2;
+    }
+
+    .provider-head h3 {
+      font-size: 18px;
+    }
+
+    .provider-head span {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .provider-body {
+      display: grid;
+      gap: 0;
+    }
+
+    .provider-row {
+      display: grid;
+      grid-template-columns: 128px minmax(0, 1fr);
+      gap: 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .provider-row:last-child {
+      border-bottom: 0;
+    }
+
+    .provider-key {
+      color: var(--quiet);
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .provider-value {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .context-grid {
+      display: grid;
+      grid-template-columns: 0.95fr 1.05fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .stack-visual {
+      display: grid;
+      gap: 8px;
+    }
+
+    .layer {
+      display: grid;
+      grid-template-columns: 118px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      min-height: 64px;
+      padding: 10px;
+      border: 1px solid rgba(247, 241, 230, 0.13);
+      border-radius: 8px;
+      background: rgba(247, 241, 230, 0.055);
+    }
+
+    .layer b {
+      color: var(--cream);
+      font-size: 12px;
+    }
+
+    .layer span {
+      color: rgba(247, 241, 230, 0.62);
+      font-size: 12px;
+      line-height: 1.42;
+    }
+
+    .context-side {
+      display: grid;
+      gap: 12px;
+    }
+
+    .mini-panel {
+      padding: 14px;
+      border: 1px solid rgba(247, 241, 230, 0.13);
+      border-radius: 8px;
+      background: rgba(247, 241, 230, 0.055);
+    }
+
+    .mini-panel h3 {
+      margin-bottom: 8px;
+      color: var(--cream);
+      font-size: 16px;
+    }
+
+    .mini-panel p {
+      color: rgba(247, 241, 230, 0.62);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .visual-lanes {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .visual-card {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 10px;
+      min-height: 300px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffaf0;
+    }
+
+    .visual-window {
+      height: 124px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background:
+        linear-gradient(135deg, rgba(56,105,216,0.14), transparent 34%),
+        linear-gradient(45deg, rgba(12,143,135,0.16), transparent 40%),
+        #f7efe2;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .timeline-bars {
+      position: absolute;
+      inset: 18px 16px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      align-items: end;
+    }
+
+    .timeline-bars i {
+      display: block;
+      border-radius: 6px 6px 0 0;
+      background: var(--accent);
+      opacity: 0.72;
+    }
+
+    .timeline-bars i:nth-child(1) { height: 34%; }
+    .timeline-bars i:nth-child(2) { height: 62%; }
+    .timeline-bars i:nth-child(3) { height: 44%; }
+    .timeline-bars i:nth-child(4) { height: 78%; }
+
+    .frame-sheet {
+      position: absolute;
+      inset: 14px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+    }
+
+    .frame-sheet i {
+      display: block;
+      border: 1px solid rgba(36,33,28,0.16);
+      border-radius: 5px;
+      background:
+        linear-gradient(135deg, rgba(199,86,60,0.24), transparent 58%),
+        #fffaf0;
+    }
+
+    .single-frame {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 76px;
+      height: 76px;
+      border: 2px solid var(--accent);
+      border-radius: 8px;
+      transform: translate(-50%, -50%) rotate(-3deg);
+      background: #fffaf0;
+      box-shadow: 0 12px 24px rgba(36, 33, 28, 0.2);
+    }
+
+    .visual-card h3 {
+      font-size: 15px;
+    }
+
+    .visual-card p {
+      font-size: 12px;
+      line-height: 1.48;
+    }
+
+    .state-strip {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .state {
+      min-height: 78px;
+      display: grid;
+      align-content: start;
+      gap: 5px;
+      padding: 9px;
+      border: 1px solid rgba(247, 241, 230, 0.13);
+      border-radius: 8px;
+      background: rgba(247, 241, 230, 0.055);
+    }
+
+    .state b {
+      color: var(--cream);
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .state span {
+      color: rgba(247, 241, 230, 0.58);
+      font-size: 11px;
+      line-height: 1.34;
+    }
+
+    .event-board {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .event-stream {
+      display: grid;
+      gap: 8px;
+    }
+
+    .event {
+      display: grid;
+      grid-template-columns: 86px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      min-height: 54px;
+      padding: 9px;
+      border: 1px solid rgba(247, 241, 230, 0.13);
+      border-radius: 8px;
+      background: rgba(247, 241, 230, 0.055);
+    }
+
+    .event b {
+      color: var(--cream);
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+
+    .event span {
+      color: rgba(247, 241, 230, 0.62);
+      font-size: 12px;
+      line-height: 1.42;
+    }
+
+    .source-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .source-card {
+      min-height: 172px;
+      display: grid;
+      align-content: start;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffaf0;
+    }
+
+    .source-card h3 {
+      font-size: 15px;
+    }
+
+    .source-card p {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .source-card code {
+      display: inline-block;
+      max-width: 100%;
+      color: var(--ink);
+      background: #eee2d0;
+      overflow-wrap: anywhere;
+    }
+
+    .mobile-note {
+      display: none;
+      padding: 10px;
+      border: 1px solid rgba(247, 241, 230, 0.12);
+      border-radius: 8px;
+      color: rgba(247, 241, 230, 0.62);
+      background: rgba(247, 241, 230, 0.05);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 1180px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .rail {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid rgba(247, 241, 230, 0.12);
+      }
+
+      .nav {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .legend {
+        display: none;
+      }
+
+      .hero,
+      .pipeline-board,
+      .matrix,
+      .context-grid,
+      .event-board {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-copy {
+        min-height: auto;
+      }
+
+      .map-canvas {
+        min-height: auto;
+        overflow: auto;
+      }
+
+      .map-grid {
+        min-width: 1060px;
+      }
+
+      .inspector-grid {
+        position: static;
+      }
+
+      .mobile-note {
+        display: block;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .inner {
+        padding: 24px 16px;
+      }
+
+      .hero h1 {
+        font-size: 36px;
+      }
+
+      .thesis,
+      .dual-grid,
+      .visual-lanes,
+      .source-grid,
+      .state-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .slab-foot,
+      .route-diagram {
+        grid-template-columns: 1fr;
+      }
+
+      .route-step::after {
+        display: none;
+      }
+
+      .section-head {
+        align-items: start;
+        flex-direction: column;
+      }
+
+      .scenario-view-head {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand">
+        <div class="brand-mark">RA</div>
+        <h1>Runtime Atlas</h1>
+        <p>A visual map of how Ripple turns product context into provider-native agent work.</p>
+      </div>
+      <nav class="nav" aria-label="Atlas sections">
+        <a href="#overview" class="active"><span class="nav-code">00</span><span>Overview</span></a>
+        <a href="#map"><span class="nav-code">01</span><span>Pipeline Map</span></a>
+        <a href="#scenarios"><span class="nav-code">02</span><span>Run Scenarios</span></a>
+        <a href="#providers"><span class="nav-code">03</span><span>Providers</span></a>
+        <a href="#context"><span class="nav-code">04</span><span>Context Stack</span></a>
+        <a href="#visuals"><span class="nav-code">05</span><span>Visual Lane</span></a>
+        <a href="#states"><span class="nav-code">06</span><span>State + Events</span></a>
+        <a href="#sources"><span class="nav-code">07</span><span>Source Map</span></a>
+      </nav>
+      <div class="legend">
+        <div class="legend-title">Color Key</div>
+        <div class="legend-row"><span class="dot blue"></span><span>Product UI and TRPC entry</span></div>
+        <div class="legend-row"><span class="dot gold"></span><span>SQLite persistence</span></div>
+        <div class="legend-row"><span class="dot"></span><span>Context assembly</span></div>
+        <div class="legend-row"><span class="dot violet"></span><span>Provider-native execution</span></div>
+        <div class="legend-row"><span class="dot coral"></span><span>Visual context</span></div>
+        <div class="legend-row"><span class="dot green"></span><span>UI projection and transcript</span></div>
+      </div>
+    </aside>
+
+    <main>
+      <section class="band" id="overview">
+        <div class="inner">
+          <div class="topline">
+            <span class="pill"><strong>Core idea</strong> Ripple owns the product contract</span>
+            <span class="pill"><strong>Providers</strong> Codex App Server + Claude Agent SDK</span>
+            <span class="pill"><strong>Output</strong> events, projections, workspace edits</span>
+          </div>
+
+          <div class="hero">
+            <div class="hero-copy">
+              <div class="eyebrow">A map for debugging, explaining, and changing the runtime</div>
+              <h1>One product runtime, two provider-native execution engines.</h1>
+              <p>
+                Ripple takes a chat or comment, resolves the current project/workspace, assembles live HyperFrames context,
+                attaches visual evidence when appropriate, and then hands the run to Codex or Claude through their native
+                APIs. The provider streams back normalized events; Ripple persists those events, updates run state, and
+                projects the result into the app transcript.
+              </p>
+              <div class="thesis">
+                <div class="thesis-item">
+                  <strong>Ripple is the source of truth</strong>
+                  <span>Threads, runs, statuses, approvals, transcript projections, and revision lifecycle live in SQLite.</span>
+                </div>
+                <div class="thesis-item">
+                  <strong>Providers stay native</strong>
+                  <span>Codex gets app-server turns and dynamic tools. Claude gets SDK query, MCP servers, skills, and permission hooks.</span>
+                </div>
+                <div class="thesis-item">
+                  <strong>Visual context is first class</strong>
+                  <span>Comment stills/sheets can attach automatically. Snapshot and frame-sheet tools remain available during the run.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="runtime-slab" aria-label="Runtime system visual">
+              <div class="slab-frame">
+                <div class="slab-head">
+                  <div class="slab-title">Runtime field of view</div>
+                  <div class="slab-mini">agent-runtime/*</div>
+                </div>
+                <div class="constellation">
+                  <div class="node center"><strong>AgentRuntime</strong><span>run lifecycle + event sink</span></div>
+                  <div class="node n-ui"><strong>UI request</strong><span>prompt, target, mode</span></div>
+                  <div class="node n-db"><strong>SQLite</strong><span>thread, run, events</span></div>
+                  <div class="node n-context"><strong>Context</strong><span>history, live frame</span></div>
+                  <div class="node n-provider"><strong>Provider</strong><span>Codex or Claude</span></div>
+                  <div class="node n-visual"><strong>Visual tools</strong><span>snapshot, frame sheet</span></div>
+                </div>
+                <div class="slab-foot">
+                  <div class="counter"><b>5</b><span>main lanes</span></div>
+                  <div class="counter"><b>2</b><span>providers</span></div>
+                  <div class="counter"><b>8</b><span>run states</span></div>
+                  <div class="counter"><b>1</b><span>event stream</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="map">
+        <div class="inner">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">01 · Interactive pipeline map</div>
+              <h2>Follow a run from user intent to persisted answer.</h2>
+            </div>
+            <div class="controls" aria-label="Pipeline controls">
+              <div class="segmented" aria-label="Highlight path">
+                <button type="button" data-path="chat" aria-pressed="true">Chat</button>
+                <button type="button" data-path="frame" aria-pressed="false">Frame</button>
+                <button type="button" data-path="range" aria-pressed="false">Range</button>
+                <button type="button" data-path="revision" aria-pressed="false">Revision</button>
+              </div>
+              <button class="ghost-button" type="button" id="resetStage">Reset focus</button>
+            </div>
+          </div>
+          <p class="mobile-note">On narrower screens, the map scrolls sideways so each lane keeps its shape.</p>
+
+          <div class="pipeline-board">
+            <div class="map-canvas" id="mapCanvas">
+              <div class="rail-lines" aria-hidden="true" id="railLines"></div>
+              <div class="map-grid">
+                <div class="lane">
+                  <div class="lane-title">Entry <span>UI</span></div>
+                  <div class="lane-stack">
+                    <button class="stage-card" data-stage="request" data-paths="chat frame range revision" style="--accent: var(--blue)">
+                      <span class="stage-kicker">startAgentRun</span>
+                      <h3>User prompt enters runtime</h3>
+                      <p>Prompt, provider, model, mode, target, runtime context, and attachments arrive from the app.</p>
+                      <span class="stage-tags"><span class="tag">StartAgentRunInput</span><span class="tag">requestId</span></span>
+                    </button>
+                    <button class="stage-card" data-stage="comment-visual-source" data-paths="frame range" style="--accent: var(--coral)">
+                      <span class="stage-kicker">comments</span>
+                      <h3>Comment anchor adds frame semantics</h3>
+                      <p>Frame and range comments carry composition, time, frame, selector, and revision hints.</p>
+                      <span class="stage-tags"><span class="tag">commentThreadId</span><span class="tag">anchor</span></span>
+                    </button>
+                    <button class="stage-card" data-stage="revision-source" data-paths="revision" style="--accent: var(--green)">
+                      <span class="stage-kicker">generated change</span>
+                      <h3>Generated change selects isolated target</h3>
+                      <p>Revision runs point at a proposal workspace so Main remains untouched until accepted.</p>
+                      <span class="stage-tags"><span class="tag">revisionId</span><span class="tag">worktree</span></span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="lane">
+                  <div class="lane-title">Persistence <span>DB</span></div>
+                  <div class="lane-stack">
+                    <button class="stage-card" data-stage="resolve-workspace" data-paths="chat frame range revision" style="--accent: var(--gold)">
+                      <span class="stage-kicker">workspace-context</span>
+                      <h3>Resolve workspace and connection</h3>
+                      <p>Target decides Main, chat worktree, generated-change worktree, or project-level workspace.</p>
+                      <span class="stage-tags"><span class="tag">workspace</span><span class="tag">connection</span></span>
+                    </button>
+                    <button class="stage-card" data-stage="thread-run" data-paths="chat frame range revision" style="--accent: var(--gold)">
+                      <span class="stage-kicker">agentThreads + agentRuns</span>
+                      <h3>Find or create thread, then queue run</h3>
+                      <p>Duplicate request ids and active runs are reused. New runs emit the first queued status.</p>
+                      <span class="stage-tags"><span class="tag">queued</span><span class="tag">projection</span></span>
+                    </button>
+                    <button class="stage-card" data-stage="event-bus" data-paths="chat frame range revision" style="--accent: var(--gold)">
+                      <span class="stage-kicker">insertRunEvent</span>
+                      <h3>Every normalized event gets sequenced</h3>
+                      <p>The run event bus fans out status, text, reasoning, tool, approval, and error events.</p>
+                      <span class="stage-tags"><span class="tag">sequence</span><span class="tag">EventEmitter</span></span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="lane">
+                  <div class="lane-title">Context <span>Prompt</span></div>
+                  <div class="lane-stack">
+                    <button class="stage-card" data-stage="run-context" data-paths="chat frame range revision" style="--accent: var(--teal)">
+                      <span class="stage-kicker">requireRunContext</span>
+                      <h3>Rehydrate run world</h3>
+                      <p>Execution reloads run, thread, workspace, project path, writable root, target type, and connection.</p>
+                      <span class="stage-tags"><span class="tag">projectPath</span><span class="tag">writableRoot</span></span>
+                    </button>
+                    <button class="stage-card" data-stage="prompt-context" data-paths="chat frame range revision" style="--accent: var(--teal)">
+                      <span class="stage-kicker">appendRuntimeContextToPrompt</span>
+                      <h3>Assemble the prompt bundle</h3>
+                      <p>Conversation history, live Ripple context, comment visual prompt text, and user prompt are merged.</p>
+                      <span class="stage-tags"><span class="tag">history</span><span class="tag">live context</span></span>
+                    </button>
+                    <button class="stage-card" data-stage="visual-attachments" data-paths="frame range" style="--accent: var(--coral)">
+                      <span class="stage-kicker">comment visuals</span>
+                      <h3>Attach stills or frame sheets</h3>
+                      <p>Automatic optional images are accepted until attachment limits are reached.</p>
+                      <span class="stage-tags"><span class="tag">snapshot</span><span class="tag">frame_sheet</span></span>
+                    </button>
+                    <button class="stage-card" data-stage="policy-skills" data-paths="chat frame range revision" style="--accent: var(--teal)">
+                      <span class="stage-kicker">agent-run-context-resolver</span>
+                      <h3>Load policy, notes, skills, tools</h3>
+                      <p>Provider-specific notes, Ripple policy, HyperFrames skills, and visual-context skill roots are resolved.</p>
+                      <span class="stage-tags"><span class="tag">AGENTS.md</span><span class="tag">CLAUDE.md</span></span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="lane">
+                  <div class="lane-title">Provider <span>Native</span></div>
+                  <div class="lane-stack">
+                    <button class="stage-card" data-stage="adapter" data-paths="chat frame range revision" style="--accent: var(--violet)">
+                      <span class="stage-kicker">provider-factory</span>
+                      <h3>Choose Codex, Claude, or fake adapter</h3>
+                      <p>The shared runtime contract ends at <code>adapter.run</code>; each provider receives native setup.</p>
+                      <span class="stage-tags"><span class="tag">AgentProviderAdapter</span></span>
+                    </button>
+                    <button class="stage-card" data-stage="visual-bridge" data-paths="chat frame range revision" style="--accent: var(--coral)">
+                      <span class="stage-kicker">visual endpoint + bridge</span>
+                      <h3>Expose current frame tools</h3>
+                      <p>Both adapters create a visual endpoint and file bridge so tools can return images during execution.</p>
+                      <span class="stage-tags"><span class="tag">ripple_snapshot</span><span class="tag">ripple_frame_sheet</span></span>
+                    </button>
+                    <button class="stage-card" data-stage="provider-run" data-paths="chat frame range revision" style="--accent: var(--violet)">
+                      <span class="stage-kicker">run loop</span>
+                      <h3>Provider streams native activity</h3>
+                      <p>Codex JSON-RPC notifications and Claude SDK stream messages become normalized runtime events.</p>
+                      <span class="stage-tags"><span class="tag">tool_start</span><span class="tag">assistant_delta</span></span>
+                    </button>
+                    <button class="stage-card" data-stage="approval-loop" data-paths="chat frame range revision" style="--accent: var(--coral)">
+                      <span class="stage-kicker">approval bridge</span>
+                      <h3>Permission requests pause the run</h3>
+                      <p>Command, file, network, permission, and question requests become pending app approvals.</p>
+                      <span class="stage-tags"><span class="tag">awaiting_approval</span></span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="lane">
+                  <div class="lane-title">Output <span>UI</span></div>
+                  <div class="lane-stack">
+                    <button class="stage-card" data-stage="provider-ids" data-paths="chat frame range revision" style="--accent: var(--green)">
+                      <span class="stage-kicker">setProviderIds</span>
+                      <h3>Persist provider continuity ids</h3>
+                      <p>Session, thread, turn, and item ids are saved where the provider exposes them.</p>
+                      <span class="stage-tags"><span class="tag">providerSessionId</span></span>
+                    </button>
+                    <button class="stage-card" data-stage="assistant-projection" data-paths="chat frame range revision" style="--accent: var(--green)">
+                      <span class="stage-kicker">transcript-projection</span>
+                      <h3>Project events into chat transcript</h3>
+                      <p>Assistant parts and metadata are built from the normalized event stream.</p>
+                      <span class="stage-tags"><span class="tag">assistant message</span></span>
+                    </button>
+                    <button class="stage-card" data-stage="finish" data-paths="chat frame range revision" style="--accent: var(--green)">
+                      <span class="stage-kicker">completion</span>
+                      <h3>Complete, fail, cancel, or recover</h3>
+                      <p>The final status updates the run row, emits a status event, and cleans provider resources.</p>
+                      <span class="stage-tags"><span class="tag">completed</span><span class="tag">failed</span></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <aside class="inspector" aria-live="polite">
+              <div class="inspector-grid">
+                <div class="inspector-label" id="inspectorLabel">Selected stage</div>
+                <h3 id="inspectorTitle">User prompt enters runtime</h3>
+                <p id="inspectorBody">Prompt, provider, model, mode, target, runtime context, and attachments arrive from the app.</p>
+                <div class="detail-list" id="detailList"></div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="band light-band" id="scenarios">
+        <div class="inner">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">02 · Scenario lens</div>
+              <h2>The same runtime changes shape by entry point.</h2>
+            </div>
+            <p>Use these scenarios when debugging why an agent saw a frame, edited a worktree, asked for permission, or reused provider continuity.</p>
+          </div>
+
+          <div class="matrix">
+            <div class="scenario-panel" id="scenarioButtons"></div>
+            <div class="scenario-view">
+              <div class="scenario-view-head">
+                <div>
+                  <div class="eyebrow" id="scenarioKind">Normal chat</div>
+                  <h3 id="scenarioTitle">Text-first run with on-demand visual tools</h3>
+                </div>
+                <p id="scenarioSummary">A regular chat starts from the current project or chat workspace. It does not receive an automatic image; the model should call native visual tools when visual judgment matters.</p>
+              </div>
+              <div class="route-diagram" id="scenarioRoute"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band light-band" id="providers">
+        <div class="inner">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">03 · Provider split</div>
+              <h2>Codex and Claude share a contract, not an implementation.</h2>
+            </div>
+            <div class="segmented" aria-label="Provider focus">
+              <button type="button" data-provider="codex" aria-pressed="true">Codex</button>
+              <button type="button" data-provider="claude" aria-pressed="false">Claude</button>
+            </div>
+          </div>
+
+          <div class="dual-grid">
+            <article class="provider-sheet active" data-provider-sheet="codex" style="--accent: var(--blue)">
+              <div class="provider-head">
+                <h3>Codex App Server</h3>
+                <span>codex_app_server</span>
+              </div>
+              <div class="provider-body">
+                <div class="provider-row"><div class="provider-key">process</div><div class="provider-value">Spawns bundled Codex CLI with <code>app-server</code> args and speaks JSON-RPC over stdio.</div></div>
+                <div class="provider-row"><div class="provider-key">threading</div><div class="provider-value">Ripple keeps a clean product transcript. Codex starts an app-server thread for the turn and saves provider ids when emitted.</div></div>
+                <div class="provider-row"><div class="provider-key">context</div><div class="provider-value">Uses <code>developerInstructions</code> for Ripple policy, optional fallback project notes, local MCP snapshot, Codex skills, prompt mentions, and prepared attachments.</div></div>
+                <div class="provider-row"><div class="provider-key">visuals</div><div class="provider-value">Dynamic tools <code>ripple.snapshot</code> and <code>ripple.frame_sheet</code> return image content items. Approved visual shell commands can be auto-allowed inside the workspace.</div></div>
+                <div class="provider-row"><div class="provider-key">approval</div><div class="provider-value">JSON-RPC approval requests become app approvals for commands, file changes, permissions, network, and user-input questions.</div></div>
+              </div>
+            </article>
+
+            <article class="provider-sheet" data-provider-sheet="claude" style="--accent: var(--violet)">
+              <div class="provider-head">
+                <h3>Claude Agent SDK</h3>
+                <span>claude_agent_sdk</span>
+              </div>
+              <div class="provider-body">
+                <div class="provider-row"><div class="provider-key">process</div><div class="provider-value">Imports <code>@anthropic-ai/claude-agent-sdk</code> and runs <code>sdk.query</code> with the bundled Claude Code executable.</div></div>
+                <div class="provider-row"><div class="provider-key">threading</div><div class="provider-value">Uses SDK session ids when available via <code>resume</code>, while Ripple still owns the app transcript and run state.</div></div>
+                <div class="provider-row"><div class="provider-key">context</div><div class="provider-value">Loads Claude runtime capabilities, system prompt, settings, skills, plugins, agent mentions, attachments, and the merged prompt bundle.</div></div>
+                <div class="provider-row"><div class="provider-key">visuals</div><div class="provider-value">Adds an SDK MCP server named <code>ripple_visual_context</code> with <code>ripple_snapshot</code> and <code>ripple_frame_sheet</code> tools.</div></div>
+                <div class="provider-row"><div class="provider-key">approval</div><div class="provider-value">SDK <code>canUseTool</code> and elicitation hooks call the shared approval bridge, returning allow, deny, or edited input.</div></div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="context">
+        <div class="inner">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">04 · Context stack</div>
+              <h2>What the model receives before it starts acting.</h2>
+            </div>
+            <p>The runtime prompt is not just the user text. It is a layered product snapshot, shaped by workspace, comments, visuals, attachments, provider policy, and project notes.</p>
+          </div>
+
+          <div class="context-grid">
+            <div class="stack-visual">
+              <div class="layer"><b>User prompt</b><span>The direct request, plus parsed mentions for agents, skills, tools, and prepared uploaded files.</span></div>
+              <div class="layer"><b>Chat history</b><span>Visible conversation context from Ripple's transcript, not arbitrary provider-side history.</span></div>
+              <div class="layer"><b>Live context</b><span>Project, composition, editing target, preview source, preview time/frame, comment anchor, revision, and export source.</span></div>
+              <div class="layer"><b>Comment visuals</b><span>Optional automatic still frame or frame sheet with a compact prompt description, only when accepted by attachment limits.</span></div>
+              <div class="layer"><b>Provider policy</b><span>Ripple visual tool-choice policy, app behavior policy, HyperFrames guidance, and provider-specific instruction channels.</span></div>
+              <div class="layer"><b>Notes + skills</b><span><code>AGENTS.md</code> or <code>CLAUDE.md</code>, app-managed HyperFrames skills, visual-context skill, and project skill roots.</span></div>
+              <div class="layer"><b>Tool env</b><span>Workspace-rooted environment with bundled <code>ripple</code> and <code>hyperframes</code>, visual endpoint tokens, and bridge directories.</span></div>
+            </div>
+            <div class="context-side">
+              <div class="mini-panel">
+                <h3>The mental model</h3>
+                <p>Ripple composes the prompt as a product-aware workspace snapshot. Provider adapters then translate that snapshot into native primitives: Codex app-server turn input or Claude SDK prompt/options.</p>
+              </div>
+              <div class="mini-panel">
+                <h3>Why notes are not state</h3>
+                <p><code>AGENTS.md</code> and <code>CLAUDE.md</code> are durable team notes. Runtime-specific facts like current frame, preview source, revision id, and comment anchors are injected into the run prompt instead.</p>
+              </div>
+              <div class="mini-panel">
+                <h3>Workspace boundary</h3>
+                <p>The resolved workspace path becomes the provider cwd and writable root. Approval logic checks commands and file paths against that boundary before allowing risky work.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band light-band" id="visuals">
+        <div class="inner">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">05 · Visual context lane</div>
+              <h2>The runtime has three ways to show the model what the user sees.</h2>
+            </div>
+            <p>Visual evidence is either attached before the provider starts or exposed through native tools during the run. The policy asks the model to use these first for visual judgment.</p>
+          </div>
+
+          <div class="visual-lanes">
+            <article class="visual-card" style="--accent: var(--blue)">
+              <div class="visual-window"><div class="single-frame"></div></div>
+              <h3>Current frame snapshot</h3>
+              <p>Runtime context can resolve a preview time or frame into a <code>VisualCurrentFrameSnapshot</code>. Native tools can then capture <code>at=current</code> or an exact timestamp.</p>
+            </article>
+            <article class="visual-card" style="--accent: var(--coral)">
+              <div class="visual-window"><div class="frame-sheet"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+              <h3>Comment frame sheet</h3>
+              <p>Range comments can attach sampled motion as a sheet before execution starts, with prompt text explaining cell timing and range semantics.</p>
+            </article>
+            <article class="visual-card" style="--accent: var(--teal)">
+              <div class="visual-window"><div class="timeline-bars"><i></i><i></i><i></i><i></i></div></div>
+              <h3>Runtime visual tools</h3>
+              <p>Codex receives dynamic tools; Claude receives an SDK MCP server. Both routes call the same visual command runner and return image content to the model.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="states">
+        <div class="inner">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">06 · State machine and event stream</div>
+              <h2>Provider noise becomes a product event ledger.</h2>
+            </div>
+            <p>Every provider callback is normalized before the UI sees it. That is what lets Ripple render one agent experience even when Codex and Claude stream different native shapes.</p>
+          </div>
+
+          <div class="state-strip" aria-label="Run states">
+            <div class="state"><b>queued</b><span>Run row exists and user projection is recorded.</span></div>
+            <div class="state"><b>preparing</b><span>Active status reserved for setup paths.</span></div>
+            <div class="state"><b>running</b><span>Adapter is executing and heartbeat updates.</span></div>
+            <div class="state"><b>awaiting_approval</b><span>Provider is paused on a pending app decision.</span></div>
+            <div class="state"><b>cancelling</b><span>Cancellation requested and provider stop is in progress.</span></div>
+            <div class="state"><b>completed</b><span>Assistant projection is saved and status is final.</span></div>
+            <div class="state"><b>failed</b><span>Error event and message are persisted.</span></div>
+            <div class="state"><b>recoverable</b><span>Startup recovery found a stale active run.</span></div>
+          </div>
+
+          <div style="height:14px"></div>
+
+          <div class="event-board">
+            <div class="mini-panel">
+              <h3>Shared event types</h3>
+              <div class="event-stream">
+                <div class="event"><b>status</b><span>Queued, running, awaiting approval, completed, failed, cancelled, recoverable.</span></div>
+                <div class="event"><b>assistant</b><span>Text deltas, final assistant messages, reasoning, and summaries.</span></div>
+                <div class="event"><b>tools</b><span>Tool start, streaming input updates, progress, output, errors, and compacting.</span></div>
+                <div class="event"><b>approval</b><span>Provider requests are mirrored into pending approval records and updated after response.</span></div>
+              </div>
+            </div>
+            <div class="mini-panel">
+              <h3>Projection path</h3>
+              <div class="event-stream">
+                <div class="event"><b>emit</b><span>Provider adapter calls <code>sink.emit</code>; runtime inserts a sequenced run event.</span></div>
+                <div class="event"><b>fan out</b><span>The event bus notifies run-specific and all-run subscribers.</span></div>
+                <div class="event"><b>project</b><span>At completion, events become assistant transcript parts and metadata.</span></div>
+                <div class="event"><b>persist</b><span>Run row, provider ids, approvals, and transcript records remain queryable after the process ends.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band light-band" id="sources">
+        <div class="inner">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">07 · Source map</div>
+              <h2>Where to look when something breaks.</h2>
+            </div>
+            <p>These are the code files this atlas is grounded in. Start with the symptom, then jump to the matching layer.</p>
+          </div>
+
+          <div class="source-grid">
+            <article class="source-card">
+              <h3>Run lifecycle</h3>
+              <code>src/main/lib/agent-runtime/service.ts</code>
+              <p>Start, execute, cancel, recover, event sink, approval bridge, completion projection.</p>
+            </article>
+            <article class="source-card">
+              <h3>Live runtime context</h3>
+              <code>src/main/lib/agent-runtime/runtime-context.ts</code>
+              <p>Project/composition/preview/comment/revision/export facts and current-frame snapshot resolution.</p>
+            </article>
+            <article class="source-card">
+              <h3>Policy and skills</h3>
+              <code>src/main/lib/agent-runtime/agent-run-context-resolver.ts</code>
+              <p>Provider note discovery, Ripple policy, HyperFrames skills, visual-context skill roots.</p>
+            </article>
+            <article class="source-card">
+              <h3>Provider choice</h3>
+              <code>src/main/lib/agent-runtime/provider-factory.ts</code>
+              <p>Routes provider id to Codex App Server, Claude Agent SDK, or fake adapter.</p>
+            </article>
+            <article class="source-card">
+              <h3>Codex adapter</h3>
+              <code>src/main/lib/agent-runtime/providers/codex-app-server-adapter.ts</code>
+              <p>App-server JSON-RPC, MCP snapshot, skills, dynamic visual tools, approvals, event normalization.</p>
+            </article>
+            <article class="source-card">
+              <h3>Claude adapter</h3>
+              <code>src/main/lib/agent-runtime/providers/claude-agent-sdk-adapter.ts</code>
+              <p>SDK query options, session resume, capabilities, MCP visual server, permissions, stream normalization.</p>
+            </article>
+            <article class="source-card">
+              <h3>Visual tools</h3>
+              <code>src/main/lib/agent-runtime/visual-context-native-tool.ts</code>
+              <p>Snapshot/frame-sheet schemas, command args, artifact loading, provider content conversion.</p>
+            </article>
+            <article class="source-card">
+              <h3>Attachments</h3>
+              <code>src/main/lib/agent-runtime/runtime-attachments.ts</code>
+              <p>Prepared file/image/document attachments and prompt suffixes for provider input.</p>
+            </article>
+            <article class="source-card">
+              <h3>Transcript projection</h3>
+              <code>src/main/lib/agent-runtime/transcript-projection.ts</code>
+              <p>Writes user and assistant projections back into Ripple's chat transcript model.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const stageDetails = {
+      request: {
+        label: "Entry / UI",
+        title: "User prompt enters runtime",
+        body: "The app supplies a provider, model, mode, target, request id, prompt, runtime context, and optional attachments. The request id is important because the runtime can reuse the existing run instead of duplicating it.",
+        rows: [
+          ["Function", "startAgentRun(input)"],
+          ["Inputs", "StartAgentRunInput: target, provider, model, mode, runKind, prompt, runtimeContext, attachments"],
+          ["Risk", "Missing target or stale runtime context sends the provider to the wrong workspace or composition."]
+        ]
+      },
+      "comment-visual-source": {
+        label: "Entry / Comments",
+        title: "Comment anchor adds frame semantics",
+        body: "Frame and range comments carry the product facts the model needs: which composition, which point or span in time, and what source or selector the user was looking at.",
+        rows: [
+          ["Path", "Frame comment or range comment"],
+          ["Adds", "commentThreadId, anchor type, frame/range, selector, source file"],
+          ["Visual", "May become a still image or frame sheet before provider execution."]
+        ]
+      },
+      "revision-source": {
+        label: "Entry / Generated change",
+        title: "Generated change selects isolated target",
+        body: "A generated change points the runtime at a revision workspace. The provider edits a proposal, and Ripple can preview, accept, reject, or supersede it later.",
+        rows: [
+          ["Workspace", "generated_change / isolated comment revision"],
+          ["Persistence", "Revision row stores provider, model, thread id, run id, and conversation id"],
+          ["Risk", "Main should not be edited directly for a generated-change proposal."]
+        ]
+      },
+      "resolve-workspace": {
+        label: "Persistence / Workspace",
+        title: "Resolve workspace and connection",
+        body: "The target is converted into a project, workspace, project path, writable root, workspace kind, target type, and target id. The default provider connection is ensured.",
+        rows: [
+          ["Function", "resolveAgentWorkspaceContext + ensureDefaultAgentConnection"],
+          ["Outputs", "workspace, projectPath, writableRoot, workspaceKind"],
+          ["Boundary", "Provider cwd and approval checks use this workspace."]
+        ]
+      },
+      "thread-run": {
+        label: "Persistence / Run",
+        title: "Find or create thread, then queue run",
+        body: "Ripple reuses matching revision threads, purpose-specific threads, duplicate request ids, or active runs. Otherwise it creates a run, records the user prompt projection, and emits queued.",
+        rows: [
+          ["Tables", "agentThreads, agentRuns, revisions"],
+          ["Status", "queued"],
+          ["Projection", "recordRunUserPromptProjection"]
+        ]
+      },
+      "event-bus": {
+        label: "Persistence / Events",
+        title: "Every normalized event gets sequenced",
+        body: "Provider activity becomes ordered run events. Subscribers can listen per run or across all runs, and completion uses the event stream to build the assistant projection.",
+        rows: [
+          ["Function", "insertRunEvent"],
+          ["Events", "status, assistant_message, assistant_text_delta, reasoning, tool_start, tool_update, tool_end, approval_request, error"],
+          ["Fanout", "EventEmitter per run and all-run channels"]
+        ]
+      },
+      "run-context": {
+        label: "Context / Runtime",
+        title: "Rehydrate run world",
+        body: "Execution reloads the run, thread, workspace, project, connection, target, and writable root. This is the runtime's reliable picture of the world.",
+        rows: [
+          ["Function", "requireRunContext(db, runId)"],
+          ["Validates", "Run exists and connection provider matches run provider"],
+          ["Feeds", "adapter.run input and context prompt assembly"]
+        ]
+      },
+      "prompt-context": {
+        label: "Context / Prompt",
+        title: "Assemble the prompt bundle",
+        body: "The user's text is appended with chat history, live Ripple context, and optional visual prompt context. This is where product state becomes natural language.",
+        rows: [
+          ["Functions", "buildConversationHistoryContext, buildAgentRuntimeContextPrompt, appendRuntimeContextToPrompt"],
+          ["Includes", "Project, composition, editing target, preview source, time/frame, comment anchor, revision, export"],
+          ["Rule", "Mutable live state belongs here, not in persistent project notes."]
+        ]
+      },
+      "visual-attachments": {
+        label: "Context / Visuals",
+        title: "Attach stills or frame sheets",
+        body: "Comment visuals are optional attachments. If attachment limits reject them, the run still proceeds and warns in the main process logs.",
+        rows: [
+          ["Function", "resolveCommentVisualAttachmentsForRun"],
+          ["Frame", "Still image for point-in-time comments"],
+          ["Range", "Frame sheet and compact cell/time summary for motion comments"]
+        ]
+      },
+      "policy-skills": {
+        label: "Context / Policy",
+        title: "Load policy, notes, skills, tools",
+        body: "The provider-specific context resolver picks AGENTS.md or CLAUDE.md, resolves fallback notes, adds Ripple visual tool policy, and loads app-managed skill roots.",
+        rows: [
+          ["Function", "resolveAgentRunContext"],
+          ["Codex", "AGENTS.md plus app-managed Codex skills"],
+          ["Claude", "CLAUDE.md plus Claude plugin/skill roots"]
+        ]
+      },
+      adapter: {
+        label: "Provider / Adapter",
+        title: "Choose Codex, Claude, or fake adapter",
+        body: "The shared runtime calls a provider adapter through one interface. This keeps run state, events, approvals, and completion shared while preserving provider-native setup.",
+        rows: [
+          ["Function", "createAgentProviderAdapter(provider)"],
+          ["Codex", "CodexAppServerAdapter"],
+          ["Claude", "ClaudeAgentSdkAdapter"]
+        ]
+      },
+      "visual-bridge": {
+        label: "Provider / Visual",
+        title: "Expose current frame tools",
+        body: "Both adapters create a visual endpoint and file bridge. The provider can ask for current snapshots or frame sheets, and the tool result returns image data.",
+        rows: [
+          ["Endpoint", "createAgentVisualContextEndpoint"],
+          ["Bridge", "createAgentVisualContextFileBridge"],
+          ["Env", "visualContextEndpoint, visualContextToken, visualContextBridgeDir, visualContextBridgeToken"]
+        ]
+      },
+      "provider-run": {
+        label: "Provider / Stream",
+        title: "Provider streams native activity",
+        body: "Codex sends JSON-RPC notifications and requests. Claude yields SDK stream messages. Each adapter translates those shapes into the common event model.",
+        rows: [
+          ["Codex", "turn/start, notifications, request handlers"],
+          ["Claude", "sdk.query stream_event, system init, tool progress, assistant messages"],
+          ["Output", "sink.emit normalized events"]
+        ]
+      },
+      "approval-loop": {
+        label: "Provider / Approval",
+        title: "Permission requests pause the run",
+        body: "When the provider needs permission, Ripple creates an approval row, updates status to awaiting_approval, emits an approval_request event, then resolves the provider promise after the user decides.",
+        rows: [
+          ["Function", "requestAgentRunApproval"],
+          ["Kinds", "command, file_change, network, permission, question"],
+          ["Resume", "respondToAgentRunApproval updates the row and returns allow/deny data to provider"]
+        ]
+      },
+      "provider-ids": {
+        label: "Output / Continuity",
+        title: "Persist provider continuity ids",
+        body: "Provider thread, turn, session, and item ids are saved on the run or thread as they appear. Conversation session ids can also be updated.",
+        rows: [
+          ["Function", "sink.setProviderIds"],
+          ["Codex", "providerThreadId, providerTurnId"],
+          ["Claude", "providerSessionId"]
+        ]
+      },
+      "assistant-projection": {
+        label: "Output / Transcript",
+        title: "Project events into chat transcript",
+        body: "At completion, Ripple builds assistant message parts from the event stream and records the assistant projection in the product transcript.",
+        rows: [
+          ["Function", "buildAgentRuntimeAssistantProjection"],
+          ["Writes", "recordRunAssistantProjection"],
+          ["Fallback", "If no assistant event exists, the provider summary becomes the assistant message."]
+        ]
+      },
+      finish: {
+        label: "Output / Finish",
+        title: "Complete, fail, cancel, or recover",
+        body: "Successful runs are marked completed. Errors emit an error event and become failed. Cancellation resolves pending approvals and marks cancelled. Startup recovery marks stale active runs recoverable.",
+        rows: [
+          ["Success", "completedAt, heartbeatAt, status completed"],
+          ["Error", "error event + failed status"],
+          ["Cancel", "provider cancel plus cancelled status"]
+        ]
+      }
+    };
+
+    const scenarios = {
+      chat: {
+        code: "CH",
+        kind: "Normal chat",
+        title: "Text-first run with on-demand visual tools",
+        accent: "var(--blue)",
+        soft: "var(--blue-soft)",
+        summary: "A regular chat starts from the current project or chat workspace. It does not receive an automatic image; the model should call native visual tools when visual judgment matters.",
+        steps: [
+          ["Composer", "User sends prompt, provider, model, target, and optional uploads."],
+          ["Workspace", "Runtime resolves Main or chat worktree and queues the run."],
+          ["Prompt", "Chat history and live Ripple context are appended to the prompt."],
+          ["Provider", "Codex or Claude starts with app policy, notes, skills, tools, and attachments."],
+          ["Visuals", "The model calls snapshot or frame-sheet only when needed."]
+        ]
+      },
+      frame: {
+        code: "FR",
+        kind: "Frame comment",
+        title: "Point-in-time comment with automatic still-frame evidence",
+        accent: "var(--coral)",
+        soft: "var(--coral-soft)",
+        summary: "A frame comment can attach the exact visible frame before the provider starts. The model sees the user's anchor and should use the attached image before asking for a new snapshot.",
+        steps: [
+          ["Comment", "Thread anchor contributes frame, time, selector, and composition context."],
+          ["Visual", "Runtime resolves and accepts a still image if attachment limits allow it."],
+          ["Prompt", "Live context describes the comment anchor and editing target."],
+          ["Provider", "The provider starts with the still frame plus native visual tools."],
+          ["Reply/edit", "Output stays scoped to the commented frame."]
+        ]
+      },
+      range: {
+        code: "RG",
+        kind: "Range comment",
+        title: "Motion-over-time comment with a frame sheet",
+        accent: "var(--gold)",
+        soft: "var(--gold-soft)",
+        summary: "A range comment can attach sampled motion before execution. This helps the provider understand timing and transitions without extracting video manually.",
+        steps: [
+          ["Comment", "Anchor includes start/end frame and time information."],
+          ["Sheet", "Runtime attaches a frame sheet plus compact sample metadata."],
+          ["Prompt", "The prompt explains the range and current editing target."],
+          ["Provider", "The provider uses the sheet first, then calls frame-sheet only for a different range."],
+          ["Result", "Answer or edit focuses on the motion interval."]
+        ]
+      },
+      revision: {
+        code: "RV",
+        kind: "Generated change",
+        title: "Isolated proposal workspace with previewable output",
+        accent: "var(--green)",
+        soft: "var(--green-soft)",
+        summary: "Generated changes run against a revision worktree. Provider edits are proposal state until Ripple accepts, rejects, or supersedes them.",
+        steps: [
+          ["Request", "Comment or follow-up asks for a generated change."],
+          ["Workspace", "Runtime creates or reuses an isolated revision workspace."],
+          ["Context", "Preview source points at the comment revision when available."],
+          ["Provider", "Provider edits the proposal workspace and streams normalized events."],
+          ["Lifecycle", "Ripple previews, accepts, rejects, fails, or supersedes the revision."]
+        ]
+      }
+    };
+
+    const pathAccents = {
+      chat: "var(--blue)",
+      frame: "var(--coral)",
+      range: "var(--gold)",
+      revision: "var(--green)"
+    };
+
+    let currentPath = "chat";
+
+    function setInspector(stageId) {
+      const detail = stageDetails[stageId] || stageDetails.request;
+      document.querySelectorAll(".stage-card").forEach((card) => {
+        card.classList.toggle("active", card.dataset.stage === stageId);
+      });
+      document.getElementById("inspectorLabel").textContent = detail.label;
+      document.getElementById("inspectorTitle").textContent = detail.title;
+      document.getElementById("inspectorBody").textContent = detail.body;
+      document.getElementById("detailList").innerHTML = detail.rows.map(([key, value]) => `
+        <div class="detail-row">
+          <div class="detail-key">${key}</div>
+          <div class="detail-value">${value}</div>
+        </div>
+      `).join("");
+    }
+
+    function setPath(path) {
+      currentPath = path;
+      document.querySelectorAll("[data-path]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.path === path));
+      });
+      document.querySelectorAll(".stage-card").forEach((card) => {
+        const paths = (card.dataset.paths || "").split(" ");
+        card.classList.toggle("highlight", paths.includes(path));
+        if (paths.includes(path)) {
+          card.style.setProperty("--accent", pathAccents[path]);
+        }
+      });
+      drawLines();
+    }
+
+    function drawLines() {
+      const container = document.getElementById("mapCanvas");
+      const lines = document.getElementById("railLines");
+      const cards = Array.from(document.querySelectorAll(".stage-card.highlight"));
+      if (!container || !lines || cards.length < 2) return;
+      const base = container.getBoundingClientRect();
+      lines.innerHTML = "";
+      cards.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left || a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+      for (let index = 0; index < cards.length - 1; index += 1) {
+        const from = cards[index].getBoundingClientRect();
+        const to = cards[index + 1].getBoundingClientRect();
+        const x1 = from.right - base.left;
+        const y1 = from.top + from.height / 2 - base.top;
+        const x2 = to.left - base.left;
+        const y2 = to.top + to.height / 2 - base.top;
+        const length = Math.max(0, Math.hypot(x2 - x1, y2 - y1));
+        const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+        const line = document.createElement("div");
+        line.className = "path-line on";
+        line.style.left = `${x1}px`;
+        line.style.top = `${y1}px`;
+        line.style.width = `${length}px`;
+        line.style.transform = `rotate(${angle}deg)`;
+        line.style.setProperty("--accent", pathAccents[currentPath]);
+        lines.appendChild(line);
+      }
+    }
+
+    function renderScenarios(active = "chat") {
+      const buttons = document.getElementById("scenarioButtons");
+      buttons.innerHTML = Object.entries(scenarios).map(([key, data]) => `
+        <button class="scenario-button" type="button" data-scenario="${key}" aria-pressed="${key === active}" style="--accent:${data.accent}">
+          <span class="scenario-icon">${data.code}</span>
+          <span class="scenario-copy"><strong>${data.kind}</strong><span>${data.title}</span></span>
+          <span class="scenario-state">${key === active ? "active" : "view"}</span>
+        </button>
+      `).join("");
+      buttons.querySelectorAll("[data-scenario]").forEach((button) => {
+        button.addEventListener("click", () => {
+          setScenario(button.dataset.scenario);
+        });
+      });
+      setScenario(active);
+    }
+
+    function setScenario(key) {
+      const data = scenarios[key] || scenarios.chat;
+      document.querySelectorAll("[data-scenario]").forEach((button) => {
+        const active = button.dataset.scenario === key;
+        button.setAttribute("aria-pressed", String(active));
+        button.querySelector(".scenario-state").textContent = active ? "active" : "view";
+      });
+      document.getElementById("scenarioKind").textContent = data.kind;
+      document.getElementById("scenarioTitle").textContent = data.title;
+      document.getElementById("scenarioSummary").textContent = data.summary;
+      const route = document.getElementById("scenarioRoute");
+      route.style.setProperty("--accent", data.accent);
+      route.style.setProperty("--accent-soft", data.soft);
+      route.innerHTML = data.steps.map(([label, text], index) => `
+        <div class="route-step ${index === 1 ? "active" : ""}">
+          <span class="route-num">${index + 1}</span>
+          <strong>${label}</strong>
+          <span>${text}</span>
+        </div>
+      `).join("");
+      setPath(key);
+    }
+
+    function setProvider(provider) {
+      document.querySelectorAll("[data-provider]").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.provider === provider));
+      });
+      document.querySelectorAll("[data-provider-sheet]").forEach((sheet) => {
+        sheet.classList.toggle("active", sheet.dataset.providerSheet === provider);
+      });
+    }
+
+    function observeNav() {
+      const links = Array.from(document.querySelectorAll(".nav a"));
+      const sections = links.map((link) => document.querySelector(link.getAttribute("href"))).filter(Boolean);
+      const observer = new IntersectionObserver((entries) => {
+        const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (!visible) return;
+        links.forEach((link) => {
+          link.classList.toggle("active", link.getAttribute("href") === `#${visible.target.id}`);
+        });
+      }, { rootMargin: "-20% 0px -70% 0px", threshold: [0.1, 0.3, 0.55] });
+      sections.forEach((section) => observer.observe(section));
+    }
+
+    document.querySelectorAll(".stage-card").forEach((card) => {
+      card.addEventListener("click", () => setInspector(card.dataset.stage));
+    });
+    document.querySelectorAll("[data-path]").forEach((button) => {
+      button.addEventListener("click", () => {
+        setPath(button.dataset.path);
+        setScenario(button.dataset.path);
+      });
+    });
+    document.querySelectorAll("[data-provider]").forEach((button) => {
+      button.addEventListener("click", () => setProvider(button.dataset.provider));
+    });
+    document.getElementById("resetStage").addEventListener("click", () => setInspector("request"));
+    window.addEventListener("resize", () => window.requestAnimationFrame(drawLines));
+    window.addEventListener("load", () => {
+      setInspector("request");
+      renderScenarios("chat");
+      setProvider("codex");
+      observeNav();
+      window.requestAnimationFrame(drawLines);
+    });
+  </script>
+</body>
+</html>

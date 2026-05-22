@@ -136,7 +136,7 @@ function CodeBlock({
   )
 }
 
-type MarkdownSize = "sm" | "md" | "lg"
+type MarkdownSize = "xs" | "sm" | "md" | "lg"
 
 interface ChatMarkdownRendererProps {
   content: string
@@ -175,6 +175,29 @@ const sizeStyles: Record<
     td: string
   }
 > = {
+  xs: {
+    h1: "text-sm font-semibold text-foreground mt-[1em] mb-px first:mt-0 leading-[1.3]",
+    h2: "text-sm font-semibold text-foreground mt-[1em] mb-px first:mt-0 leading-[1.3]",
+    h3: "text-xs font-semibold text-foreground mt-[0.8em] mb-px first:mt-0 leading-[1.3]",
+    h4: "text-xs font-medium text-foreground mt-[0.8em] mb-px first:mt-0 leading-[1.3]",
+    h5: "text-xs font-medium text-foreground mt-[0.8em] mb-px first:mt-0 leading-[1.3]",
+    h6: "text-xs font-medium text-foreground mt-[0.8em] mb-px first:mt-0 leading-[1.3]",
+    p: "text-xs text-foreground/75 my-px leading-normal py-[2px]",
+    ul: "list-disc list-inside text-xs text-foreground/75 mb-px marker:text-foreground/60",
+    ol: "list-decimal list-inside text-xs text-foreground/75 mb-px marker:text-foreground/60",
+    li: "text-xs text-foreground/75 py-[2px]",
+    inlineCode:
+      "bg-foreground/[0.06] dark:bg-foreground/[0.1] font-mono text-[85%] rounded px-[0.35em] py-[0.15em] break-all",
+    blockquote:
+      "border-l-2 border-foreground/20 pl-2 text-foreground/65 mb-px text-xs",
+    hr: "mt-6 mb-3 border-t border-border",
+    table: "w-full text-xs",
+    thead: "border-b border-border",
+    tbody: "",
+    tr: "[&:not(:last-child)]:border-b [&:not(:last-child)]:border-border",
+    th: "text-left text-xs font-medium text-foreground px-2 py-1.5 bg-muted/50 border-r border-border last:border-r-0",
+    td: "text-xs text-foreground/75 px-2 py-1.5 border-r border-border last:border-r-0",
+  },
   sm: {
     h1: "text-base font-semibold text-foreground mt-[1.4em] mb-px first:mt-0 leading-[1.3]",
     h2: "text-base font-semibold text-foreground mt-[1.4em] mb-px first:mt-0 leading-[1.3]",
@@ -258,18 +281,20 @@ function createCodeComponent(codeTheme: string, size: MarkdownSize, styles: type
     const isCodeBlock = language || (codeContent.includes("\n") && codeContent.length > 100)
 
     if (isCodeBlock) {
+      const blockSize = size === "xs" ? "sm" : size
+
       // Route mermaid blocks to MermaidBlock component
       if (language === "mermaid") {
         // Pass isStreaming to MermaidBlock
         // When streaming, MermaidBlock shows a placeholder instead of trying to render
-        return <MermaidBlock code={codeContent.replace(/\n$/, "")} size={size} isStreaming={isStreaming} />
+        return <MermaidBlock code={codeContent.replace(/\n$/, "")} size={blockSize} isStreaming={isStreaming} />
       }
 
       return (
         <CodeBlock
           language={language}
           themeId={codeTheme}
-          size={size}
+          size={blockSize}
         >
           {codeContent.replace(/\n$/, "")}
         </CodeBlock>

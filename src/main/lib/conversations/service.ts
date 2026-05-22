@@ -77,6 +77,27 @@ function messageBodyFromParts(parts: Record<string, unknown>[]): string {
     .trim()
 }
 
+function recoverAgentReplyParts(message: ConversationMessage): Array<Record<string, any>> {
+  const parts = parseJsonArray(message.partsJson)
+  if (message.role !== "assistant" || !message.agentRunId) return parts
+
+  const body = message.body.trim()
+  if (!body) return parts
+
+  const visibleText = messageBodyFromParts(parts)
+  if (visibleText.includes(body)) return parts
+
+  return [
+    ...parts,
+    {
+      type: "text",
+      text: body,
+      state: "done",
+      id: `recovered-${message.id}`,
+    },
+  ]
+}
+
 function toConversationMessageView(
   message: ConversationMessage,
 ): RippleConversationMessageView {
@@ -340,7 +361,7 @@ export function conversationMessagesToUiMessages(
   return messages.map((message) => ({
     id: message.id,
     role: message.role,
-    parts: parseJsonArray(message.partsJson),
+    parts: recoverAgentReplyParts(message),
     metadata: parseJsonObject(message.metadataJson),
   }))
 }

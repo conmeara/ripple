@@ -33,6 +33,13 @@ export type AgentRunStatus =
 export type AgentRunEventType =
   | "status"
   | "activity"
+  | "request.opened"
+  | "request.completed"
+  | "turn.started"
+  | "turn.completed"
+  | "session.exited"
+  | "item.completed"
+  | "user-input.requested"
   | "assistant_text_delta"
   | "assistant_message"
   | "reasoning"
@@ -87,6 +94,21 @@ export interface AgentRunEventInput {
   payload?: Record<string, unknown>
   providerType?: string | null
   providerId?: string | null
+  refs?: AgentRunEventRefs | null
+}
+
+export interface AgentRunEventRefs {
+  eventId?: string | null
+  createdAt?: string | null
+  provider?: AgentProviderId | string | null
+  runId?: string | null
+  requestId?: string | null
+  turnId?: string | null
+  itemId?: string | null
+  providerId?: string | null
+  providerType?: string | null
+  rawProviderMethod?: string | null
+  rawPayload?: unknown
 }
 
 export type AgentProviderApprovalKind =

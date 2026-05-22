@@ -80,4 +80,6 @@ Deleting a comment is a soft-delete before acceptance. Restoring brings the thre
 - `src/main/lib/revisions/comment-visuals.test.ts` - Stores and reloads frame and range visual context safely for comment runs.
 - `src/renderer/features/comments/comment-pane.test.tsx` - Covers card behavior, filtering, selection, replies, deletes, restore, and preview switching.
 - `src/renderer/features/comments/comment-markers.test.tsx` - Covers timeline marker visibility, positioning, and selection behavior.
+- `test/e2e/agent-runtime-ui-fixtures.e2e.ts` - Replays sanitized real Claude and Codex sessions through comment cards to check card status, shimmer, revision actions, and raw runtime leakage.
+- `test/e2e/agent-runtime-ui-live-fixtures.e2e.ts` - Opt-in replay for live-provider comment-card fixtures before they become canonical coverage.
 - `test/e2e/release-qa.e2e.ts` - Exercises the release-level comment and revision workflow in the packaged app surface.

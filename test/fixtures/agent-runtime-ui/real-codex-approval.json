@@ -1,0 +1,2211 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "provider": "codex",
+    "model": "gpt-5.5/high",
+    "runKind": "chat",
+    "status": "completed",
+    "originalEventCount": 620,
+    "selectedEventCount": 38,
+    "note": "Sanitized from a real local Ripple Dev run. Prompt summary: change the background to green"
+  },
+  "projectPath": "/Users/motion/Ripple Projects/Fixture Project",
+  "events": [
+    {
+      "id": "real-codex-approval-event-005",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-approval",
+      "sequence": 1,
+      "createdAt": "2026-05-21T12:00:04.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-002",
+      "payload": {
+        "delta": "I"
+      }
+    },
+    {
+      "id": "real-codex-approval-event-041",
+      "type": "tool_start",
+      "agentRunId": "real-codex-approval",
+      "sequence": 2,
+      "createdAt": "2026-05-21T12:00:40.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-003",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc pwd",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "pwd"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-approval-event-042",
+      "type": "tool_end",
+      "agentRunId": "real-codex-approval",
+      "sequence": 3,
+      "createdAt": "2026-05-21T12:00:41.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-003",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc pwd",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "pwd"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "/Users/motion/sanitized\n",
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-approval-event-043",
+      "type": "tool_start",
+      "agentRunId": "real-codex-approval",
+      "sequence": 4,
+      "createdAt": "2026-05-21T12:00:42.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-004",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '1,240p' compositions/app-showcase.html\"",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '1,240p' compositions/app-showcase.html",
+            "name": "app-showcase.html",
+            "path": "/Users/motion/sanitized"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-approval-event-044",
+      "type": "tool_end",
+      "agentRunId": "real-codex-approval",
+      "sequence": 5,
+      "createdAt": "2026-05-21T12:00:43.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-004",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '1,240p' compositions/app-showcase.html\"",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '1,240p' compositions/app-showcase.html",
+            "name": "app-showcase.html",
+            "path": "/Users/motion/sanitized"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=1920, height=1080\" />\n    <title>app-showcase</title>\n    <style>\n      * {\n        margin: 0;\n        padding: 0;\n        box-sizing: border-box;\n      }\n      html,\n      body {\n        margin: 0;\n        ...",
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-approval-event-045",
+      "type": "tool_start",
+      "agentRunId": "real-codex-approval",
+      "sequence": 6,
+      "createdAt": "2026-05-21T12:00:44.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-005",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg -n \"background|body|html|app-showcase|green|#|rgb|linear-gradient\" compositions/app-showcase.html hyperframes.json meta.json'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "search",
+            "command": "rg -n 'background|body|html|app-showcase|green|#|rgb|linear-gradient' compositions/app-showcase.html hyperframes.json meta.json",
+            "query": "background|body|html|app-showcase|green|#|rgb|linear-gradient",
+            "path": "app-showcase.html"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-approval-event-046",
+      "type": "tool_end",
+      "agentRunId": "real-codex-approval",
+      "sequence": 7,
+      "createdAt": "2026-05-21T12:00:45.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-005",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg -n \"background|body|html|app-showcase|green|#|rgb|linear-gradient\" compositions/app-showcase.html hyperframes.json meta.json'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "search",
+            "command": "rg -n 'background|body|html|app-showcase|green|#|rgb|linear-gradient' compositions/app-showcase.html hyperframes.json meta.json",
+            "query": "background|body|html|app-showcase|green|#|rgb|linear-gradient",
+            "path": "app-showcase.html"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "hyperframes.json:3:  \"entry\": \"index.html\",\nhyperframes.json:8:  \"templateId\": \"app-showcase\",\nhyperframes.json:10:    \"index.html\",\nhyperframes.json:13:      \"filePath\": \"compositions/app-showcase.html\",\nhyperframes.json:14:      \"dataCompositionId\": \"app-showcase\",\nmeta.json:6:  \"templateId\": \"app-showcase\",\ncomposi...",
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-approval-event-047",
+      "type": "reasoning",
+      "agentRunId": "real-codex-approval",
+      "sequence": 8,
+      "createdAt": "2026-05-21T12:00:46.000Z",
+      "provider": "codex",
+      "providerType": "item/reasoning/summaryTextDelta",
+      "providerId": "fixture-id-006",
+      "payload": {
+        "delta": "**Updating background colors**\n\nI"
+      }
+    },
+    {
+      "id": "real-codex-approval-event-155",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-approval",
+      "sequence": 9,
+      "createdAt": "2026-05-21T12:00:34.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-007",
+      "payload": {
+        "delta": "I"
+      }
+    },
+    {
+      "id": "real-codex-approval-event-201",
+      "type": "tool_start",
+      "agentRunId": "real-codex-approval",
+      "sequence": 10,
+      "createdAt": "2026-05-21T12:00:20.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-008",
+      "payload": {
+        "toolName": "Edit",
+        "changes": [
+          {
+            "path": "/Users/motion/sanitized",
+            "kind": {
+              "type": "update",
+              "move_path": null
+            },
+            "diff": "@@ -18,3 +18,3 @@\n         overflow: hidden;\n-        background-color: #f97316;\n+        background-color: #22c55e;\n       }\n@@ -377,3 +377,3 @@\n           inset: 0;\n-          background: #f97316;\n+          background: #22c55e;\n         }\n@@ -386,3 +386,3 @@\n           transform: translate(-50%, -50%);\n-          b..."
+          }
+        ],
+        "status": "inProgress"
+      }
+    },
+    {
+      "id": "real-codex-approval-event-203",
+      "type": "tool_end",
+      "agentRunId": "real-codex-approval",
+      "sequence": 11,
+      "createdAt": "2026-05-21T12:00:22.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-008",
+      "payload": {
+        "toolName": "Edit",
+        "changes": [
+          {
+            "path": "/Users/motion/sanitized",
+            "kind": {
+              "type": "update",
+              "move_path": null
+            },
+            "diff": "@@ -18,3 +18,3 @@\n         overflow: hidden;\n-        background-color: #f97316;\n+        background-color: #22c55e;\n       }\n@@ -377,3 +377,3 @@\n           inset: 0;\n-          background: #f97316;\n+          background: #22c55e;\n         }\n@@ -386,3 +386,3 @@\n           transform: translate(-50%, -50%);\n-          b..."
+          }
+        ],
+        "status": "completed"
+      }
+    },
+    {
+      "id": "real-codex-approval-event-204",
+      "type": "file_change",
+      "agentRunId": "real-codex-approval",
+      "sequence": 12,
+      "createdAt": "2026-05-21T12:00:23.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/compositions/app-showcase.html b/compositions/app-showcase.html\nindex a5c52bcdd3ecfc08b35bb5ab574f7492ebc0124f..f3b2d6cfb10ce045b98cbf4fed1a37740d093a5b\n--- a/compositions/app-showcase.html\n+++ b/compositions/app-showcase.html\n@@ -16,7 +16,7 @@\n         width: 1920px;\n         height: 1080px;\n         ove..."
+      }
+    },
+    {
+      "id": "real-codex-approval-event-205",
+      "type": "file_change",
+      "agentRunId": "real-codex-approval",
+      "sequence": 13,
+      "createdAt": "2026-05-21T12:00:24.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/compositions/app-showcase.html b/compositions/app-showcase.html\nindex a5c52bcdd3ecfc08b35bb5ab574f7492ebc0124f..f3b2d6cfb10ce045b98cbf4fed1a37740d093a5b\n--- a/compositions/app-showcase.html\n+++ b/compositions/app-showcase.html\n@@ -16,7 +16,7 @@\n         width: 1920px;\n         height: 1080px;\n         ove..."
+      }
+    },
+    {
+      "id": "real-codex-approval-event-206",
+      "type": "reasoning",
+      "agentRunId": "real-codex-approval",
+      "sequence": 14,
+      "createdAt": "2026-05-21T12:00:25.000Z",
+      "provider": "codex",
+      "providerType": "item/reasoning/summaryTextDelta",
+      "providerId": "fixture-id-009",
+      "payload": {
+        "delta": "**Inspecting hyperframes commands**\n\nI"
+      }
+    },
+    {
+      "id": "real-codex-approval-event-291",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-approval",
+      "sequence": 15,
+      "createdAt": "2026-05-21T12:00:50.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-010",
+      "payload": {
+        "delta": "The"
+      }
+    },
+    {
+      "id": "real-codex-approval-event-329",
+      "type": "tool_start",
+      "agentRunId": "real-codex-approval",
+      "sequence": 16,
+      "createdAt": "2026-05-21T12:00:28.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-011",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg -n \"background-color:|s3-bg|radial-gradient\" compositions/app-showcase.html'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "search",
+            "command": "rg -n 'background-color:|s3-bg|radial-gradient' compositions/app-showcase.html",
+            "query": "background-color:|s3-bg|radial-gradient",
+            "path": "app-showcase.html"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-approval-event-330",
+      "type": "tool_end",
+      "agentRunId": "real-codex-approval",
+      "sequence": 17,
+      "createdAt": "2026-05-21T12:00:29.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-011",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg -n \"background-color:|s3-bg|radial-gradient\" compositions/app-showcase.html'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "search",
+            "command": "rg -n 'background-color:|s3-bg|radial-gradient' compositions/app-showcase.html",
+            "query": "background-color:|s3-bg|radial-gradient",
+            "path": "app-showcase.html"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "19:        background-color: #22c55e;\n32:      <div class=\"s3-bg\" id=\"s3Bg\"></div>\n33:      <div class=\"s3-bg-glow\" id=\"s3BgGlow\"></div>\n375:        [data-composition-id=\"app-showcase\"] .s3-bg {\n380:        [data-composition-id=\"app-showcase\"] .s3-bg-glow {\n387:          background: radial-gradient(circle, rgba(187, 2...",
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-approval-event-332",
+      "type": "tool_start",
+      "agentRunId": "real-codex-approval",
+      "sequence": 18,
+      "createdAt": "2026-05-21T12:00:31.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-012",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'hyperframes validate compositions/app-showcase.html'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "hyperframes validate compositions/app-showcase.html"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-approval-event-335",
+      "type": "tool_start",
+      "agentRunId": "real-codex-approval",
+      "sequence": 19,
+      "createdAt": "2026-05-21T12:00:34.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-013",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'ripple snapshot --at current --json'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "ripple snapshot --at current --json"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-approval-event-336",
+      "type": "tool_end",
+      "agentRunId": "real-codex-approval",
+      "sequence": 20,
+      "createdAt": "2026-05-21T12:00:35.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-012",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'hyperframes validate compositions/app-showcase.html'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "hyperframes validate compositions/app-showcase.html"
+          }
+        ],
+        "status": "failed",
+        "exitCode": 1,
+        "output": "\n✗  Not a directory: /Users/motion/sanitized\n\n",
+        "durationMs": 108
+      }
+    },
+    {
+      "id": "real-codex-approval-event-337",
+      "type": "file_change",
+      "agentRunId": "real-codex-approval",
+      "sequence": 21,
+      "createdAt": "2026-05-21T12:00:36.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/compositions/app-showcase.html b/compositions/app-showcase.html\nindex a5c52bcdd3ecfc08b35bb5ab574f7492ebc0124f..f3b2d6cfb10ce045b98cbf4fed1a37740d093a5b\n--- a/compositions/app-showcase.html\n+++ b/compositions/app-showcase.html\n@@ -16,7 +16,7 @@\n         width: 1920px;\n         height: 1080px;\n         ove..."
+      }
+    },
+    {
+      "id": "real-codex-approval-event-338",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-approval",
+      "sequence": 22,
+      "createdAt": "2026-05-21T12:00:37.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-014",
+      "payload": {
+        "delta": "The"
+      }
+    },
+    {
+      "id": "real-codex-approval-event-387",
+      "type": "tool_start",
+      "agentRunId": "real-codex-approval",
+      "sequence": 23,
+      "createdAt": "2026-05-21T12:00:26.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-015",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'hyperframes validate .'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "hyperframes validate ."
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-approval-event-389",
+      "type": "tool_end",
+      "agentRunId": "real-codex-approval",
+      "sequence": 24,
+      "createdAt": "2026-05-21T12:00:28.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-015",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'hyperframes validate .'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "hyperframes validate ."
+          }
+        ],
+        "status": "failed",
+        "exitCode": 1,
+        "output": "node:events:486\n      throw er; // Unhandled 'error' event\n      ^\n\nError: listen EPERM: operation not permitted 0.0.0.0\n    at Server.setupListenHandle [as _listen2] (node:net:1926:21)\n    at listenInCluster (node:net:2005:12)\n    at Server.listen (node:net:2110:7)\n    at port (file:///Users/motion/sanitized\n    at n...",
+        "durationMs": 136
+      }
+    },
+    {
+      "id": "real-codex-approval-event-391",
+      "type": "file_change",
+      "agentRunId": "real-codex-approval",
+      "sequence": 25,
+      "createdAt": "2026-05-21T12:00:30.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/compositions/app-showcase.html b/compositions/app-showcase.html\nindex a5c52bcdd3ecfc08b35bb5ab574f7492ebc0124f..f3b2d6cfb10ce045b98cbf4fed1a37740d093a5b\n--- a/compositions/app-showcase.html\n+++ b/compositions/app-showcase.html\n@@ -16,7 +16,7 @@\n         width: 1920px;\n         height: 1080px;\n         ove..."
+      }
+    },
+    {
+      "id": "real-codex-approval-event-392",
+      "type": "reasoning",
+      "agentRunId": "real-codex-approval",
+      "sequence": 26,
+      "createdAt": "2026-05-21T12:00:31.000Z",
+      "provider": "codex",
+      "providerType": "item/reasoning/summaryTextDelta",
+      "providerId": "fixture-id-017",
+      "payload": {
+        "delta": "**Validating hyperframes**\n\nI"
+      }
+    },
+    {
+      "id": "real-codex-approval-event-463",
+      "type": "tool_end",
+      "agentRunId": "real-codex-approval",
+      "sequence": 27,
+      "createdAt": "2026-05-21T12:00:42.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-013",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'ripple snapshot --at current --json'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "ripple snapshot --at current --json"
+          }
+        ],
+        "status": "failed",
+        "exitCode": 1,
+        "output": "{\n  \"ok\": false,\n  \"error\": {\n    \"code\": \"VISUAL_CONTEXT_BRIDGE_TIMEOUT\",\n    \"message\": \"Timed out waiting for Ripple visual context bridge.\"\n  }\n}\n",
+        "durationMs": 15034
+      }
+    },
+    {
+      "id": "real-codex-approval-event-477",
+      "type": "tool_start",
+      "agentRunId": "real-codex-approval",
+      "sequence": 28,
+      "createdAt": "2026-05-21T12:00:56.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-018",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'hyperframes validate .'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "hyperframes validate ."
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-approval-event-479",
+      "type": "approval_request",
+      "agentRunId": "real-codex-approval",
+      "sequence": 29,
+      "createdAt": "2026-05-21T12:00:58.000Z",
+      "provider": "codex",
+      "providerType": "item/commandExecution/requestApproval",
+      "providerId": "fixture-id-021",
+      "payload": {
+        "providerName": "Codex",
+        "kind": "command",
+        "command": "/bin/zsh -lc 'hyperframes validate .'",
+        "cwd": "/Users/motion/sanitized",
+        "reason": "Allow HyperFrames validation to open its local preview server for this project?",
+        "threadId": "fixture-id-020",
+        "turnId": "fixture-id-001",
+        "itemId": "fixture-id-018",
+        "approvalId": "fixture-id-019",
+        "availableDecisions": [
+          "accept",
+          {
+            "acceptWithExecpolicyAmendment": {
+              "execpolicy_amendment": [
+                "hyperframes",
+                "validate"
+              ]
+            }
+          },
+          "cancel"
+        ],
+        "requestedNetwork": false,
+        "requestedPermissionPaths": [],
+        "decision": "pending",
+        "approvalWarning": null,
+        "canApprove": true,
+        "providerRequestId": "fixture-id-021",
+        "prompt": "Allow HyperFrames validation to open its local preview server for this project?",
+        "details": {
+          "providerName": "Codex",
+          "command": "/bin/zsh -lc 'hyperframes validate .'",
+          "cwd": "/Users/motion/sanitized",
+          "reason": "Allow HyperFrames validation to open its local preview server for this project?",
+          "threadId": "fixture-id-020",
+          "turnId": "fixture-id-001",
+          "itemId": "fixture-id-018",
+          "availableDecisions": [
+            "accept",
+            {
+              "acceptWithExecpolicyAmendment": {
+                "execpolicy_amendment": [
+                  "hyperframes",
+                  "validate"
+                ]
+              }
+            },
+            "cancel"
+          ],
+          "proposedExecpolicyAmendment": [
+            "hyperframes",
+            "validate"
+          ],
+          "requestedNetwork": false,
+          "requestedPermissionPaths": [],
+          "unsupportedPermissionReferences": [],
+          "approvalWarning": null,
+          "canApprove": true
+        },
+        "status": "approved",
+        "approved": true,
+        "message": null,
+        "response": null
+      }
+    },
+    {
+      "id": "real-codex-approval-event-482",
+      "type": "file_change",
+      "agentRunId": "real-codex-approval",
+      "sequence": 30,
+      "createdAt": "2026-05-21T12:00:01.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/compositions/app-showcase.html b/compositions/app-showcase.html\nindex a5c52bcdd3ecfc08b35bb5ab574f7492ebc0124f..f3b2d6cfb10ce045b98cbf4fed1a37740d093a5b\n--- a/compositions/app-showcase.html\n+++ b/compositions/app-showcase.html\n@@ -16,7 +16,7 @@\n         width: 1920px;\n         height: 1080px;\n         ove..."
+      }
+    },
+    {
+      "id": "real-codex-approval-event-521",
+      "type": "file_change",
+      "agentRunId": "real-codex-approval",
+      "sequence": 31,
+      "createdAt": "2026-05-21T12:00:40.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/compositions/app-showcase.html b/compositions/app-showcase.html\nindex a5c52bcdd3ecfc08b35bb5ab574f7492ebc0124f..f3b2d6cfb10ce045b98cbf4fed1a37740d093a5b\n--- a/compositions/app-showcase.html\n+++ b/compositions/app-showcase.html\n@@ -16,7 +16,7 @@\n         width: 1920px;\n         height: 1080px;\n         ove..."
+      }
+    },
+    {
+      "id": "real-codex-approval-event-522",
+      "type": "tool_end",
+      "agentRunId": "real-codex-approval",
+      "sequence": 32,
+      "createdAt": "2026-05-21T12:00:41.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-018",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'hyperframes validate .'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "hyperframes validate ."
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "◆  Validating 05-07-test in headless Chrome\n\n\n  ⚠ WCAG AA contrast warnings (100):\n    · div.center-avatar \"JM\" — 1.07:1 (need 4.5:1, t=0.55s)\n    · div.goal-label \"Weekly Goal\" — 4.07:1 (need 4.5:1, t=0.55s)\n    · span.day.done \"M\" — 1.05:1 (need 4.5:1, t=0.55s)\n    · span.day.done \"T\" — 1.05:1 (need 4.5:1, t=0.55s)\n...",
+        "durationMs": 7905
+      }
+    },
+    {
+      "id": "real-codex-approval-event-524",
+      "type": "tool_start",
+      "agentRunId": "real-codex-approval",
+      "sequence": 33,
+      "createdAt": "2026-05-21T12:00:43.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-023",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"nl -ba compositions/app-showcase.html | sed -n '10,25p;372,390p'\"",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "nl -ba compositions/app-showcase.html | sed -n '10,25p;372,390p'",
+            "name": "app-showcase.html",
+            "path": "/Users/motion/sanitized"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-approval-event-525",
+      "type": "tool_end",
+      "agentRunId": "real-codex-approval",
+      "sequence": 34,
+      "createdAt": "2026-05-21T12:00:44.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-023",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"nl -ba compositions/app-showcase.html | sed -n '10,25p;372,390p'\"",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "nl -ba compositions/app-showcase.html | sed -n '10,25p;372,390p'",
+            "name": "app-showcase.html",
+            "path": "/Users/motion/sanitized"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "    10\t        padding: 0;\n    11\t        box-sizing: border-box;\n    12\t      }\n    13\t      html,\n    14\t      body {\n    15\t        margin: 0;\n    16\t        width: 1920px;\n    17\t        height: 1080px;\n    18\t        overflow: hidden;\n    19\t        background-color: #22c55e;\n    20\t      }\n    21\t    </style>\n  ...",
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-approval-event-526",
+      "type": "file_change",
+      "agentRunId": "real-codex-approval",
+      "sequence": 35,
+      "createdAt": "2026-05-21T12:00:45.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/compositions/app-showcase.html b/compositions/app-showcase.html\nindex a5c52bcdd3ecfc08b35bb5ab574f7492ebc0124f..f3b2d6cfb10ce045b98cbf4fed1a37740d093a5b\n--- a/compositions/app-showcase.html\n+++ b/compositions/app-showcase.html\n@@ -16,7 +16,7 @@\n         width: 1920px;\n         height: 1080px;\n         ove..."
+      }
+    },
+    {
+      "id": "real-codex-approval-event-527",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-approval",
+      "sequence": 36,
+      "createdAt": "2026-05-21T12:00:46.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-024",
+      "payload": {
+        "delta": "Done"
+      }
+    },
+    {
+      "id": "real-codex-approval-event-619",
+      "type": "file_change",
+      "agentRunId": "real-codex-approval",
+      "sequence": 37,
+      "createdAt": "2026-05-21T12:00:18.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/compositions/app-showcase.html b/compositions/app-showcase.html\nindex a5c52bcdd3ecfc08b35bb5ab574f7492ebc0124f..f3b2d6cfb10ce045b98cbf4fed1a37740d093a5b\n--- a/compositions/app-showcase.html\n+++ b/compositions/app-showcase.html\n@@ -16,7 +16,7 @@\n         width: 1920px;\n         height: 1080px;\n         ove..."
+      }
+    },
+    {
+      "id": "real-codex-approval-event-620",
+      "type": "status",
+      "agentRunId": "real-codex-approval",
+      "sequence": 38,
+      "createdAt": "2026-05-21T12:00:19.000Z",
+      "provider": "codex",
+      "providerType": null,
+      "providerId": null,
+      "payload": {
+        "status": "completed"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 1,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 2,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "pending",
+          "title": "Verifying preview"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 3,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 4,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 5,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 6,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file, 1 search"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 7,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after reasoning item/reasoning/summaryTextDelta",
+      "eventCount": 8,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 9,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 10,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "pending",
+          "title": "Updating composition"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 11,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after reasoning item/reasoning/summaryTextDelta",
+      "eventCount": 14,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 15,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 16,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 search"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 17,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 18,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "pending",
+          "title": "Checking project"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 19,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 20,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 22,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 23,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "pending",
+          "title": "Checking project"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 24,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after reasoning item/reasoning/summaryTextDelta",
+      "eventCount": 26,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 27,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 28,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "verification",
+          "status": "pending",
+          "title": "Checking project"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 32,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 33,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 34,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 36,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after file_change turn/diff/updated",
+      "eventCount": 37,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 search"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "error",
+          "title": "Checked project"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    }
+  ]
+}

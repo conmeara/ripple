@@ -35,40 +35,8 @@ export interface ToolMeta {
   variant: ToolVariant
 }
 
-const PLANNING_LABELS = [
-  "Crafting...",
-  "Whirring...",
-  "Imagining...",
-  "Cooking...",
-  "Sussing...",
-  "Unravelling...",
-  "Creating...",
-  "Spinning...",
-  "Computing...",
-  "Synthesizing...",
-  "Manifesting...",
-]
-
-function hashString(value: string): number {
-  let hash = 2166136261
-  for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i)
-    hash = Math.imul(hash, 16777619)
-  }
-  return hash >>> 0
-}
-
-function getStablePlanningLabel(part: any): string {
-  const seed =
-    part?.planningSessionId ??
-    part?.sessionId ??
-    part?.subChatId ??
-    part?.chatId ??
-    part?.messageId ??
-    part?.id ??
-    "planning"
-
-  return PLANNING_LABELS[hashString(String(seed)) % PLANNING_LABELS.length]
+function getStablePlanningLabel(_part: any): string {
+  return "Thinking"
 }
 
 export function getToolStatus(part: any, chatStatus?: string) {
@@ -617,16 +585,8 @@ export const AgentToolRegistry: Record<string, ToolMeta> = {
   // Extended Thinking
   "tool-Thinking": {
     icon: SparklesIcon,
-    title: (part) => {
-      const isPending =
-        part.state !== "output-available" && part.state !== "output-error"
-      return isPending ? "Thinking..." : "Thought"
-    },
-    subtitle: (part) => {
-      const text = part.input?.text || ""
-      // Show first 50 chars as preview
-      return text.length > 50 ? text.slice(0, 47) + "..." : text
-    },
+    title: () => "Thinking",
+    subtitle: () => "",
     variant: "collapsible",
   },
 }

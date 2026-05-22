@@ -10,11 +10,6 @@ export type JsonRpcMessage = {
 }
 
 const CODEX_ACTIVITY_SOURCE = "codex_app_server"
-const REASONING_DELTA_METHODS = new Set([
-  "item/reasoning/summaryTextDelta",
-  "item/reasoning/textDelta",
-  "item/plan/delta",
-])
 const TOOL_OUTPUT_DELTA_METHODS = new Set([
   "item/commandExecution/outputDelta",
   "item/fileChange/outputDelta",
@@ -38,6 +33,7 @@ function withActivity(
       kind: options.kind,
       label: options.label,
       source: CODEX_ACTIVITY_SOURCE,
+      refs: event.refs,
     }),
   ]
 }
@@ -229,14 +225,27 @@ export function normalizeCodexAppServerNotification(
   const params = message.params ?? {}
   const item = params.item
   const providerId = item?.id ?? params.itemId ?? params.turnId ?? params.turn?.id ?? null
+  const providerRefs = (event: AgentRunEventInput): AgentRunEventInput => ({
+    ...event,
+    refs: {
+      rawProviderMethod: message.method ?? null,
+      rawPayload: params,
+      requestId: message.id !== undefined ? String(message.id) : null,
+      turnId: params.turnId ?? params.turn?.id ?? null,
+      itemId: item?.id ?? params.itemId ?? event.providerId ?? null,
+      ...(event.refs ?? {}),
+    },
+  })
+  const finalize = (events: AgentRunEventInput[]): AgentRunEventInput[] =>
+    events.map(providerRefs)
 
   if (message.method === "turn/started") {
-    return withActivity({
+    return finalize(withActivity({
       type: "status",
       providerType: message.method,
       providerId,
       payload: { status: "running" },
-    }, { kind: "thinking" })
+    }, { kind: "thinking" }))
   }
 
   if (message.method === "sessionConfigured") {
@@ -244,7 +253,7 @@ export function normalizeCodexAppServerNotification(
     const mcpServers = extractMcpServers(params)
     const plugins = extractSessionArray(params, "plugins", "pluginNames")
     const skills = extractSessionArray(params, "skills", "skillNames")
-    return [{
+    return finalize([{
       type: "status",
       providerType: message.method,
       providerId: params.sessionId ?? null,
@@ -263,11 +272,11 @@ export function normalizeCodexAppServerNotification(
           connectors: params.connectors,
         },
       },
-    }]
+    }])
   }
 
   if (message.method === "thread/tokenUsage/updated") {
-    return [{
+    return finalize([{
       type: "usage",
       providerType: message.method,
       providerId,
@@ -275,50 +284,80 @@ export function normalizeCodexAppServerNotification(
         tokenUsage: params.tokenUsage,
         modelContextWindow: params.tokenUsage?.modelContextWindow,
       },
-    }]
+    }])
   }
 
   if (message.method === "item/agentMessage/delta") {
-    return withActivity({
+    return finalize(withActivity({
       type: "assistant_text_delta",
       providerType: message.method,
       providerId: params.itemId,
       payload: { delta: String(params.delta ?? "") },
-    }, { kind: "writing" })
+    }, { kind: "writing" }))
   }
 
-  if (REASONING_DELTA_METHODS.has(message.method ?? "")) {
-    return withActivity({
+  // Codex emits two distinct reasoning streams: a short, human-readable summary
+  // (sectioned by summaryIndex) meant as a headline, and the full reasoning text.
+  // Keep them separate so the UI can show the summary as the "thinking" headline
+  // and reveal the full text only on demand.
+  if (message.method === "item/reasoning/summaryTextDelta") {
+    return finalize(withActivity({
       type: "reasoning",
       providerType: message.method,
       providerId: params.itemId,
-      payload: { delta: String(params.delta ?? "") },
-    }, { kind: "thinking" })
+      payload: {
+        delta: String(params.delta ?? ""),
+        streamKind: "reasoning_summary",
+        summaryIndex: params.summaryIndex,
+      },
+    }, { kind: "thinking" }))
+  }
+
+  if (message.method === "item/reasoning/textDelta") {
+    return finalize(withActivity({
+      type: "reasoning",
+      providerType: message.method,
+      providerId: params.itemId,
+      payload: {
+        delta: String(params.delta ?? ""),
+        streamKind: "reasoning_text",
+        contentIndex: params.contentIndex,
+      },
+    }, { kind: "thinking" }))
+  }
+
+  if (message.method === "item/plan/delta") {
+    return finalize(withActivity({
+      type: "reasoning",
+      providerType: message.method,
+      providerId: params.itemId,
+      payload: { delta: String(params.delta ?? ""), streamKind: "reasoning_text" },
+    }, { kind: "thinking" }))
   }
 
   if (message.method === "item/started") {
     const toolName = getToolName(item)
     if (!toolName) return []
     const payload = toolPayload(item)
-    return withActivity({
+    return finalize(withActivity({
       type: "tool_start",
       providerType: message.method,
       providerId,
       payload,
-    }, { payload })
+    }, { payload }))
   }
 
   if (TOOL_OUTPUT_DELTA_METHODS.has(message.method ?? "")) {
-    return withActivity({
+    return finalize(withActivity({
       type: "tool_update",
       providerType: message.method,
       providerId: params.itemId,
       payload: { delta: String(params.delta ?? "") },
-    })
+    }))
   }
 
   if (message.method === "item/commandExecution/terminalInteraction") {
-    return withActivity({
+    return finalize(withActivity({
       type: "tool_update",
       providerType: message.method,
       providerId: params.itemId,
@@ -327,16 +366,16 @@ export function normalizeCodexAppServerNotification(
         stdin: params.stdin,
         processId: params.processId,
       },
-    })
+    }))
   }
 
   if (message.method === "item/mcpToolCall/progress") {
-    return withActivity({
+    return finalize(withActivity({
       type: "tool_update",
       providerType: message.method,
       providerId: params.itemId,
       payload: { message: String(params.message ?? "") },
-    })
+    }))
   }
 
   if (message.method === "item/completed") {
@@ -362,20 +401,20 @@ export function normalizeCodexAppServerNotification(
       }, { payload }))
     }
 
-    return events
+    return finalize(events)
   }
 
   if (message.method === "turn/diff/updated") {
-    return withActivity({
+    return finalize(withActivity({
       type: "file_change",
       providerType: message.method,
       providerId: params.turnId,
       payload: { diff: params.diff },
-    }, { kind: "editing" })
+    }, { kind: "editing" }))
   }
 
   if (message.method === "thread/compacted") {
-    return withActivity({
+    return finalize(withActivity({
       type: "status",
       providerType: message.method,
       providerId: params.turnId,
@@ -383,12 +422,12 @@ export function normalizeCodexAppServerNotification(
         status: "running",
         label: "Compacted context",
       },
-    }, { kind: "preparing", label: "Preparing context" })
+    }, { kind: "preparing", label: "Preparing context" }))
   }
 
   if (message.method === "warning") {
     const messageText = String(params.message ?? "Codex reported a warning.")
-    return [{
+    return finalize([{
       type: "status",
       providerType: message.method,
       providerId: params.threadId ?? providerId,
@@ -398,11 +437,11 @@ export function normalizeCodexAppServerNotification(
         message: messageText,
         threadId: params.threadId,
       },
-    }]
+    }])
   }
 
   if (message.method === "configWarning") {
-    return [{
+    return finalize([{
       type: "status",
       providerType: message.method,
       providerId,
@@ -413,11 +452,11 @@ export function normalizeCodexAppServerNotification(
         path: params.path,
         range: params.range,
       },
-    }]
+    }])
   }
 
   if (message.method === "windows/worldWritableWarning") {
-    return [{
+    return finalize([{
       type: "status",
       providerType: message.method,
       providerId,
@@ -426,15 +465,15 @@ export function normalizeCodexAppServerNotification(
         label: "Codex warned about a writable directory",
         details: params,
       },
-    }]
+    }])
   }
 
   if (message.method === "error") {
-    return [{
+    return finalize([{
       type: "error",
       providerType: message.method,
       payload: params,
-    }]
+    }])
   }
 
   return []

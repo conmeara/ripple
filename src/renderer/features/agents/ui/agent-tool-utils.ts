@@ -111,9 +111,12 @@ function isToolCompleted(part: any): boolean {
  * OPTIMIZATION: Completed tools don't re-render on chatStatus changes.
  */
 export function areToolPropsEqual(
-  prevProps: { part: any; chatStatus?: string },
-  nextProps: { part: any; chatStatus?: string },
+  prevProps: { part: any; chatStatus?: string; compact?: boolean; forceChevronVisible?: boolean },
+  nextProps: { part: any; chatStatus?: string; compact?: boolean; forceChevronVisible?: boolean },
 ): boolean {
+  if (prevProps.compact !== nextProps.compact) return false
+  if (prevProps.forceChevronVisible !== nextProps.forceChevronVisible) return false
+
   // First check if the tool data itself changed
   const partsEqual = arePartsEqual(prevProps.part, nextProps.part)
 

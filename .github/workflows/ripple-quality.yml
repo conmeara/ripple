@@ -48,6 +48,9 @@ jobs:
       - name: Run Ripple regression suite
         run: bun run test:ripple
 
+      - name: Run agent runtime UI fixture smoke
+        run: bun run test:agent-ui:e2e
+
       - name: Run Electron UX automation
         run: bun run test:e2e
 

@@ -282,7 +282,7 @@ function CrossProviderConfirmDialog({
                     Switch to {providerName}
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    To use a different agent, a new chat will be created with your current conversation history attached.
+                    To use a different agent, a clean new chat will be created for this project.
                   </p>
                 </div>
                 <div className="bg-muted p-4 flex items-center justify-between border-t border-border rounded-b-xl">

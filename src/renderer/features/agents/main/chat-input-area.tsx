@@ -1303,7 +1303,6 @@ export const ChatInputArea = memo(function ChatInputArea({
                         filename={pt.filename}
                         size={pt.size}
                         preview={pt.preview}
-                        kind={pt.kind}
                         onRemove={onRemovePastedText ? () => onRemovePastedText(pt.id) : undefined}
                       />
                     ))}

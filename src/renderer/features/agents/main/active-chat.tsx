@@ -69,7 +69,6 @@ import {
   isDesktopAtom, isFullscreenAtom,
   normalizeCustomClaudeConfig,
   sessionInfoAtom,
-  selectedOllamaModelAtom,
   soundNotificationsEnabledAtom
 } from "../../../lib/atoms"
 import { useFileChangeListener, useGitWatcher } from "../../../lib/hooks/use-file-change-listener"
@@ -137,8 +136,6 @@ import {
   pendingAuthRetryMessageAtom,
   pendingBuildPlanSubChatIdAtom,
   pendingConflictResolutionMessageAtom,
-  pendingChatHistoryAtom,
-  type PendingChatHistory,
   pendingMentionAtom,
   pendingPlanApprovalsAtom,
   pendingPrMessageAtom,
@@ -188,7 +185,6 @@ import {
   AgentRuntimeChatTransport,
   type AgentRuntimeChatContext,
 } from "../lib/agent-runtime-chat-transport"
-import { formatHistoryForContext } from "../lib/export-chat"
 import {
   clearSubChatDraft,
   getSubChatDraftFull
@@ -2427,21 +2423,11 @@ const ChatViewInner = memo(function ChatViewInner({
   const {
     pastedTexts,
     addPastedText,
-    addChatHistoryFile,
     removePastedText,
     clearPastedTexts,
     pastedTextsRef,
     setPastedTextsFromDraft,
   } = usePastedTextFiles(subChatId)
-
-  // Consume pending chat history file when this sub-chat is the target
-  useEffect(() => {
-    const pending = appStore.get(pendingChatHistoryAtom)
-    if (pending && pending.subChatId === subChatId) {
-      addChatHistoryFile(pending.file)
-      appStore.set(pendingChatHistoryAtom, null)
-    }
-  }, [subChatId, addChatHistoryFile])
 
   // File contents cache - stores content for file mentions (keyed by mentionId)
   // This content gets added to the prompt when sending, without showing a separate card
@@ -3472,6 +3458,8 @@ const ChatViewInner = memo(function ChatViewInner({
             }
           }
           mentionsToRemove.push(match[0])
+        } else if (id.startsWith("chatHistory:")) {
+          mentionsToRemove.push(match[0])
         }
       }
 
@@ -4134,12 +4122,11 @@ const ChatViewInner = memo(function ChatViewInner({
         return `@[${MENTION_PREFIXES.DIFF}${dtc.filePath}:${lineNum}:${preview}:${encodedText}]`
       })
 
-      // Add pasted text / chat history as mentions (format: prefix:size:preview|filepath)
+      // Add pasted text as mentions (format: pasted:size:preview|filepath)
       // Using | as separator since filepath can contain colons
       const pastedTextMentions = currentPastedTexts.map((pt) => {
         const sanitizedPreview = pt.preview.replace(/[:\[\]|]/g, "")
-        const prefix = pt.kind === "chatHistory" ? MENTION_PREFIXES.CHAT_HISTORY : MENTION_PREFIXES.PASTED
-        return `@[${prefix}${pt.size}:${sanitizedPreview}|${pt.filePath}]`
+        return `@[${MENTION_PREFIXES.PASTED}${pt.size}:${sanitizedPreview}|${pt.filePath}]`
       })
 
       mentionPrefix = [...quoteMentions, ...diffMentions, ...pastedTextMentions].join(" ") + " "
@@ -4293,12 +4280,11 @@ const ChatViewInner = memo(function ChatViewInner({
         mentionPrefix += diffMentions.join(" ") + " "
       }
 
-      // Add pasted text / chat history as mentions
+      // Add pasted text as mentions
       if (item.pastedTexts && item.pastedTexts.length > 0) {
         const pastedMentions = item.pastedTexts.map((pt) => {
           const sanitizedPreview = pt.preview.replace(/[:\[\]|]/g, "")
-          const prefix = pt.kind === "chatHistory" ? MENTION_PREFIXES.CHAT_HISTORY : MENTION_PREFIXES.PASTED
-          return `@[${prefix}${pt.size}:${sanitizedPreview}|${pt.filePath}]`
+          return `@[${MENTION_PREFIXES.PASTED}${pt.size}:${sanitizedPreview}|${pt.filePath}]`
         })
         mentionPrefix += pastedMentions.join(" ") + " "
       }
@@ -4678,7 +4664,8 @@ const ChatViewInner = memo(function ChatViewInner({
     [onProviderChange, subChatId],
   )
 
-  // Continue conversation with a different provider - creates new sub-chat with history attachment
+  // Continue with a different provider in a clean sub-chat. The runtime owns
+  // provider history bridging; the UI should not attach visible history files.
   const isContinuingRef = useRef(false)
   const handleContinueWithProvider = useCallback(
     async (targetProvider: "claude-code" | "codex") => {
@@ -4687,16 +4674,6 @@ const ChatViewInner = memo(function ChatViewInner({
       isContinuingRef.current = true
 
       try {
-        // 1. Format current messages as markdown
-        const historyMarkdown = formatHistoryForContext(messages as any)
-
-        // 2. Save to disk via writePastedText endpoint
-        const result = await trpcClient.files.writePastedText.mutate({
-          subChatId,
-          text: historyMarkdown,
-        })
-
-        // 3. Create new sub-chat
         const newSubChat = await trpcClient.chats.createSubChat.mutate({
           chatId: parentChatId,
           name: "New Chat",
@@ -4719,19 +4696,6 @@ const ChatViewInner = memo(function ChatViewInner({
           appStore.get(subChatCodexThinkingAtomFamily(subChatId)),
         )
 
-        // 4. Store pending chat history for the new sub-chat to consume on mount
-        const historyFile: PendingChatHistory["file"] = {
-          id: `chatHistory_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-          filePath: result.filePath,
-          filename: result.filename,
-          size: result.size,
-          preview: subChatNameRef.current?.trim() || "Previous Chat",
-          createdAt: new Date(),
-          kind: "chatHistory",
-        }
-        appStore.set(pendingChatHistoryAtom, { subChatId: newId, file: historyFile })
-
-        // 5. Update Zustand store and switch to new tab
         const store = useAgentSubChatStore.getState()
         store.addToAllSubChats({
           id: newId,
@@ -4743,7 +4707,7 @@ const ChatViewInner = memo(function ChatViewInner({
         store.addToOpenSubChats(newId)
         store.setActiveSubChat(newId)
 
-        // 6. Set provider override AFTER tab switch so the outer component picks it up
+        // Set provider override after tab switch so the outer component picks it up.
         // We call onProviderChange which sets subChatProviderOverrides in the outer scope
         // The new sub-chat has 0 messages so the guard in handleProviderChange will pass
         onProviderChange?.(newId, targetProvider)
@@ -5081,7 +5045,6 @@ export function ChatView({
   const isFullscreen = useAtomValue(isFullscreenAtom)
   const sidebarOpen = useAtomValue(agentsSidebarOpenAtom)
   const customClaudeConfig = useAtomValue(customClaudeConfigAtom)
-  const selectedOllamaModel = useAtomValue(selectedOllamaModelAtom)
   const normalizedCustomClaudeConfig =
     normalizeCustomClaudeConfig(customClaudeConfig)
   const hasCustomClaudeConfig = Boolean(normalizedCustomClaudeConfig)
@@ -7669,7 +7632,14 @@ Make sure to preserve all functionality from both branches when resolving confli
         userMessage,
         isFirstSubChat: isFirst,
         generateName: async (msg) => {
-          return generateSubChatNameMutation.mutateAsync({ userMessage: msg, ollamaModel: selectedOllamaModel })
+          return generateSubChatNameMutation.mutateAsync({
+            userMessage: msg,
+            chatId,
+            subChatId,
+            context: {
+              projectName: selectedProject?.name ?? null,
+            },
+          })
         },
         renameSubChat: async (input) => {
           await renameSubChatMutation.mutateAsync(input)
@@ -7744,8 +7714,8 @@ Make sure to preserve all functionality from both branches when resolving confli
       generateSubChatNameMutation,
       renameSubChatMutation,
       renameChatMutation,
+      selectedProject?.name,
       selectedTeamId,
-      selectedOllamaModel,
       utils.agents.getAgentChats,
       utils.agents.getAgentChat,
     ],

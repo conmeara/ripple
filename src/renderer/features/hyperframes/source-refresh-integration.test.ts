@@ -60,4 +60,36 @@ describe("HyperFrames source refresh integration", () => {
     expect(source).toContain("setSourceRefreshVersion((version) => version + 1)")
     expect(source).toContain("buildHyperframesPlayerFetchUrl(narrowedSourceUrl, refreshVersion)")
   })
+
+  test("keeps non-interactive preview DOM out of accessibility snapshots", () => {
+    const player = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesPreviewPlayer.tsx",
+      "utf8",
+    )
+    const adapter = readFileSync(
+      "src/renderer/features/hyperframes/timeline-player-adapter.ts",
+      "utf8",
+    )
+    const thumbnails = readFileSync(
+      "src/renderer/features/hyperframes/HyperFramesProjectPane.tsx",
+      "utf8",
+    )
+    const prewarm = readFileSync(
+      "src/renderer/features/hyperframes/preview-coordinator.ts",
+      "utf8",
+    )
+
+    expect(player).toContain('role="img"')
+    expect(player).toContain('aria-label={compositionId ? `${compositionId} composition preview` : "Composition preview"}')
+    expect(player).toContain('aria-hidden="true"')
+    expect(player).toContain("inert />")
+    expect(adapter).toContain('player.setAttribute("aria-hidden", "true")')
+    expect(adapter).toContain('player.setAttribute("inert", "")')
+    expect(adapter).toContain('player.setAttribute("tabindex", "-1")')
+    expect(thumbnails).toContain('aria-hidden="true"')
+    expect(thumbnails).toContain("inert")
+    expect(thumbnails).toContain("tabIndex={-1}")
+    expect(prewarm).toContain('prewarmHost.setAttribute("aria-hidden", "true")')
+    expect(prewarm).toContain('prewarmHost.setAttribute("inert", "")')
+  })
 })

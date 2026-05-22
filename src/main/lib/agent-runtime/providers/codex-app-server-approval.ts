@@ -1,5 +1,5 @@
 import { resolve } from "node:path"
-import { isPathInsideDirectory } from "../../ripple-projects/paths"
+import { isProjectLocalPath } from "./approval-path-boundary"
 
 type CodexAppServerApprovalDecision =
   | "accept"
@@ -31,7 +31,10 @@ const SHELL_CONTROL_CHARS = new Set([";", "&", "|", "<", ">", "\n", "\r"])
 function isWorkspacePath(value: unknown, cwd: string): boolean {
   if (typeof value !== "string" || !value.trim()) return false
   const candidate = resolve(cwd, value)
-  return isPathInsideDirectory(cwd, candidate)
+  return isProjectLocalPath({
+    workspaceRoot: cwd,
+    candidatePath: candidate,
+  })
 }
 
 function hasShellControlOperator(command: string): boolean {
@@ -283,6 +286,29 @@ export function isCodexAppServerAutoApprovedVisualCommand(input: {
     !assessment.requestedNetwork &&
     assessment.requestedPermissionPaths.length === 0 &&
     assessment.unsupportedPermissionReferences.length === 0
+}
+
+export function isCodexAppServerProjectLocalAutoApprovedRequest(input: {
+  params: any
+  workspaceRoot: string
+  assessment?: CodexAppServerApprovalAssessment
+  paths?: string[]
+}): boolean {
+  const assessment = input.assessment ??
+    assessCodexAppServerApprovalRequest({
+      params: input.params,
+      workspaceRoot: input.workspaceRoot,
+    })
+
+  if (!assessment.canApprove) return false
+  if (assessment.approvalWarning) return false
+  if (assessment.requestedNetwork) return false
+  if (assessment.unsupportedPermissionReferences.length > 0) return false
+
+  const paths = input.paths ?? []
+  if (approvalBoundaryWarning(paths, input.workspaceRoot)) return false
+
+  return true
 }
 
 export function buildCodexPermissionApprovalResponse(input: {

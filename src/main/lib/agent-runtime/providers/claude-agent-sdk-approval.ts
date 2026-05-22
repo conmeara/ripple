@@ -3,6 +3,8 @@ import type {
   AgentProviderApprovalKind,
   AgentProviderApprovalRequestInput,
 } from "../types"
+import { resolve } from "node:path"
+import { isProjectLocalPath } from "./approval-path-boundary"
 
 const CLAUDE_AUTO_ALLOWED_VISUAL_CONTEXT =
   /^ripple\s+(?:snapshot|frame-sheet)(?:\s|$)/
@@ -60,6 +62,14 @@ function commandFromToolInput(input: Record<string, unknown>): string | null {
   )
 }
 
+function isWorkspacePath(value: unknown, workspaceRoot: string): boolean {
+  if (typeof value !== "string" || !value.trim()) return false
+  return isProjectLocalPath({
+    workspaceRoot,
+    candidatePath: resolve(workspaceRoot, value),
+  })
+}
+
 function hasShellControlOperator(command: string): boolean {
   let inSingleQuote = false
   let inDoubleQuote = false
@@ -104,6 +114,55 @@ export function isRippleClaudeAutoAllowedTool(
   const command = commandFromToolInput(toolInput)
   if (!command || hasShellControlOperator(command)) return false
   return CLAUDE_AUTO_ALLOWED_VISUAL_CONTEXT.test(command)
+}
+
+function toolInputPaths(toolInput: Record<string, unknown>): string[] {
+  const paths: string[] = []
+  for (const key of ["file_path", "path", "notebook_path"]) {
+    const value = toolInput[key]
+    if (typeof value === "string" && value.trim()) paths.push(value)
+  }
+  return Array.from(new Set(paths))
+}
+
+function hasOutsideBlockedPath(
+  options: ClaudePermissionOptions,
+  workspaceRoot: string,
+): boolean {
+  return Boolean(options.blockedPath && !isWorkspacePath(options.blockedPath, workspaceRoot))
+}
+
+export function isRippleClaudeProjectLocalAutoAllowedTool(input: {
+  toolName: string
+  toolInput: Record<string, unknown>
+  options: ClaudePermissionOptions
+  workspaceRoot: string
+}): boolean {
+  if (isRippleClaudeAutoAllowedTool(input.toolName, input.toolInput)) return true
+  if (input.toolName === "AskUserQuestion") return false
+  if (looksNetworkRelated(input.toolName, input.toolInput, input.options)) return false
+  if (hasOutsideBlockedPath(input.options, input.workspaceRoot)) return false
+
+  if (input.toolName === "Bash") {
+    return Boolean(commandFromToolInput(input.toolInput))
+  }
+
+  if (
+    input.toolName === "Edit" ||
+    input.toolName === "MultiEdit" ||
+    input.toolName === "Write" ||
+    input.toolName === "NotebookEdit" ||
+    input.toolName === "Read" ||
+    input.toolName === "Grep" ||
+    input.toolName === "Glob" ||
+    input.toolName === "LS"
+  ) {
+    const paths = toolInputPaths(input.toolInput)
+    return paths.length === 0 ||
+      paths.every((path) => isWorkspacePath(path, input.workspaceRoot))
+  }
+
+  return false
 }
 
 function looksNetworkRelated(

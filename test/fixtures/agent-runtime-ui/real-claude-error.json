@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "provider": "claude",
+    "model": "sonnet",
+    "runKind": "chat",
+    "status": "failed",
+    "originalEventCount": 14,
+    "selectedEventCount": 3,
+    "note": "Sanitized from a real local Ripple Dev run. Prompt summary: hi"
+  },
+  "projectPath": "/Users/motion/Ripple Projects/Fixture Project",
+  "events": [
+    {
+      "id": "real-claude-error-event-008",
+      "type": "assistant_message",
+      "agentRunId": "real-claude-error",
+      "sequence": 1,
+      "createdAt": "2026-05-21T12:00:07.000Z",
+      "provider": "claude",
+      "providerType": "assistant",
+      "providerId": "fixture-id-003",
+      "payload": {
+        "text": "You're out of extra usage · resets 3pm (America/Los_Angeles)",
+        "providerRefs": {
+          "createdAt": "2026-05-21T18:25:22.401Z",
+          "provider": "claude",
+          "runId": "real-claude-error",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-003",
+          "providerId": "fixture-id-003",
+          "providerType": "assistant",
+          "rawProviderMethod": "assistant",
+          "eventId": "real-claude-error-event-008",
+          "sequence": 8
+        }
+      }
+    },
+    {
+      "id": "real-claude-error-event-011",
+      "type": "error",
+      "agentRunId": "real-claude-error",
+      "sequence": 2,
+      "createdAt": "2026-05-21T12:00:10.000Z",
+      "provider": "claude",
+      "providerType": null,
+      "providerId": null,
+      "payload": {
+        "message": "success",
+        "providerRefs": {
+          "createdAt": "2026-05-21T18:25:22.403Z",
+          "provider": "claude",
+          "runId": "real-claude-error",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": null,
+          "providerId": null,
+          "providerType": null,
+          "rawProviderMethod": "error",
+          "eventId": "real-claude-error-event-011",
+          "sequence": 11
+        }
+      }
+    },
+    {
+      "id": "real-claude-error-event-014",
+      "type": "status",
+      "agentRunId": "real-claude-error",
+      "sequence": 3,
+      "createdAt": "2026-05-21T12:00:13.000Z",
+      "provider": "claude",
+      "providerType": null,
+      "providerId": null,
+      "payload": {
+        "status": "failed",
+        "providerRefs": {
+          "createdAt": "2026-05-21T18:25:22.405Z",
+          "provider": "claude",
+          "runId": "real-claude-error",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": null,
+          "providerId": null,
+          "providerType": null,
+          "rawProviderMethod": "status",
+          "eventId": "real-claude-error-event-014",
+          "sequence": 14
+        }
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "name": "after assistant_message assistant",
+      "eventCount": 1,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after error",
+      "eventCount": 2,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    }
+  ]
+}

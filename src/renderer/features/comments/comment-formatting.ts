@@ -75,9 +75,24 @@ export function formatRevisionResultLine(
     const maxLength = Object.prototype.hasOwnProperty.call(options, "maxLength")
       ? options.maxLength ?? null
       : 160
-    return compactCommentLine(summary.summary, maxLength)
+    return compactCommentLine(designerFacingRevisionLine(summary.summary), maxLength)
   }
   return null
+}
+
+function designerFacingRevisionLine(value: string): string {
+  const compact = compactCommentLine(value, null)
+  switch (compact) {
+    case "Agent is thinking":
+    case "Agent is working":
+      return "Planning the change"
+    case "Editing files":
+      return "Updating composition"
+    case "Updating against Main":
+      return "Refreshing proposal"
+    default:
+      return compact
+  }
 }
 
 const REVISION_STATUSES_WITH_SUMMARY_LINES = new Set<RippleRevisionStatus>([
@@ -106,13 +121,13 @@ function canShowRevisionSummaryLine(
 export function revisionStatusLabel(status: RippleRevisionStatus): string {
   switch (status) {
     case "queued":
-      return "Agent is thinking"
+      return "Planning the change"
     case "preparing":
       return "Preparing the composition"
     case "running":
-      return "Editing files"
+      return "Updating composition"
     case "updating":
-      return "Updating against Main"
+      return "Refreshing proposal"
     case "needs_update":
       return "Refresh needed"
     case "proposed":

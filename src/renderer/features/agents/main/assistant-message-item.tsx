@@ -26,15 +26,25 @@ import { AgentExploringGroup } from "../ui/agent-exploring-group"
 import { AgentTaskToolsGroup } from "../ui/agent-task-tools"
 import { AgentPlanFileTool } from "../ui/agent-plan-file-tool"
 import { isPlanFile } from "../ui/agent-tool-utils"
-import {
-  AgentMessageUsage,
-  type AgentMessageMetadata,
-} from "../ui/agent-message-usage"
+import type { AgentMessageMetadata } from "../ui/agent-message-usage"
+import { AgentMotionRuntimeFeed } from "../ui/agent-motion-runtime-feed"
 import { AgentPlanTool } from "../ui/agent-plan-tool"
 import { AgentTaskTool } from "../ui/agent-task-tool"
 import { AgentThinkingTool } from "../ui/agent-thinking-tool"
 import { AgentTodoTool } from "../ui/agent-todo-tool"
 import { AgentMcpToolCall } from "../ui/agent-mcp-tool-call"
+import {
+  buildMotionRuntimeTimeline,
+  displayThoughtText,
+  isMotionRuntimeActivityPart,
+  shouldHideMotionRuntimeInterimPart,
+  shouldShowMotionRuntimeThinkingFallback,
+} from "../ui/motion-runtime-activity"
+import {
+  approvalSummaryLines,
+  approvalTitle,
+  shouldHideResolvedProjectLocalApproval,
+} from "../ui/agent-runtime-approval-copy"
 import { AgentToolCall } from "../ui/agent-tool-call"
 import {
   AgentToolRegistry,
@@ -49,7 +59,6 @@ import {
   getMessageTextContent,
 } from "../ui/message-action-buttons"
 import { useFileOpen } from "../mentions"
-import { GitActivityBadges } from "../ui/git-activity-badges"
 import { ForkContext } from "./isolated-message-group"
 import { MemoizedTextPart } from "./memoized-text-part"
 
@@ -195,6 +204,26 @@ const TASK_TOOLS = new Set([
 const STREAMING_REASONING_STATES = new Set(["streaming", "in_progress", "input-streaming"])
 const DONE_REASONING_STATES = new Set(["done", "completed", "result", "output-available"])
 const ERROR_REASONING_STATES = new Set(["error", "output-error"])
+const MOTION_RUNTIME_FALLBACK_DELAY_MS = 1800
+
+function useDelayedMotionRuntimeFallback(shouldShow: boolean): boolean {
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    if (!shouldShow) {
+      setIsVisible(false)
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setIsVisible(true)
+    }, MOTION_RUNTIME_FALLBACK_DELAY_MS)
+
+    return () => window.clearTimeout(timeout)
+  }, [shouldShow])
+
+  return shouldShow && isVisible
+}
 
 function mapReasoningStateToThinkingState(state: unknown): string {
   if (typeof state !== "string") {
@@ -216,7 +245,7 @@ function getThinkingText(part: any): string {
 
 function toThinkingToolPart(part: any, messageId: string | undefined, index: number): any {
   const normalizedState = mapReasoningStateToThinkingState(part.state)
-  const text = getThinkingText(part)
+  const text = displayThoughtText(getThinkingText(part))
   const normalizedPart = {
     ...part,
     type: "tool-Thinking",
@@ -277,58 +306,6 @@ function stringifyApprovalValue(value: unknown): string | null {
   if (typeof value === "string" && value.trim()) return value.trim()
   if (typeof value === "number" || typeof value === "boolean") return String(value)
   return null
-}
-
-function approvalSummaryLines(payload: Record<string, any>): Array<{ label: string; value: string }> {
-  const lines: Array<{ label: string; value: string }> = []
-  const reason = stringifyApprovalValue(payload.reason)
-  const toolName = stringifyApprovalValue(payload.toolName)
-  const command = stringifyApprovalValue(payload.command)
-  const cwd = stringifyApprovalValue(payload.cwd)
-  const blockedPath = stringifyApprovalValue(payload.blockedPath)
-  const description = stringifyApprovalValue(payload.description)
-  const serverName = stringifyApprovalValue(payload.serverName)
-  const url = stringifyApprovalValue(payload.url)
-  const networkHost = stringifyApprovalValue(payload.networkApprovalContext?.host)
-  const paths = Array.isArray(payload.paths)
-    ? payload.paths.filter((path: unknown): path is string => typeof path === "string")
-    : []
-  const requestedPaths = Array.isArray(payload.requestedPermissionPaths)
-    ? payload.requestedPermissionPaths.filter((path: unknown): path is string => typeof path === "string")
-    : []
-
-  if (reason) lines.push({ label: "Reason", value: reason })
-  if (description && description !== reason) lines.push({ label: "Details", value: description })
-  if (serverName) lines.push({ label: "Source", value: serverName })
-  if (toolName) lines.push({ label: "Tool", value: toolName })
-  if (command) lines.push({ label: "Command", value: command })
-  if (url) lines.push({ label: "URL", value: url })
-  if (networkHost) lines.push({ label: "Network", value: networkHost })
-  if (blockedPath) lines.push({ label: "Path", value: blockedPath })
-  if (cwd) lines.push({ label: "Folder", value: cwd })
-  if (paths.length > 0) lines.push({ label: "Files", value: paths.slice(0, 3).join(", ") })
-  if (requestedPaths.length > 0) {
-    lines.push({ label: "Access", value: requestedPaths.slice(0, 3).join(", ") })
-  }
-  return lines.slice(0, 5)
-}
-
-function approvalTitle(payload: Record<string, any>): string {
-  const providerName = stringifyApprovalValue(payload.providerName) ?? "Agent"
-  switch (payload.kind) {
-    case "network":
-      return `${providerName} wants network access`
-    case "command":
-      return `${providerName} wants to run a command`
-    case "file_change":
-      return `${providerName} wants to edit files`
-    case "permission":
-      return `${providerName} wants more access`
-    case "user_input":
-      return `${providerName} asked for input`
-    default:
-      return "Agent approval requested"
-  }
 }
 
 type RuntimeApprovalQuestion = {
@@ -429,6 +406,8 @@ function AgentRuntimeApprovalCard({ data }: { data: any }) {
       })
       if (result.ok) {
         setStatus(approved ? "approved" : "denied")
+      } else if (result.status === "cancelled") {
+        setStatus("cancelled")
       } else {
         setStatus("unavailable")
       }
@@ -454,7 +433,7 @@ function AgentRuntimeApprovalCard({ data }: { data: any }) {
     <div className="mx-2 my-1 rounded-md border border-border bg-muted/25 px-2.5 py-2 text-xs">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="font-medium text-foreground">{approvalTitle(payload)}</div>
+          <div className="font-medium text-foreground">{approvalTitle(payload, status)}</div>
           <div className="text-muted-foreground">{statusLabel}</div>
         </div>
         {canRespond && !isQuestionPrompt && (
@@ -626,6 +605,11 @@ function groupTaskTools(parts: any[], nestedToolIds: Set<string>): any[] {
   return result
 }
 
+function isPlanFileEditPart(part: any): boolean {
+  if (part?.type !== "tool-Write" && part?.type !== "tool-Edit") return false
+  return isPlanFile(part.input?.file_path || "")
+}
+
 // Collapsible steps component
 interface CollapsibleStepsProps {
   stepsCount: number
@@ -721,13 +705,16 @@ function getTrackedPartTextLength(part: any): number {
   }
 
   if (part?.type === "reasoning") {
-    return typeof part.text === "string" ? part.text.length : 0
+    const textLength = typeof part.text === "string" ? part.text.length : 0
+    const summaryLength = typeof part.summary === "string" ? part.summary.length : 0
+    return textLength + summaryLength
   }
 
   if (part?.type === "tool-Thinking") {
-    if (typeof part?.input?.text === "string") return part.input.text.length
-    if (typeof part?.text === "string") return part.text.length
-    return 0
+    const labelLength = typeof part?.input?.label === "string" ? part.input.label.length : 0
+    const inputTextLength = typeof part?.input?.text === "string" ? part.input.text.length : 0
+    const textLength = typeof part?.text === "string" ? part.text.length : 0
+    return labelLength + inputTextLength + textLength
   }
 
   return -1
@@ -998,6 +985,48 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
 
   const msgMetadata = message?.metadata as AgentMessageMetadata
 
+  const motionRuntimeTimeline = useMemo(() => buildMotionRuntimeTimeline({
+    parts: messageParts,
+    projectPath,
+    includeRuntimePart: (part: any) => {
+      if (!isMotionRuntimeActivityPart(part)) return false
+      if (isPlanFileEditPart(part)) return false
+      if (part.toolCallId && nestedToolIds.has(part.toolCallId)) return false
+      if (part.toolCallId && orphanToolCallIds.has(part.toolCallId)) return false
+      return true
+    },
+  }), [messageParts, nestedToolIds, orphanToolCallIds, projectPath])
+
+  const useMotionRuntimeFeed = motionRuntimeTimeline.some((entry) => entry.kind === "runtime")
+  const shouldShowMotionRuntimeFallbackCandidate = shouldShowMotionRuntimeThinkingFallback({
+    timeline: motionRuntimeTimeline,
+    projectPath,
+    sandboxSetupStatus,
+    isStreaming,
+    isLastMessage,
+  })
+  const shouldShowMotionRuntimeFallback = useDelayedMotionRuntimeFallback(
+    shouldShowMotionRuntimeFallbackCandidate,
+  )
+  const motionRuntimeFallbackParts = useMemo(() => [
+    {
+      type: "data-agent-runtime",
+      id: `${message?.id ?? "pending"}-motion-runtime-thinking`,
+      state: "streaming",
+      data: {
+        kind: "status",
+        label: "Thinking",
+      },
+    },
+  ], [message?.id])
+  const lastRuntimeEntryKey = useMemo(() => {
+    for (let index = motionRuntimeTimeline.length - 1; index >= 0; index--) {
+      const entry = motionRuntimeTimeline[index]
+      if (entry.kind === "runtime") return entry.key
+    }
+    return null
+  }, [motionRuntimeTimeline])
+
   const renderPart = useCallback((part: any, idx: number, isFinal = false) => {
     if (part.type === "step-start") return null
     if (part.type === "tool-TaskOutput") return null
@@ -1027,6 +1056,10 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
 
     if (part.type === "data-agent-runtime") {
       if (part.data?.kind === "approval") {
+        const payload = part.data?.payload && typeof part.data.payload === "object"
+          ? part.data.payload as Record<string, any>
+          : {}
+        if (shouldHideResolvedProjectLocalApproval(payload)) return null
         return <AgentRuntimeApprovalCard key={idx} data={part.data} />
       }
       const label = getRuntimeDataLabel(part)
@@ -1213,11 +1246,87 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
       className="group/message w-full mb-4"
     >
       <div className="flex flex-col gap-1.5">
-        {shouldCollapse && visibleStepsCount > 0 && (
-          <CollapsibleSteps stepsCount={visibleStepsCount}>
+        {useMotionRuntimeFeed ? (
+          <>
+            {motionRuntimeTimeline.map((entry, timelineIndex) => {
+              if (entry.kind === "runtime") {
+                const isLastRuntimeEntry = entry.key === lastRuntimeEntryKey
+                const isRuntimeFeedLive =
+                  isStreaming &&
+                  isLastMessage &&
+                  isLastRuntimeEntry &&
+                  !shouldShowMotionRuntimeFallback
+                return (
+                  <AgentMotionRuntimeFeed
+                    key={entry.key}
+                    parts={entry.parts}
+                    events={entry.events}
+                    metadata={isLastRuntimeEntry ? msgMetadata : undefined}
+                    projectPath={projectPath}
+                    isLive={isRuntimeFeedLive}
+                  />
+                )
+              }
+              if (shouldHideMotionRuntimeInterimPart({
+                entry,
+                timeline: motionRuntimeTimeline,
+                index: timelineIndex,
+              })) {
+                return null
+              }
+              return renderPart(entry.part, entry.index, false)
+            })}
+            {shouldShowMotionRuntimeFallback && (
+              <AgentMotionRuntimeFeed
+                parts={motionRuntimeFallbackParts}
+                projectPath={projectPath}
+                isLive={true}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            {shouldCollapse && visibleStepsCount > 0 && (
+              <CollapsibleSteps stepsCount={visibleStepsCount}>
+                {(() => {
+                  // Apply both grouping functions: first task tools, then exploring tools
+                  const taskGrouped = groupTaskTools(stepParts, nestedToolIds)
+                  const grouped = groupExploringTools(taskGrouped, nestedToolIds)
+                  return grouped.map((part: any, idx: number) => {
+                    if (part.type === "exploring-group") {
+                      const isLast = idx === grouped.length - 1
+                      const isGroupStreaming = isStreaming && isLastMessage && isLast
+                      return (
+                        <AgentExploringGroup
+                          key={idx}
+                          parts={part.parts}
+                          chatStatus={status}
+                          isStreaming={isGroupStreaming}
+                        />
+                      )
+                    }
+                    if (part.type === "task-group") {
+                      const isLast = idx === grouped.length - 1
+                      const isGroupStreaming = isStreaming && isLastMessage && isLast
+                      return (
+                        <AgentTaskToolsGroup
+                          key={idx}
+                          parts={part.parts}
+                          chatStatus={status}
+                          isStreaming={isGroupStreaming}
+                          subChatId={subChatId}
+                        />
+                      )
+                    }
+                    return renderPart(part, idx, false)
+                  })
+                })()}
+              </CollapsibleSteps>
+            )}
+
             {(() => {
               // Apply both grouping functions: first task tools, then exploring tools
-              const taskGrouped = groupTaskTools(stepParts, nestedToolIds)
+              const taskGrouped = groupTaskTools(finalParts, nestedToolIds)
               const grouped = groupExploringTools(taskGrouped, nestedToolIds)
               return grouped.map((part: any, idx: number) => {
                 if (part.type === "exploring-group") {
@@ -1245,57 +1354,23 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
                     />
                   )
                 }
-                return renderPart(part, idx, false)
+                return renderPart(part, shouldCollapse ? collapseBeforeIndex + idx : idx, shouldCollapse)
               })
             })()}
-          </CollapsibleSteps>
+
+            {/* Show plan card after finalParts if any plan operation was in collapsed steps */}
+            {shouldCollapse && lastCollapsedPlanOp && (
+              <AgentPlanFileTool
+                part={lastCollapsedPlanOp.part}
+                chatStatus={status}
+                subChatId={subChatId}
+                isEdit={lastCollapsedPlanOp.type === "edit"}
+              />
+            )}
+          </>
         )}
 
-        {(() => {
-          // Apply both grouping functions: first task tools, then exploring tools
-          const taskGrouped = groupTaskTools(finalParts, nestedToolIds)
-          const grouped = groupExploringTools(taskGrouped, nestedToolIds)
-          return grouped.map((part: any, idx: number) => {
-            if (part.type === "exploring-group") {
-              const isLast = idx === grouped.length - 1
-              const isGroupStreaming = isStreaming && isLastMessage && isLast
-              return (
-                <AgentExploringGroup
-                  key={idx}
-                  parts={part.parts}
-                  chatStatus={status}
-                  isStreaming={isGroupStreaming}
-                />
-              )
-            }
-            if (part.type === "task-group") {
-              const isLast = idx === grouped.length - 1
-              const isGroupStreaming = isStreaming && isLastMessage && isLast
-              return (
-                <AgentTaskToolsGroup
-                  key={idx}
-                  parts={part.parts}
-                  chatStatus={status}
-                  isStreaming={isGroupStreaming}
-                  subChatId={subChatId}
-                />
-              )
-            }
-            return renderPart(part, shouldCollapse ? collapseBeforeIndex + idx : idx, shouldCollapse)
-          })
-        })()}
-
-        {/* Show plan card after finalParts if any plan operation was in collapsed steps */}
-        {shouldCollapse && lastCollapsedPlanOp && (
-          <AgentPlanFileTool
-            part={lastCollapsedPlanOp.part}
-            chatStatus={status}
-            subChatId={subChatId}
-            isEdit={lastCollapsedPlanOp.type === "edit"}
-          />
-        )}
-
-        {shouldShowPlanning && (
+        {!useMotionRuntimeFeed && shouldShowPlanning && (
           <AgentToolCall
             icon={AgentToolRegistry["tool-planning"].icon}
             title={AgentToolRegistry["tool-planning"].title({
@@ -1321,7 +1396,6 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
             />
           </div>
           <div className="flex items-center gap-0.5">
-            <AgentMessageUsage metadata={msgMetadata} isStreaming={isStreaming} isMobile={isMobile} />
             {onFork && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1342,9 +1416,6 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
           </div>
         </div>
       )}
-
-      {/* Git activity badges - commit/PR pills */}
-      {(!isStreaming || !isLastMessage) && <GitActivityBadges parts={messageParts} chatId={chatId} subChatId={subChatId} />}
 
       {isDev && showMessageJson && (
         <div className="px-2 mt-2">

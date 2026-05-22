@@ -4,6 +4,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
 import { AlignJustify, Plus } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { titleFromConversationBody } from "../../../../shared/ripple-conversations"
 import { Button } from "../../../components/ui/button"
 import {
   AttachIcon,
@@ -1209,8 +1210,7 @@ export function NewChatForm({
         .map((pt) => {
           // Sanitize preview to remove special characters that break mention parsing
           const sanitizedPreview = pt.preview.replace(/[:\[\]|]/g, "")
-          const prefix = pt.kind === "chatHistory" ? MENTION_PREFIXES.CHAT_HISTORY : MENTION_PREFIXES.PASTED
-          return `@[${prefix}${pt.size}:${sanitizedPreview}|${pt.filePath}]`
+          return `@[${MENTION_PREFIXES.PASTED}${pt.size}:${sanitizedPreview}|${pt.filePath}]`
         })
         .join(" ")
       finalMessage = pastedMentions + (finalMessage ? " " + finalMessage : "")
@@ -1239,7 +1239,9 @@ export function NewChatForm({
     // Create chat with selected project, branch, and initial message
     createChatMutation.mutate({
       projectId: selectedProject.id,
-      name: message.trim().slice(0, 50), // Use first 50 chars as chat name
+      name: titleFromConversationBody(message, {
+        projectName: selectedProject.name,
+      }),
       model: selectedChatModel,
       initialMessageParts: parts.length > 0 ? parts : undefined,
       baseBranch: shouldUseWorktree ? selectedBranch || undefined : undefined,

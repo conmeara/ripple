@@ -1,0 +1,1726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ripple AI Pipeline</title>
+<style>
+:root {
+  --bg: #07080f;
+  --surface: #0d0f1c;
+  --surface-2: #12152a;
+  --border: rgba(255,255,255,0.06);
+  --border-2: rgba(255,255,255,0.10);
+
+  --blue:   #5b9cf6;
+  --blue-glow: rgba(91,156,246,0.15);
+  --blue-dim:  rgba(91,156,246,0.08);
+  --blue-border: rgba(91,156,246,0.25);
+
+  --amber:  #f0a83d;
+  --amber-glow: rgba(240,168,61,0.12);
+  --amber-dim:  rgba(240,168,61,0.07);
+  --amber-border: rgba(240,168,61,0.22);
+
+  --green:  #3ecf82;
+  --green-glow: rgba(62,207,130,0.12);
+  --green-dim:  rgba(62,207,130,0.07);
+  --green-border: rgba(62,207,130,0.22);
+
+  --purple: #a07cf0;
+  --purple-glow: rgba(160,124,240,0.13);
+  --purple-dim:  rgba(160,124,240,0.07);
+  --purple-border: rgba(160,124,240,0.22);
+
+  --teal:   #3dcfc0;
+  --teal-glow: rgba(61,207,192,0.12);
+  --teal-dim:  rgba(61,207,192,0.07);
+  --teal-border: rgba(61,207,192,0.22);
+
+  --rose:   #f06b8a;
+  --rose-glow: rgba(240,107,138,0.12);
+  --rose-dim:  rgba(240,107,138,0.07);
+  --rose-border: rgba(240,107,138,0.22);
+
+  --text:      #dde1ee;
+  --text-dim:  #7d8499;
+  --text-faint:#3e4255;
+
+  --mono: 'Cascadia Code','Fira Code','JetBrains Mono','Consolas',monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --serif: Georgia, 'Palatino Linotype', serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* ── GRID BG ─────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── HEADER ──────────────────────────────── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  background: rgba(7,8,15,0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 40px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.05em;
+  font-family: var(--mono);
+  flex-shrink: 0;
+}
+
+.header-title {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: normal;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+.header-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border-2);
+}
+
+.header-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: default;
+}
+
+.legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── MAIN LAYOUT ─────────────────────────── */
+.main {
+  position: relative;
+  z-index: 1;
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 48px 40px 80px;
+}
+
+/* ── HERO ────────────────────────────────── */
+.hero {
+  margin-bottom: 64px;
+}
+
+.hero-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 12px;
+}
+
+.hero-headline {
+  font-family: var(--serif);
+  font-size: 38px;
+  font-weight: normal;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  margin-bottom: 8px;
+}
+
+.hero-headline em {
+  font-style: normal;
+  background: linear-gradient(90deg, var(--blue), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  color: var(--text-dim);
+  font-size: 14px;
+  max-width: 560px;
+  margin-bottom: 48px;
+}
+
+/* ── PIPELINE OVERVIEW SVG ───────────────── */
+.pipeline-wrap {
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.pipeline-wrap::-webkit-scrollbar { height: 4px; }
+.pipeline-wrap::-webkit-scrollbar-track { background: var(--surface); }
+.pipeline-wrap::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 2px; }
+
+.pipeline-svg {
+  display: block;
+  min-width: 960px;
+  width: 100%;
+  height: auto;
+}
+
+/* ── SECTION COMMON ──────────────────────── */
+.section {
+  margin-bottom: 52px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.section-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  width: 20px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.section-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+}
+
+.section-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: normal;
+}
+
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.section-desc {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-bottom: 20px;
+  max-width: 680px;
+  line-height: 1.7;
+}
+
+/* ── TWO COLUMN ──────────────────────────── */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+/* ── SYSTEM PROMPT ───────────────────────── */
+.prompt-stack {
+  border: 1px solid var(--blue-border);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.prompt-stack-label {
+  position: absolute;
+  top: -1px;
+  right: 20px;
+  background: var(--bg);
+  padding: 0 10px;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--blue);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  border: 1px solid var(--blue-border);
+  border-radius: 0 0 5px 5px;
+}
+
+.prompt-layer {
+  padding: 22px 28px;
+  border-bottom: 1px solid var(--blue-border);
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.prompt-layer:last-child { border-bottom: none; }
+
+.prompt-layer:hover { background: rgba(91,156,246,0.04); }
+
+.layer-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--blue);
+  background: var(--blue-dim);
+  border: 1px solid var(--blue-border);
+  border-radius: 3px;
+  padding: 2px 8px;
+  margin-bottom: 10px;
+}
+
+.layer-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--blue);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.layer-body {
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.75;
+  max-width: 860px;
+}
+
+.layer-quote {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.35);
+  border-left: 2px solid var(--blue);
+  border-radius: 0 6px 6px 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.8;
+}
+
+.layer-quote .hlt { color: var(--blue); }
+
+.layer-1 { background: rgba(91,156,246,0.06); }
+.layer-2 { background: rgba(91,156,246,0.04); }
+.layer-3 { background: rgba(91,156,246,0.02); }
+
+.skill-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.skill-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(91,156,246,0.08);
+  border: 1px solid var(--blue-border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--blue);
+}
+
+/* ── RUNTIME CONTEXT ─────────────────────── */
+.ctx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.ctx-card {
+  background: var(--amber-dim);
+  border: 1px solid var(--amber-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  transition: background 0.2s;
+}
+
+.ctx-card:hover { background: rgba(240,168,61,0.11); }
+
+.ctx-card-key {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--amber);
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ctx-card-val {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.ctx-card-val code {
+  font-family: var(--mono);
+  font-size: 10px;
+  background: rgba(0,0,0,0.3);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--amber);
+}
+
+.ctx-special {
+  grid-column: span 2;
+}
+
+.ctx-special-inner {
+  display: flex;
+  gap: 16px;
+}
+
+.ctx-variant {
+  flex: 1;
+  background: rgba(0,0,0,0.25);
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+
+.ctx-variant-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+.ctx-variant-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* ── TOOLS ───────────────────────────────── */
+.tool-card {
+  background: var(--green-dim);
+  border: 1px solid var(--green-border);
+  border-radius: 10px;
+  padding: 24px;
+  transition: background 0.2s;
+}
+
+.tool-card:hover { background: rgba(62,207,130,0.10); }
+
+.tool-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+
+.tool-name {
+  font-family: var(--mono);
+  font-size: 16px;
+  color: var(--green);
+  font-weight: 600;
+}
+
+.tool-for {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  background: rgba(0,0,0,0.3);
+  border-radius: 4px;
+  padding: 3px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.tool-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+  line-height: 1.7;
+}
+
+.param-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11px;
+  margin-bottom: 14px;
+}
+
+.param-table th {
+  text-align: left;
+  color: var(--text-faint);
+  padding: 4px 8px 6px;
+  border-bottom: 1px solid var(--border);
+  font-weight: normal;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.param-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.param-table td:first-child { color: var(--green); }
+.param-table td:nth-child(2) { color: var(--text-faint); }
+.param-table td:last-child { color: var(--text-dim); }
+
+.tool-returns {
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 6px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.returns-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding-top: 2px;
+  white-space: nowrap;
+}
+
+.returns-val {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.extra-tools-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.extra-tool {
+  background: rgba(62,207,130,0.04);
+  border: 1px solid rgba(62,207,130,0.12);
+  border-radius: 8px;
+  padding: 14px 16px;
+  transition: background 0.2s;
+}
+
+.extra-tool:hover { background: rgba(62,207,130,0.08); }
+
+.extra-tool-name {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+  margin-bottom: 5px;
+}
+
+.extra-tool-desc {
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.6;
+}
+
+.auto-badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: rgba(62,207,130,0.1);
+  border: 1px solid rgba(62,207,130,0.2);
+  color: var(--green);
+  border-radius: 3px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* ── PROVIDER SPLIT ──────────────────────── */
+.provider-split {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  border: 1px solid var(--purple-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.provider-divider {
+  background: var(--purple-border);
+}
+
+.provider-panel {
+  padding: 28px;
+  background: var(--purple-dim);
+  transition: background 0.2s;
+}
+
+.provider-panel:hover { background: rgba(160,124,240,0.10); }
+
+.provider-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.provider-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--purple);
+}
+
+.provider-name {
+  font-family: var(--mono);
+  font-size: 18px;
+  color: var(--purple);
+  font-weight: 600;
+}
+
+.provider-mechanism {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.prov-prop {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.prov-key {
+  color: var(--purple);
+  min-width: 130px;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.prov-val {
+  color: var(--text-dim);
+  line-height: 1.65;
+}
+
+.code-chip {
+  display: inline-block;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--purple-border);
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--purple);
+  margin: 1px 2px 1px 0;
+  line-height: 1.8;
+}
+
+/* ── WORKSPACE ───────────────────────────── */
+.workspace-flow {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+}
+
+.workspace-node {
+  flex: 1;
+  background: var(--teal-dim);
+  border: 1px solid var(--teal-border);
+  border-radius: 10px;
+  padding: 20px 18px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.workspace-node:hover { background: rgba(61,207,192,0.10); }
+
+.workspace-node + .workspace-node {
+  margin-left: 2px;
+}
+
+.ws-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--teal);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 8px;
+  opacity: 0.7;
+}
+
+.ws-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--teal);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.ws-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.65;
+  margin-bottom: 10px;
+}
+
+.ws-tag {
+  display: inline-block;
+  background: rgba(61,207,192,0.08);
+  border: 1px solid rgba(61,207,192,0.18);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--teal);
+}
+
+.ws-arrow {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  color: var(--teal);
+  opacity: 0.3;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* ── PREVIEW SOURCE ──────────────────────── */
+.preview-sources {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.ps-card {
+  background: var(--teal-dim);
+  border: 1px solid var(--teal-border);
+  border-radius: 7px;
+  padding: 12px 14px;
+}
+
+.ps-value {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--teal);
+  margin-bottom: 5px;
+}
+
+.ps-desc {
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.55;
+}
+
+/* ── EVENT FLOW ──────────────────────────── */
+.event-columns {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 20px;
+}
+
+.event-column-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 10px;
+}
+
+.event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.event-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--rose-dim);
+  border: 1px solid var(--rose-border);
+  border-radius: 7px;
+  padding: 10px 14px;
+  transition: background 0.2s;
+}
+
+.event-item:hover { background: rgba(240,107,138,0.10); }
+
+.event-item.auto-allowed {
+  background: var(--green-dim);
+  border-color: var(--green-border);
+}
+
+.event-item.auto-allowed:hover { background: rgba(62,207,130,0.10); }
+
+.event-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--rose);
+  min-width: 140px;
+  flex-shrink: 0;
+}
+
+.event-item.auto-allowed .event-name { color: var(--green); }
+
+.event-desc {
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.6;
+}
+
+.activity-section {
+  margin-top: 0;
+}
+
+.activity-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.activity-pill {
+  display: inline-block;
+  background: var(--rose-dim);
+  border: 1px solid var(--rose-border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--rose);
+  transition: background 0.2s;
+}
+
+.activity-pill:hover { background: rgba(240,107,138,0.12); }
+
+/* ── FOOTER ──────────────────────────────── */
+.footer {
+  margin-top: 80px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-files {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.footer-file {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.footer-file span { color: var(--blue); }
+
+.footer-note {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: right;
+}
+
+/* ── ANIMATIONS ──────────────────────────── */
+@keyframes dash-flow {
+  to { stroke-dashoffset: -20; }
+}
+
+@keyframes node-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.flow-arrow-animated {
+  stroke-dasharray: 5 5;
+  animation: dash-flow 1.4s linear infinite;
+}
+
+.section-badge.blue  { background: var(--blue-dim);   border: 1px solid var(--blue-border);   color: var(--blue);   }
+.section-badge.amber { background: var(--amber-dim);  border: 1px solid var(--amber-border);  color: var(--amber);  }
+.section-badge.green { background: var(--green-dim);  border: 1px solid var(--green-border);  color: var(--green);  }
+.section-badge.purple{ background: var(--purple-dim); border: 1px solid var(--purple-border); color: var(--purple); }
+.section-badge.teal  { background: var(--teal-dim);   border: 1px solid var(--teal-border);   color: var(--teal);   }
+.section-badge.rose  { background: var(--rose-dim);   border: 1px solid var(--rose-border);   color: var(--rose);   }
+
+/* ── RESPONSIVE ──────────────────────────── */
+@media (max-width: 900px) {
+  .two-col, .provider-split { grid-template-columns: 1fr; }
+  .provider-divider { display: none; }
+  .extra-tools-row { grid-template-columns: 1fr 1fr; }
+  .preview-sources { grid-template-columns: 1fr 1fr; }
+  .legend { display: none; }
+  .workspace-flow { flex-direction: column; }
+  .ws-arrow { transform: rotate(90deg); align-self: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────── -->
+<header class="header">
+  <div class="header-left">
+    <div class="header-logo">R~</div>
+    <span class="header-title">Ripple AI Pipeline</span>
+    <div class="header-sep"></div>
+    <span class="header-meta">How Claude &amp; Codex see the world</span>
+  </div>
+  <nav class="legend">
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--blue)"></div>
+      System Prompt
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--amber)"></div>
+      Runtime Context
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--green)"></div>
+      Tools
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--purple)"></div>
+      Providers
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--teal)"></div>
+      Workspace
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--rose)"></div>
+      Events
+    </div>
+  </nav>
+</header>
+
+<!-- ── MAIN ───────────────────────────── -->
+<main class="main">
+
+  <!-- HERO -->
+  <div class="hero section">
+    <div class="hero-eyebrow">Architecture Reference · agent-runtime</div>
+    <h1 class="hero-headline">How the AI<br>sees <em>Ripple</em></h1>
+    <p class="hero-sub">A complete map of what Claude and Codex receive as input, what tools they can call, and how they communicate back to the UI for each run.</p>
+
+    <!-- PIPELINE FLOW DIAGRAM -->
+    <div class="pipeline-wrap">
+      <svg class="pipeline-svg" viewBox="0 0 1180 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow-blue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="rgba(91,156,246,0.6)"/>
+          </marker>
+          <marker id="arrow-amber" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="rgba(240,168,61,0.6)"/>
+          </marker>
+          <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="rgba(62,207,130,0.6)"/>
+          </marker>
+          <marker id="arrow-purple" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="rgba(160,124,240,0.6)"/>
+          </marker>
+          <marker id="arrow-rose" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="rgba(240,107,138,0.6)"/>
+          </marker>
+          <filter id="glow-blue"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="glow-green"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+
+        <!-- Background panels -->
+        <rect x="1" y="1" width="1178" height="168" rx="10" fill="rgba(13,15,28,0.6)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+
+        <!-- NODE 1: User Request -->
+        <g class="flow-node">
+          <rect x="18" y="60" width="130" height="50" rx="7" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+          <text x="83" y="82" text-anchor="middle" fill="#8892a4" font-family="Georgia,serif" font-size="12">User</text>
+          <text x="83" y="98" text-anchor="middle" fill="#8892a4" font-family="Georgia,serif" font-size="12">Request</text>
+        </g>
+
+        <!-- Arrow 1→2 -->
+        <line x1="149" y1="85" x2="180" y2="85" stroke="rgba(240,168,61,0.5)" stroke-width="1.5" marker-end="url(#arrow-amber)" class="flow-arrow-animated"/>
+
+        <!-- NODE 2: Context Assembly -->
+        <g class="flow-node">
+          <rect x="182" y="40" width="148" height="90" rx="7" fill="rgba(240,168,61,0.07)" stroke="rgba(240,168,61,0.25)" stroke-width="1"/>
+          <text x="256" y="72" text-anchor="middle" fill="#f0a83d" font-family="Georgia,serif" font-size="12">Context</text>
+          <text x="256" y="88" text-anchor="middle" fill="#f0a83d" font-family="Georgia,serif" font-size="12">Assembly</text>
+          <text x="256" y="108" text-anchor="middle" fill="rgba(240,168,61,0.5)" font-family="monospace" font-size="9">runtime · notes · attachments</text>
+        </g>
+
+        <!-- Arrow 2→3 -->
+        <line x1="331" y1="85" x2="362" y2="85" stroke="rgba(91,156,246,0.5)" stroke-width="1.5" marker-end="url(#arrow-blue)" class="flow-arrow-animated"/>
+
+        <!-- NODE 3: System Prompt -->
+        <g class="flow-node">
+          <rect x="364" y="40" width="148" height="90" rx="7" fill="rgba(91,156,246,0.07)" stroke="rgba(91,156,246,0.25)" stroke-width="1"/>
+          <text x="438" y="69" text-anchor="middle" fill="#5b9cf6" font-family="Georgia,serif" font-size="12">System</text>
+          <text x="438" y="85" text-anchor="middle" fill="#5b9cf6" font-family="Georgia,serif" font-size="12">Prompt</text>
+          <text x="438" y="108" text-anchor="middle" fill="rgba(91,156,246,0.5)" font-family="monospace" font-size="9">policy · skills · tool-choice</text>
+        </g>
+
+        <!-- Arrow 3→4 -->
+        <line x1="513" y1="85" x2="542" y2="85" stroke="rgba(160,124,240,0.5)" stroke-width="1.5" marker-end="url(#arrow-purple)" class="flow-arrow-animated"/>
+
+        <!-- NODE 4: AI Provider -->
+        <g class="flow-node">
+          <rect x="544" y="40" width="148" height="90" rx="7" fill="rgba(160,124,240,0.07)" stroke="rgba(160,124,240,0.25)" stroke-width="1"/>
+          <text x="618" y="69" text-anchor="middle" fill="#a07cf0" font-family="Georgia,serif" font-size="12">AI Provider</text>
+          <!-- Claude sub -->
+          <rect x="558" y="80" width="55" height="20" rx="3" fill="rgba(160,124,240,0.1)" stroke="rgba(160,124,240,0.2)" stroke-width="1"/>
+          <text x="585" y="93" text-anchor="middle" fill="#a07cf0" font-family="monospace" font-size="9">Claude</text>
+          <!-- Codex sub -->
+          <rect x="623" y="80" width="55" height="20" rx="3" fill="rgba(160,124,240,0.1)" stroke="rgba(160,124,240,0.2)" stroke-width="1"/>
+          <text x="650" y="93" text-anchor="middle" fill="#a07cf0" font-family="monospace" font-size="9">Codex</text>
+        </g>
+
+        <!-- Arrow 4→5 -->
+        <line x1="693" y1="85" x2="722" y2="85" stroke="rgba(62,207,130,0.5)" stroke-width="1.5" marker-end="url(#arrow-green)" class="flow-arrow-animated"/>
+
+        <!-- NODE 5: Tools -->
+        <g class="flow-node">
+          <rect x="724" y="40" width="148" height="90" rx="7" fill="rgba(62,207,130,0.07)" stroke="rgba(62,207,130,0.25)" stroke-width="1"/>
+          <text x="798" y="69" text-anchor="middle" fill="#3ecf82" font-family="Georgia,serif" font-size="12">Tool Calls</text>
+          <text x="798" y="89" text-anchor="middle" fill="rgba(62,207,130,0.55)" font-family="monospace" font-size="9">ripple_snapshot</text>
+          <text x="798" y="104" text-anchor="middle" fill="rgba(62,207,130,0.55)" font-family="monospace" font-size="9">ripple_frame_sheet</text>
+        </g>
+
+        <!-- Loopback arrow (tools → provider) -->
+        <path d="M798,130 C798,150 618,150 618,130" stroke="rgba(62,207,130,0.3)" stroke-width="1" fill="none" stroke-dasharray="4 4" marker-end="url(#arrow-green)"/>
+        <text x="708" y="162" text-anchor="middle" fill="rgba(62,207,130,0.35)" font-family="monospace" font-size="8">tool results loop</text>
+
+        <!-- Arrow 5→6 -->
+        <line x1="873" y1="85" x2="902" y2="85" stroke="rgba(240,107,138,0.5)" stroke-width="1.5" marker-end="url(#arrow-rose)" class="flow-arrow-animated"/>
+
+        <!-- NODE 6: Events Out -->
+        <g class="flow-node">
+          <rect x="904" y="40" width="148" height="90" rx="7" fill="rgba(240,107,138,0.07)" stroke="rgba(240,107,138,0.25)" stroke-width="1"/>
+          <text x="978" y="69" text-anchor="middle" fill="#f06b8a" font-family="Georgia,serif" font-size="12">Events Out</text>
+          <text x="978" y="89" text-anchor="middle" fill="rgba(240,107,138,0.5)" font-family="monospace" font-size="9">tool · message · file</text>
+          <text x="978" y="104" text-anchor="middle" fill="rgba(240,107,138,0.5)" font-family="monospace" font-size="9">approval · status</text>
+        </g>
+
+        <!-- Arrow 6→7 -->
+        <line x1="1053" y1="85" x2="1082" y2="85" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" marker-end="url(#arrow-blue)" class="flow-arrow-animated"/>
+
+        <!-- NODE 7: Ripple UI -->
+        <g class="flow-node">
+          <rect x="1042" y="60" width="130" height="50" rx="7" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+          <text x="1107" y="82" text-anchor="middle" fill="#8892a4" font-family="Georgia,serif" font-size="12">Ripple</text>
+          <text x="1107" y="98" text-anchor="middle" fill="#8892a4" font-family="Georgia,serif" font-size="12">UI</text>
+        </g>
+
+        <!-- Step labels -->
+        <text x="83" y="24" text-anchor="middle" fill="rgba(255,255,255,0.12)" font-family="monospace" font-size="8" text-transform="uppercase">INPUT</text>
+        <text x="256" y="24" text-anchor="middle" fill="rgba(240,168,61,0.4)" font-family="monospace" font-size="8">CONTEXT</text>
+        <text x="438" y="24" text-anchor="middle" fill="rgba(91,156,246,0.4)" font-family="monospace" font-size="8">PROMPT</text>
+        <text x="618" y="24" text-anchor="middle" fill="rgba(160,124,240,0.4)" font-family="monospace" font-size="8">PROVIDER</text>
+        <text x="798" y="24" text-anchor="middle" fill="rgba(62,207,130,0.4)" font-family="monospace" font-size="8">TOOLS</text>
+        <text x="978" y="24" text-anchor="middle" fill="rgba(240,107,138,0.4)" font-family="monospace" font-size="8">EVENTS</text>
+        <text x="1107" y="24" text-anchor="middle" fill="rgba(255,255,255,0.12)" font-family="monospace" font-size="8">OUTPUT</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ── SECTION 1: SYSTEM PROMPT ──────── -->
+  <div class="section" id="s1">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <div class="section-badge blue">System Prompt</div>
+      <h2 class="section-title">What the AI is told about its world</h2>
+      <div class="section-line"></div>
+    </div>
+    <p class="section-desc">The system prompt is assembled dynamically each run from three stacked layers. For Claude it becomes the <code style="font-family:var(--mono);font-size:11px;background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;color:var(--blue)">systemPrompt</code> field in <code style="font-family:var(--mono);font-size:11px;background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;color:var(--blue)">sdk.query()</code>; for Codex it becomes <code style="font-family:var(--mono);font-size:11px;background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;color:var(--blue)">developerInstructions</code>.</p>
+
+    <div class="prompt-stack">
+      <div class="prompt-stack-label">appPolicy string</div>
+
+      <!-- Layer 1 -->
+      <div class="prompt-layer layer-1">
+        <div class="layer-tag">Layer 1 · Prepended first</div>
+        <div class="layer-name">Visual Tool-Choice Policy</div>
+        <div class="layer-body">
+          Tells the AI exactly when and how to use Ripple's native visual tools — before reaching for shell commands, browser tools, or generic screenshot utilities.
+        </div>
+        <div class="layer-quote">
+          <span class="hlt">"When a user or comment asks for visual context, make the native Ripple visual tool the first external action."</span><br>
+          · Use <span class="hlt">snapshot at current</span> for the visible frame<br>
+          · Use <span class="hlt">snapshot at 1.25s</span> only for an exact-time request<br>
+          · Use <span class="hlt">frame sheet</span> for motion over time or a time range<br>
+          · Comment runs may already have auto-attached visuals — <span class="hlt">use those first</span>, only call native tool for a fresh visual<br>
+          · Normal chats do <span class="hlt">not</span> get auto images — request on demand
+        </div>
+      </div>
+
+      <!-- Layer 2 -->
+      <div class="prompt-layer layer-2">
+        <div class="layer-tag">Layer 2 · Core identity</div>
+        <div class="layer-name">RIPPLE_PROVIDER_POLICY</div>
+        <div class="layer-body">
+          The main behavioral policy — defines who the AI is, what it's working on, and what rules it must follow. Sourced from <code style="font-family:var(--mono);font-size:10px;background:rgba(0,0,0,0.3);padding:1px 4px;border-radius:3px;color:var(--blue)">ripple-provider-policy.ts</code>.
+        </div>
+        <div class="layer-quote">
+          <span class="hlt">"You are operating inside Ripple, a local-first motion graphics editor for HyperFrames projects."</span><br><br>
+          · Treat compositions as plain <span class="hlt">HTML/CSS/JavaScript</span> with GSAP timelines on <span class="hlt">window.__timelines</span><br>
+          · Respect workspace boundaries — <span class="hlt">never edit Main from a revision workspace</span><br>
+          · Prefer bundled HyperFrames skills; do not use web search for ordinary local edits<br>
+          · Treat runtime context as <span class="hlt">source of truth</span> for active composition, frame/time, preview source<br>
+          · <span class="hlt">Do not write</span> transient state into AGENTS.md or CLAUDE.md<br>
+          · Speak like a <span class="hlt">motion-editor assistant</span> — hide Git/branches/terminals unless asked
+        </div>
+      </div>
+
+      <!-- Layer 3 -->
+      <div class="prompt-layer layer-3">
+        <div class="layer-tag">Layer 3 · Capabilities map</div>
+        <div class="layer-name">Skills Info Block</div>
+        <div class="layer-body">
+          Lists available HyperFrames skills and their filesystem paths, plus guidance on the <code style="font-family:var(--mono);font-size:10px;background:rgba(0,0,0,0.3);padding:1px 4px;border-radius:3px;color:var(--blue)">ripple-visual-context</code> skill. Tells the AI to prefer these over npx/bunx/package installs.
+        </div>
+        <div class="skill-pills">
+          <div class="skill-pill">
+            <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="var(--blue)" opacity="0.7"/></svg>
+            hyperframes
+          </div>
+          <div class="skill-pill">
+            <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="var(--blue)" opacity="0.7"/></svg>
+            hyperframes-cli
+          </div>
+          <div class="skill-pill">
+            <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="var(--blue)" opacity="0.7"/></svg>
+            gsap
+          </div>
+          <div class="skill-pill" style="border-color:rgba(91,156,246,0.4);background:rgba(91,156,246,0.12)">
+            <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="var(--blue)"/></svg>
+            ripple-visual-context
+          </div>
+        </div>
+        <div class="layer-quote" style="margin-top:14px">
+          "Use app-managed bare commands (<span class="hlt">ripple</span>, <span class="hlt">hyperframes</span>) instead of npx, bunx, or package installs."<br>
+          "Use it proactively after creating or editing visible motion work."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 2: RUNTIME CONTEXT ────── -->
+  <div class="section" id="s2">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <div class="section-badge amber">Runtime Context</div>
+      <h2 class="section-title">Per-run context injection</h2>
+      <div class="section-line"></div>
+    </div>
+    <p class="section-desc">Beyond the static system prompt, each run injects dynamic context that tells the AI exactly where it is and what it's working on. This is the AI's "situational awareness" — assembled fresh for every conversation turn.</p>
+
+    <div class="ctx-grid">
+      <div class="ctx-card">
+        <div class="ctx-card-key">
+          <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="var(--amber)"/></svg>
+          projectId
+        </div>
+        <div class="ctx-card-val">Identifies which Ripple project the AI is operating in.</div>
+      </div>
+
+      <div class="ctx-card">
+        <div class="ctx-card-key">
+          <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="var(--amber)"/></svg>
+          compositionId
+        </div>
+        <div class="ctx-card-val">The active composition being edited or reviewed.</div>
+      </div>
+
+      <div class="ctx-card">
+        <div class="ctx-card-key">
+          <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="var(--amber)"/></svg>
+          previewTimeSeconds
+        </div>
+        <div class="ctx-card-val">Current playhead position in the preview.</div>
+      </div>
+
+      <div class="ctx-card">
+        <div class="ctx-card-key">
+          <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="var(--amber)"/></svg>
+          previewFrame
+        </div>
+        <div class="ctx-card-val">Current frame number at the playhead.</div>
+      </div>
+
+      <div class="ctx-card">
+        <div class="ctx-card-key">
+          <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="var(--amber)"/></svg>
+          commentThreadId
+        </div>
+        <div class="ctx-card-val">Set when the run is triggered from a comment thread.</div>
+      </div>
+
+      <div class="ctx-card">
+        <div class="ctx-card-key">
+          <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="var(--amber)"/></svg>
+          revisionId
+        </div>
+        <div class="ctx-card-val">Set when the run targets an isolated revision workspace.</div>
+      </div>
+
+      <div class="ctx-card">
+        <div class="ctx-card-key">
+          <svg width="8" height="8" viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" rx="1" fill="var(--amber)"/></svg>
+          CLAUDE.md / AGENTS.md
+        </div>
+        <div class="ctx-card-val">Project notes injected as context. Falls back to main project copy when running in a revision workspace.</div>
+      </div>
+
+      <div class="ctx-card">
+        <div class="ctx-card-key">
+          <svg width="8" height="8" viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" rx="1" fill="var(--amber)"/></svg>
+          Attachments
+        </div>
+        <div class="ctx-card-val">User-dropped images (PNG/JPEG/WebP/GIF) and documents (PDF, plain text) — base64-encoded into message content blocks.</div>
+      </div>
+
+      <div class="ctx-card">
+        <div class="ctx-card-key">
+          <svg width="8" height="8" viewBox="0 0 8 8"><rect x="1" y="1" width="6" height="6" rx="1" fill="var(--amber)"/></svg>
+          @mentions
+        </div>
+        <div class="ctx-card-val">User can mention <code>@[file:path]</code>, <code>@[skill:name]</code>, <code>@[tool:name]</code>, <code>@[agent:name]</code>, <code>@[folder:path]</code> — contents injected into prompt.</div>
+      </div>
+    </div>
+
+    <!-- previewSource special card -->
+    <div style="margin-top: 12px; background: var(--amber-dim); border: 1px solid var(--amber-border); border-radius: 9px; padding: 18px 20px;">
+      <div class="ctx-card-key" style="margin-bottom: 12px; font-size: 12px;">
+        <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="var(--amber)"/></svg>
+        previewSource — determines which workspace the AI targets
+      </div>
+      <div class="preview-sources" style="grid-template-columns: repeat(4,1fr); display: grid; gap: 10px;">
+        <div class="ps-card">
+          <div class="ps-value">main</div>
+          <div class="ps-desc">Normal chat — edits go into the primary project workspace</div>
+        </div>
+        <div class="ps-card">
+          <div class="ps-value">comment-revision</div>
+          <div class="ps-desc">Comment-triggered run — isolated revision workspace, cannot touch Main</div>
+        </div>
+        <div class="ps-card">
+          <div class="ps-value">chat-worktree</div>
+          <div class="ps-desc">Chat-based edit in a further-isolated git worktree</div>
+        </div>
+        <div class="ps-card">
+          <div class="ps-value">export</div>
+          <div class="ps-desc">Run scoped to an export job target</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comment visual context -->
+    <div style="margin-top: 12px; background: var(--amber-dim); border: 1px solid var(--amber-border); border-radius: 9px; padding: 16px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div>
+        <div class="ctx-card-key" style="margin-bottom: 6px;">
+          <svg width="8" height="8" viewBox="0 0 8 8"><polygon points="4,1 7,6 1,6" fill="var(--amber)"/></svg>
+          Frame comment visual context
+        </div>
+        <div class="ctx-card-val">A <strong style="color:var(--amber)">still frame</strong> is automatically attached at run-start — AI should use it first before calling <code>ripple_snapshot</code></div>
+      </div>
+      <div>
+        <div class="ctx-card-key" style="margin-bottom: 6px;">
+          <svg width="8" height="8" viewBox="0 0 8 8"><polygon points="4,1 7,6 1,6" fill="var(--amber)"/></svg>
+          Range comment visual context
+        </div>
+        <div class="ctx-card-val">A <strong style="color:var(--amber)">frame sheet</strong> over the comment's time range is automatically attached — AI should use it first before calling <code>ripple_frame_sheet</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 3: TOOLS ───────────────── -->
+  <div class="section" id="s3">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <div class="section-badge green">Tools</div>
+      <h2 class="section-title">What the AI can call</h2>
+      <div class="section-line"></div>
+    </div>
+    <p class="section-desc">The AI has access to three layers of tools: Ripple's two native visual tools (the primary way the AI sees compositions), the full <code style="font-family:var(--mono);font-size:11px;background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;color:var(--green)">claude_code</code> preset toolset, and MCP servers loaded from the user's config and installed plugins.</p>
+
+    <!-- Two main visual tools -->
+    <div class="two-col" style="margin-bottom:16px">
+
+      <!-- ripple_snapshot -->
+      <div class="tool-card">
+        <div class="tool-header">
+          <div class="tool-name">ripple_snapshot</div>
+          <div class="tool-for">Single Frame</div>
+        </div>
+        <div class="tool-desc">
+          Captures one frame from the active composition as an image. Returns pixels directly in the tool result — the AI sees the actual rendered frame, not just source code. Auto-approved; never needs user permission.
+        </div>
+        <table class="param-table">
+          <thead>
+            <tr>
+              <th>param</th>
+              <th>type</th>
+              <th>description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>at</td>
+              <td>string</td>
+              <td><code style="color:var(--green)">"current"</code> for visible app frame · <code style="color:var(--green)">"1.25s"</code> for exact timestamp · default: <code style="color:var(--green)">"current"</code></td>
+            </tr>
+            <tr>
+              <td>composition</td>
+              <td>string?</td>
+              <td>Project-relative HTML path. Omit for active/default composition.</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="tool-returns">
+          <div class="returns-label">Returns</div>
+          <div class="returns-val">Image content block (base64 PNG/WebP) + JSON metadata with path, mediaType, bytes. Image appears directly in tool result — AI sees the pixels.</div>
+        </div>
+        <div style="margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap;">
+          <span class="auto-badge">auto-approved</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);padding-top:3px">Bash(ripple snapshot) · Bash(ripple snapshot *)</span>
+        </div>
+      </div>
+
+      <!-- ripple_frame_sheet -->
+      <div class="tool-card">
+        <div class="tool-header">
+          <div class="tool-name">ripple_frame_sheet</div>
+          <div class="tool-for">Motion Over Time</div>
+        </div>
+        <div class="tool-desc">
+          Captures a grid of evenly-spaced frames across a time range — like a film contact sheet. Lets the AI understand motion, transitions, and timing across the composition without scrubbing frame by frame. Auto-approved.
+        </div>
+        <table class="param-table">
+          <thead>
+            <tr>
+              <th>param</th>
+              <th>type</th>
+              <th>description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>range</td>
+              <td>string</td>
+              <td>Time range like <code style="color:var(--green)">"0s..8s"</code>. Use user's range, comment range, or compact overview. Default: <code style="color:var(--green)">"0s..8s"</code></td>
+            </tr>
+            <tr>
+              <td>samples</td>
+              <td>integer</td>
+              <td>Number of evenly-spaced frames. 3 for short eval ranges, 8 for normal motion overview. Default: <code style="color:var(--green)">8</code></td>
+            </tr>
+            <tr>
+              <td>columns</td>
+              <td>integer</td>
+              <td>Grid columns. 3 for three samples, 4 for eight-sample overview. Default: <code style="color:var(--green)">4</code></td>
+            </tr>
+            <tr>
+              <td>composition</td>
+              <td>string?</td>
+              <td>Project-relative HTML path. Omit for active/default composition.</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="tool-returns">
+          <div class="returns-label">Returns</div>
+          <div class="returns-val">Sheet image (base64 PNG/WebP) + JSON metadata. AI sees all sampled frames in a single image — ideal for understanding animation arcs, easing, and transitions.</div>
+        </div>
+        <div style="margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap;">
+          <span class="auto-badge">auto-approved</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint);padding-top:3px">Bash(ripple frame-sheet) · Bash(ripple frame-sheet *)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extra tools -->
+    <div class="extra-tools-row">
+      <div class="extra-tool">
+        <div class="extra-tool-name">claude_code preset</div>
+        <div class="extra-tool-desc">Full Claude Code toolset: file read/write/edit, bash, web search, etc. For Claude only — <code style="font-family:var(--mono);font-size:10px">tools: {type:"preset", preset:"claude_code"}</code></div>
+      </div>
+      <div class="extra-tool">
+        <div class="extra-tool-name">MCP Servers</div>
+        <div class="extra-tool-desc">Merged from: <code style="font-family:var(--mono);font-size:10px">~/.claude/claude.json</code> · project <code style="font-family:var(--mono);font-size:10px">.claude/claude.json</code> · <code style="font-family:var(--mono);font-size:10px">mcp.json</code> · installed plugins. OAuth tokens refreshed per-run.</div>
+      </div>
+      <div class="extra-tool">
+        <div class="extra-tool-name">HyperFrames Skills</div>
+        <div class="extra-tool-desc">App-managed skills loaded at: <code style="font-family:var(--mono);font-size:10px">resources/claude-plugins/ripple-visual-context/skills/</code> and <code style="font-family:var(--mono);font-size:10px">resources/agent-skills/</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 4: PROVIDERS ───────────── -->
+  <div class="section" id="s4">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <div class="section-badge purple">Providers</div>
+      <h2 class="section-title">Claude vs. Codex — how each run is dispatched</h2>
+      <div class="section-line"></div>
+    </div>
+    <p class="section-desc">Both providers receive the same <code style="font-family:var(--mono);font-size:11px;background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;color:var(--purple)">appPolicy</code> but are invoked differently. Claude goes through the Agent SDK; Codex spawns a local app-server process via JSON-RPC.</p>
+
+    <div class="provider-split">
+      <!-- Claude -->
+      <div class="provider-panel">
+        <div class="provider-badge">
+          <div class="provider-dot"></div>
+          <div class="provider-name">Claude</div>
+        </div>
+        <div class="provider-mechanism">claude-agent-sdk-adapter.ts · sdk.query()</div>
+
+        <div class="prov-prop">
+          <div class="prov-key">systemPrompt</div>
+          <div class="prov-val">appPolicy (visual policy + provider policy + skills block)</div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">tools</div>
+          <div class="prov-val"><span class="code-chip">type: "preset"</span><span class="code-chip">preset: "claude_code"</span></div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">mcpServers</div>
+          <div class="prov-val">Merged from global config + project config + mcp.json + plugins</div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">plugins</div>
+          <div class="prov-val">ripple-visual-context plugin (exposes native visual tools as MCP)</div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">skills</div>
+          <div class="prov-val"><span class="code-chip">"all"</span> — loads all skills from appManaged + project roots</div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">allowedTools</div>
+          <div class="prov-val"><span class="code-chip">Bash(ripple snapshot)</span><span class="code-chip">Bash(ripple snapshot *)</span><span class="code-chip">Bash(ripple frame-sheet)</span><span class="code-chip">Bash(ripple frame-sheet *)</span></div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">permissionMode</div>
+          <div class="prov-val">Configured per-run — controls what needs user approval</div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">canUseTool</div>
+          <div class="prov-val">Callback — sends approval_request event to UI for non-auto tools</div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">onElicitation</div>
+          <div class="prov-val">Callback — handles provider prompts back to the user mid-run</div>
+        </div>
+      </div>
+
+      <div class="provider-divider"></div>
+
+      <!-- Codex -->
+      <div class="provider-panel">
+        <div class="provider-badge">
+          <div class="provider-dot" style="background:rgba(160,124,240,0.5)"></div>
+          <div class="provider-name" style="opacity:0.85">Codex</div>
+        </div>
+        <div class="provider-mechanism">codex-app-server-adapter.ts · JSON-RPC process</div>
+
+        <div class="prov-prop">
+          <div class="prov-key">developerInstructions</div>
+          <div class="prov-val">appPolicy (same assembled string as Claude's systemPrompt)</div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">baseInstructions</div>
+          <div class="prov-val">projectNoteFallback — AGENTS.md content injected here when not natively found</div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">dynamicTools</div>
+          <div class="prov-val">Visual tools passed as <span class="code-chip">namespace: "ripple"</span> dynamic tool specs (snapshot + frame_sheet)</div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">approvalPolicy</div>
+          <div class="prov-val">Controls which commands auto-approve vs. request UI confirmation</div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">sandbox</div>
+          <div class="prov-val">Sandboxing configuration for the Codex app-server process</div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">model</div>
+          <div class="prov-val">Configured model selection passed through to the provider</div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">skills</div>
+          <div class="prov-val">Discovered from <span class="code-chip">.codex/skills/</span> in project. Defaults include <span class="code-chip">ripple-visual-context</span></div>
+        </div>
+        <div class="prov-prop">
+          <div class="prov-key">approval flow</div>
+          <div class="prov-val">Via <code style="font-family:var(--mono);font-size:10px">item/commandExecution/requestApproval</code> JSON-RPC message → approval_request event to UI</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 5: WORKSPACE ───────────── -->
+  <div class="section" id="s5">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <div class="section-badge teal">Workspace</div>
+      <h2 class="section-title">Isolation boundaries</h2>
+      <div class="section-line"></div>
+    </div>
+    <p class="section-desc">Each run is scoped to a specific workspace. The AI is told which workspace it's in via <code style="font-family:var(--mono);font-size:11px;background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;color:var(--teal)">previewSource</code> and is strictly prevented from crossing boundaries — especially from ever editing Main while in a revision workspace.</p>
+
+    <div class="workspace-flow">
+      <div class="workspace-node">
+        <div class="ws-label">Least isolated</div>
+        <div class="ws-name">Main Workspace</div>
+        <div class="ws-desc">Normal chat edits. Direct modifications to the primary project files. No isolation boundary — changes are immediate.</div>
+        <span class="ws-tag">previewSource: main</span>
+      </div>
+      <div class="ws-arrow">→</div>
+      <div class="workspace-node">
+        <div class="ws-label">Revision isolation</div>
+        <div class="ws-name">Revision Workspace</div>
+        <div class="ws-desc">Triggered from a comment thread. Isolated copy — the AI <strong style="color:var(--teal)">cannot edit Main</strong>. Changes go into a revision branch for review.</div>
+        <span class="ws-tag">previewSource: comment-revision</span>
+      </div>
+      <div class="ws-arrow">→</div>
+      <div class="workspace-node">
+        <div class="ws-label">Most isolated</div>
+        <div class="ws-name">Chat Worktree</div>
+        <div class="ws-desc">Further isolated git worktree for chat-based edits. Allows exploratory changes without affecting the main or revision branch.</div>
+        <span class="ws-tag">previewSource: chat-worktree</span>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px; padding: 14px 18px; background: rgba(61,207,192,0.05); border: 1px solid rgba(61,207,192,0.15); border-radius: 8px; font-size: 12px; color: var(--text-dim); line-height: 1.7;">
+      <strong style="color:var(--teal); font-family:var(--mono); font-size:11px;">AGENTS.md fallback:</strong> When running in a revision workspace, the AI's project notes (CLAUDE.md / AGENTS.md) are read from the revision workspace first. If not found there, the main project's copy is injected as <code style="font-family:var(--mono);font-size:10px">baseInstructions</code> (Codex) or a fallback instructions block (Claude) — ensuring the AI always has project context even in isolated workspaces.
+    </div>
+  </div>
+
+  <!-- ── SECTION 6: EVENTS ──────────────── -->
+  <div class="section" id="s6">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <div class="section-badge rose">Events</div>
+      <h2 class="section-title">What the AI emits back to the UI</h2>
+      <div class="section-line"></div>
+    </div>
+    <p class="section-desc">Both providers stream structured events through <code style="font-family:var(--mono);font-size:11px;background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;color:var(--rose)">AgentProviderEventSink</code>. The UI consumes these to update the chat, show tool activity, request user approvals, and render file changes in real time.</p>
+
+    <div class="event-columns">
+      <div>
+        <div class="event-column-label">Event stream</div>
+        <div class="event-list">
+          <div class="event-item">
+            <div class="event-name">tool_start</div>
+            <div class="event-desc">AI is about to call a tool — shows the tool name and input arguments in the UI</div>
+          </div>
+          <div class="event-item">
+            <div class="event-name">tool_update</div>
+            <div class="event-desc">Streaming progress from a tool call (e.g. partial output)</div>
+          </div>
+          <div class="event-item">
+            <div class="event-name">tool_end</div>
+            <div class="event-desc">Tool call completed — includes result/output shown to user</div>
+          </div>
+          <div class="event-item">
+            <div class="event-name">assistant_message</div>
+            <div class="event-desc">Text response from the AI streaming to the chat panel</div>
+          </div>
+          <div class="event-item">
+            <div class="event-name">reasoning</div>
+            <div class="event-desc">Extended thinking content (when enabled) — may be collapsed in UI</div>
+          </div>
+          <div class="event-item">
+            <div class="event-name">file_change</div>
+            <div class="event-desc">AI edited a file — triggers diff view and preview refresh</div>
+          </div>
+          <div class="event-item">
+            <div class="event-name">status</div>
+            <div class="event-desc">Run lifecycle updates: starting, running, complete, error</div>
+          </div>
+          <div class="event-item">
+            <div class="event-name">usage</div>
+            <div class="event-desc">Token/cost usage for the run — shown in session info</div>
+          </div>
+          <div class="event-item" style="background:var(--rose-dim);border-color:var(--rose-border);">
+            <div class="event-name">approval_request</div>
+            <div class="event-desc">AI wants to use a tool that needs user confirmation — UI shows approve/deny prompt. Visual tools are <strong style="color:var(--green)">auto-approved</strong> and never trigger this.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="activity-section">
+        <div class="event-column-label">Activity kinds — shown in the UI as status indicators</div>
+        <div class="activity-pills">
+          <div class="activity-pill">thinking</div>
+          <div class="activity-pill">preparing</div>
+          <div class="activity-pill">reviewing</div>
+          <div class="activity-pill">checking</div>
+          <div class="activity-pill">editing</div>
+          <div class="activity-pill">searching</div>
+          <div class="activity-pill">reading</div>
+          <div class="activity-pill">tooling</div>
+          <div class="activity-pill">writing</div>
+          <div class="activity-pill">waiting</div>
+        </div>
+
+        <div style="margin-top: 20px; padding: 14px 16px; background: rgba(240,107,138,0.06); border: 1px solid rgba(240,107,138,0.15); border-radius: 8px;">
+          <div class="event-column-label" style="margin-bottom: 8px;">Approval rules</div>
+          <div style="font-size: 12px; color: var(--text-dim); line-height: 1.75;">
+            <div style="margin-bottom: 6px;"><strong style="color:var(--green); font-family:var(--mono); font-size:11px;">Auto-approved:</strong> <code style="font-family:var(--mono);font-size:10px;background:rgba(0,0,0,0.3);padding:1px 4px;border-radius:3px;">ripple snapshot</code> and <code style="font-family:var(--mono);font-size:10px;background:rgba(0,0,0,0.3);padding:1px 4px;border-radius:3px;">ripple frame-sheet</code> commands never interrupt the user.</div>
+            <div><strong style="color:var(--rose); font-family:var(--mono); font-size:11px;">Needs approval:</strong> All other tool use routes through <code style="font-family:var(--mono);font-size:10px;background:rgba(0,0,0,0.3);padding:1px 4px;border-radius:3px;">canUseTool</code> (Claude) or <code style="font-family:var(--mono);font-size:10px;background:rgba(0,0,0,0.3);padding:1px 4px;border-radius:3px;">requestApproval</code> (Codex) — the UI shows an approve/deny prompt and the run pauses until the user responds.</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 16px; padding: 14px 16px; background: rgba(240,107,138,0.04); border: 1px solid rgba(240,107,138,0.1); border-radius: 8px;">
+          <div class="event-column-label" style="margin-bottom: 8px;">Key source files</div>
+          <div style="font-family:var(--mono); font-size:10px; color:var(--text-faint); line-height:2.1;">
+            <div><span style="color:var(--blue)">ripple-provider-policy.ts</span> — system prompt text</div>
+            <div><span style="color:var(--blue)">agent-run-context-resolver.ts</span> — assembles appPolicy</div>
+            <div><span style="color:var(--green)">visual-context-native-tool.ts</span> — tool schemas + image capture</div>
+            <div><span style="color:var(--purple)">claude-agent-sdk-adapter.ts</span> — Claude SDK call + events</div>
+            <div><span style="color:var(--purple)">codex-app-server-adapter.ts</span> — Codex process + JSON-RPC</div>
+            <div><span style="color:var(--amber)">runtime-context.ts</span> — per-run context resolution</div>
+            <div><span style="color:var(--amber)">prompt-mentions.ts</span> — @mention parsing</div>
+            <div><span style="color:var(--rose)">activity.ts</span> — activity event tracking</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-files">
+      <div class="footer-file">Generated from <span>src/main/lib/agent-runtime/</span></div>
+      <div class="footer-file">Ripple — local-first motion graphics editor</div>
+    </div>
+    <div class="footer-note">All context is assembled fresh per run.<br>The AI's world is exactly what's described here — nothing more.</div>
+  </div>
+
+</main>
+
+<script>
+// Intersection observer for section animations
+const sections = document.querySelectorAll('.section');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+sections.forEach((s, i) => {
+  s.style.transitionDelay = `${i * 0.04}s`;
+  observer.observe(s);
+});
+
+// Highlight legend item on hover to show related sections
+document.querySelectorAll('.legend-item').forEach(item => {
+  item.style.cursor = 'pointer';
+  item.style.transition = 'opacity 0.2s';
+  item.addEventListener('mouseenter', () => {
+    item.style.opacity = '1';
+    item.style.color = 'var(--text)';
+  });
+  item.addEventListener('mouseleave', () => {
+    item.style.color = '';
+  });
+});
+</script>
+</body>
+</html>

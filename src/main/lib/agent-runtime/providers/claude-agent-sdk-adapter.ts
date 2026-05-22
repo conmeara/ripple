@@ -30,7 +30,7 @@ import {
   buildClaudeElicitationApprovalRequest,
   buildClaudeElicitationResult,
   buildClaudeToolApprovalRequest,
-  isRippleClaudeAutoAllowedTool,
+  isRippleClaudeProjectLocalAutoAllowedTool,
 } from "./claude-agent-sdk-approval"
 import {
   buildAgentRunActivityEvent,
@@ -494,7 +494,16 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
             decisionClassification: "user_reject" as const,
           }
         }
-        if (isRippleClaudeAutoAllowedTool(toolName, normalizedInput)) {
+        const permissionOptions = {
+          ...options,
+          toolUseID,
+        }
+        if (isRippleClaudeProjectLocalAutoAllowedTool({
+          toolName,
+          toolInput: normalizedInput,
+          options: permissionOptions,
+          workspaceRoot: input.cwd,
+        })) {
           return {
             behavior: "allow" as const,
             updatedInput: normalizedInput,
@@ -505,10 +514,7 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
         const approvalRequest = buildClaudeToolApprovalRequest({
           toolName,
           toolInput: normalizedInput,
-          options: {
-            ...options,
-            toolUseID,
-          },
+          options: permissionOptions,
         })
         const approval = await sink.requestApproval(approvalRequest)
         if (approval.approved) {
@@ -608,12 +614,14 @@ export class ClaudeAgentSdkAdapter implements AgentProviderAdapter {
 
           if (event?.type === "content_block_delta" && event.delta?.type === "text_delta") {
             const delta = String(event.delta.text ?? "")
-            await sink.emit({
-              type: "assistant_text_delta",
-              providerType: event.type,
-              providerId: messageAny.uuid,
-              payload: { delta },
-            })
+            if (delta) {
+              await sink.emit({
+                type: "assistant_text_delta",
+                providerType: event.type,
+                providerId: messageAny.uuid,
+                payload: { delta },
+              })
+            }
             await emitActivity({
               eventType: "assistant_text_delta",
               providerType: event.type,

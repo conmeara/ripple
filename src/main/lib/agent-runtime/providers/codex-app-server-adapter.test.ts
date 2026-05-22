@@ -8,6 +8,7 @@ import {
 import {
   assessCodexAppServerApprovalRequest,
   isCodexAppServerAutoApprovedVisualCommand,
+  isCodexAppServerProjectLocalAutoApprovedRequest,
 } from "./codex-app-server-approval"
 import { buildCodexTurnInput } from "./codex-app-server-input"
 import {
@@ -224,7 +225,27 @@ describe("Codex App Server notification normalization", () => {
       expect.objectContaining({
         type: "reasoning",
         providerId: "reason-1",
-        payload: { delta: "Thinking" },
+        payload: { delta: "Thinking", streamKind: "reasoning_summary" },
+      }),
+      expect.objectContaining({
+        type: "activity",
+        providerId: "reason-1",
+        payload: {
+          kind: "thinking",
+          label: "Agent is thinking",
+          source: "codex_app_server",
+        },
+      }),
+    ])
+
+    expect(normalizeCodexAppServerNotification({
+      method: "item/reasoning/textDelta",
+      params: { itemId: "reason-1", delta: "Inspecting intro.html" },
+    })).toEqual([
+      expect.objectContaining({
+        type: "reasoning",
+        providerId: "reason-1",
+        payload: { delta: "Inspecting intro.html", streamKind: "reasoning_text" },
       }),
       expect.objectContaining({
         type: "activity",
@@ -587,6 +608,63 @@ describe("Codex App Server approval policy", () => {
           network: { enabled: true },
         },
       },
+    })).toBe(false)
+  })
+
+  test("auto-approves project-local Codex approval requests", () => {
+    expect(isCodexAppServerProjectLocalAutoApprovedRequest({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        command: "bun test",
+        availableDecisions: ["acceptForSession", "decline"],
+      },
+    })).toBe(true)
+
+    expect(isCodexAppServerProjectLocalAutoApprovedRequest({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        permissions: {
+          fileSystem: {
+            read: [`${workspaceRoot}/index.html`],
+            write: ["./compositions/main.html"],
+          },
+        },
+      },
+    })).toBe(true)
+
+    expect(isCodexAppServerProjectLocalAutoApprovedRequest({
+      workspaceRoot: "/Users/conmeara/Ripple/test-project",
+      params: {
+        cwd: "/Users/conmeara/ripple/test-project",
+        command: "bun test",
+      },
+    })).toBe(process.platform === "darwin")
+  })
+
+  test("does not auto-approve network or outside-project Codex requests", () => {
+    expect(isCodexAppServerProjectLocalAutoApprovedRequest({
+      workspaceRoot,
+      params: {
+        cwd: workspaceRoot,
+        command: "curl https://example.com",
+        networkApprovalContext: { host: "example.com" },
+      },
+    })).toBe(false)
+
+    expect(isCodexAppServerProjectLocalAutoApprovedRequest({
+      workspaceRoot,
+      params: {
+        cwd: "/tmp/other-project",
+        command: "bun test",
+      },
+    })).toBe(false)
+
+    expect(isCodexAppServerProjectLocalAutoApprovedRequest({
+      workspaceRoot,
+      params: { cwd: workspaceRoot },
+      paths: ["/tmp/other-project/index.html"],
     })).toBe(false)
   })
 })

@@ -54,6 +54,11 @@ const requiredScripts = [
   "test:quality",
   "test:ux",
   "test:agent",
+  "test:agent-ui",
+  "test:agent-ui:e2e",
+  "test:agent-ui:e2e:live-fixtures",
+  "test:agent-ui:e2e:temporal",
+  "test:agent-evals",
   "test:export",
   "test:export:smoke",
   "test:e2e",
@@ -65,6 +70,11 @@ const requiredScripts = [
   "test:update:smoke",
   "test:closeout",
   "test:release",
+  "eval:agent-runtime-ui",
+  "eval:agent-runtime-ui:export",
+  "eval:agent-runtime-ui:live",
+  "eval:agent-runtime-ui:report",
+  "eval:agent-runtime-ui:refresh",
   "test:ripple",
   "test:hyperframes",
 ]
@@ -153,20 +163,35 @@ mustExist("scripts/smoke-packaged-ripple.mjs")
 mustExist("scripts/smoke-packaged-update.mjs")
 mustExist("scripts/smoke-ripple-export-formats.ts")
 mustExist("scripts/smoke-live-provider.mjs")
+mustExist("scripts/agent-runtime-ui-eval.ts")
+mustExist("scripts/export-agent-runtime-ui-fixture.ts")
+mustExist("scripts/agent-runtime-ui-live-eval.ts")
+mustExist("scripts/agent-runtime-ui-report.ts")
+mustExist("scripts/refresh-agent-runtime-ui-fixtures.ts")
 mustExist(".github/workflows/ripple-quality.yml")
 mustExist("test/e2e/playwright.config.ts")
 mustExist("test/e2e/helpers/ripple-electron.ts")
+mustExist("test/e2e/agent-runtime-ui-fixtures.e2e.ts")
+mustExist("test/e2e/agent-runtime-ui-live-fixtures.e2e.ts")
+mustExist("test/e2e/agent-runtime-ui-temporal.e2e.ts")
 mustExist("test/e2e/project-entry.e2e.ts")
 mustExist("test/e2e/template-review.e2e.ts")
 mustExist("test/quality/workflow-coverage.test.ts")
+mustExist("test/quality/agent-runtime-ui-fixtures.test.ts")
 mustExist("test/quality/hyperframes-fixtures.test.ts")
 mustExist("test/fixtures/hyperframes/basic-title-card/index.html")
+mustExist("test/fixtures/agent-runtime-ui/manifest.json")
 
 const packageJson = JSON.parse(read(packageJsonPath))
 for (const scriptName of requiredScripts) {
   if (!packageJson.scripts?.[scriptName]) {
     fail(`package.json is missing script ${scriptName}`)
   }
+}
+
+const qualityWorkflow = read(".github/workflows/ripple-quality.yml")
+if (!qualityWorkflow.includes("bun run test:agent-ui:e2e")) {
+  fail("Ripple quality workflow does not run test:agent-ui:e2e")
 }
 
 const activeSpecs = existsSync(join(repoRoot, specsDir))

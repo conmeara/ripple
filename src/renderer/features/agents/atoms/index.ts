@@ -725,22 +725,6 @@ export type PendingAuthRetryMessage = {
 }
 export const pendingAuthRetryMessageAtom = atom<PendingAuthRetryMessage | null>(null)
 
-// Pending chat history file to inject into a newly created sub-chat
-// Set when user switches provider mid-chat, consumed by ChatInputArea on mount
-export interface PendingChatHistory {
-  subChatId: string
-  file: {
-    id: string
-    filePath: string
-    filename: string
-    size: number
-    preview: string
-    createdAt: Date
-    kind: "chatHistory"
-  }
-}
-export const pendingChatHistoryAtom = atom<PendingChatHistory | null>(null)
-
 // Chat editing mode preference. Main edits the project directly; Worktree uses
 // a temporary copy for changes that need an explicit accept step.
 export type WorkMode = "local" | "worktree"

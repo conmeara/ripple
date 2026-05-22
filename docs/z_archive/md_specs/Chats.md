@@ -92,6 +92,9 @@ Chat feels like talking to a motion editor who can actually change the project. 
 - `src/shared/ripple-conversations.test.ts` - Derives compact chat titles from user messages and falls back for blank input.
 - `src/main/lib/agent-runtime/chat-history-context.test.ts` - Bridges visible prior chat history into clean Codex/Claude provider context.
 - `src/main/lib/agent-runtime/agent-runtime-ui-projection.test.ts` - Projects provider events, reasoning, tools, approvals, and usage into persisted chat UI parts.
+- `test/e2e/agent-runtime-ui-fixtures.e2e.ts` - Replays sanitized real Claude and Codex sessions through the chat message UI and comment cards to check shimmer, activity wording, approvals, revision status, and raw runtime leakage.
+- `test/e2e/agent-runtime-ui-live-fixtures.e2e.ts` - Opt-in replay for freshly exported live-provider fixtures before they replace canonical coverage.
+- `scripts/agent-runtime-ui-live-eval.ts` and `scripts/agent-runtime-ui-report.ts` - Export real provider runs, replay them through the UI harness, and produce a reviewable report for provider upgrades.
 - `src/renderer/features/agents/commands/builtin-commands.test.ts` - Keeps chat slash commands available without legacy language and filters prompt commands.
 - `src/renderer/features/agents/ui/agent-tool-registry.test.ts` - Keeps loading/planning labels stable within a session while varying across sessions.
 - `src/renderer/features/agents/utils/auto-generate.test.ts` - Auto-starts normal one-message chats and routes comment-created chats through revision claiming.

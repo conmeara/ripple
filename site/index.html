@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ripple: Agentic video editing for motion designers</title>
+  <meta name="description" content="Ripple is a download-and-go motion-design app for agentic video editing with frame comments, isolated revisions, fast visual context, and Claude or Codex support.">
+  <meta property="og:title" content="Ripple: Agentic video editing for motion designers">
+  <meta property="og:description" content="Create motion with AI agents without code setup. Leave frame comments, run isolated revisions, and give agents fast visual context.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="site-assets/img/ripple-social-card.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="site-assets/img/ripple-social-card.svg">
+  <link rel="icon" href="site-assets/img/ripple-icon.png">
+  <link rel="stylesheet" href="site-assets/ripple-site.css?v=12">
+  <script defer src="site-assets/ripple-site.js?v=12"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header" aria-label="Primary">
+    <div class="header-inner">
+      <a class="brand" href="#top" aria-label="Ripple home">
+        <img src="site-assets/img/ripple-icon.png" alt="" width="24" height="24">
+        <span>Ripple</span>
+      </a>
+      <nav class="main-nav" aria-label="Sections">
+        <a class="has-menu" href="#why">Why Ripple</a>
+        <a href="#comments">Comments</a>
+        <a href="#visual-context">Visual Context</a>
+        <a class="has-menu" href="#download">Resources</a>
+      </nav>
+      <div class="header-actions">
+        <a href="https://github.com/conmeara/ripple">GitHub</a>
+        <a href="#download">Contact</a>
+        <a href="https://github.com/conmeara/ripple/releases">Download</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero section" id="top" aria-labelledby="hero-title">
+      <div class="container">
+        <div class="hero-copy">
+          <p class="hero-kicker">Agentic video editing, without the setup maze.</p>
+          <h1 id="hero-title">Agentic video editing for motion designers and editors, without the code setup.</h1>
+          <p class="hero-subcopy">Download Ripple, connect Claude or Codex, and create with frame comments, isolated revisions, and fast visual context. No GitHub, worktrees, skills, or dependency setup required.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://github.com/conmeara/ripple/releases">Download for macOS <span>↓</span></a>
+            <a class="btn btn-secondary" href="#why">See why it works <span>→</span></a>
+            <a class="btn btn-secondary" href="#comments">View comments <span>→</span></a>
+          </div>
+        </div>
+
+        <div class="hero-tableau media-frame" aria-label="Interactive Ripple product demo">
+          <p class="sr-only">This element contains an interactive demo for sighted users showing multiple Ripple interfaces: Ripple Desktop preview, frame comments, visual context, and agent revision workflow.</p>
+          <div class="wallpaper"></div>
+
+          <div class="mission-panel">
+            <div class="panel-title">In Progress <span>3</span></div>
+            <article><strong>Polish title reveal</strong><span>Reviewing frame</span></article>
+            <article><strong>Lower third pass</strong><span>Updating timing</span></article>
+            <article><strong>Export social cut</strong><span>Rendering preview</span></article>
+            <div class="panel-title muted">Ready for Review <span>2</span></div>
+            <article class="ready"><strong>Launch promo</strong><span>2m</span></article>
+            <article class="ready"><strong>Brand loop</strong><span>12m</span></article>
+          </div>
+
+          <div class="desktop-window">
+            <div class="window-chrome">
+              <span class="traffic"><i></i><i></i><i></i></span>
+              <strong>Ripple Desktop</strong>
+              <a href="#download">Get Ripple</a>
+            </div>
+            <div class="desktop-grid">
+              <aside class="project-sidebar">
+                <span class="sidebar-label">Project</span>
+                <button class="active">Launch Promo</button>
+                <button>Lower Thirds</button>
+                <button>Brand Loops</button>
+                <span class="sidebar-label">Templates</span>
+                <div class="side-preview motion-thumb">
+                  <span class="thumb-title">Lower Third</span>
+                  <span class="thumb-bar"></span>
+                  <span class="thumb-line"></span>
+                </div>
+              </aside>
+              <section class="preview-surface">
+                <div class="preview-tabs"><span>Main</span><span data-demo-time>00:03:14</span><span>Proposed</span></div>
+                <div class="preview-stage">
+                  <div class="motion-shot shot-showcase is-active" data-demo-shot="0">
+                    <span class="asset-kicker">Launch Promo</span>
+                    <strong>MAKE WAVES</strong>
+                    <div class="device-stack"><i></i><i></i><i></i></div>
+                    <span class="asset-caption">Scene A · product reveal</span>
+                  </div>
+                  <div class="motion-shot shot-wave" data-demo-shot="1">
+                    <span class="asset-kicker">Brand Loop</span>
+                    <strong>RIPPLE<br>WAVES</strong>
+                    <div class="wave-ribbons"><i></i><i></i><i></i></div>
+                    <span class="asset-caption">Scene B · easing pass</span>
+                  </div>
+                  <div class="motion-shot shot-title" data-demo-shot="2">
+                    <span class="asset-kicker">Transition</span>
+                    <strong>SCENE TWO</strong>
+                    <em>soft dissolve · 18 frames</em>
+                    <span class="asset-caption">Scene C · compare preview</span>
+                  </div>
+                  <span class="frame-pin" data-demo-frame>18</span>
+                  <div class="mini-sheet">
+                    <span class="sheet-a"></span><span class="sheet-b"></span><span class="sheet-c"></span><span class="sheet-d"></span>
+                    <em>frame sheet · comment #18</em>
+                  </div>
+                </div>
+                <div class="timeline">
+                  <b>Intro</b>
+                  <span class="clip clip-one"></span>
+                  <b>Reveal</b>
+                  <span class="clip clip-two"></span>
+                  <b>Hold</b>
+                  <span class="clip clip-three"></span>
+                  <span class="playhead"></span>
+                </div>
+              </section>
+              <aside class="comment-sidebar">
+                <div class="comment-tabs"><span class="active">Comments</span><span>Chat</span></div>
+                <article class="comment-card active">
+                  <div><span class="dot blue"></span><span data-demo-status>Reviewing the frame</span><strong>#18</strong></div>
+                  <p data-demo-comment>Make the phone hero feel more premium and hold the final frame longer.</p>
+                  <button data-demo-action>Visual context attached</button>
+                </article>
+                <article class="comment-card">
+                  <div><span class="dot green"></span><span>Changes ready</span><strong>#17</strong></div>
+                  <p>Tightened the lower-third timing and softened the outro.</p>
+                </article>
+              </aside>
+            </div>
+          </div>
+
+          <div class="agent-window">
+            <div class="agent-shell">
+              <span>Ripple Agent</span>
+              <strong data-demo-agent>Working</strong>
+            </div>
+            <p data-demo-agent-line>Reviewed the current frame, sampled a short frame sheet, and prepared a focused composition edit.</p>
+            <div class="agent-progress">
+              <span><i></i>Current frame</span>
+              <span><i></i>Frame sheet</span>
+              <span><i></i><b data-demo-step>Editing timing</b></span>
+            </div>
+            <div class="agent-input">Add a follow up...</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="trusted section" aria-label="Workflow highlights">
+      <div class="container">
+        <h2>Built for creators who want agentic editing, not agent setup</h2>
+        <div class="trust-row">
+          <span>No code setup</span>
+          <span>Claude or Codex</span>
+          <span>Frame comments</span>
+          <span>Isolated revisions</span>
+          <span>Fast visual context</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="intro section" id="why" aria-labelledby="intro-title">
+      <div class="container intro-layout">
+        <div class="section-copy">
+          <span>Why Ripple</span>
+          <h2 id="intro-title">The app handles the parts motion teams should never have to think about.</h2>
+          <p>Agentic editing is powerful, but the raw workflow asks creative people to manage developer tools. Ripple turns that into a motion app: projects, preview, comments, revisions, and export.</p>
+        </div>
+        <div class="step-list" aria-label="Getting started">
+          <article>
+            <strong>01</strong>
+            <h3>Download and start</h3>
+            <p>Ripple bundles the local app workflow so designers do not have to install skills, wire dependencies, or understand GitHub before making a video.</p>
+          </article>
+          <article>
+            <strong>02</strong>
+            <h3>Connect your agent</h3>
+            <p>Use the Claude or Codex access you already have. Ripple keeps the provider details out of the creative surface.</p>
+          </article>
+          <article>
+            <strong>03</strong>
+            <h3>Edit in the preview</h3>
+            <p>Open a project, leave frame comments, compare proposed versions, and accept the changes that make the cut.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="selling-points section" aria-label="Core selling points">
+      <div class="container selling-grid">
+        <article>
+          <span>01</span>
+          <h3>Made for motion designers, editors, and video creators</h3>
+          <p>Ripple is for people who want agentic video editing without learning repo setup, terminal commands, worktrees, package installs, or agent runtime plumbing.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>Comments become isolated agent sessions</h3>
+          <p>Each frame or range note can run on its own proposed version. Click between comments, compare Main and Proposed, and let Ripple handle the merge path.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>Visual context makes agents better editors</h3>
+          <p>Ripple gives agents current frames, frame sheets, timing, and project context quickly, so they can reason about the composition they are changing.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="feature-stack section section-flush" id="agents">
+      <article class="feature-card container">
+        <a class="feature-link" href="#reviews">
+          <div class="feature-copy">
+            <h3>Download it. Start making motion.</h3>
+            <p>Ripple packages the agentic editing workflow into one app, so creators can get to preview and comments instead of setup.</p>
+            <span>See the no-code workflow →</span>
+          </div>
+          <div class="feature-demo ide-demo">
+            <div class="revision-window">
+              <div class="revision-chrome"><span>Launch Promo</span><strong>Proposed Version</strong></div>
+              <div class="revision-grid">
+                <div class="revision-before">
+                  <span>Main</span>
+                  <div class="motion-shot shot-showcase is-active"><strong>MAKE WAVES</strong><div class="device-stack"><i></i><i></i><i></i></div></div>
+                </div>
+                <div class="revision-after">
+                  <span>Proposed</span>
+                  <div class="motion-shot shot-showcase is-active"><strong>MAKE WAVES</strong><div class="device-stack"><i></i><i></i><i></i></div><b class="glow-ring"></b></div>
+                </div>
+                <aside class="revision-plan">
+                  <strong>Comment #18</strong>
+                  <p>Hold the final frame longer and make the phone reveal feel more premium.</p>
+                  <ul>
+                    <li><span></span>Read current frame</li>
+                    <li><span></span>Sampled 6-frame sheet</li>
+                    <li><span></span>Updated reveal timing</li>
+                  </ul>
+                  <button>Preview revision</button>
+                </aside>
+              </div>
+            </div>
+          </div>
+        </a>
+      </article>
+
+      <article class="feature-card container" id="comments">
+        <a class="feature-link feature-link-reverse" href="#frontier">
+          <div class="feature-copy">
+            <h3>Every comment is its own editing session.</h3>
+            <p>Leave notes on frames or ranges, run them independently, switch between proposed versions, and keep Main protected until you accept.</p>
+            <span>See isolated comments →</span>
+          </div>
+          <div class="feature-demo review-demo">
+            <div class="review-board">
+              <div class="review-list">
+                <span>This Week</span>
+                <strong>Launch promo</strong>
+                <strong>Lower third cleanup</strong>
+                <strong>Social cutdown</strong>
+              </div>
+              <div class="review-detail">
+                <div class="review-preview motion-shot shot-lower is-active">
+                  <span class="asset-kicker">Social cut</span>
+                  <strong>AVERY STONE</strong>
+                  <em>Creative Director</em>
+                  <b></b>
+                </div>
+                <article>
+                  <strong>Comment #12</strong>
+                  <p>Bring the name on 6 frames earlier and make the subtitle calmer.</p>
+                </article>
+                <article class="done">
+                  <strong>Done</strong>
+                  <p>Adjusted timing and easing. Ready to preview.</p>
+                </article>
+              </div>
+            </div>
+          </div>
+        </a>
+      </article>
+
+      <article class="feature-card container" id="visual-context">
+        <a class="feature-link" href="#frontier">
+          <div class="feature-copy">
+            <h3>The agent can see what you see.</h3>
+            <p>Ripple attaches current frames, frame sheets, timestamps, and composition context so the agent is not guessing from source files alone.</p>
+            <span>Explore visual context →</span>
+          </div>
+          <div class="feature-demo context-demo">
+            <div class="sheet-grid">
+              <div class="sheet-frame scene-one"><strong>01</strong><span></span></div>
+              <div class="sheet-frame scene-two"><strong>06</strong><span></span></div>
+              <div class="sheet-frame scene-three"><strong>12</strong><span></span></div>
+              <div class="sheet-frame scene-four"><strong>18</strong><span></span></div>
+              <div class="sheet-frame scene-five"><strong>24</strong><span></span></div>
+              <div class="sheet-frame scene-six"><strong>31</strong><span></span></div>
+            </div>
+            <div class="sheet-caption">
+              <strong>Attached to comment #18</strong>
+              <span>6 sampled frames · timestamp manifest · current composition</span>
+            </div>
+          </div>
+        </a>
+      </article>
+
+      <article class="feature-card container">
+        <a class="feature-link feature-link-reverse" href="#download">
+          <div class="feature-copy">
+            <h3>Motion workflow stays motion-shaped.</h3>
+            <p>Start from local HyperFrames projects, direct revisions in chat or comments, and export without exposing the developer machinery underneath.</p>
+            <span>Browse the creative loop →</span>
+          </div>
+          <div class="feature-demo template-demo">
+            <article><div class="template-art template-showcase"><strong>Launch</strong><span></span></div><span>App showcase</span></article>
+            <article><div class="template-art template-wave"><strong>Wave</strong><span></span></div><span>Brand loop</span></article>
+            <article><div class="template-art template-chart"><strong>Data</strong><span></span></div><span>Data chart</span></article>
+            <article><div class="template-art template-transition"><strong>Cut</strong><span></span></div><span>Transition</span></article>
+          </div>
+        </a>
+      </article>
+    </section>
+
+    <section class="quotes section" id="reviews">
+      <div class="container">
+        <h2>Agentic editing, shaped like review.</h2>
+        <div class="quote-grid">
+          <article><p>Drop a note on the frame, let an agent work in isolation, and keep reviewing the cut.</p><span>Frame comments</span></article>
+          <article><p>Use agentic editing without becoming the person who manages worktrees, installs, and merge conflicts.</p><span>No-code setup</span></article>
+          <article><p>Give the agent visual context from the preview so it can edit motion instead of guessing from code.</p><span>Visual context</span></article>
+          <article><p>Bring the Claude or Codex subscription you already use and keep the creative workflow local-first.</p><span>Agent access</span></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="frontier section" id="frontier">
+      <div class="container">
+        <h2>Stay in the creative loop</h2>
+        <div class="frontier-grid">
+          <article>
+            <h3>Start from the app, not the terminal</h3>
+            <p>Ripple keeps projects, templates, preview, comments, and export in one creative surface.</p>
+            <a href="#download">Download Ripple →</a>
+          </article>
+          <article>
+            <h3>Review multiple agent attempts</h3>
+            <p>Comments can become separate proposed versions, so you can compare, accept, reject, or keep refining.</p>
+            <a href="#comments">Learn about comments →</a>
+          </article>
+          <article>
+            <h3>Let agents inspect the actual motion</h3>
+            <p>Current frame capture and frame sheets give edits the visual grounding they need.</p>
+            <a href="#visual-context">Learn about visual context →</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="changelog section">
+      <div class="container">
+        <h2>Changelog</h2>
+        <div class="change-row">
+          <article><span>For creators</span><strong>No setup maze</strong><p>Download the app and connect Claude or Codex.</p></article>
+          <article><span>For review</span><strong>Comment sessions</strong><p>Run isolated agent revisions from frame notes.</p></article>
+          <article><span>For quality</span><strong>Visual context</strong><p>Give agents frames, sheets, and timing.</p></article>
+          <article><span>For output</span><strong>Local export</strong><p>Keep projects portable and renderable.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="download section" id="download">
+      <div class="container">
+        <h2>Try agentic motion editing without the setup work.</h2>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/conmeara/ripple/releases">Download for macOS <span>↓</span></a>
+          <a class="btn btn-secondary" href="https://github.com/conmeara/ripple">View source <span>→</span></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <a class="brand" href="#top" aria-label="Ripple home">
+          <img src="site-assets/img/ripple-icon.png" alt="" width="24" height="24">
+          <span>Ripple</span>
+        </a>
+      </div>
+      <nav aria-label="Footer product">
+        <h3>Product</h3>
+        <a href="#why">Why Ripple</a>
+        <a href="#comments">Comments</a>
+        <a href="#visual-context">Visual Context</a>
+      </nav>
+      <nav aria-label="Footer resources">
+        <h3>Resources</h3>
+        <a href="https://github.com/conmeara/ripple/releases">Download</a>
+        <a href="https://github.com/conmeara/ripple">GitHub</a>
+      </nav>
+      <p>© 2026 Ripple. Agentic motion editing for creators who want preview, comments, revisions, visual context, and export without setup work.</p>
+    </div>
+  </footer>
+</body>
+</html>

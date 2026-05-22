@@ -1,0 +1,2535 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "provider": "codex",
+    "model": "gpt-5.5/high",
+    "runKind": "generated_change",
+    "status": "completed",
+    "originalEventCount": 591,
+    "selectedEventCount": 45,
+    "note": "Sanitized from a real local Ripple Dev run. Prompt summary: Lower the phones in the screen a lot Comment context: - Project: test project - Composition: Main (index.html) - Anchor type: frame - Time:..."
+  },
+  "projectPath": "/Users/motion/Ripple Projects/Fixture Project",
+  "events": [
+    {
+      "id": "real-codex-comment-revision-event-005",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 1,
+      "createdAt": "2026-05-21T12:00:04.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-002",
+      "payload": {
+        "delta": "I"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-050",
+      "type": "tool_start",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 2,
+      "createdAt": "2026-05-21T12:00:49.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-003",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc pwd",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "pwd"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-051",
+      "type": "tool_end",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 3,
+      "createdAt": "2026-05-21T12:00:50.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-003",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc pwd",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "pwd"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "/Users/motion/sanitized\n",
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-052",
+      "type": "tool_start",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 4,
+      "createdAt": "2026-05-21T12:00:51.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-004",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '1,260p' index.html\"",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '1,260p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/sanitized"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-053",
+      "type": "tool_end",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 5,
+      "createdAt": "2026-05-21T12:00:52.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-004",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '1,260p' index.html\"",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '1,260p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/sanitized"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=1920, height=1080\" />\n    <title>main</title>\n    <style>\n      * {\n        margin: 0;\n        padding: 0;\n        box-sizing: border-box;\n      }\n      html,\n      body {\n        margin: 0;\n        width: 1...",
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-054",
+      "type": "tool_start",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 6,
+      "createdAt": "2026-05-21T12:00:53.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-005",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg --files'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "listFiles",
+            "command": "rg --files",
+            "path": null
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-055",
+      "type": "tool_end",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 7,
+      "createdAt": "2026-05-21T12:00:54.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-005",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'rg --files'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "listFiles",
+            "command": "rg --files",
+            "path": null
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "meta.json\nCLAUDE.md\nassets/vendor/gsap.min.js\nAGENTS.md\nindex.html\nhyperframes.json\n",
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-057",
+      "type": "tool_start",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 8,
+      "createdAt": "2026-05-21T12:00:56.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-006",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '621,980p' index.html\"",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '621,980p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/sanitized"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-060",
+      "type": "tool_end",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 9,
+      "createdAt": "2026-05-21T12:00:59.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-006",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '621,980p' index.html\"",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '621,980p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/sanitized"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "        }\n        [data-composition-id=\"main\"] .progress-header {\n          display: flex;\n          justify-content: space-between;\n          align-items: center;\n        }\n        [data-composition-id=\"main\"] .progress-title {\n          font-size: 15px;\n          font-weight: 500;\n          color: #f1f2ec;\n        }...",
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-061",
+      "type": "tool_start",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 10,
+      "createdAt": "2026-05-21T12:00:00.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-008",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '981,1260p' index.html\"",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '981,1260p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/sanitized"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-062",
+      "type": "tool_end",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 11,
+      "createdAt": "2026-05-21T12:00:01.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-008",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc \"sed -n '981,1260p' index.html\"",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "read",
+            "command": "sed -n '981,1260p' index.html",
+            "name": "index.html",
+            "path": "/Users/motion/sanitized"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": null,
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-064",
+      "type": "reasoning",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 12,
+      "createdAt": "2026-05-21T12:00:03.000Z",
+      "provider": "codex",
+      "providerType": "item/reasoning/summaryTextDelta",
+      "providerId": "fixture-id-009",
+      "payload": {
+        "delta": "**Adjusting phone placement in CSS**\n\nI"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-156",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 13,
+      "createdAt": "2026-05-21T12:00:35.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-010",
+      "payload": {
+        "delta": "The"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-197",
+      "type": "tool_start",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 14,
+      "createdAt": "2026-05-21T12:00:16.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-011",
+      "payload": {
+        "toolName": "Edit",
+        "changes": [
+          {
+            "path": "/Users/motion/sanitized",
+            "kind": {
+              "type": "update",
+              "move_path": null
+            },
+            "diff": "@@ -402,3 +402,3 @@\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           left: 800px;\n"
+          }
+        ],
+        "status": "inProgress"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-199",
+      "type": "tool_end",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 15,
+      "createdAt": "2026-05-21T12:00:18.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-011",
+      "payload": {
+        "toolName": "Edit",
+        "changes": [
+          {
+            "path": "/Users/motion/sanitized",
+            "kind": {
+              "type": "update",
+              "move_path": null
+            },
+            "diff": "@@ -402,3 +402,3 @@\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           left: 800px;\n"
+          }
+        ],
+        "status": "completed"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-200",
+      "type": "file_change",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 16,
+      "createdAt": "2026-05-21T12:00:19.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex d39c64d262ad62d9c93ab28d869e1418c17d02a4..470bd44d9975d3f87d326f2396758212aede6518\n--- a/index.html\n+++ b/index.html\n@@ -400,7 +400,7 @@\n           position: absolute;\n           width: 320px;\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           ..."
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-201",
+      "type": "file_change",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 17,
+      "createdAt": "2026-05-21T12:00:20.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex d39c64d262ad62d9c93ab28d869e1418c17d02a4..470bd44d9975d3f87d326f2396758212aede6518\n--- a/index.html\n+++ b/index.html\n@@ -400,7 +400,7 @@\n           position: absolute;\n           width: 320px;\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           ..."
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-202",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 18,
+      "createdAt": "2026-05-21T12:00:21.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-012",
+      "payload": {
+        "delta": "The"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-237",
+      "type": "tool_start",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 19,
+      "createdAt": "2026-05-21T12:00:56.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-013",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'ripple snapshot --at current --json'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "ripple snapshot --at current --json"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-238",
+      "type": "tool_end",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 20,
+      "createdAt": "2026-05-21T12:00:57.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-013",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'ripple snapshot --at current --json'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "ripple snapshot --at current --json"
+          }
+        ],
+        "status": "failed",
+        "exitCode": 1,
+        "output": "{\n  \"ok\": false,\n  \"error\": {\n    \"code\": \"CURRENT_FRAME_UNAVAILABLE\",\n    \"message\": \"Current-frame visual context requires a verified active preview identity.\"\n  }\n}\n",
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-239",
+      "type": "tool_start",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 21,
+      "createdAt": "2026-05-21T12:00:58.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-014",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'hyperframes lint .'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "hyperframes lint ."
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-282",
+      "type": "file_change",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 22,
+      "createdAt": "2026-05-21T12:00:41.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex d39c64d262ad62d9c93ab28d869e1418c17d02a4..470bd44d9975d3f87d326f2396758212aede6518\n--- a/index.html\n+++ b/index.html\n@@ -400,7 +400,7 @@\n           position: absolute;\n           width: 320px;\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           ..."
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-283",
+      "type": "tool_end",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 23,
+      "createdAt": "2026-05-21T12:00:42.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-014",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'hyperframes lint .'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "hyperframes lint ."
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "◆  Linting worthy-cliff/index.html\n\n  ⚠ composition_self_attribute_selector: Selector matches the block's own id; will leak to sibling instances when the block is embedded twice.\n    Fix: Use #main for clearer authoring intent and instance-isolated styling.\n  ⚠ composition_self_attribute_selector: Selector matches the...",
+        "durationMs": 133
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-284",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 24,
+      "createdAt": "2026-05-21T12:00:43.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-015",
+      "payload": {
+        "delta": "The"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-330",
+      "type": "tool_start",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 25,
+      "createdAt": "2026-05-21T12:00:29.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-016",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'ripple snapshot --at 2.5s --json'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "ripple snapshot --at 2.5s --json"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-331",
+      "type": "file_change",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 26,
+      "createdAt": "2026-05-21T12:00:30.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex d39c64d262ad62d9c93ab28d869e1418c17d02a4..470bd44d9975d3f87d326f2396758212aede6518\n--- a/index.html\n+++ b/index.html\n@@ -400,7 +400,7 @@\n           position: absolute;\n           width: 320px;\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           ..."
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-334",
+      "type": "file_change",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 27,
+      "createdAt": "2026-05-21T12:00:33.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex d39c64d262ad62d9c93ab28d869e1418c17d02a4..470bd44d9975d3f87d326f2396758212aede6518\n--- a/index.html\n+++ b/index.html\n@@ -400,7 +400,7 @@\n           position: absolute;\n           width: 320px;\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           ..."
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-337",
+      "type": "file_change",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 28,
+      "createdAt": "2026-05-21T12:00:36.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex d39c64d262ad62d9c93ab28d869e1418c17d02a4..470bd44d9975d3f87d326f2396758212aede6518\n--- a/index.html\n+++ b/index.html\n@@ -400,7 +400,7 @@\n           position: absolute;\n           width: 320px;\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           ..."
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-339",
+      "type": "tool_end",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 29,
+      "createdAt": "2026-05-21T12:00:38.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-016",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'ripple snapshot --at 2.5s --json'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "ripple snapshot --at 2.5s --json"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "{\n  \"ok\": true,\n  \"type\": \"snapshot\",\n  \"snapshot\": {\n    \"id\": \"snap_0c19add55c8b\",\n    \"path\": \".ripple/visual-context/snapshots/snap_0c19add55c8b/000.png\",\n    \"sample\": {\n      \"timeMs\": 2500,\n      \"frame\": 75\n    },\n    \"width\": 1920,\n    \"height\": 1080\n  },\n  \"context\": {\n    \"compositionPath\": null,\n    \"sourc...",
+        "durationMs": 18722
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-340",
+      "type": "tool_update",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 30,
+      "createdAt": "2026-05-21T12:00:39.000Z",
+      "provider": "codex",
+      "providerType": "item/commandExecution/terminalInteraction",
+      "providerId": "fixture-id-016",
+      "payload": {
+        "toolName": "Bash",
+        "stdin": "",
+        "processId": "fixture-id-017"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-342",
+      "type": "file_change",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 31,
+      "createdAt": "2026-05-21T12:00:41.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex d39c64d262ad62d9c93ab28d869e1418c17d02a4..470bd44d9975d3f87d326f2396758212aede6518\n--- a/index.html\n+++ b/index.html\n@@ -400,7 +400,7 @@\n           position: absolute;\n           width: 320px;\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           ..."
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-343",
+      "type": "reasoning",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 32,
+      "createdAt": "2026-05-21T12:00:42.000Z",
+      "provider": "codex",
+      "providerType": "item/reasoning/summaryTextDelta",
+      "providerId": "fixture-id-018",
+      "payload": {
+        "delta": "**Inspecting images visually**\n\nI"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-424",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 33,
+      "createdAt": "2026-05-21T12:00:03.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-019",
+      "payload": {
+        "delta": "The"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-456",
+      "type": "tool_start",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 34,
+      "createdAt": "2026-05-21T12:00:35.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-020",
+      "payload": {
+        "toolName": "ViewImage",
+        "path": "/Users/motion/sanitized"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-457",
+      "type": "tool_end",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 35,
+      "createdAt": "2026-05-21T12:00:36.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-020",
+      "payload": {
+        "toolName": "ViewImage",
+        "path": "/Users/motion/sanitized"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-459",
+      "type": "file_change",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 36,
+      "createdAt": "2026-05-21T12:00:38.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex d39c64d262ad62d9c93ab28d869e1418c17d02a4..470bd44d9975d3f87d326f2396758212aede6518\n--- a/index.html\n+++ b/index.html\n@@ -400,7 +400,7 @@\n           position: absolute;\n           width: 320px;\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           ..."
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-460",
+      "type": "reasoning",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 37,
+      "createdAt": "2026-05-21T12:00:39.000Z",
+      "provider": "codex",
+      "providerType": "item/reasoning/summaryTextDelta",
+      "providerId": "fixture-id-021",
+      "payload": {
+        "delta": "**Evaluating position adjustments**\n\nI"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-532",
+      "type": "tool_start",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 38,
+      "createdAt": "2026-05-21T12:00:51.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-022",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'git diff -- index.html'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "git diff -- index.html"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-533",
+      "type": "tool_end",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 39,
+      "createdAt": "2026-05-21T12:00:52.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-022",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'git diff -- index.html'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "git diff -- index.html"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": "diff --git a/index.html b/index.html\nindex d39c64d..470bd44 100644\n--- a/index.html\n+++ b/index.html\n@@ -400,7 +400,7 @@\n           position: absolute;\n           width: 320px;\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           left: 800px;\n         }\n         [data-composition-id=\"main...",
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-534",
+      "type": "tool_start",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 40,
+      "createdAt": "2026-05-21T12:00:53.000Z",
+      "provider": "codex",
+      "providerType": "item/started",
+      "providerId": "fixture-id-023",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'git status --short'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "git status --short"
+          }
+        ],
+        "status": "inProgress",
+        "exitCode": null,
+        "output": null,
+        "durationMs": null
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-535",
+      "type": "tool_end",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 41,
+      "createdAt": "2026-05-21T12:00:54.000Z",
+      "provider": "codex",
+      "providerType": "item/completed",
+      "providerId": "fixture-id-023",
+      "payload": {
+        "toolName": "Bash",
+        "command": "/bin/zsh -lc 'git status --short'",
+        "cwd": "/Users/motion/sanitized",
+        "parsed_cmd": [
+          {
+            "type": "unknown",
+            "command": "git status --short"
+          }
+        ],
+        "status": "completed",
+        "exitCode": 0,
+        "output": " M index.html\n",
+        "durationMs": 0
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-536",
+      "type": "file_change",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 42,
+      "createdAt": "2026-05-21T12:00:55.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex d39c64d262ad62d9c93ab28d869e1418c17d02a4..470bd44d9975d3f87d326f2396758212aede6518\n--- a/index.html\n+++ b/index.html\n@@ -400,7 +400,7 @@\n           position: absolute;\n           width: 320px;\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           ..."
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-537",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 43,
+      "createdAt": "2026-05-21T12:00:56.000Z",
+      "provider": "codex",
+      "providerType": "item/agentMessage/delta",
+      "providerId": "fixture-id-024",
+      "payload": {
+        "delta": "Done"
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-590",
+      "type": "file_change",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 44,
+      "createdAt": "2026-05-21T12:00:49.000Z",
+      "provider": "codex",
+      "providerType": "turn/diff/updated",
+      "providerId": "fixture-id-001",
+      "payload": {
+        "diff": "diff --git a/index.html b/index.html\nindex d39c64d262ad62d9c93ab28d869e1418c17d02a4..470bd44d9975d3f87d326f2396758212aede6518\n--- a/index.html\n+++ b/index.html\n@@ -400,7 +400,7 @@\n           position: absolute;\n           width: 320px;\n           height: 650px;\n-          top: 215px;\n+          top: 335px;\n           ..."
+      }
+    },
+    {
+      "id": "real-codex-comment-revision-event-591",
+      "type": "status",
+      "agentRunId": "real-codex-comment-revision",
+      "sequence": 45,
+      "createdAt": "2026-05-21T12:00:50.000Z",
+      "provider": "codex",
+      "providerType": null,
+      "providerId": null,
+      "payload": {
+        "status": "completed"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 1,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 2,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "pending",
+          "title": "Verifying preview"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 3,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 4,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 5,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 6,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file, 1 search"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 7,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 8,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file, 1 search"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 9,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 10,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "pending",
+          "title": "Exploring 1 file, 1 search"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 11,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after reasoning item/reasoning/summaryTextDelta",
+      "eventCount": 12,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 13,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 14,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "pending",
+          "title": "Updating composition"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 15,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 18,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 19,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 20,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 21,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "pending",
+          "title": "Checking project"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 23,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 24,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 25,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 29,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_update item/commandExecution/terminalInteraction",
+      "eventCount": 30,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after reasoning item/reasoning/summaryTextDelta",
+      "eventCount": 32,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 33,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 34,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after reasoning item/reasoning/summaryTextDelta",
+      "eventCount": 37,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 38,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "pending",
+          "title": "Checking changes"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 39,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start item/started",
+      "eventCount": 40,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "pending",
+          "title": "Verifying preview"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end item/completed",
+      "eventCount": 41,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after assistant_text_delta item/agentMessage/delta",
+      "eventCount": 43,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after file_change turn/diff/updated",
+      "eventCount": 44,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "pending",
+          "title": "Checking current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after status",
+      "eventCount": 45,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file, 1 search"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Updated composition"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "error",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked project"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Checked current frame",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Checked changes"
+        },
+        {
+          "kind": "verification",
+          "status": "done",
+          "title": "Verified preview"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    }
+  ]
+}

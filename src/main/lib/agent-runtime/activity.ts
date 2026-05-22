@@ -197,6 +197,7 @@ export function buildAgentRunActivityEvent(input: {
   kind?: AgentRunActivityKind | null
   label?: unknown
   source?: string
+  refs?: AgentRunEventInput["refs"]
 }): AgentRunEventInput {
   const kind = classifyAgentRunActivity(input)
   const label = safeActivityLabel(input.label) ?? DEFAULT_ACTIVITY_LABELS[kind]
@@ -204,6 +205,7 @@ export function buildAgentRunActivityEvent(input: {
     type: "activity",
     providerType: input.providerType,
     providerId: input.providerId,
+    refs: input.refs,
     payload: {
       kind,
       label,

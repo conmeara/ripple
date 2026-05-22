@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http"
 import { realpath } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 import { isPathInsideDirectory } from "../../../shared/path-boundary"
+import { closeLocalHttpServer, listenOnLocalhost } from "./local-http-server"
 import type {
   VisualCaptureFramesRequest,
   VisualCurrentFrameSnapshot,
@@ -315,17 +316,7 @@ export async function createVisualContextEndpoint(
     }
   })
 
-  const port = await new Promise<number>((resolvePort, rejectPort) => {
-    server.on("error", rejectPort)
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address()
-      if (typeof address === "object" && address?.port) {
-        resolvePort(address.port)
-      } else {
-        rejectPort(new Error("Failed to bind visual context endpoint."))
-      }
-    })
-  })
+  const port = await listenOnLocalhost(server, "Visual context endpoint")
 
   return {
     endpoint: `http://127.0.0.1:${port}`,
@@ -336,7 +327,5 @@ export async function createVisualContextEndpoint(
 }
 
 function closeServer(server: Server): Promise<void> {
-  return new Promise((resolveClose) => {
-    server.close(() => resolveClose())
-  })
+  return closeLocalHttpServer(server)
 }

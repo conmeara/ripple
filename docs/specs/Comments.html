@@ -1185,7 +1185,7 @@
             </div>
             <div class="cc-actions-right">
               <button class="btn btn-icon" title="Delete comment">✕</button>
-              <span class="progress-indicator" title="Generating changes"><span class="progress-ring"></span></span>
+              <span class="progress-indicator" title="Generating preview"><span class="progress-ring"></span></span>
             </div>
           </div>
         </div>
@@ -1277,7 +1277,7 @@
           <div class="cc-actions-left"><button class="btn btn-icon">⋯</button></div>
           <div class="cc-actions-right">
             <button class="btn btn-icon" title="Delete comment">✕</button>
-            <span class="progress-indicator" title="Generating changes"><span class="progress-ring"></span></span>
+            <span class="progress-indicator" title="Generating preview"><span class="progress-ring"></span></span>
           </div>
         </div>
       </div>
@@ -1287,8 +1287,8 @@
         <div class="state-meta-item"><div class="state-meta-label">Status</div><div class="state-meta-val">activity summary</div></div>
       </div>
       <p>The card appears the moment the user sends. The one-line activity summary is the only signal the agent is running — no logs, no tool calls. Multiple working cards can run at once; a slow revision must not block a second comment from starting its own agent.<a class="test-marker covered" href="#testplan">T-D8<span class="tip"><strong>Comment agents run in parallel</strong><em>unit · covered · generated-change-scheduler.test.ts</em></span></a></p>
-      <p>The activity line names the current phase in plain language: <em>Agent is thinking</em>, <em>Preparing the composition</em>, <em>Editing files</em>, <em>Checking the project</em>. It never falls back to the generic <em>Agent is working</em> label.<a class="test-marker covered" href="#testplan">T-D9<span class="tip"><strong>Working line uses specific activity</strong><em>unit · covered · comment-formatting.test.ts</em></span></a></p>
-      <p>Provider activity is normalized before it reaches the card: Ripple stores a stable <code>kind</code> for code and a flexible one-line <code>label</code> for people. Codex App Server and Claude Agent SDK can both say what they are doing — looking something up, reading context, checking the project, reviewing the frame, editing files, writing a response — without limiting the UI to only those example labels.<a class="test-marker covered" href="#testplan">T-D10<span class="tip"><strong>Provider activity normalizes kind + label</strong><em>unit · covered · activity.test.ts</em></span></a></p>
+      <p>The activity line names the current phase in plain language: <em>Planning the change</em>, <em>Preparing the composition</em>, <em>Updating composition</em>, <em>Checking the project</em>. It never falls back to the generic <em>Agent is working</em> label.<a class="test-marker covered" href="#testplan">T-D9<span class="tip"><strong>Working line uses specific activity</strong><em>unit · covered · comment-formatting.test.ts</em></span></a></p>
+      <p>Provider activity is normalized before it reaches the card: Ripple stores a stable <code>kind</code> for code and a flexible one-line <code>label</code> for people. Codex App Server and Claude Agent SDK can both say what they are doing — looking something up, reading context, checking the project, reviewing the frame, updating the composition, writing a response — without limiting the UI to only those example labels.<a class="test-marker covered" href="#testplan">T-D10<span class="tip"><strong>Provider activity normalizes kind + label</strong><em>unit · covered · activity.test.ts</em></span></a></p>
     </div>
 
     <div class="state-content" data-state="ready">
@@ -1417,13 +1417,13 @@
       </thead>
       <tbody>
         <tr><td class="col-status">normalized <code>activity.kind</code> + <code>activity.label</code></td><td class="col-label">Provider label, sanitized</td><td>Stable kind for code; flexible label for what the provider is currently doing.</td></tr>
-        <tr><td class="col-status">queued · running with no useful event yet</td><td class="col-label">Agent is thinking</td><td>First safe fallback while the agent is deciding what to do.</td></tr>
+        <tr><td class="col-status">queued · running with no useful event yet</td><td class="col-label">Planning the change</td><td>First safe fallback while Ripple is deciding what to do.</td></tr>
         <tr><td class="col-status">preparing</td><td class="col-label">Preparing the composition</td><td>Setup is happening before visible work starts.</td></tr>
-        <tr><td class="col-status">reasoning</td><td class="col-label">Agent is thinking</td><td>The agent is still planning or evaluating the request.</td></tr>
+        <tr><td class="col-status">reasoning</td><td class="col-label">Planning the change</td><td>Ripple is still planning or evaluating the request.</td></tr>
         <tr><td class="col-status">command or shell tool</td><td class="col-label">Checking the project</td><td>The card says the intent, not the command or its output.</td></tr>
         <tr><td class="col-status">web search, MCP search, lookup, provider summary</td><td class="col-label">Looking up reference, or another safe provider phrase</td><td>Open-ended activities are allowed when they stay one-line and user-facing.</td></tr>
         <tr><td class="col-status">read, skill, docs, context tool</td><td class="col-label">Reading context, or another safe provider phrase</td><td>Skill and instruction reads are surfaced as activity, not logs.</td></tr>
-        <tr><td class="col-status">file edit or proposal diff</td><td class="col-label">Editing files</td><td>The user only needs to know the revision is changing.</td></tr>
+        <tr><td class="col-status">file edit or proposal diff</td><td class="col-label">Updating composition</td><td>The user only needs to know the revision is changing the composition.</td></tr>
         <tr><td class="col-status">image or frame inspection</td><td class="col-label">Reviewing the frame</td><td>Visual context is being inspected.</td></tr>
         <tr><td class="col-status">assistant response text</td><td class="col-label">Writing a response</td><td>The work is moving into a concise reply.</td></tr>
         <tr><td class="col-status">approval request</td><td class="col-label">Waiting for approval</td><td>The agent is paused on a user decision.</td></tr>

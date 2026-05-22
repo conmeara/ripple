@@ -453,11 +453,11 @@ describe("Comments spec contract: D - card by status", () => {
     )
 
     expect(formatRevisionStatusLine(revision("queued", { diffSummary: null })))
-      .toBe("Agent is thinking")
+      .toBe("Planning the change")
     expect(formatRevisionStatusLine(revision("preparing", { diffSummary: null })))
       .toBe("Preparing the composition")
     expect(formatRevisionStatusLine(revision("running", { diffSummary: null })))
-      .toBe("Editing files")
+      .toBe("Updating composition")
     expect(cardSource).toContain("TextShimmer")
     expect(cardSource).toContain("Preparing visual context")
     expect(cardSource).toContain("PendingCommentStartupLine")
@@ -597,9 +597,9 @@ describe("Comments spec contract: D - card by status", () => {
   })
 
   test("T-D9 working status line uses specific current activity, not a generic label", () => {
-    expect(revisionStatusLabel("running")).toBe("Editing files")
+    expect(revisionStatusLabel("running")).toBe("Updating composition")
     expect(formatRevisionStatusLine(revision("running", { diffSummary: null })))
-      .toBe("Editing files")
+      .toBe("Updating composition")
     expect(extractRevisionRunActivityLine([
       { type: "reasoning", payload: { delta: "checking the request" } },
       {

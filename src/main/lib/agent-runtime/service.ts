@@ -35,6 +35,7 @@ import {
   type AgentProviderEventSink,
   type AgentProviderApprovalDecision,
   type AgentProviderApprovalRequestInput,
+  type AgentRunEventRefs,
   type AgentRunEventInput,
   type ProviderAuthStatus,
   type StartAgentRunInput,
@@ -78,11 +79,157 @@ function getNextEventSequence(db: Db, runId: string): number {
   return (last?.sequence ?? 0) + 1
 }
 
+function jsonSafe(value: unknown): unknown {
+  if (value === undefined) return undefined
+  try {
+    return JSON.parse(JSON.stringify(value))
+  } catch {
+    return String(value)
+  }
+}
+
+const RAW_PROVIDER_PAYLOAD_STRING_LIMIT = 500
+const RAW_PROVIDER_PAYLOAD_ARRAY_LIMIT = 8
+const RAW_PROVIDER_PAYLOAD_OBJECT_KEY_LIMIT = 24
+const RAW_PROVIDER_PAYLOAD_DEPTH_LIMIT = 2
+const RAW_PROVIDER_PAYLOAD_OMITTED_KEYS = new Set([
+  "attachments",
+  "content",
+  "data",
+  "diff",
+  "image",
+  "images",
+  "output",
+  "payloadJson",
+  "providerRefs",
+  "result",
+])
+
+function describeRawProviderValue(value: unknown): string {
+  if (typeof value === "string") return `${value.length} chars`
+  if (Array.isArray(value)) return `${value.length} items`
+  if (value && typeof value === "object") return "object"
+  return typeof value
+}
+
+function compactRawProviderPayload(value: unknown, depth = 0): unknown {
+  if (value === null || typeof value === "number" || typeof value === "boolean") return value
+  if (typeof value === "string") {
+    return value.length > RAW_PROVIDER_PAYLOAD_STRING_LIMIT
+      ? `${value.slice(0, RAW_PROVIDER_PAYLOAD_STRING_LIMIT)}...[truncated ${value.length - RAW_PROVIDER_PAYLOAD_STRING_LIMIT} chars]`
+      : value
+  }
+  if (Array.isArray(value)) {
+    if (depth >= RAW_PROVIDER_PAYLOAD_DEPTH_LIMIT) return `[${value.length} items]`
+    const items = value
+      .slice(0, RAW_PROVIDER_PAYLOAD_ARRAY_LIMIT)
+      .map((item) => compactRawProviderPayload(item, depth + 1))
+    if (value.length > RAW_PROVIDER_PAYLOAD_ARRAY_LIMIT) {
+      items.push(`[${value.length - RAW_PROVIDER_PAYLOAD_ARRAY_LIMIT} more items]`)
+    }
+    return items
+  }
+  if (!value || typeof value !== "object") return jsonSafe(value)
+  if (depth >= RAW_PROVIDER_PAYLOAD_DEPTH_LIMIT) return "[object]"
+
+  const output: Record<string, unknown> = {}
+  for (const [key, child] of Object.entries(value as Record<string, unknown>).slice(
+    0,
+    RAW_PROVIDER_PAYLOAD_OBJECT_KEY_LIMIT,
+  )) {
+    if (RAW_PROVIDER_PAYLOAD_OMITTED_KEYS.has(key)) {
+      output[key] = `[omitted ${describeRawProviderValue(child)}]`
+      continue
+    }
+    output[key] = compactRawProviderPayload(child, depth + 1)
+  }
+  const extraKeys = Object.keys(value as Record<string, unknown>).length - RAW_PROVIDER_PAYLOAD_OBJECT_KEY_LIMIT
+  if (extraKeys > 0) output.__truncatedKeys = extraKeys
+  return jsonSafe(output)
+}
+
+function compactString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+function refsFromPayload(payload: Record<string, unknown>): Partial<AgentRunEventRefs> {
+  const turn = payload.turn && typeof payload.turn === "object"
+    ? payload.turn as Record<string, unknown>
+    : null
+  return {
+    turnId:
+      compactString(payload.turnId) ??
+      compactString(payload.providerTurnId) ??
+      compactString(turn?.id) ??
+      null,
+    itemId:
+      compactString(payload.itemId) ??
+      compactString(payload.toolCallId) ??
+      compactString(payload.tool_use_id) ??
+      compactString(payload.callId) ??
+      null,
+    requestId: compactString(payload.requestId) ?? null,
+  }
+}
+
+function buildRunEventRefs(input: {
+  db: Db
+  runId: string
+  event: AgentRunEventInput
+  createdAt: Date
+}): AgentRunEventRefs {
+  const payload = input.event.payload ?? {}
+  const run = input.db
+    .select({
+      provider: agentRuns.provider,
+      requestId: agentRuns.requestId,
+      providerTurnId: agentRuns.providerTurnId,
+      providerItemId: agentRuns.providerItemId,
+    })
+    .from(agentRuns)
+    .where(eq(agentRuns.id, input.runId))
+    .get()
+  const payloadRefs = refsFromPayload(payload)
+  return {
+    ...(input.event.refs ?? {}),
+    createdAt: input.createdAt.toISOString(),
+    provider: input.event.refs?.provider ?? run?.provider ?? null,
+    runId: input.runId,
+    requestId:
+      input.event.refs?.requestId ??
+      payloadRefs.requestId ??
+      run?.requestId ??
+      null,
+    turnId:
+      input.event.refs?.turnId ??
+      payloadRefs.turnId ??
+      run?.providerTurnId ??
+      null,
+    itemId:
+      input.event.refs?.itemId ??
+      payloadRefs.itemId ??
+      run?.providerItemId ??
+      input.event.providerId ??
+      null,
+    providerId: input.event.providerId ?? input.event.refs?.providerId ?? null,
+    providerType: input.event.providerType ?? input.event.refs?.providerType ?? null,
+    rawProviderMethod:
+      input.event.refs?.rawProviderMethod ??
+      input.event.providerType ??
+      input.event.type,
+    ...(input.event.refs?.rawPayload !== undefined
+      ? { rawPayload: compactRawProviderPayload(input.event.refs.rawPayload) }
+      : {}),
+  }
+}
+
 function insertRunEvent(
   db: Db,
   runId: string,
   event: AgentRunEventInput,
 ): AgentRunEvent {
+  const createdAt = new Date()
+  const providerRefs = buildRunEventRefs({ db, runId, event, createdAt })
   const inserted = db
     .insert(agentRunEvents)
     .values({
@@ -91,8 +238,11 @@ function insertRunEvent(
       type: event.type,
       providerType: event.providerType ?? null,
       providerId: event.providerId ?? null,
-      payloadJson: JSON.stringify(event.payload ?? {}),
-      createdAt: new Date(),
+      payloadJson: JSON.stringify({
+        ...(event.payload ?? {}),
+        providerRefs,
+      }),
+      createdAt,
     })
     .returning()
     .get()
@@ -219,6 +369,22 @@ async function requestAgentRunApproval(input: {
   })
   await input.onEvent?.(statusEvent)
 
+  const userInputEvent = insertRunEvent(input.db, input.runId, {
+    type: "user-input.requested",
+    providerType: input.request.providerType ?? "ripple:approval",
+    providerId: input.request.providerId ?? input.request.providerRequestId,
+    refs: {
+      itemId: input.request.providerId ?? input.request.providerRequestId,
+    },
+    payload: {
+      approvalId: approval.id,
+      providerRequestId: input.request.providerRequestId,
+      kind: input.request.kind,
+      status: "pending",
+    },
+  })
+  await input.onEvent?.(userInputEvent)
+
   const approvalEvent = insertRunEvent(input.db, input.runId, {
     type: "approval_request",
     providerType: input.request.providerType ?? null,
@@ -305,6 +471,57 @@ function updateApprovalRequestEventPayload(input: {
   }
 }
 
+function cancelStaleAgentApproval(input: {
+  db: Db
+  approval: typeof agentApprovals.$inferSelect
+  message: string
+}): void {
+  const now = new Date()
+  const run = input.db
+    .select({ status: agentRuns.status })
+    .from(agentRuns)
+    .where(eq(agentRuns.id, input.approval.agentRunId))
+    .get()
+  const response = {
+    approved: false,
+    message: input.message,
+    response: null,
+  }
+  input.db
+    .update(agentApprovals)
+    .set({
+      status: "cancelled",
+      responseJson: JSON.stringify(response),
+      resolvedAt: now,
+    })
+    .where(eq(agentApprovals.id, input.approval.id))
+    .run()
+
+  if (run && isActiveAgentRunStatus(run.status)) {
+    input.db
+      .update(agentRuns)
+      .set({
+        status: "recoverable",
+        errorMessage: input.message,
+        completedAt: now,
+        heartbeatAt: now,
+        updatedAt: now,
+      })
+      .where(eq(agentRuns.id, input.approval.agentRunId))
+      .run()
+  }
+
+  updateApprovalRequestEventPayload({
+    db: input.db,
+    runId: input.approval.agentRunId,
+    approvalId: input.approval.id,
+    status: "cancelled",
+    approved: false,
+    message: input.message,
+    response: null,
+  })
+}
+
 export function respondToAgentRunApproval(input: {
   approvalId: string
   approved: boolean
@@ -325,9 +542,22 @@ export function respondToAgentRunApproval(input: {
 
   const pending = pendingAgentApprovals.get(input.approvalId)
   if (!pending) {
+    if (approval.status === "pending") {
+      cancelStaleAgentApproval({
+        db,
+        approval,
+        message:
+          "Ripple restarted before this approval could be resolved. Start a new request to continue.",
+      })
+      return {
+        ok: false,
+        reason: "not_active",
+        status: "cancelled",
+      }
+    }
     return {
       ok: false,
-      reason: approval.status === "pending" ? "not_active" : "not_pending",
+      reason: "not_pending",
       status: approval.status,
     }
   }
@@ -400,6 +630,35 @@ async function markAgentRunCancelled(input: {
     .where(eq(agentRuns.id, input.runId))
     .returning()
     .get()
+  const sessionEvent = insertRunEvent(input.db, input.runId, {
+    type: "session.exited",
+    providerType: "ripple:runtime",
+    providerId: cancelled.providerSessionId ?? cancelled.requestId,
+    payload: {
+      status: "cancelled",
+      requestId: cancelled.requestId,
+      sessionId: cancelled.providerSessionId,
+    },
+    refs: {
+      requestId: cancelled.requestId,
+      turnId: cancelled.providerTurnId,
+    },
+  })
+  await input.onEvent?.(sessionEvent)
+  const requestEvent = insertRunEvent(input.db, input.runId, {
+    type: "request.completed",
+    providerType: "ripple:runtime",
+    providerId: cancelled.requestId,
+    payload: {
+      status: "cancelled",
+      requestId: cancelled.requestId,
+    },
+    refs: {
+      requestId: cancelled.requestId,
+      turnId: cancelled.providerTurnId,
+    },
+  })
+  await input.onEvent?.(requestEvent)
   const event = insertRunEvent(input.db, input.runId, {
     type: "status",
     payload: { status: "cancelled" },
@@ -582,6 +841,18 @@ export function startAgentRun(input: StartAgentRunInput): StartAgentRunResult {
       type: "status",
       payload: { status: "queued" },
     })
+    insertRunEvent(db, created.id, {
+      type: "request.opened",
+      providerType: "ripple:runtime",
+      providerId: created.requestId,
+      payload: {
+        status: "queued",
+        requestId: created.requestId,
+      },
+      refs: {
+        requestId: created.requestId,
+      },
+    })
     return created
   })
 
@@ -637,6 +908,21 @@ export async function executeAgentRun(
     payload: { status: "running" },
   })
   await options.onEvent?.(runningEvent)
+  const turnStartedEvent = insertRunEvent(db, runId, {
+    type: "turn.started",
+    providerType: "ripple:runtime",
+    providerId: context.run.providerTurnId ?? context.run.requestId,
+    payload: {
+      status: "running",
+      requestId: context.run.requestId,
+      turnId: context.run.providerTurnId,
+    },
+    refs: {
+      requestId: context.run.requestId,
+      turnId: context.run.providerTurnId,
+    },
+  })
+  await options.onEvent?.(turnStartedEvent)
 
   const sink: AgentProviderEventSink = {
     emit: async (event) => {
@@ -797,6 +1083,50 @@ export async function executeAgentRun(
       })
       await options.onEvent?.(finalEvent)
     }
+    const turnCompletedEvent = insertRunEvent(db, runId, {
+      type: "turn.completed",
+      providerType: "ripple:runtime",
+      providerId: context.run.providerTurnId ?? context.run.requestId,
+      payload: {
+        status: "completed",
+        requestId: context.run.requestId,
+        turnId: context.run.providerTurnId,
+      },
+      refs: {
+        requestId: context.run.requestId,
+        turnId: context.run.providerTurnId,
+      },
+    })
+    await options.onEvent?.(turnCompletedEvent)
+    const requestCompletedEvent = insertRunEvent(db, runId, {
+      type: "request.completed",
+      providerType: "ripple:runtime",
+      providerId: context.run.requestId,
+      payload: {
+        status: "completed",
+        requestId: context.run.requestId,
+      },
+      refs: {
+        requestId: context.run.requestId,
+        turnId: context.run.providerTurnId,
+      },
+    })
+    await options.onEvent?.(requestCompletedEvent)
+    const sessionExitedEvent = insertRunEvent(db, runId, {
+      type: "session.exited",
+      providerType: "ripple:runtime",
+      providerId: context.run.providerSessionId ?? context.thread.providerSessionId ?? context.run.requestId,
+      payload: {
+        status: "completed",
+        requestId: context.run.requestId,
+        sessionId: context.run.providerSessionId ?? context.thread.providerSessionId,
+      },
+      refs: {
+        requestId: context.run.requestId,
+        turnId: context.run.providerTurnId,
+      },
+    })
+    await options.onEvent?.(sessionExitedEvent)
     const completed = db
       .update(agentRuns)
       .set({
@@ -850,6 +1180,35 @@ export async function executeAgentRun(
       payload: { message },
     })
     await options.onEvent?.(errorEvent)
+    const failedSessionEvent = insertRunEvent(db, runId, {
+      type: "session.exited",
+      providerType: "ripple:runtime",
+      providerId: context.run.providerSessionId ?? context.thread.providerSessionId ?? context.run.requestId,
+      payload: {
+        status: "failed",
+        requestId: context.run.requestId,
+        sessionId: context.run.providerSessionId ?? context.thread.providerSessionId,
+      },
+      refs: {
+        requestId: context.run.requestId,
+        turnId: context.run.providerTurnId,
+      },
+    })
+    await options.onEvent?.(failedSessionEvent)
+    const failedRequestEvent = insertRunEvent(db, runId, {
+      type: "request.completed",
+      providerType: "ripple:runtime",
+      providerId: context.run.requestId,
+      payload: {
+        status: "failed",
+        requestId: context.run.requestId,
+      },
+      refs: {
+        requestId: context.run.requestId,
+        turnId: context.run.providerTurnId,
+      },
+    })
+    await options.onEvent?.(failedRequestEvent)
     const failed = db
       .update(agentRuns)
       .set({
@@ -940,22 +1299,83 @@ export function recoverAgentRunsOnStartup(): { recoverable: number } {
   const now = new Date()
 
   for (const run of interrupted) {
+    const message =
+      "Ripple restarted while this agent run was active. Continue from the saved transcript."
     db.update(agentRuns)
       .set({
         status: "recoverable",
-        errorMessage:
-          "Ripple restarted while this agent run was active. Continue from the saved transcript.",
+        errorMessage: message,
         completedAt: now,
         updatedAt: now,
       })
       .where(eq(agentRuns.id, run.id))
       .run()
+    const pendingApprovals = db
+      .select()
+      .from(agentApprovals)
+      .where(and(
+        eq(agentApprovals.agentRunId, run.id),
+        eq(agentApprovals.status, "pending"),
+      ))
+      .all()
+    for (const approval of pendingApprovals) {
+      db
+        .update(agentApprovals)
+        .set({
+          status: "cancelled",
+          responseJson: JSON.stringify({
+            approved: false,
+            message,
+            response: null,
+          }),
+          resolvedAt: now,
+        })
+        .where(eq(agentApprovals.id, approval.id))
+        .run()
+      updateApprovalRequestEventPayload({
+        db,
+        runId: run.id,
+        approvalId: approval.id,
+        status: "cancelled",
+        approved: false,
+        message,
+        response: null,
+      })
+    }
+    insertRunEvent(db, run.id, {
+      type: "session.exited",
+      providerType: "ripple:runtime",
+      providerId: run.providerSessionId ?? run.requestId,
+      payload: {
+        status: "recoverable",
+        reason: "app_restart",
+        requestId: run.requestId,
+      },
+      refs: {
+        requestId: run.requestId,
+        turnId: run.providerTurnId,
+      },
+    })
     insertRunEvent(db, run.id, {
       type: "status",
       payload: {
         status: "recoverable",
         reason: "app_restart",
       },
+    })
+  }
+
+  const stalePendingApprovals = db
+    .select()
+    .from(agentApprovals)
+    .where(eq(agentApprovals.status, "pending"))
+    .all()
+  for (const approval of stalePendingApprovals) {
+    cancelStaleAgentApproval({
+      db,
+      approval,
+      message:
+        "Ripple restarted before this approval could be resolved. Start a new request to continue.",
     })
   }
 

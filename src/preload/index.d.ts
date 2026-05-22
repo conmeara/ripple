@@ -140,5 +140,6 @@ export interface DesktopApi {
 declare global {
   interface Window {
     desktopApi: DesktopApi
+    __RIPPLE_E2E__?: boolean
   }
 }

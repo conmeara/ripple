@@ -6,6 +6,7 @@ import {
   pathExists,
   resolvePackageJsonPath,
 } from "../hyperframes/runtime"
+import { closeLocalHttpServer, listenOnLocalhost } from "./local-http-server"
 
 export type VisualProjectFileResolution =
   | {
@@ -233,17 +234,7 @@ export async function serveVisualProject(input: {
     }
   })
 
-  const port = await new Promise<number>((resolvePort, rejectPort) => {
-    server.on("error", rejectPort)
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address()
-      if (typeof address === "object" && address?.port) {
-        resolvePort(address.port)
-      } else {
-        rejectPort(new Error("Failed to bind visual project server."))
-      }
-    })
-  })
+  const port = await listenOnLocalhost(server, "Visual project server")
 
   allowedHost = `127.0.0.1:${port}`
   const url = buildVisualProjectEntryUrl(port, entry)
@@ -256,7 +247,5 @@ export async function serveVisualProject(input: {
 }
 
 export function closeVisualProjectServer(server: Server): Promise<void> {
-  return new Promise((resolveClose) => {
-    server.close(() => resolveClose())
-  })
+  return closeLocalHttpServer(server)
 }

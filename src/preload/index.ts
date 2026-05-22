@@ -31,6 +31,11 @@ if (process.env.FORCE_ANALYTICS === "true") {
   contextBridge.exposeInMainWorld("__FORCE_ANALYTICS__", true)
 }
 
+// Expose an E2E-only flag so renderer test harnesses cannot be reached in normal app sessions.
+if (process.env.RIPPLE_E2E === "1") {
+  contextBridge.exposeInMainWorld("__RIPPLE_E2E__", true)
+}
+
 // Expose desktop-specific APIs
 contextBridge.exposeInMainWorld("desktopApi", {
   // Platform info
@@ -469,6 +474,7 @@ export interface DesktopApi {
 declare global {
   interface Window {
     desktopApi: DesktopApi
+    __RIPPLE_E2E__?: boolean
     webUtils: {
       getPathForFile: (file: File) => string
     }

@@ -94,6 +94,9 @@ function styleTimelinePlayerElement(player: HyperframesPlayer): void {
   player.style.width = "100%"
   player.style.height = "100%"
   player.style.pointerEvents = "none"
+  player.setAttribute("aria-hidden", "true")
+  player.setAttribute("inert", "")
+  player.setAttribute("tabindex", "-1")
 }
 
 function configureTimelinePlayerSource(

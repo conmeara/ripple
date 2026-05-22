@@ -83,6 +83,8 @@ function ensurePrewarmHost(): HTMLDivElement | null {
 
   prewarmHost = document.createElement("div")
   prewarmHost.setAttribute("data-ripple-preview-prewarm-host", "true")
+  prewarmHost.setAttribute("aria-hidden", "true")
+  prewarmHost.setAttribute("inert", "")
   Object.assign(prewarmHost.style, {
     position: "fixed",
     left: "-10000px",

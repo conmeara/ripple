@@ -12,6 +12,7 @@ interface ThinkingToolPart {
   type: string
   state: string
   input?: {
+    label?: string
     text?: string
   }
   output?: {
@@ -23,9 +24,19 @@ interface ThinkingToolPart {
 interface AgentThinkingToolProps {
   part: ThinkingToolPart
   chatStatus?: string
+  compact?: boolean
+  forceChevronVisible?: boolean
 }
 
 const PREVIEW_LENGTH = 60
+
+function formatCompactThinkingText(text: string): string {
+  return text
+    .replace(/([.!?])(?=[A-Z][a-z])/g, "$1\n\n")
+    .replace(/([a-z0-9)])(\*\*[^*]+\*\*)/gi, "$1\n\n$2")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
 
 function formatElapsedTime(ms: number): string {
   if (ms < 1000) return ""
@@ -40,6 +51,8 @@ function formatElapsedTime(ms: number): string {
 export const AgentThinkingTool = memo(function AgentThinkingTool({
   part,
   chatStatus,
+  compact,
+  forceChevronVisible,
 }: AgentThinkingToolProps) {
   const isPending =
     part.state !== "output-available" && part.state !== "output-error"
@@ -47,8 +60,8 @@ export const AgentThinkingTool = memo(function AgentThinkingTool({
   const isStreaming = isPending && isActivelyStreaming
   const isInterrupted = isPending && !isActivelyStreaming && chatStatus !== undefined
 
-  // Default: expanded while streaming, collapsed when done
-  const [isExpanded, setIsExpanded] = useState(isStreaming)
+  // Compact runtime rows read better as one-line live labels, with detail on demand.
+  const [isExpanded, setIsExpanded] = useState(compact ? false : isStreaming)
   const scrollRef = useRef<HTMLDivElement>(null)
   const wasStreamingRef = useRef(isStreaming)
 
@@ -60,13 +73,19 @@ export const AgentThinkingTool = memo(function AgentThinkingTool({
     wasStreamingRef.current = isStreaming
   }, [isStreaming])
 
-  // Elapsed time — ticks every second while streaming
+  // Elapsed time — ticks every second while streaming. Written straight to the DOM
+  // node's textContent (not React state) so the per-second tick never re-renders the
+  // row (and the rest of the live feed) while the model is working.
   const startedAtRef = useRef(part.startedAt || Date.now())
-  const [elapsedMs, setElapsedMs] = useState(0)
+  const elapsedRef = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
     if (!isStreaming) return
-    const tick = () => setElapsedMs(Date.now() - startedAtRef.current)
+    const tick = () => {
+      if (elapsedRef.current) {
+        elapsedRef.current.textContent = formatElapsedTime(Date.now() - startedAtRef.current)
+      }
+    }
     tick()
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
@@ -85,10 +104,18 @@ export const AgentThinkingTool = memo(function AgentThinkingTool({
   }, [part.input?.text, isStreaming, isExpanded])
 
   const thinkingText = part.input?.text || ""
+  const displayThinkingText = compact ? formatCompactThinkingText(thinkingText) : thinkingText
+  const headline = part.input?.label
 
-  const previewText = thinkingText.slice(0, PREVIEW_LENGTH).replace(/\n/g, " ")
-
-  const elapsedDisplay = isStreaming ? formatElapsedTime(elapsedMs) : ""
+  // In compact (motion-feed) rows the headline is a clean, model-authored summary,
+  // so prefer it over slicing raw thought text for the collapsed preview. The full
+  // thought stays available in the expanded body (detail on demand).
+  const previewSource = compact && headline ? headline : thinkingText
+  const previewText = previewSource.slice(0, PREVIEW_LENGTH).replace(/\n/g, " ")
+  void headline
+  void previewText
+  const titleText = "Thinking"
+  const collapsedPreviewText = ""
 
   if (isInterrupted && !thinkingText) {
     return <AgentToolInterrupted toolName="Thinking" />
@@ -99,41 +126,49 @@ export const AgentThinkingTool = memo(function AgentThinkingTool({
       {/* Header - always visible, clickable to toggle */}
       <div
         onClick={() => setIsExpanded(!isExpanded)}
-        className="group flex items-start gap-1.5 py-0.5 px-2 cursor-pointer"
+        className="group flex h-5 cursor-pointer items-center px-2 text-xs leading-5"
       >
-        <div className="flex-1 min-w-0 flex items-center gap-1">
-          <div className="text-xs flex items-center gap-1.5 min-w-0">
-            <span className="font-medium whitespace-nowrap flex-shrink-0">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className={cn(
+            "flex min-w-0 items-center gap-2",
+            compact ? "text-xs leading-5" : "text-xs",
+          )}>
+            <span className={cn(
+              "font-medium",
+              compact ? "min-w-0 truncate" : "flex-shrink-0 whitespace-nowrap",
+            )}>
               {isStreaming ? (
                 <TextShimmer
                   as="span"
-                  duration={1.2}
-                  className="inline-flex items-center text-xs leading-none h-4 m-0"
+                  duration={compact ? 1.6 : 1.2}
+                  spread={compact ? 1.2 : 2}
+                  className="m-0 inline-flex h-5 max-w-full items-center truncate text-xs leading-5"
                 >
-                  Thinking
+                  {titleText}
                 </TextShimmer>
               ) : (
-                <span className="text-muted-foreground">Thought</span>
+                <span className="text-muted-foreground">{titleText}</span>
               )}
             </span>
             {/* Preview when collapsed */}
-            {!isExpanded && previewText && (
+            {!isExpanded && collapsedPreviewText && (
               <span className="text-muted-foreground/60 truncate">
-                {previewText}
+                {collapsedPreviewText}
               </span>
             )}
             {/* Elapsed time */}
-            {elapsedDisplay && (
-              <span className="text-muted-foreground/50 tabular-nums flex-shrink-0">
-                {elapsedDisplay}
-              </span>
+            {isStreaming && (
+              <span
+                ref={elapsedRef}
+                className="text-muted-foreground/50 tabular-nums flex-shrink-0"
+              />
             )}
             {/* Chevron */}
             <ChevronRight
               className={cn(
-                "w-3.5 h-3.5 text-muted-foreground/60 transition-transform duration-200 ease-out flex-shrink-0",
+                "mt-px h-3 w-3 flex-shrink-0 text-muted-foreground/60 transition-[opacity,transform] duration-200 ease-out",
                 isExpanded && "rotate-90",
-                !isExpanded && "opacity-0 group-hover:opacity-100",
+                !isExpanded && !forceChevronVisible && "opacity-0 group-hover:opacity-100",
               )}
             />
           </div>
@@ -154,10 +189,11 @@ export const AgentThinkingTool = memo(function AgentThinkingTool({
             ref={scrollRef}
             className={cn(
               "px-2",
-              isStreaming && "overflow-y-auto scrollbar-hide max-h-36",
+              compact && "text-[13px] leading-6 text-muted-foreground/90",
+              isStreaming && "overflow-y-auto scrollbar-hide max-h-64",
             )}
           >
-            <ChatMarkdownRenderer content={thinkingText} size="sm" isStreaming={isStreaming} />
+            <ChatMarkdownRenderer content={displayThinkingText} size="sm" isStreaming={isStreaming} />
           </div>
         </div>
       )}

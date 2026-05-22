@@ -6,6 +6,14 @@ import { TooltipProvider } from "./components/ui/tooltip"
 import { TRPCProvider } from "./contexts/TRPCProvider"
 import { WindowProvider, getInitialWindowParams } from "./contexts/WindowContext"
 import { selectedProjectAtom, selectedAgentChatIdAtom } from "./features/agents/atoms"
+import {
+  AgentRuntimeUiE2EHarness,
+  shouldShowAgentRuntimeUiE2EHarness,
+} from "./features/agents/ui/agent-runtime-ui-e2e-harness"
+import {
+  AgentRuntimeCommentsUiE2EHarness,
+  shouldShowAgentRuntimeCommentsUiE2EHarness,
+} from "./features/comments/ripple-comments-e2e-harness"
 import { useAgentSubChatStore } from "./features/agents/stores/sub-chat-store"
 import { AgentsLayout } from "./features/layout/agents-layout"
 import { ProjectEntryPage } from "./features/onboarding"
@@ -117,7 +125,13 @@ export function App() {
                   data-agents-page
                   className="h-screen w-screen bg-background text-foreground overflow-hidden"
                 >
-                  <AppContent />
+                  {shouldShowAgentRuntimeUiE2EHarness() ? (
+                    <AgentRuntimeUiE2EHarness />
+                  ) : shouldShowAgentRuntimeCommentsUiE2EHarness() ? (
+                    <AgentRuntimeCommentsUiE2EHarness />
+                  ) : (
+                    <AppContent />
+                  )}
                 </div>
                 <ThemedToaster />
               </TRPCProvider>
