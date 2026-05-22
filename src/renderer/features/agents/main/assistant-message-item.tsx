@@ -48,6 +48,7 @@ import {
   approvalSummaryLines,
   approvalTechnicalLines,
   approvalTitle,
+  approvalWarningLine,
   shouldHideResolvedProjectLocalApproval,
 } from "../ui/agent-runtime-approval-copy"
 import { AgentToolCall } from "../ui/agent-tool-call"
@@ -364,7 +365,7 @@ function AgentRuntimeApprovalCard({ data }: { data: any }) {
   const [status, setStatus] = useState(initialStatus)
   const [submitting, setSubmitting] = useState<"approve" | "deny" | null>(null)
   const canRespond = Boolean(approvalId && status === "pending" && payload.canApprove !== false)
-  const warning = stringifyApprovalValue(payload.approvalWarning)
+  const warning = approvalWarningLine(payload)
   const lines = approvalSummaryLines(payload)
   const technicalLines = approvalTechnicalLines(payload)
   const questions = approvalQuestions(payload)

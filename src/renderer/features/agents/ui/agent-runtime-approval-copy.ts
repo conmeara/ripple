@@ -1,3 +1,8 @@
+import {
+  designerFacingAgentRuntimeLine,
+  isUnsafeAgentRuntimeDefaultCopy,
+} from "../../../../shared/agent-runtime-summary"
+
 type ApprovalLine = { label: string; value: string }
 
 function stringifyApprovalValue(value: unknown): string | null {
@@ -23,11 +28,26 @@ export function approvalCommandAction(command: string | null): string {
   return "continue with a project operation"
 }
 
+function approvalDefaultValue(value: string | null): string | null {
+  if (!value) return null
+  return isUnsafeAgentRuntimeDefaultCopy(value)
+    ? designerFacingAgentRuntimeLine(value)
+    : value
+}
+
+export function approvalWarningLine(payload: Record<string, any>): string | null {
+  const warning = stringifyApprovalValue(payload.approvalWarning)
+  if (!warning) return null
+  return isUnsafeAgentRuntimeDefaultCopy(warning)
+    ? "This request may access something outside the project. Review technical details before approving."
+    : warning
+}
+
 export function approvalSummaryLines(payload: Record<string, any>): ApprovalLine[] {
   const lines: ApprovalLine[] = []
-  const reason = stringifyApprovalValue(payload.reason)
+  const reason = approvalDefaultValue(stringifyApprovalValue(payload.reason))
   const command = stringifyApprovalValue(payload.command)
-  const description = stringifyApprovalValue(payload.description)
+  const description = approvalDefaultValue(stringifyApprovalValue(payload.description))
 
   if (payload.kind === "command") {
     lines.push({ label: "Action", value: approvalCommandAction(command) })
@@ -45,6 +65,7 @@ export function approvalTechnicalLines(payload: Record<string, any>): ApprovalLi
   const toolName = stringifyApprovalValue(payload.toolName)
   const command = stringifyApprovalValue(payload.command)
   const cwd = stringifyApprovalValue(payload.cwd)
+  const approvalWarning = stringifyApprovalValue(payload.approvalWarning)
   const blockedPath = stringifyApprovalValue(payload.blockedPath)
   const serverName = stringifyApprovalValue(payload.serverName)
   const url = stringifyApprovalValue(payload.url)
@@ -57,6 +78,7 @@ export function approvalTechnicalLines(payload: Record<string, any>): ApprovalLi
     : []
 
   if (providerName) lines.push({ label: "Agent", value: providerName })
+  if (approvalWarning) lines.push({ label: "Warning", value: approvalWarning })
   if (serverName) lines.push({ label: "Source", value: serverName })
   if (toolName) lines.push({ label: "Tool", value: toolName })
   if (command) lines.push({ label: "Command", value: command })

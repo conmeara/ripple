@@ -4,6 +4,7 @@ import {
   approvalSummaryLines,
   approvalTechnicalLines,
   approvalTitle,
+  approvalWarningLine,
   shouldHideResolvedProjectLocalApproval,
 } from "./agent-runtime-approval-copy"
 
@@ -63,6 +64,54 @@ describe("agent runtime approval copy", () => {
 
     expect(technicalLabels).toContain("Agent")
     expect(technicalLabels).toContain("Command")
+  })
+
+  test("keeps unsafe provider-authored approval copy out of the default card", () => {
+    const summary = approvalSummaryLines({
+      providerName: "Claude",
+      kind: "command",
+      command: "hyperframes lint /Users/me/project/src/index.html",
+      reason: "Claude wants to run Bash hyperframes lint /Users/me/project/src/index.html",
+      description: "stdout will be checked after running git diff -- src/index.html",
+    })
+
+    expect(summary).toEqual([
+      { label: "Action", value: "check the project" },
+      { label: "Reason", value: "Checking project" },
+    ])
+    expect(summary.map((line) => line.value).join("\n"))
+      .not.toMatch(/Claude|Bash|\/Users|src\/index|stdout|git diff/)
+
+    const technical = approvalTechnicalLines({
+      providerName: "Claude",
+      kind: "command",
+      command: "hyperframes lint /Users/me/project/src/index.html",
+      cwd: "/Users/me/project",
+    })
+    expect(technical.map((line) => line.value).join("\n"))
+      .toContain("/Users/me/project")
+  })
+
+  test("moves unsafe approval warnings into technical details", () => {
+    const payload = {
+      providerName: "Codex",
+      kind: "permission",
+      approvalWarning: "Approval request references a path outside the Ripple workspace: /Users/me/.ssh",
+      blockedPath: "/Users/me/.ssh",
+    }
+
+    expect(approvalWarningLine(payload)).toBe(
+      "This request may access something outside the project. Review technical details before approving.",
+    )
+    expect(approvalWarningLine(payload)).not.toContain("/Users/me/.ssh")
+    expect(approvalTechnicalLines(payload)).toEqual([
+      { label: "Agent", value: "Codex" },
+      {
+        label: "Warning",
+        value: "Approval request references a path outside the Ripple workspace: /Users/me/.ssh",
+      },
+      { label: "Path", value: "/Users/me/.ssh" },
+    ])
   })
 
   test("hides only already-approved project-local approval cards", () => {
