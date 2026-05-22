@@ -9,7 +9,7 @@ describe("revision run activity", () => {
         payload: { status: "running", label: "Codex session ready", sessionInit: {} },
       },
       { type: "reasoning", payload: { delta: "I need to inspect this." } },
-    ])).toBe("Agent is thinking")
+    ])).toBe("Thinking")
 
     expect(extractRevisionRunActivityLine([
       { type: "reasoning", payload: { delta: "I need to inspect this." } },
@@ -18,7 +18,7 @@ describe("revision run activity", () => {
         providerType: "item/started",
         payload: { toolName: "Edit", command: "git diff -- index.html" },
       },
-    ])).toBe("Editing files")
+    ])).toBe("Updating composition")
   })
 
   test("does not expose raw tool commands as the activity line", () => {
@@ -31,7 +31,7 @@ describe("revision run activity", () => {
           command: "git diff -- compositions/lower-third.html",
         }),
       },
-    ])).toBe("Checking the project")
+    ])).toBe("Checking changes")
   })
 
   test("prefers normalized provider activity events with flexible labels", () => {
@@ -55,6 +55,6 @@ describe("revision run activity", () => {
           label: "bun test --filter comments",
         }),
       },
-    ])).toBe("Checking the project")
+    ])).toBe("Checking project")
   })
 })

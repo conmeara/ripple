@@ -607,7 +607,7 @@ describe("Comments spec contract: D - card by status", () => {
         providerType: "item/started",
         payload: { toolName: "Edit", command: "git diff -- index.html" },
       },
-    ])).toBe("Editing files")
+    ])).toBe("Updating composition")
     expect(read(COMMENTS_PANE_PATH)).not.toContain("Agent is working")
   })
 
@@ -639,7 +639,7 @@ describe("Comments spec contract: D - card by status", () => {
           source: "claude_agent_sdk",
         },
       },
-    ])).toBe("Checking the project")
+    ])).toBe("Checking project")
   })
 })
 

@@ -1,4 +1,21 @@
 import type { AgentRuntimeProviderRefs } from "../../../../shared/agent-runtime-ui-projection"
+import {
+  agentRuntimeBasename as basename,
+  agentRuntimeCommandForPart as commandForPart,
+  agentRuntimePartId as partId,
+  agentRuntimePartStatus as partStatus,
+  agentRuntimeProviderRefsFromPart as providerRefsFromPart,
+  agentRuntimeVisualToolKind,
+  compactAgentRuntimeString as compactString,
+  formatAgentRuntimeJson as formatJson,
+  isAgentRuntimeChangeReviewCommand as isChangeReviewCommand,
+  isAgentRuntimeProjectInspectionCommand as isProjectInspectionCommand,
+  isAgentRuntimeRecord as isRecord,
+  pluralAgentRuntimeCount as plural,
+  truncateAgentRuntimeString as truncate,
+  type AgentRuntimeSummaryPart,
+  type AgentRuntimeSummaryStatus,
+} from "../../../../shared/agent-runtime-summary"
 
 export type MotionRuntimeActivityKind =
   | "thinking"
@@ -10,7 +27,7 @@ export type MotionRuntimeActivityKind =
   | "status"
   | "project_tool"
 
-export type MotionRuntimeActivityStatus = "pending" | "done" | "error"
+export type MotionRuntimeActivityStatus = AgentRuntimeSummaryStatus
 
 export interface MotionRuntimeVisual {
   kind: "snapshot" | "frame_sheet"
@@ -77,7 +94,7 @@ export interface MotionRuntimeMetadataLike {
   model?: string
 }
 
-type AnyRecord = Record<string, any>
+type AnyRecord = AgentRuntimeSummaryPart
 
 type ExploringDetailDraft = MotionRuntimeActivityDetail & {
   key: string
@@ -157,160 +174,12 @@ const TECHNICAL_TOOL_TYPES = new Set([
   "tool-Bash",
 ])
 
-function isRecord(value: unknown): value is AnyRecord {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
-}
-
-function compactString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null
-}
-
-function basename(path: unknown): string | null {
-  const value = compactString(path)
-  if (!value) return null
-  const normalized = value.replaceAll("\\", "/")
-  const name = normalized.split("/").filter(Boolean).pop()
-  return name ?? value
-}
-
-function plural(count: number, singular: string, pluralValue = `${singular}s`): string {
-  return `${count} ${count === 1 ? singular : pluralValue}`
-}
-
-function truncate(value: string, max = 600): string {
-  if (value.length <= max) return value
-  return `${value.slice(0, max - 1)}...`
-}
-
-function formatJson(value: unknown): string {
-  if (typeof value === "string") return truncate(value)
-  try {
-    return truncate(JSON.stringify(value, null, 2))
-  } catch {
-    return truncate(String(value))
-  }
-}
-
-function partId(part: AnyRecord, index: number, prefix: string): string {
-  return compactString(part.id) ||
-    compactString(part.toolCallId) ||
-    `${prefix}-${index}`
-}
-
-function providerRefsFromPart(part: AnyRecord): AgentRuntimeProviderRefs[] {
-  if (Array.isArray(part.providerRefs)) {
-    return part.providerRefs.filter(isRecord) as AgentRuntimeProviderRefs[]
-  }
-  const direct = isRecord(part.providerRefs) ? [part.providerRefs as AgentRuntimeProviderRefs] : []
-  const dataRefs = isRecord(part.data?.providerRefs)
-    ? [part.data.providerRefs as AgentRuntimeProviderRefs]
-    : []
-  const payloadRefs = isRecord(part.data?.payload?.providerRefs)
-    ? [part.data.payload.providerRefs as AgentRuntimeProviderRefs]
-    : []
-  return [...direct, ...dataRefs, ...payloadRefs]
-}
-
 function latestProviderRefs(part: AnyRecord): AgentRuntimeProviderRefs | null {
   return providerRefsFromPart(part).at(-1) ?? null
 }
 
-function partStatus(
-  part: AnyRecord,
-  options: { allowPending?: boolean } = {},
-): MotionRuntimeActivityStatus {
-  const state = compactString(part.state)?.toLowerCase()
-  if (state?.includes("error")) return "error"
-  const runtimeStatus = compactString(part.data?.payload?.status)?.toLowerCase() ??
-    compactString(part.data?.status)?.toLowerCase()
-  const runtimeKind = compactString(part.data?.payload?.kind)?.toLowerCase()
-  const isPendingState =
-    state === "input-streaming" ||
-    state === "input-available" ||
-    state === "streaming" ||
-    state === "pending" ||
-    runtimeStatus === "running" ||
-    runtimeStatus === "pending" ||
-    runtimeStatus === "awaiting_approval" ||
-    (part.type === "data-agent-runtime" && (runtimeKind === "thinking" || runtimeKind === "preparing"))
-  if (
-    isPendingState ||
-    part.preliminary === true
-  ) {
-    return options.allowPending === false ? "done" : "pending"
-  }
-  return "done"
-}
-
-function commandForPart(part: AnyRecord): string | null {
-  const input = isRecord(part.input) ? part.input : {}
-  const command = input.command ?? part.command
-  if (Array.isArray(command)) {
-    return command.map(String).join(" ")
-  }
-  return compactString(command)
-}
-
-function isVisualCommand(command: string | null): boolean {
-  return Boolean(command && /\bripple\s+(snapshot|frame-sheet)\b/.test(command))
-}
-
-function isProjectInspectionCommand(command: string | null): boolean {
-  if (!command) return false
-  if (isVisualCommand(command)) return false
-  const normalized = command.toLowerCase()
-  return /\b(ls|sed|cat|rg|grep|find|head|tail|awk)\b/.test(normalized)
-}
-
-function isChangeReviewCommand(command: string | null): boolean {
-  return Boolean(command && /\bgit\s+diff\b/.test(command.toLowerCase()))
-}
-
-function visualKindFromText(value: string): "snapshot" | "frame_sheet" | null {
-  const normalized = value.toLowerCase().replaceAll("-", "_")
-  if (normalized.includes("frame_sheet") || normalized.includes("framesheet")) {
-    return "frame_sheet"
-  }
-  if (normalized.includes("snapshot")) return "snapshot"
-  return null
-}
-
 export function visualToolKind(part: AnyRecord): "snapshot" | "frame_sheet" | null {
-  const type = compactString(part.type)?.replace(/^tool-/, "") ?? ""
-  const toolName = compactString(part.toolName) ?? ""
-  const command = commandForPart(part)
-
-  if (isVisualCommand(command)) {
-    return command?.includes("frame-sheet") ? "frame_sheet" : "snapshot"
-  }
-
-  const fromType = visualKindFromText(type)
-  if (
-    fromType &&
-    (
-      type.includes("ripple_visual_context") ||
-      type.startsWith("ripple_") ||
-      type === "snapshot" ||
-      type === "frame_sheet"
-    )
-  ) {
-    return fromType
-  }
-
-  const fromToolName = visualKindFromText(toolName)
-  if (
-    fromToolName &&
-    (
-      toolName.includes("ripple_visual_context") ||
-      toolName.startsWith("ripple_") ||
-      toolName === "snapshot" ||
-      toolName === "frame_sheet"
-    )
-  ) {
-    return fromToolName
-  }
-
-  return null
+  return agentRuntimeVisualToolKind(part)
 }
 
 function firstJsonObject(value: string): Record<string, unknown> | null {
@@ -606,8 +475,8 @@ function exploringTags(parts: AnyRecord[]): string[] {
 function verificationTitle(part: AnyRecord, status: MotionRuntimeActivityStatus): string {
   const command = commandForPart(part)?.toLowerCase() ?? ""
   if (isChangeReviewCommand(command)) return status === "pending" ? "Checking changes" : "Checked changes"
-  if (command.includes("export")) return status === "pending" ? "Preparing export" : "Prepared export"
-  if (command.includes("render")) return status === "pending" ? "Rendering preview" : "Rendered preview"
+  if (/\bexport\b/.test(command)) return status === "pending" ? "Preparing export" : "Prepared export"
+  if (/\brender\b/.test(command)) return status === "pending" ? "Rendering preview" : "Rendered preview"
   if (command.includes("lint") || command.includes("test") || command.includes("check") || command.includes("validat")) {
     return status === "pending" ? "Checking project" : "Checked project"
   }
