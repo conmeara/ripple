@@ -4,7 +4,10 @@ import { useAtomValue } from "jotai"
 import { Check, ListTree, MoreHorizontal, X } from "lucide-react"
 import { memo, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { normalizeCodexToolPart } from "../../../../shared/codex-tool-normalizer"
-import { titleForAgentRuntimeDataPart } from "../../../../shared/agent-runtime-summary"
+import {
+  titleForAgentRuntimeDataPart,
+  titleForAgentRuntimeSummaryPart,
+} from "../../../../shared/agent-runtime-summary"
 
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
@@ -1225,7 +1228,7 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
     if (part.type?.startsWith("tool-")) {
       return (
         <div key={idx} className="text-xs text-muted-foreground py-0.5 px-2">
-          {part.type.replace("tool-", "")}
+          {titleForAgentRuntimeSummaryPart(part)}
         </div>
       )
     }

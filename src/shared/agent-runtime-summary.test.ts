@@ -100,6 +100,21 @@ describe("agent runtime product summaries", () => {
     }))
   })
 
+  test("summarizes unknown tools without exposing raw tool names", () => {
+    const pendingTitle = titleForAgentRuntimeSummaryPart({
+      type: "tool-provider_internal_renderPreview",
+      state: "input-available",
+    })
+    const doneTitle = titleForAgentRuntimeSummaryPart({
+      type: "tool-provider_internal_renderPreview",
+      state: "output-available",
+    })
+
+    expect(pendingTitle).toBe("Working on project")
+    expect(doneTitle).toBe("Updated project")
+    expect(`${pendingTitle} ${doneTitle}`).not.toMatch(/provider_internal|renderPreview|tool-/)
+  })
+
   test("preserves provider refs for debug and replay while summarizing default copy", () => {
     const part = {
       type: "tool-Bash",
