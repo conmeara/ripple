@@ -486,6 +486,35 @@ describe("AgentRuntimeUIProjector", () => {
     }
   })
 
+  test("sanitizes technical status labels in projected runtime summaries", () => {
+    const projector = new AgentRuntimeUIProjector()
+    const chunks = projector.project({
+      id: "event-status",
+      agentRunId: "run-1",
+      sequence: 9,
+      type: "status",
+      provider: "codex",
+      providerId: "status-1",
+      payload: {
+        status: "running",
+        label: "Bash /Users/example/project/src/index.html stdout={\"ok\":true}",
+      },
+    })
+
+    expect(chunks).toEqual([
+      expect.objectContaining({
+        type: "data-agent-runtime",
+        data: expect.objectContaining({
+          label: "Bash /Users/example/project/src/index.html stdout={\"ok\":true}",
+          summary: expect.objectContaining({
+            kind: "status",
+            title: "Checking project",
+          }),
+        }),
+      }),
+    ])
+  })
+
   test("preserves provider refs on projected runtime parts", () => {
     const projection = buildAgentRuntimeAssistantProjection({
       fallbackText: "Fallback",

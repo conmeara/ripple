@@ -289,7 +289,7 @@
         {
           "kind": "verification",
           "status": "pending",
-          "title": "Verifying preview"
+          "title": "Checking project"
         }
       ],
       "shimmerCount": 1

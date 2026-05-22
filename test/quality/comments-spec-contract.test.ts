@@ -692,6 +692,20 @@ describe("Comments spec contract: D - card by status", () => {
           },
         ],
       },
+      {
+        name: "persisted file change",
+        expected: "Updated composition",
+        events: [
+          {
+            type: "file_change",
+            providerId: "change-1",
+            payload: {
+              path: "/Users/example/project/src/index.html",
+              diff: "diff --git a/src/index.html b/src/index.html",
+            },
+          },
+        ],
+      },
     ]
 
     for (const item of cases) {

@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import {
+  agentRuntimeSummaryPartFromEvent,
   agentRuntimePartStatus,
   agentRuntimeProviderRefsFromPart,
   agentRuntimeVisualToolKind,
   classifyAgentRuntimeSummaryPart,
+  designerFacingAgentRuntimeLine,
+  isUnsafeAgentRuntimeDefaultCopy,
   summarizeAgentRuntimePart,
   titleForAgentRuntimeSummaryPart,
 } from "./agent-runtime-summary"
@@ -106,6 +109,59 @@ describe("agent runtime product summaries", () => {
       providerRefs: [
         expect.objectContaining({ eventId: "event-1" }),
       ],
+    }))
+  })
+
+  test("masks technical status labels in default runtime copy", () => {
+    const statusPart = {
+      type: "data-agent-runtime",
+      data: {
+        kind: "status",
+        label: "Bash /Users/me/project/src/index.html stdout={\"ok\":true}",
+      },
+    }
+    const commandStatusPart = {
+      type: "data-agent-runtime",
+      data: {
+        kind: "status",
+        label: "git diff -- src/compositions/lower-third.html",
+      },
+    }
+
+    expect(isUnsafeAgentRuntimeDefaultCopy(statusPart.data.label)).toBe(true)
+    expect(titleForAgentRuntimeSummaryPart(statusPart)).toBe("Checking project")
+    expect(titleForAgentRuntimeSummaryPart(commandStatusPart)).toBe("Checking project")
+    expect(designerFacingAgentRuntimeLine("Looking up brand references")).toBe("Looking up brand references")
+    expect(designerFacingAgentRuntimeLine("MCP provider stdout /Users/me/project"))
+      .toBe("Working on project")
+    expect(designerFacingAgentRuntimeLine("Codex session ready")).toBe("Working on project")
+  })
+
+  test("derives shared summary parts from persisted runtime events", () => {
+    const editPart = agentRuntimeSummaryPartFromEvent({
+      type: "tool_start",
+      payload: {
+        toolName: "Edit",
+        input: { file_path: "/Users/me/project/src/index.html" },
+      },
+    })
+    const fileChangePart = agentRuntimeSummaryPartFromEvent({
+      type: "file_change",
+      payload: {
+        path: "/Users/me/project/src/index.html",
+        diff: "diff --git a/src/index.html b/src/index.html",
+      },
+    })
+
+    expect(editPart && summarizeAgentRuntimePart(editPart)).toEqual(expect.objectContaining({
+      kind: "motion_edit",
+      status: "pending",
+      title: "Updating composition",
+    }))
+    expect(fileChangePart && summarizeAgentRuntimePart(fileChangePart)).toEqual(expect.objectContaining({
+      kind: "motion_edit",
+      status: "done",
+      title: "Updated composition",
     }))
   })
 })

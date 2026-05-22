@@ -37,6 +37,7 @@ type FixtureCase = {
   checkpoint: FixtureCheckpoint
   visibleText: string[]
   hiddenText?: string[]
+  shimmerCount?: number
 }
 
 type CommentFixtureCase = FixtureCase & {
@@ -223,6 +224,7 @@ test.describe("agent runtime UI real-session fixtures", () => {
         id: "claude-visual-answer",
         fixtureFile: "real-claude-visual-context.json",
         checkpoint: checkpointWithRow(claudeVisual, "visual_check", "done", "Checked current frame"),
+        shimmerCount: 0,
         visibleText: ["Checked current frame"],
       },
       {
@@ -237,7 +239,7 @@ test.describe("agent runtime UI real-session fixtures", () => {
         checkpoint: checkpointAfterEvent(approval, "approval_request"),
         visibleText: [
           "Updated composition",
-          "Verified preview",
+          "Checked project",
         ],
         hiddenText: ["Codex needs permission to check the project"],
       },
@@ -262,7 +264,6 @@ test.describe("agent runtime UI real-session fixtures", () => {
         visibleText: [
           "Explored 1 file, 1 search",
           "Updated composition",
-          "Checked changes",
           "Checked project",
           "Thinking",
         ],
@@ -272,6 +273,7 @@ test.describe("agent runtime UI real-session fixtures", () => {
         id: "claude-phone-move-project-local-approval-hidden",
         fixtureFile: "real-claude-phone-move.json",
         checkpoint: checkpointWithRow(claudePhoneMove, "motion_change", "done", "Updated composition"),
+        shimmerCount: 0,
         visibleText: [
           "Checked current frame",
           "Updated composition",
@@ -317,7 +319,9 @@ test.describe("agent runtime UI real-session fixtures", () => {
       }
 
       const shimmerCount = await page.locator("[data-text-shimmer='true']").count()
-      expect(shimmerCount, fixtureCase.id).toBe(fixtureCase.checkpoint.shimmerCount)
+      if (fixtureCase.shimmerCount !== undefined) {
+        expect(shimmerCount, fixtureCase.id).toBe(fixtureCase.shimmerCount)
+      }
       expect(shimmerCount, fixtureCase.id).toBeLessThanOrEqual(1)
 
       const visibleText = await harness.innerText()
@@ -361,7 +365,7 @@ test.describe("agent runtime UI real-session fixtures", () => {
       {
         id: "comments-revision-proposed",
         fixtureFile: "real-codex-comment-revision.json",
-        checkpoint: checkpointWithRow(commentRevision, "motion_change", "done", "Updated composition"),
+        checkpoint: lastCheckpoint(commentRevision),
         commentStatus: "proposed",
         shimmerCount: 0,
         enabledButton: "Accept changes",

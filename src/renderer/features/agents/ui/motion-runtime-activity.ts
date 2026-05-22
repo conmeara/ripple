@@ -13,6 +13,7 @@ import {
   isAgentRuntimeProjectInspectionCommand as isProjectInspectionCommand,
   isAgentRuntimeRecord as isRecord,
   pluralAgentRuntimeCount as plural,
+  titleForAgentRuntimeSummaryPart,
   truncateAgentRuntimeString as truncate,
   type AgentRuntimeSummaryPart,
   type AgentRuntimeSummaryStatus,
@@ -483,14 +484,7 @@ function exploringTags(parts: AnyRecord[]): string[] {
 }
 
 function verificationTitle(part: AnyRecord, status: MotionRuntimeActivityStatus): string {
-  const command = commandForPart(part)?.toLowerCase() ?? ""
-  if (isChangeReviewCommand(command)) return status === "pending" ? "Checking changes" : "Checked changes"
-  if (/\bexport\b/.test(command)) return status === "pending" ? "Preparing export" : "Prepared export"
-  if (/\brender\b/.test(command)) return status === "pending" ? "Rendering preview" : "Rendered preview"
-  if (command.includes("lint") || command.includes("test") || command.includes("check") || command.includes("validat")) {
-    return status === "pending" ? "Checking project" : "Checked project"
-  }
-  return status === "pending" ? "Verifying preview" : "Verified preview"
+  return titleForAgentRuntimeSummaryPart(part, status)
 }
 
 function verificationSubtitle(part: AnyRecord): string {
@@ -1097,9 +1091,8 @@ function diffStatsForEdit(part: AnyRecord): string {
   return changed > 0 ? `+${changed} -${changed}` : ""
 }
 
-function editTitle(_parts: AnyRecord[], status: MotionRuntimeActivityStatus): string {
-  if (status === "pending") return "Updating composition"
-  return "Updated composition"
+function editTitle(parts: AnyRecord[], status: MotionRuntimeActivityStatus): string {
+  return titleForAgentRuntimeSummaryPart(parts[0] ?? { type: "tool-Edit" }, status)
 }
 
 function editSubtitle(_parts: AnyRecord[], _status: MotionRuntimeActivityStatus): string {
@@ -1419,9 +1412,7 @@ export function buildMotionRuntimeActivity(input: {
       items.push({
         id: `visual-${partId(part, index, "visual")}`,
         kind: "visual_check",
-        title: visual.kind === "frame_sheet"
-          ? status === "pending" ? "Checking frame sheet" : "Checked frame sheet"
-          : status === "pending" ? "Checking current frame" : "Checked current frame",
+        title: titleForAgentRuntimeSummaryPart(part, status),
         subtitle: "",
         status,
         tags: [visual.label.toLowerCase()],

@@ -34,6 +34,12 @@ export interface AgentRuntimeSummaryDetail {
 
 export type AgentRuntimeSummaryPart = Record<string, any>
 
+export interface AgentRuntimeSummaryEventLike {
+  type?: string
+  providerType?: string | null
+  payload?: Record<string, unknown> | null
+}
+
 const SUMMARY_KINDS = new Set<AgentRuntimeSummaryKind>([
   "thinking",
   "project_inspection",
@@ -92,7 +98,47 @@ export function compactAgentRuntimeString(value: unknown): string | null {
 }
 
 export function designerFacingAgentRuntimeLine(value: string): string {
-  return LEGACY_AGENT_RUNTIME_LINES.get(value) ?? value
+  const mapped = LEGACY_AGENT_RUNTIME_LINES.get(value) ?? value
+  return technicalAgentRuntimeLine(mapped) ?? mapped
+}
+
+export function isUnsafeAgentRuntimeDefaultCopy(value: string): boolean {
+  const compact = value.replace(/\s+/g, " ").trim()
+  if (!compact) return false
+  const lower = compact.toLowerCase()
+  return (
+    /\b(bash|edit|write|mcp|provider|providerid|codex|claude|stdout|stderr)\b/i.test(compact) ||
+    /(^|\s)(bun|npm|pnpm|yarn|node|python|python3|git|rg|grep|sed|cat|curl|cd|rm|mkdir|ls|find|awk|tail|head)\s/.test(lower) ||
+    /(^|\s)\/(users|private|tmp)\//i.test(compact) ||
+    /(^|\s)(src|docs|test)\//i.test(compact) ||
+    lower.includes(" --") ||
+    lower.includes(" && ") ||
+    lower.includes(" || ") ||
+    /^[\[{]\s*["{\[]/.test(compact)
+  )
+}
+
+function technicalAgentRuntimeLine(value: string): string | null {
+  if (!isUnsafeAgentRuntimeDefaultCopy(value)) return null
+  const lower = value.toLowerCase()
+  if (lower.includes("ripple frame-sheet")) return "Checking frame sheet"
+  if (lower.includes("ripple snapshot")) return "Checking current frame"
+  if (lower.includes("hyperframes render") || /\brender\b/.test(lower)) return "Rendering preview"
+  if (lower.includes("export")) return "Preparing export"
+  if (
+    /\bbash\b/i.test(value) ||
+    lower.includes("git diff") ||
+    lower.includes("hyperframes lint") ||
+    lower.includes("hyperframes check") ||
+    lower.includes("bun test") ||
+    lower.includes("npm test") ||
+    /\b(test|lint|check|validat)\b/.test(lower)
+  ) {
+    return "Checking project"
+  }
+  if (/\b(edit|write)\b/i.test(value)) return "Updating composition"
+  if (/\b(read|grep|glob|rg|sed|cat|ls|find|tail|head)\b/.test(lower)) return "Explored project"
+  return "Working on project"
 }
 
 export function truncateAgentRuntimeString(value: string, max = 600): string {
@@ -255,7 +301,7 @@ export function classifyAgentRuntimeSummaryPart(
   if (part.type === "tool-Bash") {
     const command = agentRuntimeCommandForPart(part)
     if (isAgentRuntimeProjectInspectionCommand(command)) return "project_inspection"
-    if (isAgentRuntimeChangeReviewCommand(command) || command) return "verification"
+    return "verification"
   }
   if (
     part.type === "tool-Read" ||
@@ -273,6 +319,94 @@ export function classifyAgentRuntimeSummaryPart(
   }
   if (part.type === "text") return "assistant_text"
   return "project_tool"
+}
+
+export function agentRuntimeSummaryPartFromEvent(
+  event: AgentRuntimeSummaryEventLike,
+  payload: Record<string, unknown> = event.payload ?? {},
+): AgentRuntimeSummaryPart | null {
+  const toolName = compactAgentRuntimeString(payload.toolName) ??
+    compactAgentRuntimeString(payload.tool)
+  const toolCallId = compactAgentRuntimeString(payload.toolCallId) ??
+    compactAgentRuntimeString(payload.id) ??
+    compactAgentRuntimeString(payload.itemId)
+  const state = event.type === "tool_start" || event.type === "tool_update"
+    ? "input-available"
+    : event.type === "tool_end"
+      ? "output-available"
+      : undefined
+  const input = isAgentRuntimeRecord(payload.input)
+    ? payload.input
+    : payload.command || payload.args
+      ? {
+        ...(payload.command ? { command: payload.command } : {}),
+        ...(payload.args ? { args: payload.args } : {}),
+      }
+      : undefined
+  const output = payload.output ?? payload.result
+
+  if (toolName) {
+    return {
+      type: `tool-${toolName}`,
+      toolName,
+      toolCallId: toolCallId ?? `${event.type ?? "event"}-${toolName}`,
+      ...(state ? { state } : {}),
+      ...(input ? { input } : {}),
+      ...(output !== undefined ? { output } : {}),
+    }
+  }
+
+  if (event.type === "file_change") {
+    return {
+      type: "data-agent-runtime",
+      data: {
+        kind: "file_change",
+        label: "Updated composition",
+        payload,
+      },
+    }
+  }
+
+  if (event.type === "approval_request") {
+    return {
+      type: "data-agent-runtime",
+      data: {
+        kind: "approval",
+        label: "Approval needed",
+        payload,
+      },
+    }
+  }
+
+  if (event.type === "reasoning") {
+    return {
+      type: "reasoning",
+      text: payload.delta ?? payload.text,
+    }
+  }
+
+  if (event.type === "assistant_text_delta" || event.type === "assistant_message") {
+    return {
+      type: "text",
+      text: payload.delta ?? payload.text,
+    }
+  }
+
+  if (event.type === "status") {
+    const label = compactAgentRuntimeString(payload.label) ??
+      compactAgentRuntimeString(payload.message)
+    if (!label) return null
+    return {
+      type: "data-agent-runtime",
+      data: {
+        kind: "status",
+        label,
+        payload,
+      },
+    }
+  }
+
+  return null
 }
 
 export function titleForAgentRuntimeSummaryPart(
@@ -304,9 +438,11 @@ export function titleForAgentRuntimeSummaryPart(
     case "approval":
       return "Approval needed"
     case "status":
-      return compactAgentRuntimeString(part.data?.label) ??
-        compactAgentRuntimeString(part.data?.payload?.label) ??
-        "Working"
+      return designerFacingAgentRuntimeLine(
+        compactAgentRuntimeString(part.data?.label) ??
+          compactAgentRuntimeString(part.data?.payload?.label) ??
+          "Working",
+      )
     case "project_inspection":
       return status === "pending" ? "Exploring project" : "Explored project"
     case "assistant_text":

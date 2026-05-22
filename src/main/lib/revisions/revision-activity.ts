@@ -3,10 +3,9 @@ import {
   normalizeAgentRunActivityPayload,
 } from "../agent-runtime/activity"
 import {
-  compactAgentRuntimeString,
+  agentRuntimeSummaryPartFromEvent,
   designerFacingAgentRuntimeLine,
   titleForAgentRuntimeSummaryPart,
-  type AgentRuntimeSummaryPart,
 } from "../../../shared/agent-runtime-summary"
 
 export interface RevisionActivityEvent {
@@ -74,7 +73,7 @@ function toolActivityLine(
   event: RevisionActivityEvent,
   payload: Record<string, unknown>,
 ): string | null {
-  const summaryPart = summaryPartForRuntimeEvent(event, payload)
+  const summaryPart = agentRuntimeSummaryPartFromEvent(event, payload)
   if (summaryPart) return titleForAgentRuntimeSummaryPart(summaryPart)
 
   const activity = normalizeAgentRunActivityPayload(
@@ -91,73 +90,6 @@ function designerFacingActivityLine(label: string): string {
   return designerFacingAgentRuntimeLine(label)
 }
 
-function summaryPartForRuntimeEvent(
-  event: RevisionActivityEvent,
-  payload: Record<string, unknown>,
-): AgentRuntimeSummaryPart | null {
-  const toolName = compactAgentRuntimeString(payload.toolName) ??
-    compactAgentRuntimeString(payload.tool)
-  const toolCallId = compactAgentRuntimeString(payload.toolCallId) ??
-    compactAgentRuntimeString(payload.id) ??
-    compactAgentRuntimeString(payload.itemId)
-  const state = event.type === "tool_start" || event.type === "tool_update"
-    ? "input-available"
-    : event.type === "tool_end"
-      ? "output-available"
-      : undefined
-  const input = payload.input && typeof payload.input === "object"
-    ? payload.input
-    : payload.command || payload.args
-      ? {
-        ...(payload.command ? { command: payload.command } : {}),
-        ...(payload.args ? { args: payload.args } : {}),
-      }
-      : undefined
-  const output = payload.output ?? payload.result
-
-  if (toolName) {
-    return {
-      type: `tool-${toolName}`,
-      toolName,
-      toolCallId: toolCallId ?? `${event.type}-${toolName}`,
-      ...(state ? { state } : {}),
-      ...(input ? { input } : {}),
-      ...(output !== undefined ? { output } : {}),
-    }
-  }
-
-  if (event.type === "file_change") {
-    return {
-      type: "data-agent-runtime",
-      data: {
-        kind: "file_change",
-        label: "Updating composition",
-        payload,
-      },
-    }
-  }
-
-  if (event.type === "approval_request") {
-    return {
-      type: "data-agent-runtime",
-      data: {
-        kind: "approval",
-        label: "Approval needed",
-        payload,
-      },
-    }
-  }
-
-  if (event.type === "reasoning") {
-    return {
-      type: "reasoning",
-      text: payload.delta ?? payload.text,
-    }
-  }
-
-  return null
-}
-
 export function extractRevisionRunActivityLine(
   events: RevisionActivityEvent[],
 ): string | null {
@@ -167,6 +99,10 @@ export function extractRevisionRunActivityLine(
     if (event.type === "activity") {
       const activity = normalizeAgentRunActivityPayload(payload)
       if (activity) return designerFacingActivityLine(activity.label)
+    }
+    if (event.type !== "status") {
+      const summaryPart = agentRuntimeSummaryPartFromEvent(event, payload)
+      if (summaryPart) return titleForAgentRuntimeSummaryPart(summaryPart)
     }
     const directLine = DIRECT_ACTIVITY_LINES.get(event.type)
     if (directLine) return directLine

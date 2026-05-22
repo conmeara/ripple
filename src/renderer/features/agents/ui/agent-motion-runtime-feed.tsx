@@ -224,7 +224,6 @@ function activeTitleForItem(item: MotionRuntimeActivityItem): string {
     .replace(/^Checked project/, "Checking project")
     .replace(/^Prepared export/, "Preparing export")
     .replace(/^Rendered preview/, "Rendering preview")
-    .replace(/^Verified preview/, "Verifying preview")
   if (item.kind === "project_tool") return "Working on project"
   return item.title
 }

@@ -1401,7 +1401,7 @@
         {
           "kind": "verification",
           "status": "pending",
-          "title": "Verifying preview"
+          "title": "Checking project"
         }
       ],
       "shimmerCount": 1
@@ -1425,7 +1425,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "thinking",
@@ -1454,7 +1454,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1483,7 +1483,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1517,7 +1517,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1546,7 +1546,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1580,7 +1580,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1614,7 +1614,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1653,7 +1653,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1697,7 +1697,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1736,7 +1736,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1780,7 +1780,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1819,7 +1819,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1863,7 +1863,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1902,7 +1902,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1946,7 +1946,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -1990,7 +1990,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -2039,7 +2039,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -2093,7 +2093,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -2147,7 +2147,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -2206,7 +2206,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -2265,7 +2265,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -2329,7 +2329,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -2393,7 +2393,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -2457,7 +2457,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -2527,7 +2527,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -2602,7 +2602,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",
@@ -2677,7 +2677,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Verified preview"
+          "title": "Checked project"
         },
         {
           "kind": "explored",

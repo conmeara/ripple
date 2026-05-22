@@ -32,6 +32,39 @@ describe("revision run activity", () => {
         }),
       },
     ])).toBe("Checking changes")
+
+    expect(extractRevisionRunActivityLine([
+      {
+        type: "status",
+        payload: {
+          status: "running",
+          label: "Bash /Users/example/project/src/index.html stdout={\"ok\":true}",
+        },
+      },
+    ])).toBe("Checking project")
+  })
+
+  test("uses shared summaries for direct runtime events", () => {
+    expect(extractRevisionRunActivityLine([
+      {
+        type: "file_change",
+        payload: {
+          path: "/Users/example/project/src/index.html",
+          diff: "diff --git a/src/index.html b/src/index.html",
+        },
+      },
+    ])).toBe("Updated composition")
+
+    expect(extractRevisionRunActivityLine([
+      {
+        type: "approval_request",
+        payload: {
+          kind: "command",
+          status: "pending",
+          command: "Bash hyperframes lint /Users/example/project",
+        },
+      },
+    ])).toBe("Approval needed")
   })
 
   test("prefers normalized provider activity events with flexible labels", () => {
