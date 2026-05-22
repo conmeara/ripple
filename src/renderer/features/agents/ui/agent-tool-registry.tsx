@@ -24,6 +24,7 @@ import {
   SparklesIcon,
   WriteFileIcon,
 } from "../../../components/ui/icons"
+import { designerFacingAgentRuntimeLine } from "../../../../shared/agent-runtime-summary"
 
 export type ToolVariant = "simple" | "collapsible"
 
@@ -139,13 +140,12 @@ export const AgentToolRegistry: Record<string, ToolMeta> = {
         part.state !== "output-available" && part.state !== "output-error"
       const isInputStreaming = part.state === "input-streaming"
       if (isInputStreaming) return "Preparing agent"
-      const subagentType = part.input?.subagent_type || "Agent"
-      return isPending ? `Running ${subagentType}` : `${subagentType} completed`
+      return isPending ? "Working on project" : "Project work complete"
     },
     subtitle: (part) => {
       // Don't show subtitle while input is still streaming
       if (part.state === "input-streaming") return ""
-      const description = part.input?.description || ""
+      const description = designerFacingAgentRuntimeLine(part.input?.description || "")
       return description.length > 50
         ? description.slice(0, 47) + "..."
         : description

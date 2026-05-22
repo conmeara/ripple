@@ -22,4 +22,23 @@ describe("AgentToolRegistry", () => {
 
     expect(new Set(titles)).toEqual(new Set(["Thinking"]))
   })
+
+  test("uses product copy for task fallback rows", () => {
+    const task = AgentToolRegistry["tool-Task"]!
+
+    expect(task.title({
+      state: "pending",
+      input: { subagent_type: "code-reviewer" },
+    })).toBe("Working on project")
+    expect(task.title({
+      state: "output-available",
+      input: { subagent_type: "code-reviewer" },
+    })).toBe("Project work complete")
+    expect(task.subtitle?.({
+      state: "pending",
+      input: {
+        description: "Bash /Users/example/project/src/index.html stdout",
+      },
+    })).toBe("Checking project")
+  })
 })
