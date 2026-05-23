@@ -459,7 +459,7 @@ describe("Comments spec contract: D - card by status", () => {
     expect(formatRevisionStatusLine(revision("preparing", { diffSummary: null })))
       .toBe("Preparing the composition")
     expect(formatRevisionStatusLine(revision("running", { diffSummary: null })))
-      .toBe("Updating composition")
+      .toBe("Editing")
     expect(cardSource).toContain("TextShimmer")
     expect(cardSource).toContain("Preparing visual context")
     expect(cardSource).toContain("PendingCommentStartupLine")
@@ -599,9 +599,9 @@ describe("Comments spec contract: D - card by status", () => {
   })
 
   test("T-D9 working status line uses specific current activity, not a generic label", () => {
-    expect(revisionStatusLabel("running")).toBe("Updating composition")
+    expect(revisionStatusLabel("running")).toBe("Editing")
     expect(formatRevisionStatusLine(revision("running", { diffSummary: null })))
-      .toBe("Updating composition")
+      .toBe("Editing")
     expect(extractRevisionRunActivityLine([
       { type: "reasoning", payload: { delta: "checking the request" } },
       {
@@ -609,7 +609,7 @@ describe("Comments spec contract: D - card by status", () => {
         providerType: "item/started",
         payload: { toolName: "Edit", command: "git diff -- index.html" },
       },
-    ])).toBe("Updating composition")
+    ])).toBe("Editing")
     expect(read(COMMENTS_PANE_PATH)).not.toContain("Agent is working")
   })
 
@@ -641,7 +641,7 @@ describe("Comments spec contract: D - card by status", () => {
           source: "claude_agent_sdk",
         },
       },
-    ])).toBe("Checking project")
+    ])).toBe("Verifying")
   })
 
   test("T-D11 chat and comment progress share runtime interpretation", () => {
@@ -652,7 +652,7 @@ describe("Comments spec contract: D - card by status", () => {
     }> = [
       {
         name: "edit",
-        expected: "Updating composition",
+        expected: "Editing",
         events: [
           {
             type: "tool_start",
@@ -666,7 +666,7 @@ describe("Comments spec contract: D - card by status", () => {
       },
       {
         name: "current frame",
-        expected: "Checking current frame",
+        expected: "Looking",
         events: [
           {
             type: "tool_start",
@@ -680,7 +680,7 @@ describe("Comments spec contract: D - card by status", () => {
       },
       {
         name: "project check",
-        expected: "Checking project",
+        expected: "Verifying",
         events: [
           {
             type: "tool_start",
@@ -694,7 +694,7 @@ describe("Comments spec contract: D - card by status", () => {
       },
       {
         name: "persisted file change",
-        expected: "Updated composition",
+        expected: "Edited composition",
         events: [
           {
             type: "file_change",
@@ -954,7 +954,7 @@ describe("Comments spec contract: H - replies and threads", () => {
 
   test("T-H5 running replies show one progress summary line instead of logs", () => {
     expect(compactOneLineSummary("Running git diff\n\nand checking frames.")).toBe(
-      "Checking project",
+      "Verifying",
     )
     const commentsPaneSource = read(COMMENTS_PANE_PATH)
     const statusLineSource = between(

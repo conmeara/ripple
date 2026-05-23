@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "sourceSpec": "docs/specs/Agent Runtime Ideal Architecture.html",
+  "description": "Machine-readable eval contract for the ideal agent runtime architecture.",
+  "cases": [
+    {
+      "id": "codex-edit-run",
+      "input": "codex-edit-run.input.json",
+      "expected": "codex-edit-run.expected-projection.json",
+      "covers": ["projection", "chat-ui", "opened-umbrella", "sanitization"]
+    },
+    {
+      "id": "claude-approval-run",
+      "input": "claude-approval-run.input.json",
+      "expected": "claude-approval-run.expected-projection.json",
+      "covers": ["provider-normalization", "approval-lifecycle", "comments"]
+    },
+    {
+      "id": "claude-approval-resume-run",
+      "input": "claude-approval-resume-run.input.json",
+      "expected": "claude-approval-resume-run.expected-projection.json",
+      "covers": ["approval-lifecycle", "resume", "final-reply"]
+    },
+    {
+      "id": "comment-ready-dom",
+      "input": "comment-ready.input.json",
+      "expected": "comment-ready.expected-dom.json",
+      "covers": ["comments", "final-reply", "density"]
+    },
+    {
+      "id": "replay-idempotency",
+      "input": "replay-idempotency.input.json",
+      "expected": "replay-idempotency.expected.json",
+      "covers": ["replay", "dedupe", "provider-refs"]
+    }
+  ]
+}

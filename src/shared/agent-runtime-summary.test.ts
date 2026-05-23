@@ -35,13 +35,13 @@ describe("agent runtime product summaries", () => {
     expect(summarizeAgentRuntimePart(snapshotPart)).toEqual(expect.objectContaining({
       kind: "visual_context",
       status: "done",
-      title: "Checked current frame",
+      title: "Looked",
     }))
     expect(agentRuntimeVisualToolKind(sheetPart)).toBe("frame_sheet")
     expect(summarizeAgentRuntimePart(sheetPart)).toEqual(expect.objectContaining({
       kind: "visual_context",
       status: "pending",
-      title: "Checking frame sheet",
+      title: "Looking",
     }))
   })
 
@@ -62,8 +62,8 @@ describe("agent runtime product summaries", () => {
     const commandTitle = titleForAgentRuntimeSummaryPart(commandPart)
     const editTitle = titleForAgentRuntimeSummaryPart(editPart)
 
-    expect(commandTitle).toBe("Checked changes")
-    expect(editTitle).toBe("Updated composition")
+    expect(commandTitle).toBe("Verified")
+    expect(editTitle).toBe("Edited composition")
     expect(`${commandTitle} ${editTitle}`).not.toMatch(/Bash|Edit|\/Users|src\//)
   })
 
@@ -95,7 +95,7 @@ describe("agent runtime product summaries", () => {
 
     expect(isAgentRuntimeMcpToolPart(part)).toBe(true)
     expect(summarizeAgentRuntimePart(part)).toEqual(expect.objectContaining({
-      kind: "project_tool",
+      kind: "project_activity",
       status: "pending",
       title: "Working on project",
     }))
@@ -112,7 +112,7 @@ describe("agent runtime product summaries", () => {
     })
 
     expect(pendingTitle).toBe("Working on project")
-    expect(doneTitle).toBe("Updated project")
+    expect(doneTitle).toBe("Worked on project")
     expect(`${pendingTitle} ${doneTitle}`).not.toMatch(/provider_internal|renderPreview|tool-/)
   })
 
@@ -140,7 +140,7 @@ describe("agent runtime product summaries", () => {
     ])
     expect(summarizeAgentRuntimePart(part)).toEqual(expect.objectContaining({
       kind: "verification",
-      title: "Checking project",
+      title: "Verifying",
       providerRefs: [
         expect.objectContaining({ eventId: "event-1" }),
       ],
@@ -164,8 +164,8 @@ describe("agent runtime product summaries", () => {
     }
 
     expect(isUnsafeAgentRuntimeDefaultCopy(statusPart.data.label)).toBe(true)
-    expect(titleForAgentRuntimeSummaryPart(statusPart)).toBe("Checking project")
-    expect(titleForAgentRuntimeSummaryPart(commandStatusPart)).toBe("Checking project")
+    expect(titleForAgentRuntimeSummaryPart(statusPart)).toBe("Verifying")
+    expect(titleForAgentRuntimeSummaryPart(commandStatusPart)).toBe("Verifying")
     expect(designerFacingAgentRuntimeLine("Looking up brand references")).toBe("Looking up brand references")
     expect(designerFacingAgentRuntimeLine("MCP provider stdout /Users/me/project"))
       .toBe("Working on project")
@@ -204,7 +204,7 @@ describe("agent runtime product summaries", () => {
       },
     }
 
-    expect(titleForAgentRuntimeDataPart(statusPart)).toBe("Checking project")
+    expect(titleForAgentRuntimeDataPart(statusPart)).toBe("Verifying")
     expect(shouldHideAgentRuntimeDataPart(capabilityPart)).toBe(true)
     expect(titleForAgentRuntimeDataPart(capabilityPart)).toBeNull()
   })
@@ -228,13 +228,43 @@ describe("agent runtime product summaries", () => {
     expect(editPart && summarizeAgentRuntimePart(editPart)).toEqual(expect.objectContaining({
       kind: "motion_edit",
       status: "pending",
-      title: "Updating composition",
+      title: "Editing",
     }))
     expect(fileChangePart && summarizeAgentRuntimePart(fileChangePart)).toEqual(expect.objectContaining({
       kind: "motion_edit",
       status: "done",
-      title: "Updated composition",
+      title: "Edited composition",
     }))
+  })
+
+  test("derives failed tool completions as needs-attention activity", () => {
+    const failedCheckPart = agentRuntimeSummaryPartFromEvent({
+      type: "tool_end",
+      payload: {
+        toolName: "Bash",
+        command: "hyperframes lint",
+        status: "failed",
+        error: "Lint failed.",
+      },
+    })
+
+    expect(failedCheckPart && summarizeAgentRuntimePart(failedCheckPart))
+      .toEqual(expect.objectContaining({
+        kind: "verification",
+        status: "error",
+        title: "Project check failed",
+      }))
+    expect(latestAgentRuntimeActivityLine([
+      {
+        type: "tool_end",
+        payload: {
+          toolName: "Bash",
+          command: "hyperframes lint",
+          status: "failed",
+          error: "Lint failed.",
+        },
+      },
+    ])).toBe("Project check failed")
   })
 
   test("derives the latest shared activity line from persisted events", () => {
@@ -253,7 +283,7 @@ describe("agent runtime product summaries", () => {
         providerType: "item/started",
         payload: { toolName: "Edit", command: "git diff -- index.html" },
       },
-    ])).toBe("Updating composition")
+    ])).toBe("Editing")
 
     expect(latestAgentRuntimeActivityLine([
       {
@@ -262,6 +292,10 @@ describe("agent runtime product summaries", () => {
         payload: { server: "asset_library", tool: "search_media" },
       },
     ])).toBe("Working on project")
+
+    expect(latestAgentRuntimeActivityLine([
+      { type: "assistant_text_delta", payload: { delta: "Done." } },
+    ])).toBe("Thinking")
   })
 
   test("keeps unsafe latest activity copy out of comment/status lines", () => {
@@ -273,7 +307,7 @@ describe("agent runtime product summaries", () => {
           label: "Bash /Users/example/project/src/index.html stdout={\"ok\":true}",
         },
       },
-    ])).toBe("Checking project")
+    ])).toBe("Verifying")
 
     expect(latestAgentRuntimeActivityLine([
       {
@@ -294,7 +328,7 @@ describe("agent runtime product summaries", () => {
           message: "git diff -- src/index.html",
         },
       },
-    ])).toBe("Checking project")
+    ])).toBe("Verifying")
 
     expect(latestAgentRuntimeActivityLine([
       { type: "reasoning", payload: { delta: "Inspect the request." } },

@@ -517,9 +517,9 @@ const codexTitleEditSession: ReplaySession = {
       live: true,
       expectedRows: [
         ["explored", "Explored 1 file", "done"],
-        ["visual_check", "Checking current frame", "pending"],
+        ["visual_check", "Looking", "pending"],
       ],
-      expectedMarkup: ["Explored 1 file", "Checking current frame"],
+      expectedMarkup: ["Explored 1 file", "Looking"],
       forbiddenMarkup: ["Planning the title animation"],
       shimmerCount: 1,
     },
@@ -529,10 +529,10 @@ const codexTitleEditSession: ReplaySession = {
       live: true,
       expectedRows: [
         ["explored", "Explored 1 file", "done"],
-        ["visual_check", "Checked current frame", "done"],
-        ["motion_change", "Updating composition", "pending"],
+        ["visual_check", "Looked", "done"],
+        ["motion_change", "Editing", "pending"],
       ],
-      expectedMarkup: ["Updating composition"],
+      expectedMarkup: ["Editing"],
       forbiddenMarkup: ["Thinking"],
       shimmerCount: 1,
     },
@@ -542,12 +542,12 @@ const codexTitleEditSession: ReplaySession = {
       live: false,
       expectedRows: [
         ["explored", "Explored 1 file", "done"],
-        ["visual_check", "Checked current frame", "done"],
-        ["motion_change", "Updated composition", "done"],
-        ["verification", "Checked changes", "done"],
+        ["visual_check", "Looked", "done"],
+        ["motion_change", "Edited composition", "done"],
+        ["verification", "Verified", "done"],
       ],
       expectedMarkup: [
-        "Explored 1 file · Checked current frame · Updated composition · Checked changes",
+        "Explored 1 file · Looked · Edited composition · Verified",
         "Ripple current frame",
         "Adjusted the title timing",
       ],
@@ -750,9 +750,9 @@ const claudeCommentRevisionSession: ReplaySession = {
       live: true,
       expectedRows: [
         ["explored", "Explored 1 file", "done"],
-        ["visual_check", "Checking frame sheet", "pending"],
+        ["visual_check", "Looking", "pending"],
       ],
-      expectedMarkup: ["Checking frame sheet"],
+      expectedMarkup: ["Looking"],
       shimmerCount: 1,
     },
     {
@@ -761,10 +761,10 @@ const claudeCommentRevisionSession: ReplaySession = {
       live: true,
       expectedRows: [
         ["explored", "Explored 1 file", "done"],
-        ["visual_check", "Checked frame sheet", "done"],
-        ["motion_change", "Updating composition", "pending"],
+        ["visual_check", "Looked", "done"],
+        ["motion_change", "Editing", "pending"],
       ],
-      expectedMarkup: ["Updating composition"],
+      expectedMarkup: ["Editing"],
       forbiddenMarkup: ["Thinking"],
       shimmerCount: 1,
     },
@@ -774,11 +774,11 @@ const claudeCommentRevisionSession: ReplaySession = {
       live: true,
       expectedRows: [
         ["explored", "Explored 1 file", "done"],
-        ["visual_check", "Checked frame sheet", "done"],
-        ["motion_change", "Updated composition", "done"],
-        ["verification", "Checking project", "pending"],
+        ["visual_check", "Looked", "done"],
+        ["motion_change", "Edited composition", "done"],
+        ["verification", "Verifying", "pending"],
       ],
-      expectedMarkup: ["Checking project"],
+      expectedMarkup: ["Verifying"],
       forbiddenMarkup: ["bun run", "Bash"],
       shimmerCount: 1,
     },
@@ -788,12 +788,12 @@ const claudeCommentRevisionSession: ReplaySession = {
       live: false,
       expectedRows: [
         ["explored", "Explored 1 file", "done"],
-        ["visual_check", "Checked frame sheet", "done"],
-        ["motion_change", "Updated composition", "done"],
-        ["verification", "Checked project", "done"],
+        ["visual_check", "Looked", "done"],
+        ["motion_change", "Edited composition", "done"],
+        ["verification", "Verified", "done"],
       ],
       expectedMarkup: [
-        "Explored 1 file · Checked frame sheet · Updated composition · Checked project",
+        "Explored 1 file · Looked · Edited composition · Verified",
         "Ripple frame sheet",
         "Balanced the lower third",
       ],
@@ -853,7 +853,7 @@ describe("agent runtime UI replay eval", () => {
     })
 
     expect(rows.map((row) => [row.kind, row.title, row.status])).toEqual([
-      ["visual_check", "Checked current frame", "done"],
+      ["visual_check", "Looked", "done"],
       ["reply", "Agent reply", "done"],
       ["explored", "Exploring 1 file, 1 search", "pending"],
     ])

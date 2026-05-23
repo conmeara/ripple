@@ -456,7 +456,7 @@ describe("AgentRuntimeUIProjector", () => {
       expect.objectContaining({
         kind: "motion_edit",
         status: "done",
-        title: "Updated composition",
+        title: "Edited composition",
         providerRefs: [
           expect.objectContaining({
             eventId: "event-file-change",
@@ -468,7 +468,7 @@ describe("AgentRuntimeUIProjector", () => {
       }),
       expect.objectContaining({
         kind: "approval",
-        status: "pending",
+        status: "blocked",
         title: "Approval needed",
         providerRefs: [
           expect.objectContaining({
@@ -505,10 +505,10 @@ describe("AgentRuntimeUIProjector", () => {
       expect.objectContaining({
         type: "data-agent-runtime",
         data: expect.objectContaining({
-          label: "Checking project",
+          label: "Verifying",
           summary: expect.objectContaining({
             kind: "status",
-            title: "Checking project",
+            title: "Verifying",
           }),
         }),
       }),

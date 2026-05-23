@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "sameProjectedRows": true,
+  "sameFinalReply": true,
+  "streamOnlyUnseenEventIds": true,
+  "neverRerunProviderTools": true,
+  "requiredStableFields": ["id", "kind", "status", "title", "providerRefs"]
+}

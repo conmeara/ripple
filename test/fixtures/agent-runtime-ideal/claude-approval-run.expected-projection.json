@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "row": {
+    "kind": "approval",
+    "title": "Approval needed",
+    "status": "blocked",
+    "shimmer": false
+  },
+  "requiredEvidence": ["approvalId", "kind", "target", "riskLabel", "providerRefs"],
+  "forbiddenVisibleCopy": ["python3", "/Users/", "stdout", "stderr", "Claude"]
+}

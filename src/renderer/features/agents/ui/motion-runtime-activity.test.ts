@@ -151,7 +151,7 @@ describe("motion runtime activity projection", () => {
 
     expect(rows.map((row) => [row.kind, row.title, row.status])).toEqual([
       ["explored", "Explored 1 file", "done"],
-      ["motion_change", "Updated composition", "done"],
+      ["motion_change", "Edited composition", "done"],
     ])
     expect(rows.some((row) => /Bash|Edit/.test(row.title))).toBe(false)
     const reasoningPart = projection.parts.find((part) => part.type === "reasoning")
@@ -270,7 +270,7 @@ describe("motion runtime activity projection", () => {
 
     expect(rows.map((row) => [row.kind, row.title, row.status])).toEqual([
       ["explored", "Explored 1 file", "done"],
-      ["motion_change", "Updated composition", "done"],
+      ["motion_change", "Edited composition", "done"],
     ])
     const reasoningPart = projection.parts.find((part) => part.type === "reasoning")
     expect(reasoningPart?.providerRefs?.[0]).toEqual(expect.objectContaining({
@@ -315,7 +315,7 @@ describe("motion runtime activity projection", () => {
 
     expect(buildMotionRuntimeActivity({ events }).items.map((item) => item.title)).toEqual([
       "Explored 1 file",
-      "Checked current frame",
+      "Looked",
     ])
   })
 
@@ -402,7 +402,7 @@ describe("motion runtime activity projection", () => {
 
     expect(projection.items.map((item) => item.title)).toEqual([
       "Explored 1 file",
-      "Checked current frame",
+      "Looked",
     ])
     expect(projection.items[1]?.visual?.imageUrl).toBe(
       "file:///Users/me/project/.ripple/visual-context/snapshots/current.png",
@@ -471,9 +471,9 @@ describe("motion runtime activity projection", () => {
 
     expect(projection.items.map((item) => item.title)).toEqual([
       "Explored 1 file, 1 search",
-      "Checked current frame",
-      "Updated composition",
-      "Checked project",
+      "Looked",
+      "Edited composition",
+      "Verified",
     ])
     expect(projection.items[1]?.visual?.imageUrl).toBe(
       "file:///Users/me/project/.ripple/visual-context/snapshots/snap_1/current.png",
@@ -573,8 +573,8 @@ describe("motion runtime activity projection", () => {
   })
 
   test("translates technical reasoning headlines into motion project language", () => {
-    expect(displayThoughtText("**Validating hyperframes**")).toBe("Checking project")
-    expect(displayThoughtText("**Inspecting hyperframes commands**")).toBe("Checking project tools")
+    expect(displayThoughtText("**Validating hyperframes**")).toBe("Verifying")
+    expect(displayThoughtText("**Inspecting hyperframes commands**")).toBe("Verifying")
     expect(displayThoughtText("**Inspecting CSS/JS Positions**")).toBe("Adjusting composition")
   })
 
@@ -710,7 +710,7 @@ describe("motion runtime activity projection", () => {
     })
 
     expect(projection.items.map((item) => [item.kind, item.title, item.status])).toEqual([
-      ["visual_check", "Checked current frame", "done"],
+      ["visual_check", "Looked", "done"],
     ])
   })
 
@@ -922,7 +922,7 @@ describe("motion runtime activity projection", () => {
     })
 
     expect(projection.items).toHaveLength(1)
-    expect(projection.items[0]?.title).toBe("Checked frame sheet")
+    expect(projection.items[0]?.title).toBe("Looked")
     expect(projection.items[0]?.visual).toEqual(expect.objectContaining({
       kind: "frame_sheet",
       imageUrl: `data:image/png;base64,${ONE_BY_ONE_PNG}`,
@@ -1164,7 +1164,7 @@ describe("motion runtime activity projection", () => {
     expect(buildMotionRuntimeActivity({
       events: runtimeEntry?.kind === "runtime" ? runtimeEntry.events : [],
     }).items[0]).toEqual(expect.objectContaining({
-      title: "Checked current frame",
+      title: "Looked",
       status: "done",
     }))
   })
@@ -1256,7 +1256,7 @@ describe("motion runtime activity projection", () => {
     )
 
     expect(workingItems.map((item) => [item.kind, item.title, item.status])).toEqual([
-      ["motion_change", "Updating composition", "pending"],
+      ["motion_change", "Editing", "pending"],
     ])
   })
 
@@ -1400,7 +1400,7 @@ describe("motion runtime activity projection", () => {
       ],
     }).items[0]).toEqual(expect.objectContaining({
       kind: "motion_change",
-      title: "Updated composition",
+      title: "Edited composition",
       subtitle: "",
     }))
 
@@ -1418,7 +1418,7 @@ describe("motion runtime activity projection", () => {
         },
       ],
     }).items[0]).toEqual(expect.objectContaining({
-      title: "Updating composition",
+      title: "Editing",
       subtitle: "",
       status: "pending",
     }))
@@ -1448,8 +1448,8 @@ describe("motion runtime activity projection", () => {
     })
 
     expect(projection.items.map((item) => [item.title, item.status])).toEqual([
-      ["Checked changes", "done"],
-      ["Checked current frame", "done"],
+      ["Verified", "done"],
+      ["Looked", "done"],
     ])
   })
 
@@ -1467,7 +1467,7 @@ describe("motion runtime activity projection", () => {
 
     expect(projection.items).toEqual([
       expect.objectContaining({
-        title: "Checking project",
+        title: "Verifying",
         status: "pending",
       }),
     ])
@@ -1569,7 +1569,7 @@ describe("motion runtime activity projection", () => {
     }))
     expect(projection.items).toEqual([
       expect.objectContaining({
-        kind: "project_tool",
+        kind: "project_activity",
         title: "Working on project",
         subtitle: "",
         status: "pending",
@@ -1594,7 +1594,7 @@ describe("motion runtime activity projection", () => {
               id: "summary-1",
               kind: "verification",
               status: "pending",
-              title: "Checking project",
+              title: "Verifying",
             },
             payload: {
               label: "Bash /Users/example/project/src/index.html",
@@ -1606,7 +1606,7 @@ describe("motion runtime activity projection", () => {
 
     expect(projection.items).toEqual([
       expect.objectContaining({
-        title: "Checking project",
+        title: "Verifying",
         subtitle: "",
         status: "pending",
       }),
@@ -1635,7 +1635,7 @@ describe("motion runtime activity projection", () => {
 
     expect(projection.items).toEqual([
       expect.objectContaining({
-        title: "Checking project",
+        title: "Verifying",
         subtitle: "",
       }),
     ])
@@ -1664,7 +1664,7 @@ describe("motion runtime activity projection", () => {
 
     expect(projection.items).toEqual([
       expect.objectContaining({
-        title: "Checked project",
+        title: "Verified",
         subtitle: "",
         tags: ["ready"],
       }),

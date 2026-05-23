@@ -65,6 +65,18 @@ describe("revision run activity", () => {
         },
       },
     ])).toBe("Approval needed")
+
+    expect(extractRevisionRunActivityLine([
+      {
+        type: "tool_end",
+        payload: {
+          toolName: "Bash",
+          command: "hyperframes lint",
+          status: "failed",
+          error: "Lint failed.",
+        },
+      },
+    ])).toBe("Project check failed")
   })
 
   test("prefers normalized provider activity events with flexible labels", () => {

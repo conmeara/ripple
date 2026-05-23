@@ -1353,7 +1353,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         }
       ],
@@ -1397,7 +1397,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -1446,7 +1446,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -1495,7 +1495,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -1549,7 +1549,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -1609,7 +1609,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -1669,7 +1669,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -1729,7 +1729,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -1794,7 +1794,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -1859,7 +1859,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -1924,7 +1924,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -1994,7 +1994,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -2064,7 +2064,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -2134,7 +2134,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -2209,7 +2209,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -2284,7 +2284,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -2364,7 +2364,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {
@@ -2444,7 +2444,7 @@
         {
           "kind": "visual_check",
           "status": "error",
-          "title": "Checked current frame",
+          "title": "Current-frame check failed",
           "visual": "snapshot"
         },
         {

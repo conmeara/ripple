@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "approvalPending": {
+    "title": "Approval needed",
+    "status": "blocked",
+    "shimmer": false
+  },
+  "resumedDone": {
+    "approvalStillBlocking": false,
+    "collapsedTitle": "Edited composition",
+    "finalReply": "I moved the right phone in with the others. The updated frame is ready to review."
+  }
+}

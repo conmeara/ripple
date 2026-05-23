@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:,">
+<title>Agent Runtime Ideal Architecture - Ripple Spec</title>
+<style>
+  :root {
+    --bg: #181818;
+    --bg-2: #1f1f1f;
+    --bg-3: #252525;
+    --panel: #202020;
+    --panel-2: #262626;
+    --border: #303030;
+    --border-2: #424242;
+    --fg: #e8e8ea;
+    --fg-2: #b5b5ba;
+    --fg-3: #77777e;
+    --blue: #5a93ff;
+    --blue-soft: rgba(90, 147, 255, 0.14);
+    --blue-line: rgba(90, 147, 255, 0.44);
+    --mint: #58d2b8;
+    --mint-soft: rgba(88, 210, 184, 0.12);
+    --mint-line: rgba(88, 210, 184, 0.42);
+    --amber: #d9af4b;
+    --amber-soft: rgba(217, 175, 75, 0.12);
+    --amber-line: rgba(217, 175, 75, 0.42);
+    --red: #f08b75;
+    --red-soft: rgba(240, 139, 117, 0.12);
+    --red-line: rgba(240, 139, 117, 0.42);
+    --violet: #a995ff;
+    --violet-soft: rgba(169, 149, 255, 0.13);
+    --violet-line: rgba(169, 149, 255, 0.42);
+    --mono: ui-monospace, "SF Mono", "Geist Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.58;
+  }
+
+  code {
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: #151515;
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 0.93em;
+  }
+
+  pre {
+    margin: 14px 0 0;
+    padding: 16px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #141414;
+    color: var(--fg-2);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .shell { min-height: 100vh; }
+
+  main {
+    max-width: 1220px;
+    margin: 0 auto;
+    padding: 54px 72px 96px;
+  }
+
+  header {
+    max-width: 920px;
+    margin-bottom: 34px;
+  }
+
+  .eyebrow {
+    margin-bottom: 12px;
+    color: var(--fg-3);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0 0 12px;
+    max-width: 920px;
+    color: var(--fg);
+    font-size: 34px;
+    line-height: 1.08;
+    font-weight: 680;
+    letter-spacing: 0;
+  }
+
+  .lede {
+    max-width: 900px;
+    margin: 0;
+    color: var(--fg-2);
+    font-size: 15px;
+  }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 8px;
+    border: 1px solid var(--border-2);
+    border-radius: 999px;
+    color: var(--fg-2);
+    font-family: var(--mono);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .pill.blue { border-color: var(--blue-line); background: var(--blue-soft); color: #c9dcff; }
+  .pill.mint { border-color: var(--mint-line); background: var(--mint-soft); color: #c7f5ea; }
+  .pill.amber { border-color: var(--amber-line); background: var(--amber-soft); color: #f0d58e; }
+  .pill.violet { border-color: var(--violet-line); background: var(--violet-soft); color: #ded7ff; }
+
+  section {
+    margin-top: 50px;
+    scroll-margin-top: 24px;
+  }
+
+  .section-label {
+    margin-bottom: 4px;
+    color: var(--fg-3);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  h2 {
+    margin: 0 0 8px;
+    color: var(--fg);
+    font-size: 21px;
+    line-height: 1.22;
+    letter-spacing: 0;
+  }
+
+  h3 {
+    margin: 0 0 7px;
+    color: var(--fg);
+    font-size: 14px;
+    line-height: 1.3;
+  }
+
+  p {
+    margin: 0;
+    color: var(--fg-2);
+  }
+
+  .section-copy {
+    max-width: 860px;
+    margin-bottom: 18px;
+  }
+
+  .grid-2,
+  .grid-3 {
+    display: grid;
+    gap: 14px;
+  }
+
+  .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    padding: 16px;
+  }
+
+  .card p,
+  .card li { font-size: 13px; }
+
+  .small {
+    color: var(--fg-3);
+    font-size: 12px;
+  }
+
+  .diagram {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #161616;
+  }
+
+  .lane {
+    display: grid;
+    grid-template-columns: 170px minmax(0, 1fr);
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .lane-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 58px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-2);
+    color: var(--fg);
+    font-size: 13px;
+    font-weight: 620;
+  }
+
+  .lane-index {
+    color: var(--fg-3);
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+
+  .lane-body {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .node {
+    min-height: 58px;
+    padding: 10px 11px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+
+  .node strong {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--fg);
+    font-size: 12px;
+  }
+
+  .node span {
+    display: block;
+    color: var(--fg-3);
+    font-size: 11px;
+  }
+
+  .node.blue { border-color: var(--blue-line); background: var(--blue-soft); }
+  .node.mint { border-color: var(--mint-line); background: var(--mint-soft); }
+  .node.amber { border-color: var(--amber-line); background: var(--amber-soft); }
+  .node.violet { border-color: var(--violet-line); background: var(--violet-soft); }
+  .node.red { border-color: var(--red-line); background: var(--red-soft); }
+  .node.span-2 { grid-column: span 2; }
+
+  .mapping-note {
+    max-width: 840px;
+    margin: 0 0 12px;
+    color: var(--fg-2);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .right-pane-frame {
+    width: min(620px, 100%);
+    min-height: 640px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #111;
+  }
+
+  .right-pane-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 10px 12px 0;
+  }
+
+  .right-pane-tab {
+    display: grid;
+    place-items: center;
+    min-height: 34px;
+    border-radius: 7px;
+    background: #1f1f1f;
+    color: var(--fg-3);
+    font-size: 13px;
+    font-weight: 620;
+  }
+
+  .right-pane-tab.active {
+    background: #303030;
+    color: var(--fg);
+  }
+
+  .right-pane-body {
+    min-height: 596px;
+    padding: 12px;
+  }
+
+  .chat-shell,
+  .comment-shell {
+    display: grid;
+    gap: 14px;
+  }
+
+  .conversation-nav {
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .nav-chip,
+  .nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: #202020;
+    color: var(--fg-2);
+    font-size: 12px;
+  }
+
+  .nav-chip {
+    max-width: 210px;
+    padding: 0 12px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .nav-chip.active {
+    background: #272727;
+    color: var(--fg);
+  }
+
+  .nav-icon {
+    width: 32px;
+    flex: 0 0 auto;
+  }
+
+  .thread-title {
+    margin-top: 2px;
+    color: var(--fg);
+    font-size: 20px;
+    line-height: 1.12;
+    font-weight: 680;
+  }
+
+  .project-name {
+    margin-top: -8px;
+    color: var(--fg-3);
+    font-size: 12px;
+  }
+
+  .user-bubble {
+    max-width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #272727;
+    color: var(--fg-2);
+    font-size: 14px;
+  }
+
+  .runtime-feed {
+    display: grid;
+    gap: 9px;
+    margin-top: 2px;
+  }
+
+  .activity-group {
+    display: grid;
+    gap: 8px;
+  }
+
+  .activity-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 26px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--fg-2);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .activity-row.done { color: var(--fg-2); }
+  .activity-row.pending { color: var(--fg); }
+  .activity-row.error { color: #ffc9bf; }
+
+  .activity-title {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .activity-summary {
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .activity-meta {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--fg-3);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .activity-row.pending .activity-title,
+  .activity-detail.pending .activity-detail-title,
+  .comment-live-line.pending {
+    color: transparent;
+    background: linear-gradient(90deg, var(--fg-2) 0%, var(--fg) 42%, var(--fg-2) 84%);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: shimmerText 1.4s ease-in-out infinite;
+  }
+
+  .activity-chevron {
+    color: var(--fg-3);
+    font-size: 13px;
+  }
+
+  .activity-details {
+    display: none;
+    gap: 12px;
+    padding-left: 28px;
+  }
+
+  .activity-group.expanded .activity-details {
+    display: grid;
+  }
+
+  .activity-detail {
+    display: grid;
+    gap: 5px;
+    color: var(--fg-2);
+    font-size: 12px;
+  }
+
+  .activity-detail-title {
+    color: var(--fg);
+    font-size: 13px;
+  }
+
+  .activity-detail-meta {
+    color: var(--fg-3);
+    font-size: 12px;
+  }
+
+  .diff-add { color: #4de0aa; margin-left: 4px; }
+  .diff-remove { color: #ff7f90; margin-left: 4px; }
+
+  .frame-card {
+    width: min(450px, 100%);
+    overflow: hidden;
+    border: 1px solid var(--border-2);
+    border-radius: 7px;
+    background: #1a1a1a;
+  }
+
+  .frame-preview {
+    position: relative;
+    height: 174px;
+    background: #e9ecd9;
+  }
+
+  .frame-preview.updated {
+    background: #0d2535;
+  }
+
+  .phone {
+    position: absolute;
+    width: 46px;
+    height: 82px;
+    border: 2px solid #26313d;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+  }
+
+  .phone::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 14px;
+    height: 2px;
+    border-radius: 999px;
+    background: rgba(38, 49, 61, 0.38);
+    transform: translateX(-50%);
+  }
+
+  .phone.left {
+    left: 100px;
+    top: 42px;
+    background: #d6e7b3;
+    transform: rotate(-8deg);
+  }
+
+  .phone.center {
+    left: 150px;
+    top: 42px;
+    background: #111f33;
+  }
+
+  .phone.right {
+    left: 250px;
+    top: 45px;
+    background: #eef6fb;
+    transform: rotate(9deg);
+  }
+
+  .frame-preview.updated .phone {
+    left: 205px;
+    top: 36px;
+    background: #141414;
+    border-color: #4b4033;
+    transform: none;
+  }
+
+  .frame-caption {
+    padding: 7px 9px;
+    color: var(--fg-3);
+    font-size: 12px;
+  }
+
+  .assistant-reply {
+    margin-top: 8px;
+    color: var(--fg-2);
+    font-size: 13px;
+  }
+
+  .composer {
+    display: grid;
+    gap: 16px;
+    margin-top: 8px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #1f1f1f;
+    color: var(--fg-3);
+    font-size: 13px;
+  }
+
+  .composer-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--fg-3);
+    font-size: 12px;
+  }
+
+  .send-dot {
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #d7d7db;
+    color: #111;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .comments-title {
+    margin: 22px 0 22px;
+    color: var(--fg);
+    font-size: 18px;
+    font-weight: 680;
+  }
+
+  .comment-card {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #181818;
+  }
+
+  .comment-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--fg-2);
+    font-size: 13px;
+  }
+
+  .time-pill {
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #20344f;
+    color: #c6ddff;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .comment-text {
+    min-height: 52px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #252525;
+    color: var(--fg-2);
+  }
+
+  .comment-live-line {
+    color: var(--fg-2);
+    font-size: 13px;
+  }
+
+  .comment-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: var(--fg-3);
+    font-size: 13px;
+    font-weight: 620;
+  }
+
+  .comment-note {
+    color: var(--fg-3);
+    font-size: 12px;
+  }
+
+  .comment-composer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 64px;
+    margin-top: 140px;
+    padding: 12px;
+    border: 1px solid var(--blue-line);
+    border-radius: 10px;
+    background: #202020;
+    color: var(--fg-3);
+  }
+
+  .mapping-table {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .map-row {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr 0.72fr 1.45fr;
+    border-top: 1px solid var(--border);
+  }
+
+  .map-row:first-child { border-top: 0; }
+
+  .map-row.header {
+    background: var(--bg-3);
+    color: var(--fg);
+    font-weight: 620;
+  }
+
+  .map-cell {
+    min-width: 0;
+    padding: 10px 12px;
+    border-left: 1px solid var(--border);
+    color: var(--fg-2);
+    font-size: 13px;
+  }
+
+  .map-cell:first-child { border-left: 0; }
+  .map-row.header .map-cell { color: var(--fg-2); }
+
+  .rule-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .rule {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr);
+    gap: 9px;
+    align-items: start;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+
+  .check {
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--mint-line);
+    border-radius: 50%;
+    color: var(--mint);
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+
+  .rule strong {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--fg);
+    font-size: 13px;
+  }
+
+  .rule span {
+    color: var(--fg-2);
+    font-size: 12px;
+  }
+
+  .state-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 14px;
+  }
+
+  .state-button {
+    border: 1px solid var(--border-2);
+    border-radius: 6px;
+    background: var(--bg-3);
+    color: var(--fg-2);
+    font: inherit;
+    font-size: 12px;
+    line-height: 1;
+    padding: 8px 10px;
+    cursor: pointer;
+  }
+
+  .state-button:hover,
+  .state-button.active {
+    border-color: var(--blue-line);
+    background: var(--blue-soft);
+    color: var(--fg);
+  }
+
+  .coverage-grid,
+  .eval-grid {
+    display: grid;
+    gap: 10px;
+  }
+
+  .coverage-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .eval-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  .coverage-card,
+  .eval-card {
+    min-height: 150px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    padding: 14px;
+  }
+
+  .coverage-card ul,
+  .eval-card ul {
+    margin: 0;
+    padding-left: 16px;
+    color: var(--fg-2);
+    font-size: 12px;
+  }
+
+  .coverage-card li,
+  .eval-card li { margin-bottom: 6px; }
+
+  @keyframes shimmerText {
+    from { background-position: 120% 0; }
+    to { background-position: -120% 0; }
+  }
+
+  @media (max-width: 1040px) {
+    main { padding: 34px 22px 72px; }
+    .grid-2,
+    .grid-3,
+    .coverage-grid,
+    .eval-grid { grid-template-columns: 1fr; }
+    .lane { grid-template-columns: 1fr; }
+    .lane-body { grid-template-columns: 1fr 1fr; }
+    .node.span-2 { grid-column: span 1; }
+    .map-row { grid-template-columns: 1fr; }
+    .map-cell { border-left: 0; border-top: 1px solid var(--border); }
+    .map-row.header { display: none; }
+    .right-pane-frame { width: 100%; }
+    .frame-preview { height: 150px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <main>
+    <header>
+      <div class="eyebrow">Architecture contract</div>
+      <h1>Agent runs should feel like a calm project activity feed, not a coding terminal.</h1>
+      <p class="lede">
+        Ripple can lean on AI SDK for chat mechanics while preserving its own product meaning.
+        The durable event log stays technical and replayable. The shared runtime model turns that
+        work into language a motion designer understands. Chat and comments render the same truth
+        with different density.
+      </p>
+      <div class="meta-row">
+        <span class="pill blue">AI SDK for chat transport</span>
+        <span class="pill mint">agent_run_events as truth</span>
+        <span class="pill amber">Ripple owns product language</span>
+        <span class="pill violet">chat and comments stay in sync</span>
+      </div>
+    </header>
+
+    <section id="north-star">
+      <div class="section-label">01</div>
+      <div class="grid-3">
+        <div class="card">
+          <h3>Default user promise</h3>
+          <p>Show what is happening in the project: thinking, looking at frames, exploring the project, editing the composition, checking the work, and preparing changes.</p>
+        </div>
+        <div class="card">
+          <h3>Hidden by default</h3>
+          <p>Provider names, raw tool names, commands, paths, stdout, stderr, MCP servers, and JSON payloads stay out of normal UI.</p>
+        </div>
+        <div class="card">
+          <h3>Always preserved</h3>
+          <p>Raw provider events, provider refs, sequence order, approvals, file changes, and replay metadata remain available for diagnostics and support.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="section-label">02</div>
+      <h2>Ideal runtime architecture</h2>
+      <p class="section-copy">
+        The long-term architecture has five layers. Ripple translates provider events at the front
+        door into typed semantic facts, then deterministically projects those facts into product
+        language. Raw provider evidence stays in a separate diagnostic rail.
+      </p>
+
+      <div class="diagram">
+        <div class="lane">
+          <div class="lane-label"><span>Provider adapters</span><span class="lane-index">01</span></div>
+          <div class="lane-body">
+            <div class="node blue"><strong>Codex app-server</strong><span>thread, turn, item, approval events</span></div>
+            <div class="node blue"><strong>Claude SDK</strong><span>assistant, tool, permission stream</span></div>
+            <div class="node"><strong>Future providers</strong><span>normalize without UI decisions</span></div>
+            <div class="node"><strong>Raw refs</strong><span>provider ids and payload previews</span></div>
+          </div>
+        </div>
+
+        <div class="lane">
+          <div class="lane-label"><span>Semantic ingest</span><span class="lane-index">02</span></div>
+          <div class="lane-body">
+            <div class="node mint"><strong>Normalize lifecycle</strong><span>start, update, finish, error, approval</span></div>
+            <div class="node mint"><strong>Classify work</strong><span>thinking, visual, explore, edit, verify</span></div>
+            <div class="node mint"><strong>Safe target</strong><span>composition, frame, project, export</span></div>
+            <div class="node mint"><strong>Stable identity</strong><span>run, item, sequence, provider refs</span></div>
+          </div>
+        </div>
+
+        <div class="lane">
+          <div class="lane-label"><span>Two-rail ledger</span><span class="lane-index">03</span></div>
+          <div class="lane-body">
+            <div class="node amber"><strong>Semantic rail</strong><span>kind, lifecycle, target, counts, status</span></div>
+            <div class="node amber"><strong>Evidence rail</strong><span>raw payload previews and provider refs</span></div>
+            <div class="node amber"><strong>Replay source</strong><span>ordered semantic events plus evidence ids</span></div>
+            <div class="node amber"><strong>Approval evidence</strong><span>exact risk detail only when needed</span></div>
+          </div>
+        </div>
+
+        <div class="lane">
+          <div class="lane-label"><span>UI stream projection</span><span class="lane-index">04</span></div>
+          <div class="lane-body">
+            <div class="node violet"><strong>ChatTransport</strong><span>send, reconnect, cancel</span></div>
+            <div class="node violet"><strong>UIMessage parts</strong><span>text, reasoning, data, finish</span></div>
+            <div class="node violet"><strong>data-agent-runtime</strong><span>projected rows, not raw tool copy</span></div>
+            <div class="node violet"><strong>message metadata</strong><span>run id, model, usage, trace refs</span></div>
+          </div>
+        </div>
+
+        <div class="lane">
+          <div class="lane-label"><span>Product surfaces</span><span class="lane-index">05</span></div>
+          <div class="lane-body">
+            <div class="node red span-2"><strong>Chat</strong><span>ordered activity trail plus final assistant reply</span></div>
+            <div class="node red span-2"><strong>Comments</strong><span>latest activity line plus proposed-change state</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-3" style="margin-top: 14px;">
+        <div class="card">
+          <h3>Industry pattern</h3>
+          <p>Modern agent stacks separate execution trace, durable replay state, and UI message parts. AI SDK gives typed message parts; LangGraph emphasizes durable checkpoints; Agents SDK exposes traces for tools and handoffs.</p>
+        </div>
+        <div class="card">
+          <h3>1Code lesson</h3>
+          <p>1Code is strongest as a compact activity-feed surface: thinking, umbrellas, shimmer, and disclosure. Ripple needs to keep that feel while owning motion-domain semantics and comment parity.</p>
+        </div>
+        <div class="card">
+          <h3>Ripple ideal</h3>
+          <p>Use T3-style lifecycle discipline, 1Code-style compact rows, and a Ripple-owned semantic rail. Chat and comments render projected summaries; they do not reinterpret raw provider events.</p>
+        </div>
+      </div>
+
+      <div class="mapping-table" style="margin-top: 14px;">
+        <div class="map-row header">
+          <div class="map-cell">Runtime contract</div>
+          <div class="map-cell">What is durable</div>
+          <div class="map-cell">What is generated</div>
+          <div class="map-cell">Why it matters</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Semantic event</div>
+          <div class="map-cell">Schema version, run/comment ids, sequence, event id, lifecycle, kind, status, target, counts, provider refs, evidence refs.</div>
+          <div class="map-cell">Nothing. This is typed data, not final English copy.</div>
+          <div class="map-cell">Copy changes should not become data migrations or force renderers to guess.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Summary projector</div>
+          <div class="map-cell">Projection id, source event ids, copy version, grouping key.</div>
+          <div class="map-cell">Collapsed title, muted meta, opened details, tense, shimmer state, comment density.</div>
+          <div class="map-cell">Chat and comments stay in sync because both render the same projected rows.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Replay</div>
+          <div class="map-cell">Ordered semantic events and evidence refs.</div>
+          <div class="map-cell">The same projected rows and final reply after reload or reconnect.</div>
+          <div class="map-cell">Reload never re-runs tools, repeats side effects, or duplicates streamed chunks.</div>
+        </div>
+      </div>
+
+      <pre>type AgentRuntimeSemanticEvent = {
+  schemaVersion: 1;
+  copyVersion: number;
+  runId: string;
+  turnId?: string;
+  commentId?: string;
+  surface: "chat" | "comment";
+  sequence: number;
+  eventId: string;
+  parentEventId?: string;
+  provider: "codex" | "claude" | "ripple" | "unknown";
+  providerRef?: { threadId?: string; turnId?: string; itemId?: string; requestId?: string };
+  lifecycle: "started" | "updated" | "completed" | "failed" | "cancelled" | "interrupted" | "approval_requested" | "approval_resolved";
+  kind: "thinking" | "visual_context" | "project_inspection" | "motion_edit" | "verification" | "approval" | "error" | "project_activity";
+  status: "pending" | "done" | "blocked" | "error" | "cancelled";
+  target?: { type: "project" | "composition" | "sequence" | "frame" | "asset" | "file" | "export" | "unknown"; label: string; projectRelativePath?: string; frameTimecode?: string };
+  counts?: { files?: number; frames?: number; additions?: number; removals?: number };
+  evidenceRefs: string[];
+};</pre>
+    </section>
+
+    <section id="ui-layers">
+      <div class="section-label">03</div>
+      <h2>How the chat and comment UI is built</h2>
+      <p class="section-copy">
+        The UI is intentionally split into layers. Codex, Claude, and future providers produce
+        runtime events. AI SDK handles chat transport and message state. Ripple turns runtime data
+        into product-safe activity. The renderer borrows the compact 1Code activity pattern, then
+        specializes it for chat and frame comments.
+      </p>
+
+      <div class="diagram">
+        <div class="lane">
+          <div class="lane-label"><span>Provider runtime layer</span><span class="lane-index">01</span></div>
+          <div class="lane-body">
+            <div class="node blue"><strong>Codex app-server</strong><span>thread, turn, item, approval events</span></div>
+            <div class="node blue"><strong>Claude SDK</strong><span>assistant, tool, permission stream</span></div>
+            <div class="node"><strong>Future providers</strong><span>adapt into the same event shape</span></div>
+            <div class="node"><strong>Provider refs</strong><span>kept for replay and support</span></div>
+          </div>
+        </div>
+
+        <div class="lane">
+          <div class="lane-label"><span>AI SDK layer</span><span class="lane-index">02</span></div>
+          <div class="lane-body">
+            <div class="node blue"><strong>useChat</strong><span>message state, submit, cancel</span></div>
+            <div class="node blue"><strong>AgentRuntimeChatTransport</strong><span>streams projected chunks</span></div>
+            <div class="node blue"><strong>UIMessage parts</strong><span>text, data, finish</span></div>
+            <div class="node"><strong>Not product copy</strong><span>transport should not decide wording</span></div>
+          </div>
+        </div>
+
+        <div class="lane">
+          <div class="lane-label"><span>Ripple semantic layer</span><span class="lane-index">03</span></div>
+          <div class="lane-body">
+            <div class="node mint"><strong>AgentRuntimeUIProjector</strong><span>provider events to UI chunks</span></div>
+            <div class="node mint"><strong>AgentRuntimeProductSummary</strong><span>kind, status, title, details</span></div>
+            <div class="node mint"><strong>motion-runtime-activity</strong><span>rows, tense, visual details</span></div>
+            <div class="node mint"><strong>comment-formatting</strong><span>same summary, comment density</span></div>
+          </div>
+        </div>
+
+        <div class="lane">
+          <div class="lane-label"><span>Inherited UI pattern</span><span class="lane-index">04</span></div>
+          <div class="lane-body">
+            <div class="node amber"><strong>Compact row</strong><span>small status line, not a tool stack</span></div>
+            <div class="node amber"><strong>Closed umbrella</strong><span>details hidden until opened</span></div>
+            <div class="node amber"><strong>Shimmer while active</strong><span>only pending text moves</span></div>
+            <div class="node amber"><strong>Disclosure detail</strong><span>previews and evidence on demand</span></div>
+          </div>
+        </div>
+
+        <div class="lane">
+          <div class="lane-label"><span>Chat renderer</span><span class="lane-index">05</span></div>
+          <div class="lane-body">
+            <div class="node violet"><strong>AssistantMessageItem</strong><span>hosts assistant reply and runtime parts</span></div>
+            <div class="node violet"><strong>AgentMotionRuntimeFeed</strong><span>ordered activity umbrellas</span></div>
+            <div class="node violet"><strong>Visual cards</strong><span>frame previews and edit receipts</span></div>
+            <div class="node violet"><strong>Final reply</strong><span>never replaced by empty completion</span></div>
+          </div>
+        </div>
+
+        <div class="lane">
+          <div class="lane-label"><span>Comment renderer</span><span class="lane-index">06</span></div>
+          <div class="lane-body">
+            <div class="node red"><strong>RippleCommentsPane</strong><span>thread card plus composer</span></div>
+            <div class="node red"><strong>Status line</strong><span>latest activity while running</span></div>
+            <div class="node red"><strong>Agent reply</strong><span>final message when ready</span></div>
+            <div class="node red"><strong>Same source</strong><span>no comment-only vocabulary</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-3" style="margin-top: 14px;">
+        <div class="card">
+          <h3>AI SDK gives us</h3>
+          <p>Streaming message state, transport hooks, reconnect/cancel mechanics, and a typed place to attach <code>data-agent-runtime</code> parts.</p>
+        </div>
+        <div class="card">
+          <h3>Ripple gives us</h3>
+          <p>The product grammar: what counts as looking, exploring, editing, verifying, approval, error, final reply, and support-only evidence.</p>
+        </div>
+        <div class="card">
+          <h3>Agents should edit here</h3>
+          <p>Change semantics in the shared summary/projector layer first. Components should mostly render the row, not invent new interpretations.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="ui-contract">
+      <div class="section-label">04</div>
+      <h2>Visual UI contract</h2>
+      <p class="section-copy">
+        Use the controls below to switch between expected runtime states. This mock focuses only on
+        the real right pane: chat history, chat runtime rows, comments, comment threads, and the
+        frame-comment composer.
+      </p>
+
+      <div class="state-controls" aria-label="Runtime state controls">
+        <button class="state-button active" data-state="chatLive">Chat live</button>
+        <button class="state-button" data-state="chatEditingOpen">Editing open</button>
+        <button class="state-button" data-state="chatDone">Chat done</button>
+        <button class="state-button" data-state="commentThinking">Comment thinking</button>
+        <button class="state-button" data-state="commentReady">Comment ready</button>
+        <button class="state-button" data-state="error">Error</button>
+        <button class="state-button" data-state="replay">Reload replay</button>
+      </div>
+
+      <div class="right-pane-frame">
+        <div class="right-pane-tabs">
+          <div class="right-pane-tab active" id="tab-chat">Chat</div>
+          <div class="right-pane-tab" id="tab-comments">Comments</div>
+        </div>
+        <div class="right-pane-body" id="right-pane-body"></div>
+      </div>
+    </section>
+
+    <section id="mapping">
+      <div class="section-label">05</div>
+      <h2>Event-to-UI mapping</h2>
+      <p class="section-copy">
+        The mapping keeps raw provider truth intact while giving collapsed rows a small verb
+        vocabulary. Open umbrellas should show the evidence that caused the verb.
+      </p>
+      <p class="mapping-note">
+        Tense is part of the contract: the currently active item uses an active verb like
+        <strong>Editing</strong>, while completed evidence inside the same umbrella switches to
+        past tense like <strong>Looked</strong>, <strong>Explored</strong>, and <strong>Edited</strong>.
+        When the umbrella is closed, only the umbrella title is visible and shimmering. If the user
+        opens it, the active detail row shimmers too.
+      </p>
+      <p class="mapping-note">
+        Chat and comments use the same product row. Chat can show the full ordered trail; comments
+        usually show only the latest collapsed row plus the proposed-change state. Comment status
+        lines use the <strong>Active row</strong> column, not the opened-umbrella detail text. When
+        the comment is ready, the comment reply is the agent's final message to the user.
+      </p>
+      <p class="mapping-note">
+        Grouping rule: a collapsed umbrella shows one dominant activity, such as <strong>Editing</strong>.
+        Supporting work like looked frames, searched files, and read files appears as muted meta or
+        opened detail rows. Completed umbrellas use a dominant outcome, such as <strong>Edited composition</strong>,
+        with supporting counts like "looked at 2 frames" kept secondary.
+      </p>
+
+      <div class="mapping-table" style="margin-bottom: 14px;">
+        <div class="map-row header">
+          <div class="map-cell">UI level</div>
+          <div class="map-cell">Example</div>
+          <div class="map-cell">Purpose</div>
+          <div class="map-cell">Rule</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Collapsed umbrella</div>
+          <div class="map-cell">Editing</div>
+          <div class="map-cell">A broad editor-friendly verb that can cover compositions, sequences, scripts, project files, and future editable things.</div>
+          <div class="map-cell">Keep this vocabulary small and stable. One dominant activity per collapsed row.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Opened detail</div>
+          <div class="map-cell">Read <code>showcase.tsx</code>; Editing <code>showcase.tsx</code> <span class="diff-add">+16</span> <span class="diff-remove">-9</span></div>
+          <div class="map-cell">The concrete target or evidence supplied by Codex, Claude, or Ripple tools.</div>
+          <div class="map-cell">Keep it Codex-simple: event verb plus file name, with tiny diff counts when useful.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Support evidence</div>
+          <div class="map-cell">provider refs, item ids, compact payload preview</div>
+          <div class="map-cell">Debugging, replay, approvals, and evals.</div>
+          <div class="map-cell">Preserve it, but do not overbuild the default UI around preventing every possible raw-word leak.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Ready comment</div>
+          <div class="map-cell">I moved the right phone in with the others...</div>
+          <div class="map-cell">The agent's reply to the frame comment.</div>
+          <div class="map-cell">Show the final agent message, not a generic "Changes ready" line.</div>
+        </div>
+      </div>
+
+      <div class="mapping-table">
+        <div class="map-row header">
+          <div class="map-cell">Provider signal</div>
+          <div class="map-cell">Ripple semantic item</div>
+          <div class="map-cell">Active row</div>
+          <div class="map-cell">Opened umbrella shows</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Codex reasoning/plan deltas; Claude thinking deltas</div>
+          <div class="map-cell"><code>thinking / pending|done</code></div>
+          <div class="map-cell">Thinking</div>
+          <div class="map-cell">Short available thought summary. No raw chain-of-thought transcript.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>Read</code>, <code>Grep</code>, <code>Glob</code>, search-like commands, project context reads</div>
+          <div class="map-cell"><code>project_inspection / pending|done</code></div>
+          <div class="map-cell">Exploring</div>
+          <div class="map-cell">What was explored: composition, asset, frame, or search phrase. Counts are okay; raw paths stay out.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">native visual tools, snapshots, frame sheets, image attachments</div>
+          <div class="map-cell"><code>visual_context / pending|done</code></div>
+          <div class="map-cell">Looking</div>
+          <div class="map-cell">Preview thumbnail or frame sheet, plus the frame/time source.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>Edit</code>, <code>Write</code>, file changes, files persisted, turn diff updated</div>
+          <div class="map-cell"><code>motion_edit / pending|done</code></div>
+          <div class="map-cell">Editing</div>
+          <div class="map-cell">What changed in project language: layout, background, text, timing, camera, transition. Link to review for exact diff.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">checks, renders, exports, lint, project validation</div>
+          <div class="map-cell"><code>verification / pending|done|error</code></div>
+          <div class="map-cell">Verifying</div>
+          <div class="map-cell">What was verified and whether it passed. If it failed, show the sanitized runtime error.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">approval request, Claude canUseTool, Codex approval events</div>
+          <div class="map-cell"><code>approval / pending|done</code></div>
+          <div class="map-cell">Approval needed</div>
+          <div class="map-cell">Friendly label plus enough exact action/scope detail for the user to approve confidently.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">error events, auth errors, failed terminal run status</div>
+          <div class="map-cell"><code>status / error</code></div>
+          <div class="map-cell">Unable to finish this change</div>
+          <div class="map-cell">The sanitized agent runtime error itself. Do not translate it into a vague canonical phrase or progress state.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">unknown tool or ambiguous provider event</div>
+          <div class="map-cell"><code>project_activity / pending|done|error</code></div>
+          <div class="map-cell">Working on project</div>
+          <div class="map-cell">Use a best-effort neutral receipt when the adapter cannot classify the work. Do not pretend it was an edit or verification.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="invariants">
+      <div class="section-label">06</div>
+      <h2>Non-negotiable behavior invariants</h2>
+      <div class="grid-2">
+        <div class="rule-list">
+          <div class="rule"><div class="check">OK</div><div><strong>Persist facts, project copy</strong><span>Durable rows store typed semantic facts and evidence refs. English titles are generated by the projector.</span></div></div>
+          <div class="rule"><div class="check">OK</div><div><strong>Completed runs have no shimmer</strong><span>Final state is stable and readable.</span></div></div>
+          <div class="rule"><div class="check">OK</div><div><strong>Reload is a replay, not a duplicate stream</strong><span>Persisted semantic events reconstruct the same UI without duplicated text, tools, or side effects.</span></div></div>
+          <div class="rule"><div class="check">OK</div><div><strong>Raw provider copy is hidden</strong><span>Default rows do not show Codex, Claude, Bash, MCP, paths, commands, stdout, or stderr.</span></div></div>
+          <div class="rule"><div class="check">OK</div><div><strong>Errors do not look like progress</strong><span>Failure copy says what needs attention instead of "Working on project".</span></div></div>
+        </div>
+        <div class="rule-list">
+          <div class="rule"><div class="check">OK</div><div><strong>Approvals disclose enough scope</strong><span>Friendly title by default, exact command/path/network scope only when the user is being asked to approve. Waiting for approval is blocked, not shimmering progress.</span></div></div>
+          <div class="rule"><div class="check">OK</div><div><strong>Visual context is first-class</strong><span>Current-frame and frame-sheet rows can show previews without becoming raw tool output.</span></div></div>
+          <div class="rule"><div class="check">OK</div><div><strong>Comment parity holds</strong><span>The same run cannot say "Verifying" in chat and "Thinking" in comments. Comment status is scoped by run id and comment id.</span></div></div>
+          <div class="rule"><div class="check">OK</div><div><strong>Umbrellas start closed</strong><span>Activity rows are collapsed by default. The user can open one to inspect previews, details, and support evidence.</span></div></div>
+          <div class="rule"><div class="check">OK</div><div><strong>Sanitization is deterministic</strong><span>Normal details show basenames or project-relative paths; absolute paths, raw stdout/stderr, and JSON payloads stay in support evidence.</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="implementation-map">
+      <div class="section-label">07</div>
+      <h2>Implementation map</h2>
+      <p class="section-copy">
+        Agents should start here before editing. The goal is to consolidate around the existing
+        summary and projection layer, not add another parallel runtime vocabulary.
+      </p>
+
+      <div class="mapping-table">
+        <div class="map-row header">
+          <div class="map-cell">Contract piece</div>
+          <div class="map-cell">Primary files</div>
+          <div class="map-cell">Build direction</div>
+          <div class="map-cell">Avoid</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Semantic rail and projector</div>
+          <div class="map-cell"><code>src/shared/agent-runtime-summary.ts</code>, <code>src/shared/agent-runtime-ui-projection.ts</code></div>
+          <div class="map-cell">Store typed facts first, then generate title, meta, detail text, tense, and density from a versioned projector.</div>
+          <div class="map-cell">Do not persist final English copy as the canonical source or create a third copy map in renderer/comments.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">AI SDK bridge</div>
+          <div class="map-cell"><code>active-chat.tsx</code>, <code>agent-runtime-chat-transport.ts</code></div>
+          <div class="map-cell">Use AI SDK for chat state and transport. Stream projected Ripple rows through <code>data-agent-runtime</code>.</div>
+          <div class="map-cell">Do not treat UIMessage parts as the durable runtime ledger or let provider names become product language.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Chat activity</div>
+          <div class="map-cell"><code>motion-runtime-activity.ts</code>, <code>agent-motion-runtime-feed.tsx</code>, <code>assistant-message-item.tsx</code></div>
+          <div class="map-cell">Render ordered product rows, tense, shimmer, details, visuals, and final reply preservation.</div>
+          <div class="map-cell">Do not infer new product language from tool names in the component tree.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Comments</div>
+          <div class="map-cell"><code>RippleCommentsPane.tsx</code>, <code>comment-formatting.ts</code>, comments e2e harnesses</div>
+          <div class="map-cell">Use the same product rail. Pending shows latest activity; finished shows the agent reply line.</div>
+          <div class="map-cell">Do not build a separate comment-only runtime vocabulary.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Evidence rail</div>
+          <div class="map-cell"><code>src/main/lib/agent-runtime/service.ts</code>, <code>src/main/lib/db/schema/index.ts</code></div>
+          <div class="map-cell">Preserve raw provider refs and compact payload previews for replay, diagnostics, evals, and approvals.</div>
+          <div class="map-cell">Do not use raw payload strings as normal UI copy.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell">Approval lifecycle</div>
+          <div class="map-cell"><code>src/main/lib/agent-runtime/service.ts</code>, provider adapters, comment/chat approval UI</div>
+          <div class="map-cell">Persist request id, kind, target/scope, risk label, provider ref, allow/deny/cancel, actor, and resolved time.</div>
+          <div class="map-cell">Do not let a waiting approval look like active work or leave stale approvals after the run ends.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="coverage">
+      <div class="section-label">08</div>
+      <h2>Current vs ideal coverage</h2>
+      <div class="coverage-grid">
+        <div class="coverage-card">
+          <h3>Likely already built</h3>
+          <ul>
+            <li>AI SDK chat state and transport path.</li>
+            <li>Runtime event persistence and replay source.</li>
+            <li>Chat activity feed component family.</li>
+            <li>Comment thread and composer surface.</li>
+          </ul>
+        </div>
+        <div class="coverage-card">
+          <h3>Needs tightening</h3>
+          <ul>
+            <li>One shared semantic event and projector contract for chat and comments.</li>
+            <li>Consistent tense: active "-ing", completed past tense.</li>
+            <li>Closed umbrellas as the default state.</li>
+            <li>Raw provider wording kept out of projected UI summaries.</li>
+            <li>Approval, cancellation, interruption, and comment edge states.</li>
+          </ul>
+        </div>
+        <div class="coverage-card">
+          <h3>Needs eval proof</h3>
+          <ul>
+            <li>Active row and active detail shimmer while thinking or editing.</li>
+            <li>Comment final line is the agent reply, not generic "changes ready" copy.</li>
+            <li>Reload produces the same rows without duplicating messages or side effects.</li>
+            <li>Unknown tools use neutral project activity, not false edit/check labels.</li>
+            <li>Provider-specific Codex and Claude fixtures normalize to the same Ripple vocabulary.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="evals">
+      <div class="section-label">09</div>
+      <h2>Eval matrix</h2>
+      <p class="section-copy">
+        Each row in this document should either be covered by a fixture, a component test, or a
+        live e2e run. Missing tests become build tasks.
+      </p>
+      <div class="eval-grid">
+        <div class="eval-card">
+          <h3>Projection fixtures</h3>
+          <ul>
+            <li>Provider events collapse into semantic product rows.</li>
+            <li>Raw tool names stay in evidence, not titles.</li>
+            <li>Provider refs survive replay.</li>
+            <li>Absolute paths render as basenames or project-relative paths only.</li>
+            <li>Unknown events fall back to <code>project_activity</code>.</li>
+          </ul>
+        </div>
+        <div class="eval-card">
+          <h3>Chat UI fixtures</h3>
+          <ul>
+            <li>Collapsed umbrellas are default.</li>
+            <li>Pending row shimmers; completed row does not.</li>
+            <li>Final assistant reply remains visible.</li>
+            <li>Opened editing rows show file names and tiny diff counts.</li>
+            <li>Approval waiting state is visibly blocked, not shimmering work.</li>
+          </ul>
+        </div>
+        <div class="eval-card">
+          <h3>Comment UI fixtures</h3>
+          <ul>
+            <li>Pending comment uses latest shared activity row.</li>
+            <li>Ready comment shows the final agent reply.</li>
+            <li>Comment and chat agree on status.</li>
+            <li>Comment status is scoped to the same run and comment id.</li>
+            <li>Error, approval, cancelled, interrupted, retry, and resume states are explicit.</li>
+          </ul>
+        </div>
+        <div class="eval-card">
+          <h3>Replay and errors</h3>
+          <ul>
+            <li>Reload reconstructs rows without duplicated text.</li>
+            <li>Errors are visible and do not look like progress.</li>
+            <li>Approval prompts include enough scope to approve confidently.</li>
+            <li>Reconnect streams only unseen event ids.</li>
+            <li>Replay never re-runs tools or provider side effects.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="mapping-table" style="margin-top: 14px;">
+        <div class="map-row header">
+          <div class="map-cell">Fixture</div>
+          <div class="map-cell">Input</div>
+          <div class="map-cell">Expected output</div>
+          <div class="map-cell">Purpose</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>codex-edit-run</code></div>
+          <div class="map-cell">Codex thread, turn, item, read/search/edit/diff/completion events.</div>
+          <div class="map-cell">Semantic events plus projected rows: Looking/Exploring/Editing, file detail lines, final reply.</div>
+          <div class="map-cell">Proves Codex can stay faithful without exposing terminal UI.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>claude-approval-run</code></div>
+          <div class="map-cell">Claude tool, permission, user-question, allow/deny, and resumed stream events.</div>
+          <div class="map-cell">Approval needed, blocked state, resolved state, resumed activity, final reply.</div>
+          <div class="map-cell">Proves provider differences normalize into the same product contract.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>claude-approval-resume-run</code></div>
+          <div class="map-cell">Claude approval request, user approval, resumed edit, and assistant completion.</div>
+          <div class="map-cell">Approval stops blocking after resolution; resumed work finishes as Edited composition with the final reply.</div>
+          <div class="map-cell">Proves approval rows are lifecycle states, not stale activity that survives forever.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>comment-ready-dom</code></div>
+          <div class="map-cell">Comment-scoped run with activity rows and final assistant message.</div>
+          <div class="map-cell">Pending shows latest row; ready shows the final reply; no full chat trail.</div>
+          <div class="map-cell">Proves comments are a density mode, not a separate interpretation system.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>replay-idempotency</code></div>
+          <div class="map-cell">Persisted semantic events, evidence refs, UI reconnect/reload.</div>
+          <div class="map-cell">Same projected row ids/kinds/statuses/targets/final reply; no duplicate chunks.</div>
+          <div class="map-cell">Proves the durable log is the replay source.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="glossary">
+      <div class="section-label">10</div>
+      <h2>Canonical copy glossary</h2>
+      <div class="mapping-table">
+        <div class="map-row header">
+          <div class="map-cell">Kind</div>
+          <div class="map-cell">Active copy</div>
+          <div class="map-cell">Completed copy</div>
+          <div class="map-cell">Notes</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>thinking</code></div>
+          <div class="map-cell">Thinking</div>
+          <div class="map-cell">Planned</div>
+          <div class="map-cell">Use summary-only thought text. Never show raw chain-of-thought.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>visual_context</code></div>
+          <div class="map-cell">Looking</div>
+          <div class="map-cell">Looked</div>
+          <div class="map-cell">Use for screenshots, current frame, frame sheets, or image attachments.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>project_inspection</code></div>
+          <div class="map-cell">Exploring</div>
+          <div class="map-cell">Explored</div>
+          <div class="map-cell">Use for searches, reads, and project context. Hide raw paths by default.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>motion_edit</code></div>
+          <div class="map-cell">Editing</div>
+          <div class="map-cell">Edited</div>
+          <div class="map-cell">Use editor language: composition, frame, layout, timing, text, camera.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>verification</code></div>
+          <div class="map-cell">Verifying</div>
+          <div class="map-cell">Verified</div>
+          <div class="map-cell">Use for checks, renders, exports, and project validation.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>approval</code></div>
+          <div class="map-cell">Approval needed</div>
+          <div class="map-cell">Approved / Declined</div>
+          <div class="map-cell">Blocking state. Show friendly action plus exact scope only inside approval details.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>project_activity</code></div>
+          <div class="map-cell">Working on project</div>
+          <div class="map-cell">Worked on project</div>
+          <div class="map-cell">Fallback only when the adapter cannot safely classify the provider event.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>cancelled</code></div>
+          <div class="map-cell">Stopping</div>
+          <div class="map-cell">Stopped</div>
+          <div class="map-cell">Use when the user or runtime cancels the run.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>interrupted</code></div>
+          <div class="map-cell">Interrupted</div>
+          <div class="map-cell">Interrupted</div>
+          <div class="map-cell">Use when the run pauses unexpectedly and resume may be available.</div>
+        </div>
+        <div class="map-row">
+          <div class="map-cell"><code>status / error</code></div>
+          <div class="map-cell">Unable to finish this change</div>
+          <div class="map-cell">Unable to finish this change</div>
+          <div class="map-cell">Show the sanitized error. Do not invent soothing progress copy.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="migration">
+      <div class="section-label">11</div>
+      <h2>Migration plan</h2>
+      <div class="grid-3">
+        <div class="card">
+          <h3>1. Lock fixtures</h3>
+          <p>Create failing projection, chat, comment, approval, replay, and provider fixtures from this document before changing runtime behavior.</p>
+        </div>
+        <div class="card">
+          <h3>2. Consolidate projector</h3>
+          <p>Move semantic facts, grouping, tense, detail text, and support references into the shared runtime summary/projector layer.</p>
+        </div>
+        <div class="card">
+          <h3>3. Build against proof</h3>
+          <p>Update chat, comments, approvals, replay, and provider adapters only after the evals describe the intended outcome.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  const states = {
+    chatLive: {
+      surface: "chat",
+      title: "Move the phone on the right to be with the...",
+      project: "test project",
+      prompt: "can you move the phone on the right to be with the other phones?",
+      activities: [
+        {
+          id: "live-work",
+          title: "Editing",
+          meta: "Looked at current frame · explored app-showcase",
+          status: "pending",
+          expanded: false,
+          details: [
+            { title: "Looked", meta: "current frame", preview: "current" },
+            { title: "Explored", meta: "app-showcase composition" },
+            { title: "Editing", meta: "composition layout", status: "pending" }
+          ]
+        }
+      ],
+      note: "The chat shows one activity umbrella, not a stack of colored status rows."
+    },
+    chatEditingOpen: {
+      surface: "chat",
+      title: "Move the phone on the right to be with the...",
+      project: "test project",
+      prompt: "can you move the phone on the right to be with the other phones?",
+      activities: [
+        {
+          id: "editing-open-work",
+          title: "Editing",
+          meta: "Looked at current frame · explored app-showcase",
+          status: "pending",
+          expanded: true,
+          details: [
+            { title: "Looked", meta: "current frame", preview: "current" },
+            { title: "Explored", meta: "app-showcase composition" },
+            { title: "Read", meta: "showcase.tsx" },
+            { title: "Editing", meta: "showcase.tsx", status: "pending", add: "+16", remove: "-9" }
+          ]
+        }
+      ],
+      note: "Opening an umbrella shows simple Codex-style event lines with file names, not a form or a code console."
+    },
+    chatDone: {
+      surface: "chat",
+      title: "Move the phone on the right to be with the...",
+      project: "test project",
+      prompt: "can you move the phone on the right to be with the other phones?",
+      activities: [
+        {
+          id: "done-work",
+          title: "Edited composition",
+          meta: "Looked at 2 frames · explored 1 file",
+          status: "done",
+          expanded: false,
+          details: [
+            { title: "Looked", meta: "current frame", preview: "current" },
+            { title: "Explored", meta: "app-showcase composition" },
+            { title: "Edited", meta: "composition layout", add: "+16", remove: "-9" },
+            { title: "Looked", meta: "updated frame", preview: "updated" }
+          ]
+        }
+      ],
+      reply: "I moved the right phone in with the others. The updated frame is ready to review."
+    },
+    commentThinking: {
+      surface: "comments",
+      commentText: "hi",
+      status: "Editing",
+      statusMode: "pending",
+      replyState: "Replying"
+    },
+    commentReady: {
+      surface: "comments",
+      commentText: "hi",
+      status: "I moved the right phone in with the others. The updated frame is ready to review.",
+      statusMode: "done",
+      replyState: "Reply ready"
+    },
+    error: {
+      surface: "chat",
+      title: "Move the phone on the right to be with the...",
+      project: "test project",
+      prompt: "can you move the phone on the right to be with the other phones?",
+      activities: [
+        {
+          id: "error-work",
+          title: "Unable to finish this change",
+          status: "error",
+          expanded: false,
+          details: [
+            { title: "Authorization lost", meta: "The runtime lost authorization before saving the project change." }
+          ]
+        }
+      ],
+      reply: "I could not finish that change because the run lost authorization before saving."
+    },
+    replay: {
+      surface: "chat",
+      title: "Move the phone on the right to be with the...",
+      project: "test project",
+      prompt: "can you move the phone on the right to be with the other phones?",
+      activities: [
+        {
+          id: "replay-work",
+          title: "Edited composition",
+          meta: "Looked at 2 frames · explored 1 file",
+          status: "done",
+          expanded: false,
+          details: [
+            { title: "Looked", meta: "current frame", preview: "current" },
+            { title: "Explored", meta: "app-showcase composition" },
+            { title: "Edited", meta: "composition layout", add: "+16", remove: "-9" },
+            { title: "Looked", meta: "updated frame", preview: "updated" }
+          ]
+        }
+      ],
+      reply: "I moved the right phone in with the others. The updated frame is ready to review.",
+      note: "Replay uses persisted semantic rows and does not duplicate streamed chunks."
+    }
+  };
+
+  let activeState = "chatLive";
+
+  const body = document.getElementById("right-pane-body");
+  const tabChat = document.getElementById("tab-chat");
+  const tabComments = document.getElementById("tab-comments");
+  const buttons = Array.from(document.querySelectorAll(".state-button"));
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
+
+  function renderFramePreview(kind) {
+    const className = kind === "updated" ? "frame-preview updated" : "frame-preview";
+    const phones = kind === "updated"
+      ? '<div class="phone"></div>'
+      : '<div class="phone left"></div><div class="phone center"></div><div class="phone right"></div>';
+
+    return `
+      <div class="frame-card">
+        <div class="${className}">${phones}</div>
+        <div class="frame-caption">Current frame</div>
+      </div>
+    `;
+  }
+
+  function renderDetail(detail) {
+    const status = detail.status ? ` ${escapeHtml(detail.status)}` : "";
+    const add = detail.add ? ` <span class="diff-add">${escapeHtml(detail.add)}</span>` : "";
+    const remove = detail.remove ? ` <span class="diff-remove">${escapeHtml(detail.remove)}</span>` : "";
+    return `
+      <div class="activity-detail${status}">
+        <div>
+          <span class="activity-detail-title">${escapeHtml(detail.title)}</span>
+          <span class="activity-detail-meta"> ${escapeHtml(detail.meta)}${add}${remove}</span>
+        </div>
+        ${detail.preview ? renderFramePreview(detail.preview) : ""}
+      </div>
+    `;
+  }
+
+  function renderActivity(activity) {
+    const expanded = activity.expanded ? " expanded" : "";
+    const status = activity.status ? ` ${escapeHtml(activity.status)}` : "";
+    const chevron = activity.expanded ? "^" : "v";
+    return `
+      <div class="activity-group${expanded}" data-activity-id="${escapeHtml(activity.id)}">
+        <button class="activity-row${status}" type="button" data-toggle-activity="${escapeHtml(activity.id)}" aria-expanded="${activity.expanded ? "true" : "false"}">
+          <span class="activity-summary">
+            <span class="activity-title">${escapeHtml(activity.title)}</span>
+            ${activity.meta ? `<span class="activity-meta">${escapeHtml(activity.meta)}</span>` : ""}
+          </span>
+          <span class="activity-chevron">${chevron}</span>
+        </button>
+        <div class="activity-details">
+          ${activity.details.map(renderDetail).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderChat(state) {
+    return `
+      <div class="chat-shell">
+        <div class="conversation-nav">
+          <span class="nav-icon">...</span>
+          <span class="nav-chip">whats on screen and ...</span>
+          <span class="nav-chip active">Move the phone on the right to...</span>
+          <span class="nav-icon">o</span>
+          <span class="nav-icon">+</span>
+        </div>
+        <div>
+          <div class="thread-title">${escapeHtml(state.title)}</div>
+          <div class="project-name">${escapeHtml(state.project)}</div>
+        </div>
+        <div class="user-bubble">${escapeHtml(state.prompt)}</div>
+        <div class="runtime-feed">
+          ${state.activities.map(renderActivity).join("")}
+        </div>
+        ${state.reply ? `<div class="assistant-reply">${escapeHtml(state.reply)}</div>` : ""}
+        ${state.note ? `<div class="comment-note">${escapeHtml(state.note)}</div>` : ""}
+        <div class="composer">
+          <div>Ask for changes, @ for context, / for commands</div>
+          <div class="composer-footer">
+            <span>Sonnet latest</span>
+            <span class="send-dot">↑</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderComments(state) {
+    const statusClass = state.statusMode === "pending" ? "comment-live-line pending" : "comment-live-line";
+    return `
+      <div class="comment-shell">
+        <div class="comments-title">Comments v</div>
+        <div class="comment-card">
+          <div class="comment-meta">
+            <span class="time-pill">00:00:02:04</span>
+            <span>#1</span>
+            <span class="pill blue" style="width: 9px; height: 9px; min-height: 9px; padding: 0;"></span>
+          </div>
+          <div class="comment-text">${escapeHtml(state.commentText)}</div>
+          <div class="${statusClass}">${escapeHtml(state.status)}</div>
+          <div class="comment-actions">
+            <span>${escapeHtml(state.replyState)}</span>
+            <span>...</span>
+            <span style="margin-left: auto;">x</span>
+            <span>refresh</span>
+          </div>
+          <div class="comment-note">Comments show the latest collapsed activity row. They do not render opened-umbrella details or the whole chat trail.</div>
+        </div>
+        <div class="comment-composer">
+          <span class="time-pill">00:00:02:04</span>
+          <span>Comment on this frame...</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function render() {
+    const state = states[activeState];
+    const isComments = state.surface === "comments";
+
+    tabChat.classList.toggle("active", !isComments);
+    tabComments.classList.toggle("active", isComments);
+
+    body.innerHTML = isComments ? renderComments(state) : renderChat(state);
+  }
+
+  buttons.forEach((button) => {
+    button.addEventListener("click", () => {
+      activeState = button.dataset.state;
+      buttons.forEach((candidate) => candidate.classList.toggle("active", candidate === button));
+      render();
+    });
+  });
+
+  body.addEventListener("click", (event) => {
+    const toggle = event.target.closest("[data-toggle-activity]");
+    if (!toggle) return;
+
+    const state = states[activeState];
+    const activity = state.activities?.find((candidate) => candidate.id === toggle.dataset.toggleActivity);
+    if (!activity) return;
+
+    activity.expanded = !activity.expanded;
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>

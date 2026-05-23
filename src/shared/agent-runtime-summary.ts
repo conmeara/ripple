@@ -442,7 +442,7 @@ export function agentRuntimeSummaryPartFromEvent(
   const state = event.type === "tool_start" || event.type === "tool_update"
     ? "input-available"
     : event.type === "tool_end"
-      ? "output-available"
+      ? isAgentRuntimeFailedEventPayload(payload) ? "output-error" : "output-available"
       : undefined
   const input = isAgentRuntimeRecord(payload.input)
     ? payload.input
@@ -599,6 +599,14 @@ function latestToolFallbackLine(
   return "Working on project"
 }
 
+function isAgentRuntimeFailedEventPayload(payload: Record<string, unknown>): boolean {
+  const status = compactAgentRuntimeString(payload.status)?.toLowerCase()
+  return Boolean(payload.error) ||
+    status === "failed" ||
+    status === "error" ||
+    status === "declined"
+}
+
 export function latestAgentRuntimeActivityLine(
   events: AgentRuntimeSummaryEventLike[],
 ): string | null {
@@ -611,13 +619,13 @@ export function latestAgentRuntimeActivityLine(
       continue
     }
 
+    const directLine = event.type ? LATEST_DIRECT_ACTIVITY_LINES.get(event.type) : null
+    if (directLine) return directLine
+
     if (event.type !== "status") {
       const summaryPart = agentRuntimeSummaryPartFromEvent(event, payload)
       if (summaryPart) return titleForAgentRuntimeSummaryPart(summaryPart)
     }
-
-    const directLine = event.type ? LATEST_DIRECT_ACTIVITY_LINES.get(event.type) : null
-    if (directLine) return directLine
 
     if (
       event.type === "tool_start" ||
@@ -652,14 +660,23 @@ export function titleForAgentRuntimeSummaryPart(
     case "visual_context": {
       const visualKind = agentRuntimeVisualToolKind(part)
       if (visualKind === "frame_sheet") {
+        if (status === "error") return "Frame sheet check failed"
         return status === "pending" ? "Checking frame sheet" : "Checked frame sheet"
       }
+      if (status === "error") return "Current-frame check failed"
       return status === "pending" ? "Checking current frame" : "Checked current frame"
     }
     case "motion_edit":
+      if (status === "error") return "Composition update failed"
       return status === "pending" ? "Updating composition" : "Updated composition"
     case "verification": {
       const command = agentRuntimeCommandForPart(part)?.toLowerCase() ?? ""
+      if (status === "error") {
+        if (isAgentRuntimeChangeReviewCommand(command)) return "Change check failed"
+        if (/\bexport\b/.test(command)) return "Export failed"
+        if (/\brender\b/.test(command)) return "Preview render failed"
+        return "Project check failed"
+      }
       if (isAgentRuntimeChangeReviewCommand(command)) {
         return status === "pending" ? "Checking changes" : "Checked changes"
       }
@@ -676,10 +693,12 @@ export function titleForAgentRuntimeSummaryPart(
           "Working",
       )
     case "project_inspection":
+      if (status === "error") return "Project check failed"
       return status === "pending" ? "Exploring project" : "Explored project"
     case "assistant_text":
       return "Response"
     default:
+      if (status === "error") return "Project operation failed"
       return status === "pending" ? "Working on project" : "Updated project"
   }
 }

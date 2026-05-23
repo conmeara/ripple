@@ -158,7 +158,7 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
     expect(markup).not.toContain("Thinking")
     expect(markup).not.toContain("Planning the title animation")
     expect(markup).toContain("Explored 1 file")
-    expect(markup).toContain("Updated composition")
+    expect(markup).toContain("Edited composition")
     expect(shimmerCount(markup)).toBe(0)
     expectNoRuntimeLeak(markup)
   })
@@ -231,7 +231,7 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
     expect(markup).not.toContain("Thinking")
     expect(markup).not.toContain("Checking frame balance")
     expect(markup).toContain("Explored 1 file")
-    expect(markup).toContain("Updated composition")
+    expect(markup).toContain("Edited composition")
     expect(shimmerCount(markup)).toBe(0)
     expectNoRuntimeLeak(markup)
   })
@@ -268,7 +268,7 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
     expect(markup).not.toContain("Thinking")
     expect(markup).not.toContain("Checking the composition before editing.")
     expect(markup).toContain("Explored 1 file")
-    expect(markup).toContain("Updating composition")
+    expect(markup).toContain("Editing")
     expect(shimmerCount(markup)).toBe(1)
     expectNoRuntimeLeak(markup)
   })
@@ -303,8 +303,8 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
       ],
     })
 
-    expect(markup).toContain("Updated composition")
-    expect(markup).toContain("Checked project")
+    expect(markup).toContain("Edited composition")
+    expect(markup).toContain("Verified")
     expect(markup).toContain("Thinking")
     expect(shimmerCount(markup)).toBe(1)
     expectNoRuntimeLeak(markup)
@@ -441,7 +441,7 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
       ],
     })
 
-    expect(markup).toContain("Checked current frame")
+    expect(markup).toContain("Looked")
     expect(markup).toContain("Ripple current frame")
     expect(markup).toContain("data:image/png;base64,iVBORw0KGgo=")
   })
@@ -461,7 +461,7 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
       ],
     })
 
-    expect(markup).toContain("Checking current frame")
+    expect(markup).toContain("Looking")
     expect(markup).toContain("data-agent-motion-visual-preview")
     expect(markup).toContain("Current frame")
     expect(shimmerCount(markup)).toBe(1)
@@ -491,7 +491,7 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
       ],
     })
 
-    expect(markup).toContain("Checked current frame")
+    expect(markup).toContain("Looked")
     expect(markup).toContain("data-agent-motion-visual-preview")
     expect(markup).toContain("Current frame")
     expect(markup).not.toContain("<img")
@@ -513,7 +513,7 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
       ],
     })
 
-    expect(markup).toContain("Checked current frame")
+    expect(markup).toContain("Looked")
     expect(markup).toContain("data-agent-motion-visual-preview")
     expect(markup).toContain("Current frame")
     expect(markup).not.toContain("<img")

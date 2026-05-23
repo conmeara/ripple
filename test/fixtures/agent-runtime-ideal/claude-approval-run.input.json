@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "provider": "claude",
+  "surface": "comment",
+  "projectPath": "/Users/example/Ripple/test-project",
+  "events": [
+    {
+      "id": "ev-approval-001",
+      "type": "reasoning",
+      "sequence": 1,
+      "provider": "claude",
+      "providerId": "reasoning-1",
+      "payload": {
+        "delta": "I need permission before changing the project.",
+        "streamKind": "reasoning_summary"
+      }
+    },
+    {
+      "id": "ev-approval-002",
+      "type": "approval_request",
+      "sequence": 2,
+      "provider": "claude",
+      "providerId": "approval-1",
+      "payload": {
+        "approvalId": "approval-1",
+        "kind": "command",
+        "status": "pending",
+        "actionLabel": "Update project files",
+        "riskLabel": "Project files will change",
+        "target": {
+          "type": "file",
+          "label": "showcase.tsx",
+          "projectRelativePath": "src/showcase.tsx"
+        },
+        "command": "python3 scripts/update_showcase.py"
+      }
+    }
+  ]
+}

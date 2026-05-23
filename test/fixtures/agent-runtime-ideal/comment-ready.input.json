@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "surface": "comment",
+  "runId": "run-comment-1",
+  "commentId": "comment-1",
+  "commentText": "hi",
+  "pendingActivity": "Editing",
+  "finalAssistantMessage": "I moved the right phone in with the others. The updated frame is ready to review."
+}

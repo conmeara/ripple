@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "provider": "claude",
+  "surface": "comment",
+  "projectPath": "/Users/example/Ripple/test-project",
+  "events": [
+    {
+      "id": "ev-approval-resume-001",
+      "type": "reasoning",
+      "sequence": 1,
+      "provider": "claude",
+      "providerId": "reasoning-1",
+      "payload": {
+        "delta": "I need permission before changing the project.",
+        "streamKind": "reasoning_summary"
+      }
+    },
+    {
+      "id": "ev-approval-resume-002",
+      "type": "approval_request",
+      "sequence": 2,
+      "provider": "claude",
+      "providerId": "approval-1",
+      "payload": {
+        "approvalId": "approval-1",
+        "kind": "command",
+        "status": "pending",
+        "actionLabel": "Update project files",
+        "riskLabel": "Project files will change",
+        "target": {
+          "type": "file",
+          "label": "showcase.tsx",
+          "projectRelativePath": "src/showcase.tsx"
+        },
+        "command": "python3 scripts/update_showcase.py"
+      }
+    },
+    {
+      "id": "ev-approval-resume-003",
+      "type": "approval_resolved",
+      "sequence": 3,
+      "provider": "claude",
+      "providerId": "approval-1",
+      "payload": {
+        "approvalId": "approval-1",
+        "decision": "approved",
+        "actor": "user",
+        "scope": "once"
+      }
+    },
+    {
+      "id": "ev-approval-resume-004",
+      "type": "tool_start",
+      "sequence": 4,
+      "provider": "claude",
+      "providerId": "edit-1",
+      "payload": {
+        "toolName": "Edit",
+        "toolCallId": "edit-1",
+        "input": {
+          "file_path": "/Users/example/Ripple/test-project/src/showcase.tsx"
+        }
+      }
+    },
+    {
+      "id": "ev-approval-resume-005",
+      "type": "file_change",
+      "sequence": 5,
+      "provider": "claude",
+      "providerId": "change-1",
+      "payload": {
+        "path": "/Users/example/Ripple/test-project/src/showcase.tsx",
+        "additions": 16,
+        "removals": 9
+      }
+    },
+    {
+      "id": "ev-approval-resume-006",
+      "type": "assistant_message",
+      "sequence": 6,
+      "provider": "claude",
+      "providerId": "reply-1",
+      "payload": {
+        "text": "I moved the right phone in with the others. The updated frame is ready to review."
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "name": "approval-pending",
+      "eventCount": 2
+    },
+    {
+      "name": "resumed-done",
+      "eventCount": 6
+    }
+  ]
+}

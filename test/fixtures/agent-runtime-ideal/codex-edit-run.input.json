@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "provider": "codex",
+  "surface": "chat",
+  "projectPath": "/Users/example/Ripple/test-project",
+  "events": [
+    {
+      "id": "ev-001",
+      "type": "reasoning",
+      "sequence": 1,
+      "provider": "codex",
+      "providerId": "reasoning-1",
+      "payload": {
+        "delta": "I will inspect the current frame and update the layout.",
+        "streamKind": "reasoning_summary"
+      }
+    },
+    {
+      "id": "ev-002",
+      "type": "tool_start",
+      "sequence": 2,
+      "provider": "codex",
+      "providerId": "snapshot-1",
+      "payload": {
+        "toolName": "Bash",
+        "toolCallId": "snapshot-1",
+        "command": "ripple snapshot --at current --json"
+      }
+    },
+    {
+      "id": "ev-003",
+      "type": "tool_end",
+      "sequence": 3,
+      "provider": "codex",
+      "providerId": "snapshot-1",
+      "payload": {
+        "toolName": "Bash",
+        "toolCallId": "snapshot-1",
+        "command": "ripple snapshot --at current --json",
+        "status": "completed",
+        "output": "{\"frameTimecode\":\"00:00:02:04\",\"artifactPath\":\"/Users/example/Ripple/test-project/.ripple/frames/current.png\"}"
+      }
+    },
+    {
+      "id": "ev-004",
+      "type": "tool_start",
+      "sequence": 4,
+      "provider": "codex",
+      "providerId": "read-1",
+      "payload": {
+        "toolName": "Read",
+        "toolCallId": "read-1",
+        "input": {
+          "file_path": "/Users/example/Ripple/test-project/src/showcase.tsx"
+        }
+      }
+    },
+    {
+      "id": "ev-005",
+      "type": "tool_end",
+      "sequence": 5,
+      "provider": "codex",
+      "providerId": "read-1",
+      "payload": {
+        "toolName": "Read",
+        "toolCallId": "read-1",
+        "input": {
+          "file_path": "/Users/example/Ripple/test-project/src/showcase.tsx"
+        },
+        "status": "completed"
+      }
+    },
+    {
+      "id": "ev-006",
+      "type": "tool_start",
+      "sequence": 6,
+      "provider": "codex",
+      "providerId": "edit-1",
+      "payload": {
+        "toolName": "Edit",
+        "toolCallId": "edit-1",
+        "input": {
+          "file_path": "/Users/example/Ripple/test-project/src/showcase.tsx"
+        }
+      }
+    },
+    {
+      "id": "ev-007",
+      "type": "file_change",
+      "sequence": 7,
+      "provider": "codex",
+      "providerId": "change-1",
+      "payload": {
+        "path": "/Users/example/Ripple/test-project/src/showcase.tsx",
+        "additions": 16,
+        "removals": 9,
+        "diff": "diff --git a/src/showcase.tsx b/src/showcase.tsx"
+      }
+    },
+    {
+      "id": "ev-008",
+      "type": "assistant_message",
+      "sequence": 8,
+      "provider": "codex",
+      "providerId": "reply-1",
+      "payload": {
+        "text": "I moved the right phone in with the others. The updated frame is ready to review."
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "name": "editing-open",
+      "eventCount": 6
+    },
+    {
+      "name": "done",
+      "eventCount": 8
+    }
+  ]
+}

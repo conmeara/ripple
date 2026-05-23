@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "editingOpen": {
+    "collapsedTitle": "Editing",
+    "collapsedMeta": "Looked at current frame · explored showcase.tsx",
+    "openedDetails": [
+      "Looked current frame",
+      "Read showcase.tsx",
+      "Editing showcase.tsx"
+    ],
+    "shimmerTargetsWhenOpen": ["collapsed umbrella title", "active detail row"],
+    "forbiddenVisibleCopy": ["Bash", "Edit", "Grep", "Glob", "mcp__", "/Users/", "stdout", "stderr"]
+  },
+  "done": {
+    "collapsedTitle": "Edited composition",
+    "collapsedMeta": "Looked at 1 frame · explored 1 file",
+    "finalReply": "I moved the right phone in with the others. The updated frame is ready to review."
+  }
+}

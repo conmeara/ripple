@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "pending": {
+    "statusLine": "Editing",
+    "renderWholeChatTrail": false,
+    "scope": ["runId", "commentId"]
+  },
+  "ready": {
+    "statusLine": "I moved the right phone in with the others. The updated frame is ready to review.",
+    "forbiddenFallback": "Changes ready",
+    "renderWholeChatTrail": false
+  },
+  "edgeStates": ["error", "approval", "cancelled", "interrupted", "retry", "resume"]
+}
