@@ -237,9 +237,11 @@ test.describe("agent runtime UI real-session fixtures", () => {
         id: "codex-project-local-approval-hidden",
         fixtureFile: "real-codex-approval.json",
         checkpoint: checkpointAfterEvent(approval, "approval_request"),
+        shimmerCount: 1,
         visibleText: [
           "Updated composition",
           "Checked project",
+          "Checking project",
         ],
         hiddenText: ["Approval needed to check the project"],
       },
@@ -318,10 +320,13 @@ test.describe("agent runtime UI real-session fixtures", () => {
         await expect(harness.getByText(text).first()).toHaveCount(0)
       }
 
-      const shimmerCount = await page.locator("[data-text-shimmer='true']").count()
-      if (fixtureCase.shimmerCount !== undefined) {
-        expect(shimmerCount, fixtureCase.id).toBe(fixtureCase.shimmerCount)
-      }
+      const shimmerCount = await harness.locator("[data-text-shimmer='true']").count()
+      const expectedShimmerCount =
+        fixtureCase.shimmerCount ?? fixtureCase.checkpoint.shimmerCount
+      const shimmerLabels = await harness.locator("[data-text-shimmer='true']")
+        .evaluateAll((nodes) => nodes.map((node) => node.textContent?.trim() ?? ""))
+      expect(shimmerCount, `${fixtureCase.id}: ${JSON.stringify(shimmerLabels)}`)
+        .toBe(expectedShimmerCount)
       expect(shimmerCount, fixtureCase.id).toBeLessThanOrEqual(1)
 
       const visibleText = await harness.innerText()

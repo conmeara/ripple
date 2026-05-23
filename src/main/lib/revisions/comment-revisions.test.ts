@@ -75,6 +75,14 @@ describe("comment revision summaries", () => {
     expect(compactOneLineSummary(
       "Running git diff -- /Users/example/Ripple/project/src/index.html and checking stdout.",
     )).toBe("Checking project")
+    expect(compactOneLineSummary(
+      "Claude Code usage limit reached.",
+      { tone: "error" },
+    )).toBe("Agent usage limit reached")
+    expect(compactOneLineSummary(
+      "Codex authentication required.",
+      { tone: "error" },
+    )).toBe("Agent sign-in needed")
   })
 
   test("keeps the final assistant response available for read-more UI", () => {

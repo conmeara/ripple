@@ -1,4 +1,7 @@
-import { designerFacingAgentRuntimeLine } from "../../../shared/agent-runtime-summary"
+import {
+  designerFacingAgentRuntimeErrorLine,
+  designerFacingAgentRuntimeLine,
+} from "../../../shared/agent-runtime-summary"
 
 function parseStoredMessages(value: string | null | undefined): any[] {
   if (!value) return []
@@ -10,13 +13,18 @@ function parseStoredMessages(value: string | null | undefined): any[] {
   }
 }
 
-export function compactOneLineSummary(value: string | null | undefined): string | null {
+export function compactOneLineSummary(
+  value: string | null | undefined,
+  options: { tone?: "progress" | "error" } = {},
+): string | null {
   const compacted = value
     ?.replace(/\s+/g, " ")
     .replace(/^summary:\s*/i, "")
     .trim()
   if (!compacted) return null
-  const safe = designerFacingAgentRuntimeLine(compacted)
+  const safe = options.tone === "error"
+    ? designerFacingAgentRuntimeErrorLine(compacted)
+    : designerFacingAgentRuntimeLine(compacted)
   return safe.length > 180 ? `${safe.slice(0, 177)}...` : safe
 }
 

@@ -280,6 +280,7 @@ export async function processGeneratedChangeQueue(input: {
         run.status === "cancelled"
           ? "This generated change was cancelled."
           : run.errorMessage || `Agent run ended with status ${run.status}.`,
+        { tone: "error" },
       ) || "Ripple could not finish this generated change."
       await failRevisionRun({
         revisionId: job.revisionId,
@@ -306,6 +307,7 @@ export async function processGeneratedChangeQueue(input: {
   } catch (error) {
     const errorMessage = compactOneLineSummary(
       error instanceof Error ? error.message : String(error),
+      { tone: "error" },
     ) || "Ripple could not run this generated change."
     await failRevisionRun({
       revisionId: job.revisionId,

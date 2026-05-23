@@ -165,6 +165,12 @@ describe("comment formatting", () => {
   test("sanitizes failed revision status lines before rendering comment cards", () => {
     expect(formatRevisionStatusLine(revision("failed", {
       errorMessage: "Bash failed in /Users/example/project/src/index.html with stderr output.",
-    }))).toBe("Checking project")
+    }))).toBe("Project check failed")
+    expect(formatRevisionStatusLine(revision("failed", {
+      errorMessage: "Claude Code usage limit reached.",
+    }))).toBe("Agent usage limit reached")
+    expect(formatRevisionStatusLine(revision("failed", {
+      errorMessage: "Codex authentication required.",
+    }))).toBe("Agent sign-in needed")
   })
 })

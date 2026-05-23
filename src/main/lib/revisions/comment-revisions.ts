@@ -622,6 +622,7 @@ async function prepareMissingRevisionWorkspaceForRecovery(input: {
   } catch (error) {
     const errorMessage = compactOneLineSummary(
       error instanceof Error ? error.message : String(error),
+      { tone: "error" },
     ) || "Ripple could not recover this generated change."
     return db.update(revisions)
       .set({
@@ -1071,6 +1072,7 @@ export async function createRevisionForThread(input: {
     } catch (error) {
       const message = compactOneLineSummary(
         error instanceof Error ? error.message : String(error),
+        { tone: "error" },
       ) || "The previous generated-change workspace is not available."
       return db.transaction(() => {
         const failedRevision = db
@@ -1300,6 +1302,7 @@ export async function createRevisionForThread(input: {
   } catch (error) {
     const message = compactOneLineSummary(
       error instanceof Error ? error.message : String(error),
+      { tone: "error" },
     ) || "Ripple could not prepare this generated change."
     revision = db.transaction(() => {
       const failedRevision = db
@@ -1636,6 +1639,7 @@ export async function updateStaleRevisionProposal(id: string): Promise<RippleCom
         status: "failed",
         errorMessage: compactOneLineSummary(
           error instanceof Error ? error.message : String(error),
+          { tone: "error" },
         ) || "Ripple could not update these changes.",
         updatedAt: dateNow(),
         resolvedAt: dateNow(),
@@ -1735,7 +1739,7 @@ export async function failRevisionBackgroundRun(input: {
     return loadThreadView(revision.threadId)
   }
   const message =
-    compactOneLineSummary(input.errorMessage) ||
+    compactOneLineSummary(input.errorMessage, { tone: "error" }) ||
     "Agent run failed before changes were ready."
 
   const failedRevision = db.update(revisions)

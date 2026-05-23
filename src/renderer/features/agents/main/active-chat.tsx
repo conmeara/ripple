@@ -6796,8 +6796,10 @@ Make sure to preserve all functionality from both branches when resolving confli
   }, [activeSubChatProvider, codexMcpSessionData, setSessionInfo])
 
   const syncFinishedMessagesToChatCache = useCallback(
-    (subChatId: string, chat: Chat<any>) => {
-      const latestMessages = (chat as any)?.messages
+    (subChatId: string, chat: Chat<any>, finishedMessages?: any[]) => {
+      const latestMessages = Array.isArray(finishedMessages)
+        ? finishedMessages
+        : (chat as any)?.messages
       if (!Array.isArray(latestMessages)) return
       const latestMessagesJson = JSON.stringify(latestMessages)
 
@@ -6990,12 +6992,12 @@ Make sure to preserve all functionality from both branches when resolving confli
           pruneIfDetachedAndIdle(subChatId, chatId)
         },
         // Clear loading when streaming completes (works even if component unmounted)
-        onFinish: () => {
+        onFinish: (finish) => {
           clearLoading(setLoadingSubChats, subChatId)
 
           // Sync status to global store for queue processing (even when component unmounted)
           useStreamingStatusStore.getState().setStatus(subChatId, "ready")
-          syncFinishedMessagesToChatCache(subChatId, newChat)
+          syncFinishedMessagesToChatCache(subChatId, newChat, finish.messages)
 
           // Check if this was a manual abort (ESC/Ctrl+C) - skip sound if so
           const wasManuallyAborted =
@@ -7268,12 +7270,12 @@ Make sure to preserve all functionality from both branches when resolving confli
           pruneIfDetachedAndIdle(newId, chatId)
         },
         // Clear loading when streaming completes
-        onFinish: () => {
+        onFinish: (finish) => {
           clearLoading(setLoadingSubChats, newId)
 
           // Sync status to global store for queue processing (even when component unmounted)
           useStreamingStatusStore.getState().setStatus(newId, "ready")
-          syncFinishedMessagesToChatCache(newId, newChat)
+          syncFinishedMessagesToChatCache(newId, newChat, finish.messages)
 
           // Check if this was a manual abort (ESC/Ctrl+C) - skip sound if so
           const wasManuallyAborted = agentChatStore.wasManuallyAborted(newId)

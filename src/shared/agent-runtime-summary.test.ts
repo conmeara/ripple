@@ -5,6 +5,7 @@ import {
   agentRuntimeProviderRefsFromPart,
   agentRuntimeVisualToolKind,
   classifyAgentRuntimeSummaryPart,
+  designerFacingAgentRuntimeErrorLine,
   designerFacingAgentRuntimeLine,
   isAgentRuntimeMcpToolPart,
   isUnsafeAgentRuntimeDefaultCopy,
@@ -169,6 +170,18 @@ describe("agent runtime product summaries", () => {
     expect(designerFacingAgentRuntimeLine("MCP provider stdout /Users/me/project"))
       .toBe("Working on project")
     expect(designerFacingAgentRuntimeLine("Codex session ready")).toBe("Working on project")
+  })
+
+  test("uses failure-specific copy instead of progress fallbacks for errors", () => {
+    expect(designerFacingAgentRuntimeErrorLine("Claude Code usage limit reached."))
+      .toBe("Agent usage limit reached")
+    expect(designerFacingAgentRuntimeErrorLine("Codex authentication required."))
+      .toBe("Agent sign-in needed")
+    expect(designerFacingAgentRuntimeErrorLine(
+      "Bash failed in /Users/example/project/src/index.html with stderr output.",
+    )).toBe("Project check failed")
+    expect(designerFacingAgentRuntimeErrorLine("Provider payload: {\"error\":true}"))
+      .toBe("Agent needs attention")
   })
 
   test("uses shared data-part titles for legacy renderer fallbacks", () => {

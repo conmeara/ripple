@@ -85,6 +85,48 @@ function readHarnessPayload(): ParsedHarnessPayload {
   }
 }
 
+function hasTerminalStatusEvent(events: RuntimeEventLike[]): boolean {
+  return events.some((event) => {
+    if (event.type !== "status") return false
+    let payload = event.payload
+    if (!payload && typeof event.payloadJson === "string") {
+      try {
+        payload = JSON.parse(event.payloadJson) as Record<string, unknown>
+      } catch {
+        payload = null
+      }
+    }
+    const status = payload?.status
+    return (
+      status === "completed" ||
+      status === "failed" ||
+      status === "cancelled" ||
+      status === "recoverable"
+    )
+  })
+}
+
+function isTerminalStatus(status: string | undefined): boolean {
+  return (
+    status === "completed" ||
+    status === "failed" ||
+    status === "cancelled" ||
+    status === "recoverable"
+  )
+}
+
+function isCheckpointLive(
+  fixture: RuntimeUiFixture,
+  checkpoint: FixtureCheckpoint,
+  checkpointIndex: number,
+): boolean {
+  if (!checkpoint.live) return false
+  const events = fixture.events.slice(0, checkpoint.eventCount)
+  if (hasTerminalStatusEvent(events)) return false
+  const isLastCheckpoint = checkpointIndex === fixture.checkpoints.length - 1
+  return !(isLastCheckpoint && isTerminalStatus(fixture.source?.status))
+}
+
 export function shouldShowAgentRuntimeUiE2EHarness(): boolean {
   return Boolean(
     window.__RIPPLE_E2E__ === true &&
@@ -152,10 +194,16 @@ export function AgentRuntimeUiE2EHarness() {
   const message = useMemo(() => {
     if (!parsed.ok) return null
     const checkpoint = parsed.payload.fixture.checkpoints[checkpointIndex] ?? parsed.checkpoint
+    const events = parsed.payload.fixture.events.slice(0, checkpoint.eventCount)
+    const checkpointLive = isCheckpointLive(
+      parsed.payload.fixture,
+      checkpoint,
+      checkpointIndex,
+    )
     const projection = buildAgentRuntimeAssistantProjection({
-      events: parsed.payload.fixture.events.slice(0, checkpoint.eventCount),
+      events,
       fallbackText: "",
-      finalize: !checkpoint.live,
+      finalize: !checkpointLive,
       includeFallback: false,
       messageId: `agent-runtime-ui-e2e-${checkpoint.eventCount}`,
     })
@@ -175,7 +223,12 @@ export function AgentRuntimeUiE2EHarness() {
 
   const projectReady = Boolean(projectPath && selectedProject?.path === projectPath)
   const checkpoint = parsed.payload.fixture.checkpoints[checkpointIndex] ?? parsed.checkpoint
-  const status = checkpoint.live
+  const checkpointLive = isCheckpointLive(
+    parsed.payload.fixture,
+    checkpoint,
+    checkpointIndex,
+  )
+  const status = checkpointLive
     ? "streaming"
     : parsed.payload.fixture.source?.status ?? "completed"
 
@@ -192,7 +245,7 @@ export function AgentRuntimeUiE2EHarness() {
           <AssistantMessageItem
             message={message}
             isLastMessage={true}
-            isStreaming={checkpoint.live}
+            isStreaming={checkpointLive}
             status={status}
             isMobile={false}
             subChatId="agent-runtime-ui-e2e-sub-chat"

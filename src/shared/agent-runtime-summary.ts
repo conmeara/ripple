@@ -172,6 +172,39 @@ export function designerFacingAgentRuntimeLine(value: string): string {
   return technicalAgentRuntimeLine(mapped) ?? mapped
 }
 
+export function designerFacingAgentRuntimeErrorLine(value: string): string {
+  const compact = value.replace(/\s+/g, " ").trim()
+  if (!compact) return "Agent needs attention"
+
+  const lower = compact.toLowerCase()
+  if (/\b(cancelled|canceled|aborted|stopped)\b/.test(lower)) {
+    return "This generated change was cancelled."
+  }
+  if (/\b(usage limit|rate limit|quota|billing)\b/.test(lower)) {
+    return "Agent usage limit reached"
+  }
+  if (/\b(auth|authentication|api key|sign in|login|permission denied)\b/.test(lower)) {
+    return "Agent sign-in needed"
+  }
+  if (/\b(timeout|timed out)\b/.test(lower)) {
+    return "Agent timed out"
+  }
+  if (
+    /\b(bash|stderr|stdout|test|lint|check|validat|render|export)\b/.test(lower)
+  ) {
+    return "Project check failed"
+  }
+  if (
+    lower.includes("agent run failed") ||
+    lower.includes("agent run ended with status") ||
+    isUnsafeAgentRuntimeDefaultCopy(compact)
+  ) {
+    return "Agent needs attention"
+  }
+
+  return compact
+}
+
 export function isUnsafeAgentRuntimeDefaultCopy(value: string): boolean {
   const compact = value.replace(/\s+/g, " ").trim()
   if (!compact) return false

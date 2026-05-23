@@ -851,7 +851,7 @@ function hasMessageChanged(subChatId: string, msgId: string, msg: Message): bool
 export const syncMessagesWithStatusAtom = atom(
   null,
   (get, set, payload: { messages: Message[]; status: string; subChatId?: string; updateGlobal?: boolean }) => {
-    const { messages, status, subChatId, updateGlobal = true } = payload
+    const { messages: incomingMessages, status, subChatId, updateGlobal = true } = payload
 
     const prevSubChatId = get(currentSubChatIdAtom)
     const currentSubChatId = subChatId ?? prevSubChatId
@@ -872,6 +872,32 @@ export const syncMessagesWithStatusAtom = atom(
         set(chatStatusAtom, status)
       }
     }
+
+    const previousPerChatIds = get(messageIdsPerChatAtom(currentSubChatId))
+    const previousPerChatRoles = get(messageRolesPerChatAtom(currentSubChatId))
+    const isSettledStatus = status !== "streaming" && status !== "submitted"
+    const canRestoreDroppedAssistantTail =
+      isSettledStatus &&
+      !get(isRollingBackAtom) &&
+      incomingMessages.length > 0 &&
+      previousPerChatIds.length > incomingMessages.length &&
+      incomingMessages.every((message, index) => message.id === previousPerChatIds[index])
+
+    const droppedTailIds = canRestoreDroppedAssistantTail
+      ? previousPerChatIds.slice(incomingMessages.length)
+      : []
+    const shouldRestoreDroppedAssistantTail =
+      droppedTailIds.length > 0 &&
+      droppedTailIds.every((id) => previousPerChatRoles.get(id) === "assistant")
+
+    const messages = shouldRestoreDroppedAssistantTail
+      ? [
+        ...incomingMessages,
+        ...droppedTailIds
+          .map((id) => get(messageAtomFamily(getPerChatMessageKey(currentSubChatId, id))))
+          .filter((message): message is Message => Boolean(message)),
+      ]
+      : incomingMessages
 
     // Build new IDs list and roles map
     const newIds = messages.map((m) => m.id)
@@ -1078,6 +1104,8 @@ export function clearSubChatCaches(subChatId: string): {
   messageGroupsPerChatCache.delete(subChatId)
   lastAssistantCacheByChat.delete(subChatId)
   tokenDataCacheByChat.delete(subChatId)
+  appStore.set(messageIdsPerChatAtom(subChatId), [])
+  appStore.set(messageRolesPerChatAtom(subChatId), new Map())
 
   return {
     messageIds: clearedMessageIds,

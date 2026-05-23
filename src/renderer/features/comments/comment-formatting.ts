@@ -5,7 +5,10 @@ import {
   type RippleRevisionView,
 } from "../../../shared/ripple-comments"
 import { formatTimelineTimecode } from "../../../shared/hyperframes-timeline-model"
-import { designerFacingAgentRuntimeLine } from "../../../shared/agent-runtime-summary"
+import {
+  designerFacingAgentRuntimeErrorLine,
+  designerFacingAgentRuntimeLine,
+} from "../../../shared/agent-runtime-summary"
 
 export function formatCommentTimecode(
   startTimeMs: number,
@@ -152,7 +155,7 @@ export function formatRevisionStatusLine(revision: RippleRevisionView): string {
 
   return revision.status === "failed"
     ? revision.errorMessage
-      ? compactCommentLine(designerFacingAgentRuntimeLine(revision.errorMessage), null)
+      ? compactCommentLine(designerFacingAgentRuntimeErrorLine(revision.errorMessage), null)
       : revisionStatusLabel(revision.status)
     : resultLine
 }
