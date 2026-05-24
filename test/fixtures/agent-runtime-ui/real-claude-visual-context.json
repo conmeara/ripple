@@ -289,7 +289,7 @@
         {
           "kind": "verification",
           "status": "pending",
-          "title": "Checking project"
+          "title": "Verifying"
         }
       ],
       "shimmerCount": 1
@@ -307,7 +307,7 @@
         {
           "kind": "visual_check",
           "status": "pending",
-          "title": "Checking current frame",
+          "title": "Looking",
           "visual": "snapshot"
         }
       ],
@@ -326,7 +326,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         }
       ],
@@ -345,7 +345,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -369,7 +369,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -393,7 +393,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -422,7 +422,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {

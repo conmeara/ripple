@@ -694,7 +694,7 @@ describe("Comments spec contract: D - card by status", () => {
       },
       {
         name: "persisted file change",
-        expected: "Edited composition",
+        expected: "Edited",
         events: [
           {
             type: "file_change",

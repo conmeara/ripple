@@ -18,7 +18,7 @@ describe("revision run activity", () => {
         providerType: "item/started",
         payload: { toolName: "Edit", command: "git diff -- index.html" },
       },
-    ])).toBe("Updating composition")
+    ])).toBe("Editing")
   })
 
   test("does not expose raw tool commands as the activity line", () => {
@@ -31,7 +31,7 @@ describe("revision run activity", () => {
           command: "git diff -- compositions/lower-third.html",
         }),
       },
-    ])).toBe("Checking changes")
+    ])).toBe("Verifying")
 
     expect(extractRevisionRunActivityLine([
       {
@@ -41,7 +41,7 @@ describe("revision run activity", () => {
           label: "Bash /Users/example/project/src/index.html stdout={\"ok\":true}",
         },
       },
-    ])).toBe("Checking project")
+    ])).toBe("Verifying")
   })
 
   test("uses shared summaries for direct runtime events", () => {
@@ -53,7 +53,7 @@ describe("revision run activity", () => {
           diff: "diff --git a/src/index.html b/src/index.html",
         },
       },
-    ])).toBe("Updated composition")
+    ])).toBe("Edited")
 
     expect(extractRevisionRunActivityLine([
       {
@@ -100,6 +100,6 @@ describe("revision run activity", () => {
           label: "bun test --filter comments",
         }),
       },
-    ])).toBe("Checking project")
+    ])).toBe("Verifying")
   })
 })

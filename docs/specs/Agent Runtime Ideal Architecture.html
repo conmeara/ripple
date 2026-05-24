@@ -842,7 +842,7 @@
         </div>
         <div class="card">
           <h3>Hidden by default</h3>
-          <p>Provider names, raw tool names, commands, paths, stdout, stderr, MCP servers, and JSON payloads stay out of normal UI.</p>
+          <p>Collapsed rows hide provider names, raw tool names, absolute paths, stdout, stderr, MCP servers, and JSON payloads. Opened umbrellas can show sanitized event receipts like files read, files edited, and commands run.</p>
         </div>
         <div class="card">
           <h3>Always preserved</h3>
@@ -904,7 +904,7 @@
         <div class="lane">
           <div class="lane-label"><span>Product surfaces</span><span class="lane-index">05</span></div>
           <div class="lane-body">
-            <div class="node red span-2"><strong>Chat</strong><span>ordered activity trail plus final assistant reply</span></div>
+            <div class="node red span-2"><strong>Chat</strong><span>ordered activity umbrellas interleaved with assistant narration and the final reply</span></div>
             <div class="node red span-2"><strong>Comments</strong><span>latest activity line plus proposed-change state</span></div>
           </div>
         </div>
@@ -1028,8 +1028,8 @@
           <div class="lane-label"><span>Chat renderer</span><span class="lane-index">05</span></div>
           <div class="lane-body">
             <div class="node violet"><strong>AssistantMessageItem</strong><span>hosts assistant reply and runtime parts</span></div>
-            <div class="node violet"><strong>AgentMotionRuntimeFeed</strong><span>ordered activity umbrellas</span></div>
-            <div class="node violet"><strong>Visual cards</strong><span>frame previews and edit receipts</span></div>
+            <div class="node violet"><strong>AgentMotionRuntimeFeed</strong><span>compact activity umbrellas between assistant messages</span></div>
+            <div class="node violet"><strong>Visual cards</strong><span>frame previews and concrete event receipts on disclosure</span></div>
             <div class="node violet"><strong>Final reply</strong><span>never replaced by empty completion</span></div>
           </div>
         </div>
@@ -1110,9 +1110,15 @@
         the comment is ready, the comment reply is the agent's final message to the user.
       </p>
       <p class="mapping-note">
+        Chat is allowed to interleave compact umbrellas with assistant narration. If the agent looks,
+        explains what it saw, edits, explains again, then verifies, those should stay in transcript
+        order as several closed umbrellas between messages rather than being forced into one global
+        turn summary.
+      </p>
+      <p class="mapping-note">
         Grouping rule: a collapsed umbrella shows one dominant activity, such as <strong>Editing</strong>.
         Supporting work like looked frames, searched files, and read files appears as muted meta or
-        opened detail rows. Completed umbrellas use a dominant outcome, such as <strong>Edited composition</strong>,
+        opened detail rows. Completed umbrellas use a dominant outcome, such as <strong>Edited</strong>,
         with supporting counts like "looked at 2 frames" kept secondary.
       </p>
 
@@ -1131,15 +1137,15 @@
         </div>
         <div class="map-row">
           <div class="map-cell">Opened detail</div>
-          <div class="map-cell">Read <code>showcase.tsx</code>; Editing <code>showcase.tsx</code> <span class="diff-add">+16</span> <span class="diff-remove">-9</span></div>
-          <div class="map-cell">The concrete target or evidence supplied by Codex, Claude, or Ripple tools.</div>
-          <div class="map-cell">Keep it Codex-simple: event verb plus file name, with tiny diff counts when useful.</div>
+          <div class="map-cell">Read <code>app-showcase.html</code>; Editing <code>app-showcase.html</code> <span class="diff-add">+16</span> <span class="diff-remove">-9</span>; Ran <code>hyperframes lint .</code></div>
+          <div class="map-cell">The concrete target or event receipt supplied by Codex, Claude, or Ripple tools.</div>
+          <div class="map-cell">Keep it Codex-simple: event verb plus sanitized file, frame, or command. Do not hide it behind a second vague umbrella.</div>
         </div>
         <div class="map-row">
           <div class="map-cell">Support evidence</div>
-          <div class="map-cell">provider refs, item ids, compact payload preview</div>
+          <div class="map-cell">provider refs, item ids, raw tool names, compact payload preview, stdout/stderr</div>
           <div class="map-cell">Debugging, replay, approvals, and evals.</div>
-          <div class="map-cell">Preserve it, but do not overbuild the default UI around preventing every possible raw-word leak.</div>
+          <div class="map-cell">Preserve it, but keep collapsed rows calm. Opened details can be more transparent without becoming a raw JSON console.</div>
         </div>
         <div class="map-row">
           <div class="map-cell">Ready comment</div>
@@ -1166,7 +1172,7 @@
           <div class="map-cell"><code>Read</code>, <code>Grep</code>, <code>Glob</code>, search-like commands, project context reads</div>
           <div class="map-cell"><code>project_inspection / pending|done</code></div>
           <div class="map-cell">Exploring</div>
-          <div class="map-cell">What was explored: composition, asset, frame, or search phrase. Counts are okay; raw paths stay out.</div>
+          <div class="map-cell">Concrete read/search receipts such as <code>Read app-showcase.html</code>. Counts are okay; absolute paths stay out.</div>
         </div>
         <div class="map-row">
           <div class="map-cell">native visual tools, snapshots, frame sheets, image attachments</div>
@@ -1178,13 +1184,13 @@
           <div class="map-cell"><code>Edit</code>, <code>Write</code>, file changes, files persisted, turn diff updated</div>
           <div class="map-cell"><code>motion_edit / pending|done</code></div>
           <div class="map-cell">Editing</div>
-          <div class="map-cell">What changed in project language: layout, background, text, timing, camera, transition. Link to review for exact diff.</div>
+          <div class="map-cell">Concrete edit receipts such as <code>Edited app-showcase.html</code> with tiny diff counts. Link to review for exact diff.</div>
         </div>
         <div class="map-row">
           <div class="map-cell">checks, renders, exports, lint, project validation</div>
           <div class="map-cell"><code>verification / pending|done|error</code></div>
           <div class="map-cell">Verifying</div>
-          <div class="map-cell">What was verified and whether it passed. If it failed, show the sanitized runtime error.</div>
+          <div class="map-cell">Concrete receipts such as <code>Ran git diff -- app-showcase.html</code> or <code>Ran hyperframes lint .</code>. If it failed, show the sanitized runtime error.</div>
         </div>
         <div class="map-row">
           <div class="map-cell">approval request, Claude canUseTool, Codex approval events</div>
@@ -1215,7 +1221,7 @@
           <div class="rule"><div class="check">OK</div><div><strong>Persist facts, project copy</strong><span>Durable rows store typed semantic facts and evidence refs. English titles are generated by the projector.</span></div></div>
           <div class="rule"><div class="check">OK</div><div><strong>Completed runs have no shimmer</strong><span>Final state is stable and readable.</span></div></div>
           <div class="rule"><div class="check">OK</div><div><strong>Reload is a replay, not a duplicate stream</strong><span>Persisted semantic events reconstruct the same UI without duplicated text, tools, or side effects.</span></div></div>
-          <div class="rule"><div class="check">OK</div><div><strong>Raw provider copy is hidden</strong><span>Default rows do not show Codex, Claude, Bash, MCP, paths, commands, stdout, or stderr.</span></div></div>
+          <div class="rule"><div class="check">OK</div><div><strong>Raw provider copy is hidden</strong><span>Collapsed rows do not show Codex, Claude, Bash, MCP, commands, stdout, or stderr. Opened details may show sanitized event receipts and commands.</span></div></div>
           <div class="rule"><div class="check">OK</div><div><strong>Errors do not look like progress</strong><span>Failure copy says what needs attention instead of "Working on project".</span></div></div>
         </div>
         <div class="rule-list">
@@ -1223,7 +1229,7 @@
           <div class="rule"><div class="check">OK</div><div><strong>Visual context is first-class</strong><span>Current-frame and frame-sheet rows can show previews without becoming raw tool output.</span></div></div>
           <div class="rule"><div class="check">OK</div><div><strong>Comment parity holds</strong><span>The same run cannot say "Verifying" in chat and "Thinking" in comments. Comment status is scoped by run id and comment id.</span></div></div>
           <div class="rule"><div class="check">OK</div><div><strong>Umbrellas start closed</strong><span>Activity rows are collapsed by default. The user can open one to inspect previews, details, and support evidence.</span></div></div>
-          <div class="rule"><div class="check">OK</div><div><strong>Sanitization is deterministic</strong><span>Normal details show basenames or project-relative paths; absolute paths, raw stdout/stderr, and JSON payloads stay in support evidence.</span></div></div>
+          <div class="rule"><div class="check">OK</div><div><strong>Sanitization is deterministic</strong><span>Opened details show basenames, project-relative paths, and shortened commands; absolute paths, raw stdout/stderr, and JSON payloads stay in support evidence.</span></div></div>
         </div>
       </div>
     </section>
@@ -1258,8 +1264,8 @@
         <div class="map-row">
           <div class="map-cell">Chat activity</div>
           <div class="map-cell"><code>motion-runtime-activity.ts</code>, <code>agent-motion-runtime-feed.tsx</code>, <code>assistant-message-item.tsx</code></div>
-          <div class="map-cell">Render ordered product rows, tense, shimmer, details, visuals, and final reply preservation.</div>
-          <div class="map-cell">Do not infer new product language from tool names in the component tree.</div>
+          <div class="map-cell">Render ordered product rows, tense, shimmer, details, visuals, assistant narration between rows, and final reply preservation.</div>
+          <div class="map-cell">Do not infer collapsed product language from tool names in the component tree.</div>
         </div>
         <div class="map-row">
           <div class="map-cell">Comments</div>
@@ -1271,7 +1277,7 @@
           <div class="map-cell">Evidence rail</div>
           <div class="map-cell"><code>src/main/lib/agent-runtime/service.ts</code>, <code>src/main/lib/db/schema/index.ts</code></div>
           <div class="map-cell">Preserve raw provider refs and compact payload previews for replay, diagnostics, evals, and approvals.</div>
-          <div class="map-cell">Do not use raw payload strings as normal UI copy.</div>
+          <div class="map-cell">Do not use raw payload strings as collapsed UI copy.</div>
         </div>
         <div class="map-row">
           <div class="map-cell">Approval lifecycle</div>
@@ -1389,7 +1395,7 @@
         <div class="map-row">
           <div class="map-cell"><code>claude-approval-resume-run</code></div>
           <div class="map-cell">Claude approval request, user approval, resumed edit, and assistant completion.</div>
-          <div class="map-cell">Approval stops blocking after resolution; resumed work finishes as Edited composition with the final reply.</div>
+          <div class="map-cell">Approval stops blocking after resolution; resumed work finishes as Edited with the final reply.</div>
           <div class="map-cell">Proves approval rows are lifecycle states, not stale activity that survives forever.</div>
         </div>
         <div class="map-row">
@@ -1512,17 +1518,17 @@
         {
           id: "live-work",
           title: "Editing",
-          meta: "Looked at current frame · explored app-showcase",
+          meta: "looked, explored app-showcase",
           status: "pending",
           expanded: false,
           details: [
             { title: "Looked", meta: "current frame", preview: "current" },
-            { title: "Explored", meta: "app-showcase composition" },
-            { title: "Editing", meta: "composition layout", status: "pending" }
+            { title: "Read", meta: "app-showcase.html" },
+            { title: "Editing", meta: "app-showcase.html", status: "pending" }
           ]
         }
       ],
-      note: "The chat shows one activity umbrella, not a stack of colored status rows."
+      note: "The chat can show compact activity umbrellas between agent messages, not a stack of colored status rows."
     },
     chatEditingOpen: {
       surface: "chat",
@@ -1533,14 +1539,13 @@
         {
           id: "editing-open-work",
           title: "Editing",
-          meta: "Looked at current frame · explored app-showcase",
+          meta: "looked, explored app-showcase",
           status: "pending",
           expanded: true,
           details: [
             { title: "Looked", meta: "current frame", preview: "current" },
-            { title: "Explored", meta: "app-showcase composition" },
-            { title: "Read", meta: "showcase.tsx" },
-            { title: "Editing", meta: "showcase.tsx", status: "pending", add: "+16", remove: "-9" }
+            { title: "Read", meta: "app-showcase.html" },
+            { title: "Editing", meta: "app-showcase.html", status: "pending", add: "+16", remove: "-9" }
           ]
         }
       ],
@@ -1554,14 +1559,14 @@
       activities: [
         {
           id: "done-work",
-          title: "Edited composition",
-          meta: "Looked at 2 frames · explored 1 file",
+          title: "Edited",
+          meta: "looked at 2 frames, explored 1 file",
           status: "done",
           expanded: false,
           details: [
             { title: "Looked", meta: "current frame", preview: "current" },
-            { title: "Explored", meta: "app-showcase composition" },
-            { title: "Edited", meta: "composition layout", add: "+16", remove: "-9" },
+            { title: "Read", meta: "app-showcase.html" },
+            { title: "Edited", meta: "app-showcase.html", add: "+16", remove: "-9" },
             { title: "Looked", meta: "updated frame", preview: "updated" }
           ]
         }
@@ -1608,14 +1613,14 @@
       activities: [
         {
           id: "replay-work",
-          title: "Edited composition",
-          meta: "Looked at 2 frames · explored 1 file",
+          title: "Edited",
+          meta: "looked at 2 frames, explored 1 file",
           status: "done",
           expanded: false,
           details: [
             { title: "Looked", meta: "current frame", preview: "current" },
-            { title: "Explored", meta: "app-showcase composition" },
-            { title: "Edited", meta: "composition layout", add: "+16", remove: "-9" },
+            { title: "Read", meta: "app-showcase.html" },
+            { title: "Edited", meta: "app-showcase.html", add: "+16", remove: "-9" },
             { title: "Looked", meta: "updated frame", preview: "updated" }
           ]
         }

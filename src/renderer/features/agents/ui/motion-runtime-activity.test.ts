@@ -12,6 +12,7 @@ import {
   buildMotionRuntimeActivity,
   buildMotionRuntimeCanonicalEvents,
   buildMotionRuntimeTimeline,
+  collectMotionRuntimeFeed,
   displayThoughtText,
   hasMotionRuntimeActivityParts,
   shouldHideMotionRuntimeInterimPart,
@@ -151,9 +152,9 @@ describe("motion runtime activity projection", () => {
 
     expect(rows.map((row) => [row.kind, row.title, row.status])).toEqual([
       ["explored", "Explored 1 file", "done"],
-      ["motion_change", "Edited composition", "done"],
+      ["motion_change", "Edited", "done"],
     ])
-    expect(rows.some((row) => /Bash|Edit/.test(row.title))).toBe(false)
+    expect(rows.some((row) => /\bBash\b|\bEdit\b/.test(row.title))).toBe(false)
     const reasoningPart = projection.parts.find((part) => part.type === "reasoning")
     expect(reasoningPart?.providerRefs?.[0]).toEqual(expect.objectContaining({
       provider: "codex",
@@ -270,7 +271,7 @@ describe("motion runtime activity projection", () => {
 
     expect(rows.map((row) => [row.kind, row.title, row.status])).toEqual([
       ["explored", "Explored 1 file", "done"],
-      ["motion_change", "Edited composition", "done"],
+      ["motion_change", "Edited", "done"],
     ])
     const reasoningPart = projection.parts.find((part) => part.type === "reasoning")
     expect(reasoningPart?.providerRefs?.[0]).toEqual(expect.objectContaining({
@@ -472,7 +473,7 @@ describe("motion runtime activity projection", () => {
     expect(projection.items.map((item) => item.title)).toEqual([
       "Explored 1 file, 1 search",
       "Looked",
-      "Edited composition",
+      "Edited",
       "Verified",
     ])
     expect(projection.items[1]?.visual?.imageUrl).toBe(
@@ -575,7 +576,7 @@ describe("motion runtime activity projection", () => {
   test("translates technical reasoning headlines into motion project language", () => {
     expect(displayThoughtText("**Validating hyperframes**")).toBe("Verifying")
     expect(displayThoughtText("**Inspecting hyperframes commands**")).toBe("Verifying")
-    expect(displayThoughtText("**Inspecting CSS/JS Positions**")).toBe("Adjusting composition")
+    expect(displayThoughtText("**Inspecting CSS/JS Positions**")).toBe("Editing")
   })
 
   test("coalesces consecutive Claude thinking chunks into one umbrella", () => {
@@ -820,6 +821,42 @@ describe("motion runtime activity projection", () => {
     })).toBe(false)
   })
 
+  test("collects runtime chunks split by assistant text into one render feed", () => {
+    const timeline = buildMotionRuntimeTimeline({
+      parts: [
+        {
+          type: "tool-Read",
+          toolCallId: "read-1",
+          input: { file_path: "Agent Runtime Ideal Architecture.html" },
+          output: "<html></html>",
+          state: "output-available",
+        },
+        {
+          type: "text",
+          id: "reply-1",
+          text: "I found the section to update.",
+          state: "done",
+        },
+        {
+          type: "tool-Edit",
+          toolCallId: "edit-1",
+          input: { file_path: "Agent Runtime Ideal Architecture.html" },
+          output: { status: "completed" },
+          state: "output-available",
+        },
+      ],
+    })
+
+    expect(timeline.filter((entry) => entry.kind === "runtime")).toHaveLength(2)
+
+    const feed = collectMotionRuntimeFeed(timeline)
+    expect(feed?.parts.map((part) => part.toolCallId)).toEqual(["read-1", "edit-1"])
+    expect(buildMotionRuntimeActivity({ parts: feed?.parts ?? [] }).items.map((item) => item.title)).toEqual([
+      "Explored 1 file",
+      "Edited",
+    ])
+  })
+
   test("does not add a fallback while visible assistant text is streaming", () => {
     const timeline = buildMotionRuntimeTimeline({
       parts: [
@@ -885,7 +922,7 @@ describe("motion runtime activity projection", () => {
     }).items
 
     expect(activeMotionRuntimeItemId(settledRows, true)).toBeUndefined()
-    expect(activeMotionRuntimeItemId(activeRows, true)).toBe(activeRows[1]?.id)
+    expect(activeMotionRuntimeItemId(activeRows, true)).toBe(activeRows[0]?.id)
     expect(activeMotionRuntimeItemId(activeRows, false)).toBeUndefined()
   })
 
@@ -988,7 +1025,7 @@ describe("motion runtime activity projection", () => {
     })).toBe("frame_sheet")
   })
 
-  test("identifies runtime activity without treating approvals as hidden technical work", () => {
+  test("leaves approvals on the approval-card path while still recognizing runtime tools", () => {
     expect(hasMotionRuntimeActivityParts([
       {
         type: "data-agent-runtime",
@@ -998,6 +1035,56 @@ describe("motion runtime activity projection", () => {
         },
       },
     ])).toBe(false)
+
+    const timeline = buildMotionRuntimeTimeline({
+      parts: [
+        {
+          type: "data-agent-runtime",
+          data: {
+            kind: "approval",
+            label: "Approval needed",
+            payload: { kind: "command", status: "pending" },
+          },
+        },
+      ],
+    })
+    expect(timeline).toEqual([
+      expect.objectContaining({ kind: "part" }),
+    ])
+
+    const resolvedTimeline = buildMotionRuntimeTimeline({
+      parts: [
+        {
+          type: "data-agent-runtime",
+          data: {
+            kind: "approval",
+            label: "Approved",
+            payload: { kind: "command", status: "approved" },
+          },
+        },
+      ],
+    })
+    expect(resolvedTimeline).toEqual([
+      expect.objectContaining({ kind: "runtime" }),
+    ])
+    expect(buildMotionRuntimeActivity({
+      parts: [
+        {
+          type: "data-agent-runtime",
+          data: {
+            kind: "approval",
+            label: "Approved",
+            payload: { kind: "command", status: "approved" },
+          },
+        },
+      ],
+    }).items).toEqual([
+      expect.objectContaining({
+        kind: "status",
+        status: "done",
+        title: "Approved",
+      }),
+    ])
 
     expect(hasMotionRuntimeActivityParts([
       {
@@ -1400,7 +1487,7 @@ describe("motion runtime activity projection", () => {
       ],
     }).items[0]).toEqual(expect.objectContaining({
       kind: "motion_change",
-      title: "Edited composition",
+      title: "Edited",
       subtitle: "",
     }))
 
@@ -1675,5 +1762,45 @@ describe("motion runtime activity projection", () => {
     expect(visibleCopy).not.toMatch(/passed|stdout|stderr|\/Users|src\/index|hyperframes lint/)
     expect(projection.advancedDetails.map((detail) => detail.value).join("\n"))
       .toContain("/Users/example")
+  })
+
+  test("coalesces adjacent verification commands into one visible row", () => {
+    const projection = buildMotionRuntimeActivity({
+      parts: [
+        {
+          type: "tool-Edit",
+          toolCallId: "edit-1",
+          input: { file_path: "app-showcase.html", old_string: "left: 10px", new_string: "left: 0px" },
+          output: { status: "completed" },
+          state: "output-available",
+        },
+        {
+          type: "tool-Bash",
+          toolCallId: "diff-1",
+          input: { command: "git diff -- app-showcase.html" },
+          output: { exitCode: 0, stdout: "diff --git a/app-showcase.html b/app-showcase.html" },
+          state: "output-available",
+        },
+        {
+          type: "tool-Bash",
+          toolCallId: "lint-1",
+          input: { command: "hyperframes lint ." },
+          output: { exitCode: 0, stdout: "passed with warnings" },
+          state: "output-available",
+        },
+      ],
+    })
+
+    expect(projection.items.map((item) => [item.kind, item.title, item.status])).toEqual([
+      ["motion_change", "Edited", "done"],
+      ["verification", "Verified", "done"],
+    ])
+    expect(projection.items.filter((item) => item.title === "Verified")).toHaveLength(1)
+    expect(projection.items.at(-1)?.details?.map((detail) => detail.label)).toEqual([
+      "Ran git diff -- app-showcase.html",
+      "Ran hyperframes lint .",
+    ])
+    expect(projection.advancedDetails.map((detail) => detail.value).join("\n"))
+      .toContain("hyperframes lint")
   })
 })

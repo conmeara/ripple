@@ -1,6 +1,6 @@
 import type { AgentRuntimeProviderRefs } from "./agent-runtime-ui-projection"
 
-export type AgentRuntimeSummaryStatus = "pending" | "done" | "error"
+export type AgentRuntimeSummaryStatus = "pending" | "done" | "blocked" | "error" | "cancelled"
 
 export type AgentRuntimeSummaryKind =
   | "thinking"
@@ -11,7 +11,52 @@ export type AgentRuntimeSummaryKind =
   | "approval"
   | "status"
   | "assistant_text"
-  | "project_tool"
+  | "project_activity"
+
+export type AgentRuntimeSemanticLifecycle =
+  | "started"
+  | "updated"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "interrupted"
+  | "approval_requested"
+  | "approval_resolved"
+
+export interface AgentRuntimeSemanticEvent {
+  schemaVersion: 1
+  copyVersion: number
+  runId: string
+  turnId?: string
+  commentId?: string
+  surface: "chat" | "comment"
+  sequence: number
+  eventId: string
+  parentEventId?: string
+  provider: "codex" | "claude" | "ripple" | "unknown"
+  providerRef?: {
+    threadId?: string
+    turnId?: string
+    itemId?: string
+    requestId?: string
+  }
+  lifecycle: AgentRuntimeSemanticLifecycle
+  kind: AgentRuntimeSummaryKind
+  status: AgentRuntimeSummaryStatus
+  target?: {
+    type: "project" | "composition" | "sequence" | "frame" | "asset" | "file" | "export" | "unknown"
+    label: string
+    projectRelativePath?: string
+    frameTimecode?: string
+  }
+  counts?: {
+    files?: number
+    frames?: number
+    additions?: number
+    removals?: number
+  }
+  evidenceRefs: string[]
+}
 
 export type AgentRuntimeVisualKind = "snapshot" | "frame_sheet"
 
@@ -69,23 +114,36 @@ const SUMMARY_KINDS = new Set<AgentRuntimeSummaryKind>([
   "approval",
   "status",
   "assistant_text",
-  "project_tool",
+  "project_activity",
 ])
 
 const SUMMARY_STATUSES = new Set<AgentRuntimeSummaryStatus>([
   "pending",
   "done",
+  "blocked",
   "error",
+  "cancelled",
 ])
 
 const LEGACY_AGENT_RUNTIME_LINES = new Map<string, string>([
   ["Agent is thinking", "Thinking"],
   ["Agent is working", "Thinking"],
-  ["Editing files", "Updating composition"],
-  ["Checking the project", "Checking project"],
-  ["Reviewing the frame", "Checking current frame"],
-  ["Reading context", "Explored project"],
-  ["Looking up reference", "Explored project"],
+  ["Editing files", "Editing"],
+  ["Updating composition", "Editing"],
+  ["Updated composition", "Edited"],
+  ["Checking the project", "Verifying"],
+  ["Checking project", "Verifying"],
+  ["Checked project", "Verified"],
+  ["Checking changes", "Verifying"],
+  ["Checked changes", "Verified"],
+  ["Reviewing the frame", "Looking"],
+  ["Checking current frame", "Looking"],
+  ["Checked current frame", "Looked"],
+  ["Checking frame sheet", "Looking"],
+  ["Checked frame sheet", "Looked"],
+  ["Reading context", "Exploring"],
+  ["Looking up reference", "Exploring"],
+  ["Explored project", "Explored"],
   ["Using a project tool", "Working on project"],
   ["Writing a response", "Thinking"],
   ["Waiting for approval", "Approval needed"],
@@ -108,11 +166,11 @@ const LATEST_STATUS_ACTIVITY_LINES = new Map<string, string>([
 const LATEST_ACTIVITY_KIND_LINES = new Map<string, string>([
   ["thinking", "Thinking"],
   ["preparing", "Preparing the composition"],
-  ["reviewing", "Checking current frame"],
-  ["checking", "Checking project"],
-  ["editing", "Updating composition"],
-  ["searching", "Explored project"],
-  ["reading", "Explored project"],
+  ["reviewing", "Looking"],
+  ["checking", "Verifying"],
+  ["editing", "Editing"],
+  ["searching", "Exploring"],
+  ["reading", "Exploring"],
   ["tooling", "Working on project"],
   ["writing", "Thinking"],
   ["waiting", "Approval needed"],
@@ -224,8 +282,8 @@ export function isUnsafeAgentRuntimeDefaultCopy(value: string): boolean {
 function technicalAgentRuntimeLine(value: string): string | null {
   if (!isUnsafeAgentRuntimeDefaultCopy(value)) return null
   const lower = value.toLowerCase()
-  if (lower.includes("ripple frame-sheet")) return "Checking frame sheet"
-  if (lower.includes("ripple snapshot")) return "Checking current frame"
+  if (lower.includes("ripple frame-sheet")) return "Looking"
+  if (lower.includes("ripple snapshot")) return "Looking"
   if (lower.includes("hyperframes render") || /\brender\b/.test(lower)) return "Rendering preview"
   if (lower.includes("export")) return "Preparing export"
   if (
@@ -237,10 +295,10 @@ function technicalAgentRuntimeLine(value: string): string | null {
     lower.includes("npm test") ||
     /\b(test|lint|check|validat)\b/.test(lower)
   ) {
-    return "Checking project"
+    return "Verifying"
   }
-  if (/\b(edit|write)\b/i.test(value)) return "Updating composition"
-  if (/\b(read|grep|glob|rg|sed|cat|ls|find|tail|head)\b/.test(lower)) return "Explored project"
+  if (/\b(edit|write)\b/i.test(value)) return "Editing"
+  if (/\b(read|grep|glob|rg|sed|cat|ls|find|tail|head)\b/.test(lower)) return "Exploring"
   return "Working on project"
 }
 
@@ -307,7 +365,9 @@ export function agentRuntimePartStatus(
   options: { allowPending?: boolean } = {},
 ): AgentRuntimeSummaryStatus {
   const summaryStatus = agentRuntimeSummaryFromPart(part)?.status
+  if (summaryStatus === "blocked") return "blocked"
   if (summaryStatus === "error") return "error"
+  if (summaryStatus === "cancelled") return "cancelled"
   if (summaryStatus === "pending") {
     return options.allowPending === false ? "done" : "pending"
   }
@@ -316,6 +376,15 @@ export function agentRuntimePartStatus(
   const runtimeStatus = compactAgentRuntimeString(part.data?.payload?.status)?.toLowerCase() ??
     compactAgentRuntimeString(part.data?.status)?.toLowerCase()
   const runtimeKind = compactAgentRuntimeString(part.data?.payload?.kind)?.toLowerCase()
+  if (
+    part.type === "data-agent-runtime" &&
+    part.data?.kind === "approval" &&
+    (runtimeStatus === "pending" || runtimeStatus === "awaiting_approval" || !runtimeStatus)
+  ) {
+    return "blocked"
+  }
+  if (runtimeStatus === "cancelled" || runtimeStatus === "canceled") return "cancelled"
+  if (runtimeStatus === "failed" || runtimeStatus === "error" || runtimeStatus === "denied") return "error"
   const isPendingState =
     state === "input-streaming" ||
     state === "input-available" ||
@@ -323,7 +392,6 @@ export function agentRuntimePartStatus(
     state === "pending" ||
     runtimeStatus === "running" ||
     runtimeStatus === "pending" ||
-    runtimeStatus === "awaiting_approval" ||
     (part.type === "data-agent-runtime" && (runtimeKind === "thinking" || runtimeKind === "preparing"))
   if (isPendingState || part.preliminary === true) {
     return options.allowPending === false ? "done" : "pending"
@@ -427,7 +495,7 @@ export function classifyAgentRuntimeSummaryPart(
     return "status"
   }
   if (part.type === "text") return "assistant_text"
-  return "project_tool"
+  return "project_activity"
 }
 
 export function agentRuntimeSummaryPartFromEvent(
@@ -470,7 +538,7 @@ export function agentRuntimeSummaryPartFromEvent(
       type: "data-agent-runtime",
       data: {
         kind: "file_change",
-        label: "Updated composition",
+        label: "Edited",
         payload,
       },
     }
@@ -483,6 +551,20 @@ export function agentRuntimeSummaryPartFromEvent(
         kind: "approval",
         label: "Approval needed",
         payload,
+      },
+    }
+  }
+
+  if (event.type === "approval_resolved") {
+    return {
+      type: "data-agent-runtime",
+      data: {
+        kind: "approval",
+        label: "Approved",
+        payload: {
+          ...payload,
+          status: compactAgentRuntimeString(payload.status) ?? "approved",
+        },
       },
     }
   }
@@ -583,18 +665,18 @@ function latestToolFallbackLine(
   if (!signal) return null
   if (/\b(approval|askuserquestion|elicitation)\b/.test(signal)) return "Approval needed"
   if (/\b(filechange|file_change|files_persisted|diff\/updated|edit|write|multiedit)\b/.test(signal)) {
-    return "Updating composition"
+    return "Editing"
   }
   if (/\b(frame|snapshot|screenshot|imageview|viewimage|visual)\b/.test(signal)) {
-    return signal.includes("sheet") ? "Checking frame sheet" : "Checking current frame"
+    return "Looking"
   }
   if (/\b(export)\b/.test(signal)) return "Preparing export"
   if (/\b(render)\b/.test(signal)) return "Rendering preview"
   if (/\b(commandexecution|bash|shell|terminal|lint|check|test|validat)\b/.test(signal)) {
-    return "Checking project"
+    return "Verifying"
   }
   if (/\b(read|grep|glob|rg|search|find|sed|cat|ls|list|websearch|webfetch)\b/.test(signal)) {
-    return "Explored project"
+    return "Exploring"
   }
   return "Working on project"
 }
@@ -658,33 +740,30 @@ export function titleForAgentRuntimeSummaryPart(
     case "thinking":
       return "Thinking"
     case "visual_context": {
-      const visualKind = agentRuntimeVisualToolKind(part)
-      if (visualKind === "frame_sheet") {
-        if (status === "error") return "Frame sheet check failed"
-        return status === "pending" ? "Checking frame sheet" : "Checked frame sheet"
-      }
       if (status === "error") return "Current-frame check failed"
-      return status === "pending" ? "Checking current frame" : "Checked current frame"
+      return status === "pending" ? "Looking" : "Looked"
     }
     case "motion_edit":
-      if (status === "error") return "Composition update failed"
-      return status === "pending" ? "Updating composition" : "Updated composition"
+      if (status === "error") return "Unable to finish this change"
+      return status === "pending" ? "Editing" : "Edited"
     case "verification": {
       const command = agentRuntimeCommandForPart(part)?.toLowerCase() ?? ""
       if (status === "error") {
-        if (isAgentRuntimeChangeReviewCommand(command)) return "Change check failed"
+        if (isAgentRuntimeChangeReviewCommand(command)) return "Verification failed"
         if (/\bexport\b/.test(command)) return "Export failed"
         if (/\brender\b/.test(command)) return "Preview render failed"
         return "Project check failed"
       }
       if (isAgentRuntimeChangeReviewCommand(command)) {
-        return status === "pending" ? "Checking changes" : "Checked changes"
+        return status === "pending" ? "Verifying" : "Verified"
       }
       if (/\bexport\b/.test(command)) return status === "pending" ? "Preparing export" : "Prepared export"
       if (/\brender\b/.test(command)) return status === "pending" ? "Rendering preview" : "Rendered preview"
-      return status === "pending" ? "Checking project" : "Checked project"
+      return status === "pending" ? "Verifying" : "Verified"
     }
     case "approval":
+      if (status === "done") return "Approved"
+      if (status === "error" || status === "cancelled") return "Request declined"
       return "Approval needed"
     case "status":
       return designerFacingAgentRuntimeLine(
@@ -694,12 +773,12 @@ export function titleForAgentRuntimeSummaryPart(
       )
     case "project_inspection":
       if (status === "error") return "Project check failed"
-      return status === "pending" ? "Exploring project" : "Explored project"
+      return status === "pending" ? "Exploring" : "Explored"
     case "assistant_text":
       return "Response"
     default:
       if (status === "error") return "Project operation failed"
-      return status === "pending" ? "Working on project" : "Updated project"
+      return status === "pending" ? "Working on project" : "Worked on project"
   }
 }
 

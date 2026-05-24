@@ -210,25 +210,9 @@ const TASK_TOOLS = new Set([
 const STREAMING_REASONING_STATES = new Set(["streaming", "in_progress", "input-streaming"])
 const DONE_REASONING_STATES = new Set(["done", "completed", "result", "output-available"])
 const ERROR_REASONING_STATES = new Set(["error", "output-error"])
-const MOTION_RUNTIME_FALLBACK_DELAY_MS = 1800
 
 function useDelayedMotionRuntimeFallback(shouldShow: boolean): boolean {
-  const [isVisible, setIsVisible] = useState(false)
-
-  useEffect(() => {
-    if (!shouldShow) {
-      setIsVisible(false)
-      return
-    }
-
-    const timeout = window.setTimeout(() => {
-      setIsVisible(true)
-    }, MOTION_RUNTIME_FALLBACK_DELAY_MS)
-
-    return () => window.clearTimeout(timeout)
-  }, [shouldShow])
-
-  return shouldShow && isVisible
+  return shouldShow
 }
 
 function mapReasoningStateToThinkingState(state: unknown): string {
@@ -997,6 +981,13 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
   }), [messageParts, nestedToolIds, orphanToolCallIds, projectPath])
 
   const useMotionRuntimeFeed = motionRuntimeTimeline.some((entry) => entry.kind === "runtime")
+  const lastMotionRuntimeKey = useMemo(() => {
+    for (let index = motionRuntimeTimeline.length - 1; index >= 0; index--) {
+      const entry = motionRuntimeTimeline[index]
+      if (entry.kind === "runtime") return entry.key
+    }
+    return null
+  }, [motionRuntimeTimeline])
   const shouldShowMotionRuntimeFallbackCandidate = shouldShowMotionRuntimeThinkingFallback({
     timeline: motionRuntimeTimeline,
     projectPath,
@@ -1018,13 +1009,6 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
       },
     },
   ], [message?.id])
-  const lastRuntimeEntryKey = useMemo(() => {
-    for (let index = motionRuntimeTimeline.length - 1; index >= 0; index--) {
-      const entry = motionRuntimeTimeline[index]
-      if (entry.kind === "runtime") return entry.key
-    }
-    return null
-  }, [motionRuntimeTimeline])
 
   const renderPart = useCallback((part: any, idx: number, isFinal = false) => {
     if (part.type === "step-start") return null
@@ -1249,18 +1233,17 @@ export const AssistantMessageItem = memo(function AssistantMessageItem({
           <>
             {motionRuntimeTimeline.map((entry, timelineIndex) => {
               if (entry.kind === "runtime") {
-                const isLastRuntimeEntry = entry.key === lastRuntimeEntryKey
                 const isRuntimeFeedLive =
                   isStreaming &&
                   isLastMessage &&
-                  isLastRuntimeEntry &&
+                  entry.key === lastMotionRuntimeKey &&
                   !shouldShowMotionRuntimeFallback
                 return (
                   <AgentMotionRuntimeFeed
                     key={entry.key}
                     parts={entry.parts}
                     events={entry.events}
-                    metadata={isLastRuntimeEntry ? msgMetadata : undefined}
+                    metadata={msgMetadata}
                     projectPath={projectPath}
                     isLive={isRuntimeFeedLive}
                   />

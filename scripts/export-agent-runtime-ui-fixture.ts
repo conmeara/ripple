@@ -197,7 +197,6 @@ function renderedShimmerCount(input: {
     parts: projection.parts,
     projectPath: input.projectPath,
   })
-  const lastRuntimeEntry = [...timeline].reverse().find((entry) => entry.kind === "runtime")
   const shouldShowFallback = shouldShowMotionRuntimeThinkingFallback({
     timeline,
     projectPath: input.projectPath,
@@ -206,16 +205,19 @@ function renderedShimmerCount(input: {
     isLastMessage: true,
   })
   if (shouldShowFallback) return 1
+  const lastRuntimeEntry = [...timeline]
+    .reverse()
+    .find((entry) => entry.kind === "runtime")
+  if (!lastRuntimeEntry || lastRuntimeEntry.kind !== "runtime") return 0
 
-  return timeline.some((entry) => {
-    if (entry.kind !== "runtime" || entry.key !== lastRuntimeEntry?.key) return false
+  return (() => {
     const runtime = buildMotionRuntimeActivity({
-      parts: entry.parts,
-      events: entry.events,
+      parts: lastRuntimeEntry.parts,
+      events: lastRuntimeEntry.events,
       projectPath: input.projectPath,
     })
     return Boolean(activeMotionRuntimeItemId(runtime.items, true))
-  }) ? 1 : 0
+  })() ? 1 : 0
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -358,12 +360,20 @@ function selectTransitionEvents(input: {
   }
 
   input.events.forEach((event, index) => {
-    if (event.type !== "tool_end") return
+    if (event.type !== "tool_end" && event.type !== "tool_update") return
     const payload = isRecord(event.payload) ? event.payload : {}
     const toolCallId = typeof payload.toolCallId === "string"
       ? payload.toolCallId
       : event.providerId
-    if (toolCallId && selectedToolIds.has(toolCallId)) selectedIndexes.add(index)
+    if (!toolCallId || !selectedToolIds.has(toolCallId)) return
+    if (event.type === "tool_end") {
+      selectedIndexes.add(index)
+      return
+    }
+    const input = isRecord(payload.input) ? payload.input : null
+    if (payload.inputAvailable === true || (input && Object.keys(input).length > 0)) {
+      selectedIndexes.add(index)
+    }
   })
 
   if (input.events.length > 0) selectedIndexes.add(input.events.length - 1)
@@ -377,6 +387,7 @@ function selectTransitionEvents(input: {
 function shouldKeepCoverageEvent(event: RuntimeEventLike | undefined): boolean {
   if (!event) return false
   if (
+    event.type === "assistant_message" ||
     event.type === "approval_request" ||
     event.type === "error" ||
     event.type === "file_change"

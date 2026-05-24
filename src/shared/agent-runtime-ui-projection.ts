@@ -147,6 +147,10 @@ function textStreamKey(
   )
 }
 
+function normalizeAssistantText(value: string): string {
+  return value.replace(/\s+/g, " ").trim()
+}
+
 function appendProviderRefs(part: AnyRecord, refs: unknown): void {
   if (!isRecord(refs)) return
   const existing = Array.isArray(part.providerRefs)
@@ -544,6 +548,8 @@ export function extractRuntimeUsageMetadata(
 
 export class AgentRuntimeUIProjector {
   private textPartId: string | null = null
+  private textPartText = ""
+  private completedTextMessages = new Set<string>()
   private reasoningPartId: string | null = null
   private reasoningText = ""
   private streamedTextKeys = new Set<string>()
@@ -576,9 +582,11 @@ export class AgentRuntimeUIProjector {
         const endReasoning = this.endReasoning()
         const streamKey = textStreamKey(event, payload, providerRefs)
         if (streamKey) this.streamedTextKeys.add(streamKey)
+        const textStart = this.ensureTextStarted(event)
+        this.textPartText += delta
         return [
           ...endReasoning,
-          ...this.ensureTextStarted(event),
+          ...textStart,
           { type: "text-delta", id: this.textPartId, delta, providerRefs },
         ]
       }
@@ -586,16 +594,28 @@ export class AgentRuntimeUIProjector {
         if (event.providerType === "user" || event.providerType?.startsWith("user:")) {
           return []
         }
-        const streamKey = textStreamKey(event, payload, providerRefs)
-        if (streamKey && this.streamedTextKeys.has(streamKey)) return []
-        if (!streamKey && this.textPartId) return []
         const text = typeof payload.text === "string" ? payload.text : ""
         if (!text) return []
+        const streamKey = textStreamKey(event, payload, providerRefs)
+        const streamWasSeen = Boolean(streamKey && this.streamedTextKeys.has(streamKey))
+        if (streamWasSeen && (!this.textPartId || !this.textPartText)) return []
+        const normalizedText = normalizeAssistantText(text)
+        if (normalizedText && this.completedTextMessages.has(normalizedText)) return []
         const endReasoning = this.endReasoning()
+        let delta = text
+        if (this.textPartId && this.textPartText) {
+          if (normalizeAssistantText(this.textPartText) === normalizedText) return endReasoning
+          if (text.startsWith(this.textPartText)) {
+            delta = text.slice(this.textPartText.length)
+            if (!delta) return endReasoning
+          }
+        }
+        const textStart = this.ensureTextStarted(event)
+        this.textPartText += delta
         return [
           ...endReasoning,
-          ...this.ensureTextStarted(event),
-          { type: "text-delta", id: this.textPartId, delta: text, providerRefs },
+          ...textStart,
+          { type: "text-delta", id: this.textPartId, delta, providerRefs },
         ]
       }
       case "reasoning": {
@@ -660,7 +680,7 @@ export class AgentRuntimeUIProjector {
             providerRefs,
             data: {
               kind: "file_change",
-              label: "Updated composition",
+              label: "Edited",
               providerRefs,
               payload,
             },
@@ -675,6 +695,23 @@ export class AgentRuntimeUIProjector {
             label: approvalRequestLabel(payload),
             providerRefs,
             payload,
+          },
+        })]
+      case "approval_resolved":
+        return [runtimeDataChunk({
+          id: stableEventId("approval", event),
+          providerRefs,
+          data: {
+            kind: "approval",
+            label: approvalRequestLabel({
+              ...payload,
+              status: compactLabel(payload.status) ?? compactLabel(payload.decision) ?? "approved",
+            }),
+            providerRefs,
+            payload: {
+              ...payload,
+              status: compactLabel(payload.status) ?? compactLabel(payload.decision) ?? "approved",
+            },
           },
         })]
       case "usage": {
@@ -725,6 +762,7 @@ export class AgentRuntimeUIProjector {
   private ensureTextStarted(event: RuntimeEventLike): UIMessageChunkLike[] {
     if (this.textPartId) return []
     this.textPartId = stableEventId("text", event)
+    this.textPartText = ""
     return [{
       type: "text-start",
       id: this.textPartId,
@@ -761,7 +799,10 @@ export class AgentRuntimeUIProjector {
   private endText(): UIMessageChunkLike[] {
     if (!this.textPartId) return []
     const id = this.textPartId
+    const normalizedText = normalizeAssistantText(this.textPartText)
+    if (normalizedText) this.completedTextMessages.add(normalizedText)
     this.textPartId = null
+    this.textPartText = ""
     return [{ type: "text-end", id }]
   }
 
@@ -1075,12 +1116,18 @@ function applyChunkToAssistantParts(
     return
   }
   if (typeof chunk.type === "string" && chunk.type.startsWith("data-")) {
-    parts.push({
+    const nextPart = {
       type: chunk.type,
       id: chunk.id,
       providerRefs: refs ? [refs] : undefined,
       data: chunk.data,
-    })
+    }
+    const existingIndex = parts.findIndex((item) => item.type === chunk.type && item.id === chunk.id)
+    if (existingIndex >= 0) {
+      parts[existingIndex] = nextPart
+    } else {
+      parts.push(nextPart)
+    }
   }
 }
 

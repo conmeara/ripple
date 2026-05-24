@@ -154,7 +154,6 @@ function assistantRuntimeState(input: {
     parts: input.parts,
     projectPath: PROJECT_PATH,
   })
-  const lastRuntimeEntry = [...timeline].reverse().find((entry) => entry.kind === "runtime")
   const shouldShowFallback = shouldShowMotionRuntimeThinkingFallback({
     timeline,
     projectPath: PROJECT_PATH,
@@ -162,6 +161,10 @@ function assistantRuntimeState(input: {
     isStreaming: input.live,
     isLastMessage: true,
   })
+  const lastRuntimeKey = [...timeline]
+    .reverse()
+    .find((entry) => entry.kind === "runtime")
+    ?.key
   const rows: Array<MotionRuntimeActivityItem | RealReplayRow> = []
   const children = timeline.map((entry, index) => {
     if (entry.kind === "runtime") {
@@ -176,7 +179,7 @@ function assistantRuntimeState(input: {
         parts: entry.parts,
         events: entry.events,
         projectPath: PROJECT_PATH,
-        isLive: input.live && entry.key === lastRuntimeEntry?.key && !shouldShowFallback,
+        isLive: input.live && entry.key === lastRuntimeKey && !shouldShowFallback,
       })
     }
     if (shouldHideMotionRuntimeInterimPart({ entry, timeline, index })) {
@@ -519,7 +522,7 @@ const codexTitleEditSession: ReplaySession = {
         ["explored", "Explored 1 file", "done"],
         ["visual_check", "Looking", "pending"],
       ],
-      expectedMarkup: ["Explored 1 file", "Looking"],
+      expectedMarkup: ["Explored 1 file, looking"],
       forbiddenMarkup: ["Planning the title animation"],
       shimmerCount: 1,
     },
@@ -528,8 +531,6 @@ const codexTitleEditSession: ReplaySession = {
       eventCount: 17,
       live: true,
       expectedRows: [
-        ["explored", "Explored 1 file", "done"],
-        ["visual_check", "Looked", "done"],
         ["motion_change", "Editing", "pending"],
       ],
       expectedMarkup: ["Editing"],
@@ -543,14 +544,14 @@ const codexTitleEditSession: ReplaySession = {
       expectedRows: [
         ["explored", "Explored 1 file", "done"],
         ["visual_check", "Looked", "done"],
-        ["motion_change", "Edited composition", "done"],
+        ["motion_change", "Edited", "done"],
         ["verification", "Verified", "done"],
       ],
       expectedMarkup: [
-        "Explored 1 file · Looked · Edited composition · Verified",
-        "Ripple current frame",
+        "Explored 1 file, looked, edited, verified",
         "Adjusted the title timing",
       ],
+      forbiddenMarkup: ["Ripple current frame", "data-agent-motion-visual-preview"],
       shimmerCount: 0,
     },
   ],
@@ -752,7 +753,7 @@ const claudeCommentRevisionSession: ReplaySession = {
         ["explored", "Explored 1 file", "done"],
         ["visual_check", "Looking", "pending"],
       ],
-      expectedMarkup: ["Looking"],
+      expectedMarkup: ["Explored 1 file, looking"],
       shimmerCount: 1,
     },
     {
@@ -760,8 +761,6 @@ const claudeCommentRevisionSession: ReplaySession = {
       eventCount: 7,
       live: true,
       expectedRows: [
-        ["explored", "Explored 1 file", "done"],
-        ["visual_check", "Looked", "done"],
         ["motion_change", "Editing", "pending"],
       ],
       expectedMarkup: ["Editing"],
@@ -775,10 +774,10 @@ const claudeCommentRevisionSession: ReplaySession = {
       expectedRows: [
         ["explored", "Explored 1 file", "done"],
         ["visual_check", "Looked", "done"],
-        ["motion_change", "Edited composition", "done"],
+        ["motion_change", "Edited", "done"],
         ["verification", "Verifying", "pending"],
       ],
-      expectedMarkup: ["Verifying"],
+      expectedMarkup: ["Explored 1 file, looked, edited, verifying"],
       forbiddenMarkup: ["bun run", "Bash"],
       shimmerCount: 1,
     },
@@ -789,14 +788,14 @@ const claudeCommentRevisionSession: ReplaySession = {
       expectedRows: [
         ["explored", "Explored 1 file", "done"],
         ["visual_check", "Looked", "done"],
-        ["motion_change", "Edited composition", "done"],
+        ["motion_change", "Edited", "done"],
         ["verification", "Verified", "done"],
       ],
       expectedMarkup: [
-        "Explored 1 file · Looked · Edited composition · Verified",
-        "Ripple frame sheet",
+        "Explored 1 file, looked, edited, verified",
         "Balanced the lower third",
       ],
+      forbiddenMarkup: ["Ripple frame sheet", "data-agent-motion-visual-preview"],
       shimmerCount: 0,
     },
   ],

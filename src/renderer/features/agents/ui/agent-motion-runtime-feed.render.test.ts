@@ -82,7 +82,7 @@ function shimmerCount(markup: string): number {
 
 function expectNoRuntimeLeak(markup: string): void {
   expect(markup).not.toContain("Bash")
-  expect(markup).not.toContain("Edit")
+  expect(markup).not.toMatch(/\bEdit\b/)
   expect(markup).not.toContain("commandExecution")
   expect(markup).not.toContain("fileChange")
   expect(markup).not.toContain("mcp__")
@@ -157,8 +157,9 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
 
     expect(markup).not.toContain("Thinking")
     expect(markup).not.toContain("Planning the title animation")
-    expect(markup).toContain("Explored 1 file")
-    expect(markup).toContain("Edited composition")
+    expect(markup).toContain("Explored 1 file, edited")
+    expect(markup).not.toContain("Edited ·")
+    expect(markup.match(/data-agent-motion-row-id=/g)?.length ?? 0).toBe(0)
     expect(shimmerCount(markup)).toBe(0)
     expectNoRuntimeLeak(markup)
   })
@@ -230,8 +231,8 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
 
     expect(markup).not.toContain("Thinking")
     expect(markup).not.toContain("Checking frame balance")
-    expect(markup).toContain("Explored 1 file")
-    expect(markup).toContain("Edited composition")
+    expect(markup).toContain("Explored 1 file, edited")
+    expect(markup).not.toContain("Edited ·")
     expect(shimmerCount(markup)).toBe(0)
     expectNoRuntimeLeak(markup)
   })
@@ -267,13 +268,12 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
 
     expect(markup).not.toContain("Thinking")
     expect(markup).not.toContain("Checking the composition before editing.")
-    expect(markup).toContain("Explored 1 file")
     expect(markup).toContain("Editing")
     expect(shimmerCount(markup)).toBe(1)
     expectNoRuntimeLeak(markup)
   })
 
-  test("does not replace completed edit progress with a later live thinking row", () => {
+  test("keeps later live thinking after completed activity in timeline order", () => {
     const markup = renderFeed({
       isLive: true,
       parts: [
@@ -303,9 +303,45 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
       ],
     })
 
-    expect(markup).toContain("Edited composition")
-    expect(markup).toContain("Verified")
+    expect(markup).toContain("Edited")
+    expect(markup).toContain("Edited, verified")
+    expect(markup).not.toContain("Edited ·")
     expect(markup).toContain("Thinking")
+    expect(markup).not.toContain("Thinking, edited")
+    expect(markup).toMatch(/Edited, verified[\s\S]*Thinking/)
+    expect(markup).not.toMatch(/Thinking[\s\S]*Edited, verified/)
+    expect(shimmerCount(markup)).toBe(1)
+    expectNoRuntimeLeak(markup)
+  })
+
+  test("keeps collapsed live activity summary in chronological order", () => {
+    const markup = renderFeed({
+      isLive: true,
+      projectPath: "/Users/me/project",
+      parts: [
+        {
+          type: "tool-Edit",
+          toolCallId: "edit-1",
+          input: {
+            file_path: "app-showcase.html",
+            old_string: "left: 160px;",
+            new_string: "left: 0px;",
+          },
+          output: { status: "completed" },
+          state: "output-available",
+        },
+        {
+          type: "tool-mcp__ripple_visual_context__ripple_snapshot",
+          toolCallId: "snap-1",
+          toolName: "mcp__ripple_visual_context__ripple_snapshot",
+          input: {},
+          state: "input-available",
+        },
+      ],
+    })
+
+    expect(markup).toContain("Edited, looking")
+    expect(markup).not.toContain("Looking, edited")
     expect(shimmerCount(markup)).toBe(1)
     expectNoRuntimeLeak(markup)
   })
@@ -442,8 +478,9 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
     })
 
     expect(markup).toContain("Looked")
-    expect(markup).toContain("Ripple current frame")
-    expect(markup).toContain("data:image/png;base64,iVBORw0KGgo=")
+    expect(markup).not.toContain("Ripple current frame")
+    expect(markup).not.toContain("data-agent-motion-visual-preview")
+    expect(markup).not.toContain("data:image/png;base64,iVBORw0KGgo=")
   })
 
   test("reserves a stable current-frame card while a visual check is pending", () => {
@@ -462,8 +499,8 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
     })
 
     expect(markup).toContain("Looking")
-    expect(markup).toContain("data-agent-motion-visual-preview")
-    expect(markup).toContain("Current frame")
+    expect(markup).not.toContain("data-agent-motion-visual-preview")
+    expect(markup).not.toContain("Current frame")
     expect(shimmerCount(markup)).toBe(1)
   })
 
@@ -492,8 +529,8 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
     })
 
     expect(markup).toContain("Looked")
-    expect(markup).toContain("data-agent-motion-visual-preview")
-    expect(markup).toContain("Current frame")
+    expect(markup).not.toContain("data-agent-motion-visual-preview")
+    expect(markup).not.toContain("Current frame")
     expect(markup).not.toContain("<img")
     expect(shimmerCount(markup)).toBe(0)
   })
@@ -514,8 +551,8 @@ describe("AgentMotionRuntimeFeed rendered replay", () => {
     })
 
     expect(markup).toContain("Looked")
-    expect(markup).toContain("data-agent-motion-visual-preview")
-    expect(markup).toContain("Current frame")
+    expect(markup).not.toContain("data-agent-motion-visual-preview")
+    expect(markup).not.toContain("Current frame")
     expect(markup).not.toContain("<img")
     expect(shimmerCount(markup)).toBe(0)
   })

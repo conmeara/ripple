@@ -73,6 +73,13 @@ function projectIdealInput(input: IdealInput, eventCount = input.events.length) 
   }
 }
 
+function assistantText(parts: Array<Record<string, any>>): string {
+  return parts
+    .filter((part) => part.type === "text" || part.type === "text-delta")
+    .map((part) => String(part.text ?? part.delta ?? ""))
+    .join("")
+}
+
 function revision(status: string, extra: Record<string, unknown> = {}) {
   return {
     id: "revision-1",
@@ -99,6 +106,8 @@ describe("Agent Runtime Ideal Architecture executable contract", () => {
     expect(html).toContain("claude-approval-resume-run")
     expect(html).toContain("comment-ready-dom")
     expect(html).toContain("replay-idempotency")
+    expect(html).toContain("interleaved with assistant narration")
+    expect(html).toContain("Ran <code>hyperframes lint .</code>")
 
     expect(manifest.sourceSpec).toBe("docs/specs/Agent Runtime Ideal Architecture.html")
     expect(manifest.cases.map((item) => item.id)).toEqual([
@@ -148,7 +157,7 @@ describe("Agent Runtime Ideal Architecture executable contract", () => {
     expect(editRow?.title).toBe(expected.editingOpen.collapsedTitle)
 
     const visibleText = editRow ? visibleItemText(editRow) : ""
-    expect(visibleText).toContain("showcase.tsx")
+    expect(visibleText).toContain("app-showcase.html")
     for (const detail of expected.editingOpen.openedDetails) {
       expect(visibleText).toContain(detail)
     }
@@ -176,12 +185,12 @@ describe("Agent Runtime Ideal Architecture executable contract", () => {
     expect(html).toContain(".activity-row.pending .activity-title")
     expect(html).toContain(".activity-detail.pending .activity-detail-title")
     expect(html).toContain('data-state="chatEditingOpen"')
-    expect(html).toContain('{ title: "Editing", meta: "showcase.tsx", status: "pending"')
+    expect(html).toContain('{ title: "Editing", meta: "app-showcase.html", status: "pending"')
     expect(feedSource).toContain("detail.status")
     expect(feedSource).toMatch(/detail\.status[\s\S]*LiveActivityLabel|LiveActivityLabel[\s\S]*detail\.status/)
   })
 
-  test("completed edit runs project a dominant Edited composition outcome and preserve final reply", () => {
+  test("completed edit runs project a dominant Edited outcome and preserve final reply", () => {
     const input = readJson<IdealInput>("codex-edit-run.input.json")
     const expected = readJson<{
       done: {
@@ -199,10 +208,7 @@ describe("Agent Runtime Ideal Architecture executable contract", () => {
       item.title === expected.done.collapsedTitle
     )).toBe(true)
 
-    const finalReplyText = parts
-      .filter((part) => part.type === "text-delta")
-      .map((part) => String(part.delta ?? ""))
-      .join("")
+    const finalReplyText = assistantText(parts)
     expect(finalReplyText).toBe(expected.done.finalReply)
   })
 
@@ -228,7 +234,7 @@ describe("Agent Runtime Ideal Architecture executable contract", () => {
         providerId: "edit-1",
         payload: {
           toolName: "Edit",
-          input: { file_path: "/Users/example/Ripple/test-project/src/showcase.tsx" },
+          input: { file_path: "/Users/example/Ripple/test-project/app-showcase.html" },
         },
       },
     ]
@@ -316,10 +322,7 @@ describe("Agent Runtime Ideal Architecture executable contract", () => {
       item.status === "done" &&
       item.title === expected.resumedDone.collapsedTitle
     )).toBe(true)
-    const finalReplyText = doneProjection.parts
-      .filter((part) => part.type === "text-delta")
-      .map((part) => String(part.delta ?? ""))
-      .join("")
+    const finalReplyText = assistantText(doneProjection.parts)
     expect(finalReplyText).toBe(expected.resumedDone.finalReply)
   })
 
@@ -342,7 +345,7 @@ describe("Agent Runtime Ideal Architecture executable contract", () => {
         fileCount: 1,
         additions: 16,
         deletions: 9,
-        files: ["src/showcase.tsx"],
+        files: ["app-showcase.html"],
         summary: input.finalAssistantMessage,
       }),
     }))).toBe(expected.ready.statusLine)
@@ -369,14 +372,8 @@ describe("Agent Runtime Ideal Architecture executable contract", () => {
     ].join("|")
     const firstRows = first.items.map(signature)
     const replayedRows = replayed.items.map(signature)
-    const firstReply = first.parts
-      .filter((part) => part.type === "text-delta")
-      .map((part) => String(part.delta ?? ""))
-      .join("")
-    const replayedReply = replayed.parts
-      .filter((part) => part.type === "text-delta")
-      .map((part) => String(part.delta ?? ""))
-      .join("")
+    const firstReply = assistantText(first.parts)
+    const replayedReply = assistantText(replayed.parts)
 
     if (expected.sameProjectedRows) expect(replayedRows).toEqual(firstRows)
     if (expected.sameFinalReply) expect(replayedReply).toBe(firstReply)

@@ -186,10 +186,10 @@ describe("AgentRuntimeChatTransport", () => {
       type: "data-agent-runtime",
       data: expect.objectContaining({
         kind: "file_change",
-        label: "Updated composition",
+        label: "Edited",
         summary: expect.objectContaining({
           kind: "motion_edit",
-          title: "Updated composition",
+          title: "Edited",
           providerRefs: [
             expect.objectContaining({
               eventId: "event-1",

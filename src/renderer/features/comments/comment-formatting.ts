@@ -88,7 +88,10 @@ function designerFacingRevisionLine(value: string): string {
   const compact = compactCommentLine(value, null)
   switch (compact) {
     case "Editing files":
-      return "Updating composition"
+    case "Updating composition":
+      return "Editing"
+    case "Updated composition":
+      return "Edited"
     case "Updating against Main":
       return "Refreshing proposal"
     default:
@@ -126,13 +129,13 @@ export function revisionStatusLabel(status: RippleRevisionStatus): string {
     case "preparing":
       return "Preparing the composition"
     case "running":
-      return "Updating composition"
+      return "Editing"
     case "updating":
       return "Refreshing proposal"
     case "needs_update":
       return "Refresh needed"
     case "proposed":
-      return "Changes ready"
+      return "Reply ready"
     case "answered":
       return "No changes needed"
     case "accepted":

@@ -5,9 +5,9 @@
     "model": "sonnet",
     "runKind": "chat",
     "status": "completed",
-    "originalEventCount": 114,
-    "selectedEventCount": 15,
-    "note": "Sanitized from a real local Ripple Dev run. Prompt summary: move the phone to the right"
+    "originalEventCount": 103,
+    "selectedEventCount": 22,
+    "note": "Sanitized from a real local Ripple Dev run. Prompt summary: move the phones to the right"
   },
   "projectPath": "/Users/motion/Ripple Projects/Fixture Project",
   "events": [
@@ -21,9 +21,9 @@
       "providerType": "content_block_delta",
       "providerId": "fixture-id-003",
       "payload": {
-        "delta": "Let me look at the current composition to understand the phone element",
+        "delta": "Let me look at the current composition to understand the phone elements",
         "providerRefs": {
-          "createdAt": "2026-05-22T02:16:07.935Z",
+          "createdAt": "2026-05-23T23:08:07.071Z",
           "provider": "claude",
           "runId": "real-claude-phone-move-right",
           "requestId": "fixture-id-001",
@@ -47,9 +47,9 @@
       "providerType": "assistant:thinking",
       "providerId": "fixture-id-005",
       "payload": {
-        "text": "Let me look at the current composition to understand the phone element and its position before making changes.",
+        "text": "Let me look at the current composition to understand the phone elements and their positioning.",
         "providerRefs": {
-          "createdAt": "2026-05-22T02:16:08.785Z",
+          "createdAt": "2026-05-23T23:08:08.091Z",
           "provider": "claude",
           "runId": "real-claude-phone-move-right",
           "requestId": "fixture-id-001",
@@ -78,7 +78,7 @@
         "input": {},
         "inputStreaming": true,
         "providerRefs": {
-          "createdAt": "2026-05-22T02:16:08.788Z",
+          "createdAt": "2026-05-23T23:08:08.093Z",
           "provider": "claude",
           "runId": "real-claude-phone-move-right",
           "requestId": "fixture-id-001",
@@ -93,10 +93,39 @@
       }
     },
     {
+      "id": "real-claude-phone-move-right-event-016",
+      "type": "tool_update",
+      "agentRunId": "real-claude-phone-move-right",
+      "sequence": 4,
+      "createdAt": "2026-05-21T12:00:15.000Z",
+      "provider": "claude",
+      "providerType": "assistant:tool_use",
+      "providerId": "fixture-id-007",
+      "payload": {
+        "toolCallId": "fixture-id-007",
+        "toolName": "mcp__ripple_visual_context__ripple_snapshot",
+        "input": {},
+        "inputAvailable": true,
+        "providerRefs": {
+          "createdAt": "2026-05-23T23:08:08.098Z",
+          "provider": "claude",
+          "runId": "real-claude-phone-move-right",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-007",
+          "providerId": "fixture-id-007",
+          "providerType": "assistant:tool_use",
+          "rawProviderMethod": "assistant:tool_use",
+          "eventId": "real-claude-phone-move-right-event-016",
+          "sequence": 16
+        }
+      }
+    },
+    {
       "id": "real-claude-phone-move-right-event-019",
       "type": "tool_start",
       "agentRunId": "real-claude-phone-move-right",
-      "sequence": 4,
+      "sequence": 5,
       "createdAt": "2026-05-21T12:00:18.000Z",
       "provider": "claude",
       "providerType": "content_block_start",
@@ -107,7 +136,7 @@
         "input": {},
         "inputStreaming": true,
         "providerRefs": {
-          "createdAt": "2026-05-22T02:16:09.267Z",
+          "createdAt": "2026-05-23T23:08:08.101Z",
           "provider": "claude",
           "runId": "real-claude-phone-move-right",
           "requestId": "fixture-id-001",
@@ -122,10 +151,41 @@
       }
     },
     {
+      "id": "real-claude-phone-move-right-event-021",
+      "type": "tool_update",
+      "agentRunId": "real-claude-phone-move-right",
+      "sequence": 6,
+      "createdAt": "2026-05-21T12:00:20.000Z",
+      "provider": "claude",
+      "providerType": "assistant:tool_use",
+      "providerId": "fixture-id-009",
+      "payload": {
+        "toolCallId": "fixture-id-009",
+        "toolName": "Read",
+        "input": {
+          "file_path": "/Users/motion/Ripple Projects/Fixture Project/compositions/app-showcase.html"
+        },
+        "inputAvailable": true,
+        "providerRefs": {
+          "createdAt": "2026-05-23T23:08:08.617Z",
+          "provider": "claude",
+          "runId": "real-claude-phone-move-right",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-009",
+          "providerId": "fixture-id-009",
+          "providerType": "assistant:tool_use",
+          "rawProviderMethod": "assistant:tool_use",
+          "eventId": "real-claude-phone-move-right-event-021",
+          "sequence": 21
+        }
+      }
+    },
+    {
       "id": "real-claude-phone-move-right-event-024",
       "type": "tool_end",
       "agentRunId": "real-claude-phone-move-right",
-      "sequence": 5,
+      "sequence": 7,
       "createdAt": "2026-05-21T12:00:23.000Z",
       "provider": "claude",
       "providerType": "user:tool_result",
@@ -133,10 +193,10 @@
       "payload": {
         "toolCallId": "fixture-id-007",
         "toolName": "mcp__ripple_visual_context__ripple_snapshot",
-        "output": "Ripple visual context is attached as a native image.\n{\n  \"ok\": true,\n  \"type\": \"snapshot\",\n  \"artifact\": {\n    \"path\": \".ripple/visual-context/snapshots/snap_dec280709189/current.png\",\n    \"mediaType\": \"image/png\",\n    \"bytes\": 52145\n  },\n  \"payload\": {\n    \"ok\": true,\n    \"type\": \"snapshot\",\n    \"snapshot\": {\n      \"...",
+        "output": "Ripple visual context is attached as a native image.\n{\n  \"ok\": true,\n  \"type\": \"snapshot\",\n  \"artifact\": {\n    \"path\": \".ripple/visual-context/snapshots/snap_f8fbe280a7b8/current.png\",\n    \"mediaType\": \"image/png\",\n    \"bytes\": 153238\n  },\n  \"payload\": {\n    \"ok\": true,\n    \"type\": \"snapshot\",\n    \"snapshot\": {\n      ...",
         "status": "completed",
         "providerRefs": {
-          "createdAt": "2026-05-22T02:16:09.891Z",
+          "createdAt": "2026-05-23T23:08:08.627Z",
           "provider": "claude",
           "runId": "real-claude-phone-move-right",
           "requestId": "fixture-id-001",
@@ -154,7 +214,7 @@
       "id": "real-claude-phone-move-right-event-026",
       "type": "tool_end",
       "agentRunId": "real-claude-phone-move-right",
-      "sequence": 6,
+      "sequence": 8,
       "createdAt": "2026-05-21T12:00:25.000Z",
       "provider": "claude",
       "providerType": "user:tool_result",
@@ -162,10 +222,10 @@
       "payload": {
         "toolCallId": "fixture-id-009",
         "toolName": "Read",
-        "output": "1\t<!doctype html>\n2\t<html lang=\"en\">\n3\t  <head>\n4\t    <meta charset=\"UTF-8\" />\n5\t    <meta name=\"viewport\" content=\"width=1920, height=1080\" />\n6\t    <title>main</title>\n7\t    <style>\n8\t      * {\n9\t        margin: 0;\n10\t        padding: 0;\n11\t        box-sizing: border-box;\n12\t      }\n13\t      html,\n14\t      body {\n15...",
+        "output": "1\t<!doctype html>\n2\t<html lang=\"en\">\n3\t  <head>\n4\t    <meta charset=\"UTF-8\" />\n5\t    <meta name=\"viewport\" content=\"width=1920, height=1080\" />\n6\t    <title>app-showcase</title>\n7\t    <style>\n8\t      * {\n9\t        margin: 0;\n10\t        padding: 0;\n11\t        box-sizing: border-box;\n12\t      }\n13\t      html,\n14\t      b...",
         "status": "completed",
         "providerRefs": {
-          "createdAt": "2026-05-22T02:16:10.100Z",
+          "createdAt": "2026-05-23T23:08:09.099Z",
           "provider": "claude",
           "runId": "real-claude-phone-move-right",
           "requestId": "fixture-id-001",
@@ -180,44 +240,327 @@
       }
     },
     {
-      "id": "real-claude-phone-move-right-event-080",
+      "id": "real-claude-phone-move-right-event-028",
       "type": "reasoning",
       "agentRunId": "real-claude-phone-move-right",
-      "sequence": 7,
-      "createdAt": "2026-05-21T12:00:19.000Z",
+      "sequence": 9,
+      "createdAt": "2026-05-21T12:00:27.000Z",
       "provider": "claude",
-      "providerType": "assistant:thinking",
-      "providerId": "fixture-id-037",
+      "providerType": "content_block_delta",
+      "providerId": "fixture-id-011",
       "payload": {
-        "text": "Looking at the composition, I can see there are three phones: left, center, and right. The user says \"move the phone to the right\" - since the composition has multiple phones, I need to figure out which one they mean. \n\nLooking at the snapshot, I can see what appears to be just the center phone (the dashboard with Jam...",
+        "delta": "I can",
         "providerRefs": {
-          "createdAt": "2026-05-22T02:16:38.916Z",
+          "createdAt": "2026-05-23T23:08:12.703Z",
           "provider": "claude",
           "runId": "real-claude-phone-move-right",
           "requestId": "fixture-id-001",
           "turnId": null,
-          "itemId": "fixture-id-037",
-          "providerId": "fixture-id-037",
-          "providerType": "assistant:thinking",
-          "rawProviderMethod": "assistant:thinking",
-          "eventId": "real-claude-phone-move-right-event-080",
-          "sequence": 80
+          "itemId": "fixture-id-011",
+          "providerId": "fixture-id-011",
+          "providerType": "content_block_delta",
+          "rawProviderMethod": "content_block_delta",
+          "eventId": "real-claude-phone-move-right-event-028",
+          "sequence": 28
         }
       }
     },
     {
-      "id": "real-claude-phone-move-right-event-087",
+      "id": "real-claude-phone-move-right-event-062",
+      "type": "reasoning",
+      "agentRunId": "real-claude-phone-move-right",
+      "sequence": 10,
+      "createdAt": "2026-05-21T12:00:01.000Z",
+      "provider": "claude",
+      "providerType": "assistant:thinking",
+      "providerId": "fixture-id-028",
+      "payload": {
+        "text": "I can see the current state. Looking at the snapshot, the three phones are arranged with the center phone in the middle and the left and right phones fanning out to the sides. The user wants to move all the phones to the right.\n\nLooking at the CSS:\n- `.s3-stage` has `left: -40px`\n- `.s3-phone` has `left: 970px` as the...",
+        "providerRefs": {
+          "createdAt": "2026-05-23T23:08:25.774Z",
+          "provider": "claude",
+          "runId": "real-claude-phone-move-right",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-028",
+          "providerId": "fixture-id-028",
+          "providerType": "assistant:thinking",
+          "rawProviderMethod": "assistant:thinking",
+          "eventId": "real-claude-phone-move-right-event-062",
+          "sequence": 62
+        }
+      }
+    },
+    {
+      "id": "real-claude-phone-move-right-event-065",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-claude-phone-move-right",
+      "sequence": 11,
+      "createdAt": "2026-05-21T12:00:04.000Z",
+      "provider": "claude",
+      "providerType": "content_block_delta",
+      "providerId": "fixture-id-030",
+      "payload": {
+        "delta": "I can see all",
+        "providerRefs": {
+          "createdAt": "2026-05-23T23:08:25.777Z",
+          "provider": "claude",
+          "runId": "real-claude-phone-move-right",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-030",
+          "providerId": "fixture-id-030",
+          "providerType": "content_block_delta",
+          "rawProviderMethod": "content_block_delta",
+          "eventId": "real-claude-phone-move-right-event-065",
+          "sequence": 65
+        }
+      }
+    },
+    {
+      "id": "real-claude-phone-move-right-event-072",
       "type": "assistant_message",
       "agentRunId": "real-claude-phone-move-right",
-      "sequence": 8,
-      "createdAt": "2026-05-21T12:00:26.000Z",
+      "sequence": 12,
+      "createdAt": "2026-05-21T12:00:11.000Z",
+      "provider": "claude",
+      "providerType": "assistant",
+      "providerId": "fixture-id-033",
+      "payload": {
+        "text": "I can see all three phones are grouped on the stage. I'll shift the stage to the right by adjusting its position.",
+        "providerRefs": {
+          "createdAt": "2026-05-23T23:08:26.496Z",
+          "provider": "claude",
+          "runId": "real-claude-phone-move-right",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-033",
+          "providerId": "fixture-id-033",
+          "providerType": "assistant",
+          "rawProviderMethod": "assistant",
+          "eventId": "real-claude-phone-move-right-event-072",
+          "sequence": 72
+        }
+      }
+    },
+    {
+      "id": "real-claude-phone-move-right-event-074",
+      "type": "tool_start",
+      "agentRunId": "real-claude-phone-move-right",
+      "sequence": 13,
+      "createdAt": "2026-05-21T12:00:13.000Z",
+      "provider": "claude",
+      "providerType": "content_block_start",
+      "providerId": "fixture-id-034",
+      "payload": {
+        "toolCallId": "fixture-id-034",
+        "toolName": "Edit",
+        "input": {},
+        "inputStreaming": true,
+        "providerRefs": {
+          "createdAt": "2026-05-23T23:08:26.497Z",
+          "provider": "claude",
+          "runId": "real-claude-phone-move-right",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-034",
+          "providerId": "fixture-id-034",
+          "providerType": "content_block_start",
+          "rawProviderMethod": "content_block_start",
+          "eventId": "real-claude-phone-move-right-event-074",
+          "sequence": 74
+        }
+      }
+    },
+    {
+      "id": "real-claude-phone-move-right-event-076",
+      "type": "tool_update",
+      "agentRunId": "real-claude-phone-move-right",
+      "sequence": 14,
+      "createdAt": "2026-05-21T12:00:15.000Z",
+      "provider": "claude",
+      "providerType": "assistant:tool_use",
+      "providerId": "fixture-id-034",
+      "payload": {
+        "toolCallId": "fixture-id-034",
+        "toolName": "Edit",
+        "input": {
+          "replace_all": false,
+          "file_path": "/Users/motion/Ripple Projects/Fixture Project/compositions/app-showcase.html",
+          "old_string": "        [data-composition-id=\"app-showcase\"] .s3-stage {\n          position: absolute;\n          inset: 0;\n          left: -40px;\n          transform-origin: center center;\n        }",
+          "new_string": "        [data-composition-id=\"app-showcase\"] .s3-stage {\n          position: absolute;\n          inset: 0;\n          left: 160px;\n          transform-origin: center center;\n        }"
+        },
+        "inputAvailable": true,
+        "providerRefs": {
+          "createdAt": "2026-05-23T23:08:28.192Z",
+          "provider": "claude",
+          "runId": "real-claude-phone-move-right",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-034",
+          "providerId": "fixture-id-034",
+          "providerType": "assistant:tool_use",
+          "rawProviderMethod": "assistant:tool_use",
+          "eventId": "real-claude-phone-move-right-event-076",
+          "sequence": 76
+        }
+      }
+    },
+    {
+      "id": "real-claude-phone-move-right-event-079",
+      "type": "tool_end",
+      "agentRunId": "real-claude-phone-move-right",
+      "sequence": 15,
+      "createdAt": "2026-05-21T12:00:18.000Z",
+      "provider": "claude",
+      "providerType": "user:tool_result",
+      "providerId": "fixture-id-034",
+      "payload": {
+        "toolCallId": "fixture-id-034",
+        "toolName": "Edit",
+        "output": "The file /Users/motion/Ripple Projects/Fixture Project/compositions/app-showcase.html has been updated successfully.",
+        "status": "completed",
+        "providerRefs": {
+          "createdAt": "2026-05-23T23:08:28.235Z",
+          "provider": "claude",
+          "runId": "real-claude-phone-move-right",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-034",
+          "providerId": "fixture-id-034",
+          "providerType": "user:tool_result",
+          "rawProviderMethod": "user:tool_result",
+          "eventId": "real-claude-phone-move-right-event-079",
+          "sequence": 79
+        }
+      }
+    },
+    {
+      "id": "real-claude-phone-move-right-event-081",
+      "type": "tool_start",
+      "agentRunId": "real-claude-phone-move-right",
+      "sequence": 16,
+      "createdAt": "2026-05-21T12:00:20.000Z",
+      "provider": "claude",
+      "providerType": "content_block_start",
+      "providerId": "fixture-id-036",
+      "payload": {
+        "toolCallId": "fixture-id-036",
+        "toolName": "mcp__ripple_visual_context__ripple_snapshot",
+        "input": {},
+        "inputStreaming": true,
+        "providerRefs": {
+          "createdAt": "2026-05-23T23:08:31.008Z",
+          "provider": "claude",
+          "runId": "real-claude-phone-move-right",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-036",
+          "providerId": "fixture-id-036",
+          "providerType": "content_block_start",
+          "rawProviderMethod": "content_block_start",
+          "eventId": "real-claude-phone-move-right-event-081",
+          "sequence": 81
+        }
+      }
+    },
+    {
+      "id": "real-claude-phone-move-right-event-083",
+      "type": "tool_update",
+      "agentRunId": "real-claude-phone-move-right",
+      "sequence": 17,
+      "createdAt": "2026-05-21T12:00:22.000Z",
+      "provider": "claude",
+      "providerType": "assistant:tool_use",
+      "providerId": "fixture-id-036",
+      "payload": {
+        "toolCallId": "fixture-id-036",
+        "toolName": "mcp__ripple_visual_context__ripple_snapshot",
+        "input": {},
+        "inputAvailable": true,
+        "providerRefs": {
+          "createdAt": "2026-05-23T23:08:31.032Z",
+          "provider": "claude",
+          "runId": "real-claude-phone-move-right",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-036",
+          "providerId": "fixture-id-036",
+          "providerType": "assistant:tool_use",
+          "rawProviderMethod": "assistant:tool_use",
+          "eventId": "real-claude-phone-move-right-event-083",
+          "sequence": 83
+        }
+      }
+    },
+    {
+      "id": "real-claude-phone-move-right-event-086",
+      "type": "tool_end",
+      "agentRunId": "real-claude-phone-move-right",
+      "sequence": 18,
+      "createdAt": "2026-05-21T12:00:25.000Z",
+      "provider": "claude",
+      "providerType": "user:tool_result",
+      "providerId": "fixture-id-036",
+      "payload": {
+        "toolCallId": "fixture-id-036",
+        "toolName": "mcp__ripple_visual_context__ripple_snapshot",
+        "output": "Ripple visual context is attached as a native image.\n{\n  \"ok\": true,\n  \"type\": \"snapshot\",\n  \"artifact\": {\n    \"path\": \".ripple/visual-context/snapshots/snap_d3072b478724/current.png\",\n    \"mediaType\": \"image/png\",\n    \"bytes\": 162350\n  },\n  \"payload\": {\n    \"ok\": true,\n    \"type\": \"snapshot\",\n    \"snapshot\": {\n      ...",
+        "status": "completed",
+        "providerRefs": {
+          "createdAt": "2026-05-23T23:08:31.150Z",
+          "provider": "claude",
+          "runId": "real-claude-phone-move-right",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-036",
+          "providerId": "fixture-id-036",
+          "providerType": "user:tool_result",
+          "rawProviderMethod": "user:tool_result",
+          "eventId": "real-claude-phone-move-right-event-086",
+          "sequence": 86
+        }
+      }
+    },
+    {
+      "id": "real-claude-phone-move-right-event-088",
+      "type": "assistant_text_delta",
+      "agentRunId": "real-claude-phone-move-right",
+      "sequence": 19,
+      "createdAt": "2026-05-21T12:00:27.000Z",
+      "provider": "claude",
+      "providerType": "content_block_delta",
+      "providerId": "fixture-id-038",
+      "payload": {
+        "delta": "The",
+        "providerRefs": {
+          "createdAt": "2026-05-23T23:08:33.851Z",
+          "provider": "claude",
+          "runId": "real-claude-phone-move-right",
+          "requestId": "fixture-id-001",
+          "turnId": null,
+          "itemId": "fixture-id-038",
+          "providerId": "fixture-id-038",
+          "providerType": "content_block_delta",
+          "rawProviderMethod": "content_block_delta",
+          "eventId": "real-claude-phone-move-right-event-088",
+          "sequence": 88
+        }
+      }
+    },
+    {
+      "id": "real-claude-phone-move-right-event-097",
+      "type": "assistant_message",
+      "agentRunId": "real-claude-phone-move-right",
+      "sequence": 20,
+      "createdAt": "2026-05-21T12:00:36.000Z",
       "provider": "claude",
       "providerType": "assistant",
       "providerId": "fixture-id-042",
       "payload": {
-        "text": "The center phone sits at `left: 760px` in the CSS, with a stage offset of `-91px`, placing it slightly left of center. I'll move it to the right by increasing the base left position.",
+        "text": "The phones have shifted to the right — they're now sitting toward the right half of the frame with more open space on the left.",
         "providerRefs": {
-          "createdAt": "2026-05-22T02:16:39.794Z",
+          "createdAt": "2026-05-23T23:08:34.411Z",
           "provider": "claude",
           "runId": "real-claude-phone-move-right",
           "requestId": "fixture-id-001",
@@ -226,159 +569,17 @@
           "providerId": "fixture-id-042",
           "providerType": "assistant",
           "rawProviderMethod": "assistant",
-          "eventId": "real-claude-phone-move-right-event-087",
-          "sequence": 87
+          "eventId": "real-claude-phone-move-right-event-097",
+          "sequence": 97
         }
       }
     },
     {
-      "id": "real-claude-phone-move-right-event-089",
-      "type": "tool_start",
-      "agentRunId": "real-claude-phone-move-right",
-      "sequence": 9,
-      "createdAt": "2026-05-21T12:00:28.000Z",
-      "provider": "claude",
-      "providerType": "content_block_start",
-      "providerId": "fixture-id-043",
-      "payload": {
-        "toolCallId": "fixture-id-043",
-        "toolName": "Edit",
-        "input": {},
-        "inputStreaming": true,
-        "providerRefs": {
-          "createdAt": "2026-05-22T02:16:39.796Z",
-          "provider": "claude",
-          "runId": "real-claude-phone-move-right",
-          "requestId": "fixture-id-001",
-          "turnId": null,
-          "itemId": "fixture-id-043",
-          "providerId": "fixture-id-043",
-          "providerType": "content_block_start",
-          "rawProviderMethod": "content_block_start",
-          "eventId": "real-claude-phone-move-right-event-089",
-          "sequence": 89
-        }
-      }
-    },
-    {
-      "id": "real-claude-phone-move-right-event-094",
-      "type": "tool_end",
-      "agentRunId": "real-claude-phone-move-right",
-      "sequence": 10,
-      "createdAt": "2026-05-21T12:00:33.000Z",
-      "provider": "claude",
-      "providerType": "user:tool_result",
-      "providerId": "fixture-id-043",
-      "payload": {
-        "toolCallId": "fixture-id-043",
-        "toolName": "Edit",
-        "output": "The file /Users/motion/Ripple Projects/Fixture Project/index.html has been updated successfully.",
-        "status": "completed",
-        "providerRefs": {
-          "createdAt": "2026-05-22T02:16:41.353Z",
-          "provider": "claude",
-          "runId": "real-claude-phone-move-right",
-          "requestId": "fixture-id-001",
-          "turnId": null,
-          "itemId": "fixture-id-043",
-          "providerId": "fixture-id-043",
-          "providerType": "user:tool_result",
-          "rawProviderMethod": "user:tool_result",
-          "eventId": "real-claude-phone-move-right-event-094",
-          "sequence": 94
-        }
-      }
-    },
-    {
-      "id": "real-claude-phone-move-right-event-096",
-      "type": "tool_start",
-      "agentRunId": "real-claude-phone-move-right",
-      "sequence": 11,
-      "createdAt": "2026-05-21T12:00:35.000Z",
-      "provider": "claude",
-      "providerType": "content_block_start",
-      "providerId": "fixture-id-045",
-      "payload": {
-        "toolCallId": "fixture-id-045",
-        "toolName": "mcp__ripple_visual_context__ripple_snapshot",
-        "input": {},
-        "inputStreaming": true,
-        "providerRefs": {
-          "createdAt": "2026-05-22T02:16:45.330Z",
-          "provider": "claude",
-          "runId": "real-claude-phone-move-right",
-          "requestId": "fixture-id-001",
-          "turnId": null,
-          "itemId": "fixture-id-045",
-          "providerId": "fixture-id-045",
-          "providerType": "content_block_start",
-          "rawProviderMethod": "content_block_start",
-          "eventId": "real-claude-phone-move-right-event-096",
-          "sequence": 96
-        }
-      }
-    },
-    {
-      "id": "real-claude-phone-move-right-event-101",
-      "type": "tool_end",
-      "agentRunId": "real-claude-phone-move-right",
-      "sequence": 12,
-      "createdAt": "2026-05-21T12:00:40.000Z",
-      "provider": "claude",
-      "providerType": "user:tool_result",
-      "providerId": "fixture-id-045",
-      "payload": {
-        "toolCallId": "fixture-id-045",
-        "toolName": "mcp__ripple_visual_context__ripple_snapshot",
-        "output": "Ripple visual context is attached as a native image.\n{\n  \"ok\": true,\n  \"type\": \"snapshot\",\n  \"artifact\": {\n    \"path\": \".ripple/visual-context/snapshots/snap_ab2cb13d98b7/current.png\",\n    \"mediaType\": \"image/png\",\n    \"bytes\": 51877\n  },\n  \"payload\": {\n    \"ok\": true,\n    \"type\": \"snapshot\",\n    \"snapshot\": {\n      \"...",
-        "status": "completed",
-        "providerRefs": {
-          "createdAt": "2026-05-22T02:16:45.419Z",
-          "provider": "claude",
-          "runId": "real-claude-phone-move-right",
-          "requestId": "fixture-id-001",
-          "turnId": null,
-          "itemId": "fixture-id-045",
-          "providerId": "fixture-id-045",
-          "providerType": "user:tool_result",
-          "rawProviderMethod": "user:tool_result",
-          "eventId": "real-claude-phone-move-right-event-101",
-          "sequence": 101
-        }
-      }
-    },
-    {
-      "id": "real-claude-phone-move-right-event-108",
-      "type": "assistant_message",
-      "agentRunId": "real-claude-phone-move-right",
-      "sequence": 13,
-      "createdAt": "2026-05-21T12:00:47.000Z",
-      "provider": "claude",
-      "providerType": "assistant",
-      "providerId": "fixture-id-051",
-      "payload": {
-        "text": "The phone group has moved 100px to the right — it's now nearly centered in the frame. The left, center, and right phones all shift together since they share the same base position.",
-        "providerRefs": {
-          "createdAt": "2026-05-22T02:16:49.191Z",
-          "provider": "claude",
-          "runId": "real-claude-phone-move-right",
-          "requestId": "fixture-id-001",
-          "turnId": null,
-          "itemId": "fixture-id-051",
-          "providerId": "fixture-id-051",
-          "providerType": "assistant",
-          "rawProviderMethod": "assistant",
-          "eventId": "real-claude-phone-move-right-event-108",
-          "sequence": 108
-        }
-      }
-    },
-    {
-      "id": "real-claude-phone-move-right-event-111",
+      "id": "real-claude-phone-move-right-event-100",
       "type": "turn.completed",
       "agentRunId": "real-claude-phone-move-right",
-      "sequence": 14,
-      "createdAt": "2026-05-21T12:00:50.000Z",
+      "sequence": 21,
+      "createdAt": "2026-05-21T12:00:39.000Z",
       "provider": "claude",
       "providerType": "ripple:runtime",
       "providerId": "fixture-id-001",
@@ -389,31 +590,31 @@
         "providerRefs": {
           "requestId": "fixture-id-001",
           "turnId": null,
-          "createdAt": "2026-05-22T02:16:51.461Z",
+          "createdAt": "2026-05-23T23:08:36.648Z",
           "provider": "claude",
           "runId": "real-claude-phone-move-right",
           "itemId": "fixture-id-001",
           "providerId": "fixture-id-001",
           "providerType": "ripple:runtime",
           "rawProviderMethod": "ripple:runtime",
-          "eventId": "real-claude-phone-move-right-event-111",
-          "sequence": 111
+          "eventId": "real-claude-phone-move-right-event-100",
+          "sequence": 100
         }
       }
     },
     {
-      "id": "real-claude-phone-move-right-event-114",
+      "id": "real-claude-phone-move-right-event-103",
       "type": "status",
       "agentRunId": "real-claude-phone-move-right",
-      "sequence": 15,
-      "createdAt": "2026-05-21T12:00:53.000Z",
+      "sequence": 22,
+      "createdAt": "2026-05-21T12:00:42.000Z",
       "provider": "claude",
       "providerType": null,
       "providerId": null,
       "payload": {
         "status": "completed",
         "providerRefs": {
-          "createdAt": "2026-05-22T02:16:51.468Z",
+          "createdAt": "2026-05-23T23:08:36.653Z",
           "provider": "claude",
           "runId": "real-claude-phone-move-right",
           "requestId": "fixture-id-001",
@@ -422,8 +623,8 @@
           "providerId": null,
           "providerType": null,
           "rawProviderMethod": "status",
-          "eventId": "real-claude-phone-move-right-event-114",
-          "sequence": 114
+          "eventId": "real-claude-phone-move-right-event-103",
+          "sequence": 103
         }
       }
     }
@@ -463,7 +664,7 @@
         {
           "kind": "visual_check",
           "status": "pending",
-          "title": "Checking current frame",
+          "title": "Looking",
           "visual": "snapshot"
         }
       ],
@@ -471,13 +672,13 @@
     },
     {
       "name": "after tool_start content_block_start",
-      "eventCount": 4,
+      "eventCount": 5,
       "live": true,
       "expectedRows": [
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -490,13 +691,13 @@
     },
     {
       "name": "after tool_end user:tool_result",
-      "eventCount": 6,
+      "eventCount": 8,
       "live": true,
       "expectedRows": [
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -508,14 +709,38 @@
       "shimmerCount": 0
     },
     {
-      "name": "after reasoning assistant:thinking",
-      "eventCount": 7,
+      "name": "after reasoning content_block_delta",
+      "eventCount": 9,
       "live": true,
       "expectedRows": [
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "thinking",
+          "status": "pending",
+          "title": "Thinking"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after reasoning assistant:thinking",
+      "eventCount": 10,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -532,96 +757,67 @@
       "shimmerCount": 0
     },
     {
-      "name": "after assistant_message assistant",
-      "eventCount": 8,
-      "live": true,
-      "expectedRows": [
-        {
-          "kind": "visual_check",
-          "status": "done",
-          "title": "Checked current frame",
-          "visual": "snapshot"
-        },
-        {
-          "kind": "explored",
-          "status": "done",
-          "title": "Explored 1 file"
-        },
-        {
-          "kind": "reply",
-          "status": "pending",
-          "title": "Agent reply"
-        }
-      ],
-      "shimmerCount": 0
-    },
-    {
-      "name": "after tool_start content_block_start",
-      "eventCount": 9,
-      "live": true,
-      "expectedRows": [
-        {
-          "kind": "visual_check",
-          "status": "done",
-          "title": "Checked current frame",
-          "visual": "snapshot"
-        },
-        {
-          "kind": "explored",
-          "status": "done",
-          "title": "Explored 1 file"
-        },
-        {
-          "kind": "reply",
-          "status": "done",
-          "title": "Agent reply"
-        },
-        {
-          "kind": "motion_change",
-          "status": "pending",
-          "title": "Updating composition"
-        }
-      ],
-      "shimmerCount": 1
-    },
-    {
-      "name": "after tool_end user:tool_result",
-      "eventCount": 10,
-      "live": true,
-      "expectedRows": [
-        {
-          "kind": "visual_check",
-          "status": "done",
-          "title": "Checked current frame",
-          "visual": "snapshot"
-        },
-        {
-          "kind": "explored",
-          "status": "done",
-          "title": "Explored 1 file"
-        },
-        {
-          "kind": "reply",
-          "status": "done",
-          "title": "Agent reply"
-        },
-        {
-          "kind": "motion_change",
-          "status": "done",
-          "title": "Updated composition"
-        }
-      ],
-      "shimmerCount": 0
-    },
-    {
-      "name": "after tool_start content_block_start",
+      "name": "after assistant_text_delta content_block_delta",
       "eventCount": 11,
       "live": true,
       "expectedRows": [
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "reply",
+          "status": "pending",
+          "title": "Agent reply"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start content_block_start",
+      "eventCount": 13,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Looked",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "pending",
+          "title": "Editing"
+        }
+      ],
+      "shimmerCount": 1
+    },
+    {
+      "name": "after tool_end user:tool_result",
+      "eventCount": 15,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -637,12 +833,41 @@
         {
           "kind": "motion_change",
           "status": "done",
-          "title": "Updated composition"
+          "title": "Edited"
+        }
+      ],
+      "shimmerCount": 0
+    },
+    {
+      "name": "after tool_start content_block_start",
+      "eventCount": 16,
+      "live": true,
+      "expectedRows": [
+        {
+          "kind": "visual_check",
+          "status": "done",
+          "title": "Looked",
+          "visual": "snapshot"
+        },
+        {
+          "kind": "explored",
+          "status": "done",
+          "title": "Explored 1 file"
+        },
+        {
+          "kind": "reply",
+          "status": "done",
+          "title": "Agent reply"
+        },
+        {
+          "kind": "motion_change",
+          "status": "done",
+          "title": "Edited"
         },
         {
           "kind": "visual_check",
           "status": "pending",
-          "title": "Checking current frame",
+          "title": "Looking",
           "visual": "snapshot"
         }
       ],
@@ -650,13 +875,13 @@
     },
     {
       "name": "after tool_end user:tool_result",
-      "eventCount": 12,
+      "eventCount": 18,
       "live": true,
       "expectedRows": [
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -672,26 +897,26 @@
         {
           "kind": "motion_change",
           "status": "done",
-          "title": "Updated composition"
+          "title": "Edited"
         },
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         }
       ],
       "shimmerCount": 0
     },
     {
-      "name": "after assistant_message assistant",
-      "eventCount": 13,
+      "name": "after assistant_text_delta content_block_delta",
+      "eventCount": 19,
       "live": true,
       "expectedRows": [
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -707,12 +932,12 @@
         {
           "kind": "motion_change",
           "status": "done",
-          "title": "Updated composition"
+          "title": "Edited"
         },
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -725,13 +950,13 @@
     },
     {
       "name": "after turn.completed ripple:runtime",
-      "eventCount": 14,
+      "eventCount": 21,
       "live": true,
       "expectedRows": [
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -747,12 +972,12 @@
         {
           "kind": "motion_change",
           "status": "done",
-          "title": "Updated composition"
+          "title": "Edited"
         },
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {

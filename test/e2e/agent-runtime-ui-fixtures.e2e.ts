@@ -1,4 +1,4 @@
-import type { Page, TestInfo } from "@playwright/test"
+import type { Locator, Page, TestInfo } from "@playwright/test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "./helpers/ripple-electron"
@@ -194,6 +194,14 @@ async function attachHarnessScreenshot(
   })
 }
 
+async function openRuntimeActivityDisclosures(harness: Locator): Promise<void> {
+  const buttons = harness.locator("[data-agent-motion-runtime-feed='true'] [role='button']")
+  const count = await buttons.count()
+  for (let index = 0; index < count; index++) {
+    await buttons.nth(index).click()
+  }
+}
+
 test.describe("agent runtime UI real-session fixtures", () => {
   test("render through the chat message UI without raw runtime leakage @agent-ui", async ({
     page,
@@ -236,12 +244,10 @@ test.describe("agent runtime UI real-session fixtures", () => {
       {
         id: "codex-project-local-approval-hidden",
         fixtureFile: "real-codex-approval.json",
-        checkpoint: checkpointAfterEvent(approval, "approval_request"),
-        shimmerCount: 1,
+        checkpoint: checkpointWithRow(approval, "explored", "pending", "Exploring 1 file"),
         visibleText: [
-          "Edited composition",
           "Verified",
-          "Verifying",
+          "Exploring 1 file",
         ],
         hiddenText: ["Approval needed to check the project"],
       },
@@ -259,37 +265,79 @@ test.describe("agent runtime UI real-session fixtures", () => {
         id: "codex-phone-move-right-post-check-thinking",
         fixtureFile: "real-codex-phone-move-right.json",
         checkpoint: checkpointWithRows(codexPhoneMoveRight, [
-          { kind: "motion_change", status: "done", title: "Edited composition" },
+          { kind: "motion_change", status: "done", title: "Edited" },
           { kind: "verification", status: "done", title: "Verified" },
           { kind: "thinking", status: "pending", title: "Thinking" },
         ]),
         visibleText: [
-          "Explored 1 file, 1 search",
-          "Edited composition",
-          "Verified",
+          "Edited",
           "Thinking",
         ],
         hiddenText: ["Explored 3 files", "Approval needed"],
       },
       {
-        id: "claude-phone-move-project-local-approval-hidden",
+        id: "codex-phone-move-right-interleaved-final-reply",
+        fixtureFile: "real-codex-phone-move-right.json",
+        checkpoint: lastCheckpoint(codexPhoneMoveRight),
+        shimmerCount: 0,
+        visibleText: ["Edited", "Looked"],
+        hiddenText: ["Approval needed"],
+      },
+      {
+        id: "claude-phone-move-edit-visible",
         fixtureFile: "real-claude-phone-move.json",
-        checkpoint: checkpointWithRow(claudePhoneMove, "motion_change", "done", "Edited composition"),
+        checkpoint: checkpointWithRow(claudePhoneMove, "motion_change", "done", "Edited"),
         shimmerCount: 0,
         visibleText: [
           "Looked",
-          "Edited composition",
+          "Edited",
         ],
         hiddenText: ["Thinking", "Approval needed to update the project"],
+      },
+      {
+        id: "claude-phone-move-edit-then-look-order",
+        fixtureFile: "real-claude-phone-move.json",
+        checkpoint: checkpointWithRows(claudePhoneMove, [
+          { kind: "motion_change", status: "done", title: "Edited" },
+          { kind: "visual_check", status: "pending", title: "Looking" },
+        ]),
+        shimmerCount: 1,
+        visibleText: ["Edited, looking"],
+        hiddenText: ["Looking, edited", "Approval needed"],
+      },
+      {
+        id: "claude-phone-move-final-reply-preserved",
+        fixtureFile: "real-claude-phone-move.json",
+        checkpoint: lastCheckpoint(claudePhoneMove),
+        shimmerCount: 0,
+        visibleText: [
+          "The phones have shifted noticeably to the left",
+        ],
+        hiddenText: ["Generating", "Approval needed"],
+      },
+      {
+        id: "claude-phone-move-right-post-read-thinking",
+        fixtureFile: "real-claude-phone-move-right.json",
+        checkpoint: checkpointWithRows(claudePhoneMoveRight, [
+          { kind: "visual_check", status: "done", title: "Looked" },
+          { kind: "explored", status: "done", title: "Explored 1 file" },
+          { kind: "thinking", status: "pending", title: "Thinking" },
+        ]),
+        visibleText: [
+          "Looked",
+          "explored 1 file",
+          "Thinking",
+        ],
+        hiddenText: ["Approval needed"],
       },
       {
         id: "claude-phone-move-right-final-reply",
         fixtureFile: "real-claude-phone-move-right.json",
         checkpoint: lastCheckpoint(claudePhoneMoveRight),
         visibleText: [
-          "Edited composition",
-          "Looked",
-          "The phone group has moved 100px to the right",
+          "Edited",
+          "looked",
+          "The phones have shifted to the right",
         ],
         hiddenText: ["Approval needed"],
       },
@@ -331,6 +379,104 @@ test.describe("agent runtime UI real-session fixtures", () => {
 
       const visibleText = await harness.innerText()
       expect(visibleText, fixtureCase.id).not.toMatch(RAW_RUNTIME_LEAK_PATTERN)
+      expect(visibleText, fixtureCase.id).not.toContain(" · ")
+      expect(visibleText, fixtureCase.id).not.toContain("Edited composition")
+      await expect(
+        harness.locator("[data-agent-motion-visual-preview='true']"),
+        `${fixtureCase.id}: visual previews stay inside the closed umbrella`,
+      ).toHaveCount(0)
+      if (fixtureCase.id === "codex-phone-move-right-post-check-thinking") {
+        expect(visibleText, fixtureCase.id).toMatch(/Edited, verified\s+Thinking/)
+        expect(visibleText, fixtureCase.id).not.toContain("Thinking,")
+      }
+      if (fixtureCase.id === "claude-phone-move-right-post-read-thinking") {
+        expect(visibleText, fixtureCase.id).toMatch(/Looked, explored 1 file\s+Thinking/)
+        expect(visibleText, fixtureCase.id).not.toMatch(/Thinking\s+Looked, explored 1 file/)
+      }
+      if (fixtureCase.id === "claude-phone-move-edit-then-look-order") {
+        expect(visibleText, fixtureCase.id).toMatch(/Edited, looking/)
+        expect(visibleText, fixtureCase.id).not.toMatch(/Looking, edited/)
+      }
+      if (fixtureCase.id === "codex-phone-move-right-interleaved-final-reply") {
+        const transcriptSequence = await harness
+          .locator("[data-assistant-message-id] > div")
+          .first()
+          .evaluate((container) =>
+            Array.from(container.children)
+              .map((child) => {
+                if (
+                  child.matches("[data-agent-motion-runtime-feed='true']") ||
+                  child.querySelector("[data-agent-motion-runtime-feed='true']")
+                ) return "runtime"
+                if (
+                  child.matches("[data-part-type='text']") ||
+                  child.querySelector("[data-part-type='text']")
+                ) return "text"
+                return "other"
+              })
+              .filter((kind) => kind === "runtime" || kind === "text")
+          )
+        expect(
+          transcriptSequence.filter((kind) => kind === "runtime").length,
+          `${fixtureCase.id}: Codex runtime work should stay split across the transcript`,
+        ).toBeGreaterThan(1)
+        expect(
+          transcriptSequence.join(" "),
+          `${fixtureCase.id}: runtime rows should stay interleaved with agent text`,
+        ).toMatch(/runtime text runtime text runtime/)
+        await openRuntimeActivityDisclosures(harness)
+        const detailRows = harness.locator("[data-agent-motion-detail-row='true']")
+        const readWeight = await detailRows
+          .filter({ hasText: /^Read / })
+          .first()
+          .evaluate((node) => getComputedStyle(node).fontWeight)
+        const commandWeight = await detailRows
+          .filter({ hasText: /^Ran (git diff|hyperframes lint)/ })
+          .first()
+          .evaluate((node) => getComputedStyle(node).fontWeight)
+        expect(commandWeight, `${fixtureCase.id}: verification detail row weight`)
+          .toBe(readWeight)
+        await expect(harness.getByText(/^Ran git diff -- index\.html$/).first())
+          .toBeVisible()
+        await expect(harness.getByText(/^Ran hyperframes lint \.$/).first())
+          .toBeVisible()
+        await expect(
+          detailRows.filter({ hasText: /^Verified$/ }),
+          `${fixtureCase.id}: opened trail should use concrete verification details`,
+        ).toHaveCount(0)
+      }
+      if (fixtureCase.id === "codex-project-local-approval-hidden") {
+        await openRuntimeActivityDisclosures(harness)
+        await expect(harness.getByText("Read app-showcase.html").first())
+          .toBeVisible()
+        await expect(
+          harness.locator("[data-agent-motion-collapsible-activity='true']"),
+          `${fixtureCase.id}: opened umbrella should not contain nested umbrellas`,
+        ).toHaveCount(0)
+      }
+      if (fixtureCase.id === "claude-phone-move-right-final-reply") {
+        await openRuntimeActivityDisclosures(harness)
+        await expect(harness.locator("[data-agent-motion-visual-preview='true']").first())
+          .toBeVisible()
+        await expect(harness.getByText(/^Read app-showcase\.html$/).first())
+          .toBeVisible()
+        await expect(harness.getByText(/^Edited app-showcase\.html/).first())
+          .toBeVisible()
+        const detailRows = harness.locator("[data-agent-motion-detail-row='true']")
+        const lookedWeight = await detailRows
+          .filter({ hasText: /^Looked$/ })
+          .first()
+          .evaluate((node) => getComputedStyle(node).fontWeight)
+        const readWeight = await detailRows
+          .filter({ hasText: /^Read / })
+          .first()
+          .evaluate((node) => getComputedStyle(node).fontWeight)
+        expect(lookedWeight, `${fixtureCase.id}: visual detail row weight`).toBe(readWeight)
+        await expect(
+          harness.locator("[data-agent-motion-collapsible-activity='true']"),
+          `${fixtureCase.id}: opened umbrella should not contain nested umbrellas`,
+        ).toHaveCount(0)
+      }
 
       await attachHarnessScreenshot(page, testInfo, fixtureCase.id)
     }
@@ -376,7 +522,7 @@ test.describe("agent runtime UI real-session fixtures", () => {
         enabledButton: "Accept changes",
         visibleText: [
           "Lower the phones in the screen a lot.",
-          "Edited composition",
+          "Edited",
         ],
       },
       {

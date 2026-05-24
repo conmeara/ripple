@@ -30,7 +30,8 @@ export type MotionRuntimeActivityKind =
   | "motion_change"
   | "verification"
   | "status"
-  | "project_tool"
+  | "approval"
+  | "project_activity"
 
 export type MotionRuntimeActivityStatus = AgentRuntimeSummaryStatus
 
@@ -61,6 +62,7 @@ export interface MotionRuntimeActivityDetail {
   id: string
   label: string
   value: string
+  status?: MotionRuntimeActivityStatus
 }
 
 export interface MotionRuntimeAdvancedDetail {
@@ -89,6 +91,14 @@ export type MotionRuntimeTimelineEntry =
       part: AnyRecord
       index: number
     }
+
+export interface MotionRuntimeFeedCollection {
+  key: string
+  firstKey: string
+  lastKey: string
+  parts: AgentRuntimeSummaryPart[]
+  events: MotionRuntimeCanonicalEvent[]
+}
 
 export interface MotionRuntimeMetadataLike {
   inputTokens?: number
@@ -121,7 +131,8 @@ export type MotionRuntimeCanonicalItemType =
   | "visual_context"
   | "motion_edit"
   | "status"
-  | "project_tool"
+  | "approval"
+  | "project_activity"
 
 export type MotionRuntimeCanonicalStreamKind =
   | "reasoning_summary"
@@ -501,6 +512,46 @@ function verificationSubtitle(part: AnyRecord): string {
   return ""
 }
 
+function stripOuterShellQuotes(value: string): string {
+  const trimmed = value.trim()
+  if (trimmed.length < 2) return trimmed
+  const quote = trimmed[0]
+  if ((quote !== "'" && quote !== "\"") || trimmed.at(-1) !== quote) return trimmed
+  return trimmed.slice(1, -1).trim()
+}
+
+function displayCommandForDetail(command: string): string {
+  let visibleCommand = command.trim()
+  const shellMatch = visibleCommand.match(/^(?:\/bin\/)?(?:zsh|bash|sh)\s+-lc\s+([\s\S]+)$/)
+  if (shellMatch?.[1]) {
+    visibleCommand = stripOuterShellQuotes(shellMatch[1])
+  }
+  visibleCommand = visibleCommand
+    .replace(/\/Users\/[^\s'"]+/g, (path) => basename(path) ?? "local file")
+    .replace(/\/private\/(?:tmp|var)\/[^\s'"]+/g, (path) => basename(path) ?? "temporary file")
+    .replace(/\s+/g, " ")
+    .trim()
+  return truncate(visibleCommand, 120)
+}
+
+function verificationDetailLabel(
+  part: AnyRecord,
+  status: MotionRuntimeActivityStatus,
+): string {
+  const command = commandForPart(part) ?? ""
+  const normalizedCommand = command.toLowerCase()
+  if (command.trim()) return `Ran ${displayCommandForDetail(command)}`
+  if (status === "error") return verificationTitle(part, status)
+  if (isChangeReviewCommand(normalizedCommand)) return "Reviewed changes"
+  if (/\bexport\b/.test(normalizedCommand)) {
+    return status === "pending" ? "Preparing export" : "Prepared export"
+  }
+  if (/\brender\b/.test(normalizedCommand)) {
+    return status === "pending" ? "Rendering preview" : "Rendered preview"
+  }
+  return status === "pending" ? "Checking project" : "Checked project"
+}
+
 function addAdvancedDetail(
   details: MotionRuntimeAdvancedDetail[],
   part: AnyRecord,
@@ -518,7 +569,9 @@ function addAdvancedDetail(
 export function isMotionRuntimeActivityPart(part: AnyRecord): boolean {
   if (!part?.type || part.type === "step-start" || part.type === "tool-TaskOutput") return false
   if (part.type === "data-agent-runtime") {
-    return part.data?.kind === "status" || part.data?.kind === "file_change"
+    return part.data?.kind === "status" ||
+      part.data?.kind === "file_change" ||
+      (part.data?.kind === "approval" && partStatus(part) !== "blocked")
   }
   if (TECHNICAL_TOOL_TYPES.has(part.type)) return true
   if (isMcpToolPart(part)) return true
@@ -537,10 +590,12 @@ function canonicalItemTypeForPart(part: AnyRecord): MotionRuntimeCanonicalItemTy
   }
   if (isExploringPart(part)) return "project_inspection"
   if (part.type === "data-agent-runtime") {
-    return part.data?.kind === "file_change" ? "file_change" : "status"
+    if (part.data?.kind === "file_change") return "file_change"
+    if (part.data?.kind === "approval") return "approval"
+    return "status"
   }
-  if (isMcpToolPart(part)) return "project_tool"
-  return "project_tool"
+  if (isMcpToolPart(part)) return "project_activity"
+  return "project_activity"
 }
 
 function canonicalEventTypeForPart(part: AnyRecord): MotionRuntimeCanonicalEventType {
@@ -638,6 +693,7 @@ export function buildMotionRuntimeCanonicalEvents(input: {
 }
 
 function stateForCanonicalStatus(status: MotionRuntimeActivityStatus): string {
+  if (status === "blocked") return "input-available"
   if (status === "pending") return "input-available"
   if (status === "error") return "output-error"
   return "output-available"
@@ -655,13 +711,17 @@ function syntheticPartForCanonicalEvent(event: MotionRuntimeCanonicalEvent): Any
     }
   }
 
-  if (event.itemType === "status" || event.itemType === "file_change") {
+  if (event.itemType === "status" || event.itemType === "file_change" || event.itemType === "approval") {
     return {
       id: event.itemId,
       type: "data-agent-runtime",
       state,
       data: event.data ?? {
-        kind: event.itemType === "file_change" ? "file_change" : "status",
+        kind: event.itemType === "file_change"
+          ? "file_change"
+          : event.itemType === "approval"
+            ? "approval"
+            : "status",
         label: event.label,
         payload: event.output,
       },
@@ -702,7 +762,9 @@ function canonicalEventStatus(
   event: MotionRuntimeCanonicalEvent,
   options: { allowPending?: boolean } = {},
 ): MotionRuntimeActivityStatus {
+  if (event.status === "blocked") return "blocked"
   if (event.status === "error") return "error"
+  if (event.status === "cancelled") return "cancelled"
   if (event.status === "pending" || event.preliminary === true) {
     return options.allowPending === false ? "done" : "pending"
   }
@@ -719,7 +781,7 @@ function isReasoningEvent(event: MotionRuntimeCanonicalEvent): boolean {
 
 function isMotionRuntimeActivityEvent(event: MotionRuntimeCanonicalEvent): boolean {
   if (isMotionRuntimeActivityPart(partForCanonicalEvent(event))) return true
-  return event.itemType === "project_tool"
+  return event.itemType === "project_activity"
 }
 
 export function hasMotionRuntimeActivityParts(parts: AnyRecord[]): boolean {
@@ -833,18 +895,18 @@ function designerFacingThoughtHeadline(value: string): string {
   const normalized = value.toLowerCase()
   if (normalized.includes("hyperframes")) {
     if (normalized.includes("validat") || normalized.includes("lint")) {
-      return "Checking project"
+      return "Verifying"
     }
     if (normalized.includes("command")) {
-      return "Checking project tools"
+      return "Verifying"
     }
   }
   if (/\bcss\b|\bjs\b|\bjavascript\b/.test(normalized)) {
     if (normalized.includes("adjust") || normalized.includes("position")) {
-      return "Adjusting composition"
+      return "Editing"
     }
     if (normalized.includes("inspect")) {
-      return "Checking layout"
+      return "Looking"
     }
   }
   return value
@@ -1089,14 +1151,67 @@ function editSubtitle(_parts: AnyRecord[], _status: MotionRuntimeActivityStatus)
   return ""
 }
 
-function editDetails(parts: AnyRecord[], index: number): MotionRuntimeActivityDetail[] {
+function editDetails(
+  parts: AnyRecord[],
+  index: number,
+  status: MotionRuntimeActivityStatus,
+): MotionRuntimeActivityDetail[] {
   return parts.map((part, offset) => {
     const fileName = editFileName(part) ?? "file"
     const stats = diffStatsForEdit(part)
     return {
       id: `${partId(part, index + offset, "edit-detail")}-file`,
-      label: stats ? `${fileName} ${stats}` : fileName,
+      label: `Editing ${fileName}`,
+      value: stats,
+      status,
+    }
+  })
+}
+
+function foldPriorEvidenceForPendingEdit(
+  items: MotionRuntimeActivityItem[],
+): MotionRuntimeActivityDetail[] {
+  const folded: MotionRuntimeActivityDetail[] = []
+  while (items.length > 0) {
+    const item = items.at(-1)
+    if (!item || (item.kind !== "visual_check" && item.kind !== "explored")) break
+    items.pop()
+    if (item.kind === "visual_check") {
+      const label = item.visual?.kind === "frame_sheet"
+        ? "Looked frame sheet"
+        : "Looked current frame"
+      folded.unshift({
+        id: `${item.id}-folded-detail`,
+        label,
+        value: "",
+        status: "done",
+      })
+      continue
+    }
+    const details = item.details?.length
+      ? item.details
+      : [{
+        id: `${item.id}-folded-detail`,
+        label: item.title,
+        value: item.subtitle,
+      }]
+    folded.unshift(...details.map((detail) => ({
+      ...detail,
+      status: "done" as MotionRuntimeActivityStatus,
+    })))
+  }
+  return folded
+}
+
+function settledEditDetails(parts: AnyRecord[], index: number): MotionRuntimeActivityDetail[] {
+  return parts.map((part, offset) => {
+    const fileName = editFileName(part) ?? "file"
+    const stats = diffStatsForEdit(part)
+    return {
+      id: `${partId(part, index + offset, "edit-detail")}-file`,
+      label: stats ? `Edited ${fileName}` : `Edited ${fileName}`,
       value: "",
+      ...(stats ? { value: stats } : {}),
     }
   })
 }
@@ -1234,6 +1349,23 @@ export function buildMotionRuntimeTimeline(input: {
 
   flushRuntime()
   return settleStalePendingTimelineEvents(entries)
+}
+
+export function collectMotionRuntimeFeed(
+  timeline: MotionRuntimeTimelineEntry[],
+): MotionRuntimeFeedCollection | null {
+  const runtimeEntries = timeline.filter((entry) => entry.kind === "runtime")
+  const firstEntry = runtimeEntries[0]
+  const lastEntry = runtimeEntries[runtimeEntries.length - 1]
+  if (!firstEntry || !lastEntry) return null
+
+  return {
+    key: `runtime-feed-${runtimeEntries.map((entry) => entry.key).join("--")}`,
+    firstKey: firstEntry.key,
+    lastKey: lastEntry.key,
+    parts: runtimeEntries.flatMap((entry) => entry.parts),
+    events: runtimeEntries.flatMap((entry) => entry.events),
+  }
 }
 
 export function shouldHideMotionRuntimeInterimPart(input: {
@@ -1436,6 +1568,9 @@ export function buildMotionRuntimeActivity(input: {
       const groupParts = group.map(partForCanonicalEvent)
       const allowPending = allowPendingForActivityAt(events, cursor - 1, input.projectPath)
       const status = group.some((item) => canonicalEventStatus(item, { allowPending }) === "pending") ? "pending" : "done"
+      const foldedContextDetails = status === "pending"
+        ? foldPriorEvidenceForPendingEdit(items)
+        : []
       items.push({
         id: `change-${partId(part, startIndex, "change")}`,
         kind: "motion_change",
@@ -1443,7 +1578,14 @@ export function buildMotionRuntimeActivity(input: {
         subtitle: editSubtitle(groupParts, status),
         status,
         tags: groupParts.some((item) => item.type === "tool-Write") ? ["created", "saved"] : ["saved"],
-        details: editDetails(groupParts, startIndex),
+        details: [
+          ...foldedContextDetails,
+          ...(status === "pending"
+            ? editDetails(groupParts, startIndex, status)
+            : settledEditDetails(groupParts, startIndex)),
+        ],
+        collapsible: true,
+        defaultExpanded: false,
       })
       for (const [groupIndex, item] of group.entries()) {
         const groupPart = partForCanonicalEvent(item)
@@ -1456,21 +1598,52 @@ export function buildMotionRuntimeActivity(input: {
     }
 
     if (part.type === "tool-Bash") {
-      const status = canonicalEventStatus(event, {
-        allowPending: allowPendingForActivityAt(events, index, input.projectPath),
-      })
+      const startIndex = index
+      const group: MotionRuntimeCanonicalEvent[] = [event]
+      let cursor = index + 1
+      while (
+        cursor < events.length &&
+        partForCanonicalEvent(events[cursor]).type === "tool-Bash" &&
+        !isExploringEvent(events[cursor])
+      ) {
+        group.push(events[cursor])
+        cursor += 1
+      }
+      index = cursor - 1
+      const groupParts = group.map(partForCanonicalEvent)
+      const allowPending = allowPendingForActivityAt(events, cursor - 1, input.projectPath)
+      const groupStatuses = group.map((item) => canonicalEventStatus(item, { allowPending }))
+      const status = groupStatuses.includes("error")
+        ? "error"
+        : groupStatuses.includes("pending")
+          ? "pending"
+          : "done"
+      const titlePart =
+        status === "error"
+          ? groupParts.find((item, groupIndex) => groupStatuses[groupIndex] === "error") ?? part
+          : groupParts[0] ?? part
+      const subtitlePart =
+        groupParts.find((item) => verificationSubtitle(item)) ?? titlePart
       items.push({
-        id: `verify-${partId(part, index, "verify")}`,
+        id: `verify-${partId(titlePart, startIndex, "verify")}`,
         kind: "verification",
-        title: verificationTitle(part, status),
-        subtitle: verificationSubtitle(part),
+        title: verificationTitle(titlePart, status),
+        subtitle: verificationSubtitle(subtitlePart),
         status,
         tags: status === "error" ? ["needs attention"] : ["ready"],
+        details: groupParts.map((groupPart, groupIndex) => ({
+          id: `${partId(groupPart, startIndex + groupIndex, "verify-detail")}-activity`,
+          label: verificationDetailLabel(groupPart, groupStatuses[groupIndex] ?? status),
+          value: "",
+          status: groupStatuses[groupIndex] ?? status,
+        })),
       })
-      addAdvancedDetail(advancedDetails, part, index, "Command", {
-        command: commandForPart(part),
-        output: part.output,
-      })
+      for (const [groupIndex, groupPart] of groupParts.entries()) {
+        addAdvancedDetail(advancedDetails, groupPart, startIndex + groupIndex, "Command", {
+          command: commandForPart(groupPart),
+          output: groupPart.output,
+        })
+      }
       continue
     }
 
@@ -1514,8 +1687,8 @@ export function buildMotionRuntimeActivity(input: {
 
     items.push({
       id: `project-op-${index}`,
-      kind: "project_tool",
-      title: canonicalEventStatus(event) === "pending" ? "Working on project" : "Updated project",
+      kind: "project_activity",
+      title: canonicalEventStatus(event) === "pending" ? "Working on project" : "Worked on project",
       subtitle: "",
       status: canonicalEventStatus(event),
       tags: [],

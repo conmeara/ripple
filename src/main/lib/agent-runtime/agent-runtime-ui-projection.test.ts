@@ -295,6 +295,90 @@ describe("AgentRuntimeUIProjector", () => {
     ])
   })
 
+  test("does not duplicate Claude full-message snapshots when their provider id differs from streamed deltas", () => {
+    const projection = buildAgentRuntimeAssistantProjection({
+      fallbackText: "",
+      events: [
+        {
+          type: "assistant_text_delta",
+          providerType: "content_block_delta",
+          providerId: "delta-1",
+          payload: { delta: "The phones have shifted left." },
+        },
+        {
+          type: "assistant_message",
+          providerType: "assistant",
+          providerId: "message-final-1",
+          payload: { text: "The phones have shifted left." },
+        },
+      ],
+    })
+
+    expect(projection.parts).toEqual([
+      expect.objectContaining({
+        type: "text",
+        text: "The phones have shifted left.",
+        state: "done",
+      }),
+    ])
+  })
+
+  test("keeps the suffix when Claude upgrades a streamed partial into a full message", () => {
+    const projection = buildAgentRuntimeAssistantProjection({
+      fallbackText: "",
+      events: [
+        {
+          type: "assistant_text_delta",
+          providerType: "content_block_delta",
+          providerId: "delta-1",
+          payload: { delta: "The phones have" },
+        },
+        {
+          type: "assistant_message",
+          providerType: "assistant",
+          providerId: "message-final-1",
+          payload: { text: "The phones have shifted left." },
+        },
+      ],
+    })
+
+    expect(projection.parts).toEqual([
+      expect.objectContaining({
+        type: "text",
+        text: "The phones have shifted left.",
+        state: "done",
+      }),
+    ])
+  })
+
+  test("keeps the suffix when Claude upgrades a same-id streamed partial into a full message", () => {
+    const projection = buildAgentRuntimeAssistantProjection({
+      fallbackText: "",
+      events: [
+        {
+          type: "assistant_text_delta",
+          providerType: "content_block_delta",
+          providerId: "message-1",
+          payload: { delta: "The phones have" },
+        },
+        {
+          type: "assistant_message",
+          providerType: "assistant",
+          providerId: "message-1",
+          payload: { text: "The phones have shifted left." },
+        },
+      ],
+    })
+
+    expect(projection.parts).toEqual([
+      expect.objectContaining({
+        type: "text",
+        text: "The phones have shifted left.",
+        state: "done",
+      }),
+    ])
+  })
+
   test("keeps streamed Claude narration visible before following tool work", () => {
     const projection = buildAgentRuntimeAssistantProjection({
       fallbackText: "",
@@ -456,7 +540,7 @@ describe("AgentRuntimeUIProjector", () => {
       expect.objectContaining({
         kind: "motion_edit",
         status: "done",
-        title: "Edited composition",
+        title: "Edited",
         providerRefs: [
           expect.objectContaining({
             eventId: "event-file-change",
@@ -482,7 +566,7 @@ describe("AgentRuntimeUIProjector", () => {
     ])
 
     for (const summary of summaries) {
-      expect(summary.title).not.toMatch(/Bash|Edit|Write|\/Users|src\/index|codex|claude/i)
+      expect(summary.title).not.toMatch(/\bBash\b|\bEdit\b|\bWrite\b|\/Users|src\/index|codex|claude/i)
     }
   })
 

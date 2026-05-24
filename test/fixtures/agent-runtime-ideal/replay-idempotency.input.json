@@ -14,7 +14,7 @@
         "toolName": "Edit",
         "toolCallId": "edit-1",
         "input": {
-          "file_path": "/Users/example/Ripple/test-project/src/showcase.tsx"
+          "file_path": "/Users/example/Ripple/test-project/app-showcase.html"
         }
       }
     },
@@ -25,10 +25,10 @@
       "provider": "codex",
       "providerId": "change-1",
       "payload": {
-        "path": "/Users/example/Ripple/test-project/src/showcase.tsx",
+        "path": "/Users/example/Ripple/test-project/app-showcase.html",
         "additions": 16,
         "removals": 9,
-        "diff": "diff --git a/src/showcase.tsx b/src/showcase.tsx"
+        "diff": "diff --git a/app-showcase.html b/app-showcase.html"
       }
     },
     {

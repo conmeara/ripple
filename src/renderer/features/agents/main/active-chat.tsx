@@ -212,7 +212,9 @@ import { agentChatStore } from "../stores/agent-chat-store"
 import { EMPTY_QUEUE, useMessageQueueStore } from "../stores/message-queue-store"
 import {
   findRollbackTargetSdkUuidForUserIndex,
+  getMessagesSnapshotForSubChat,
   isRollingBackAtom,
+  preserveDroppedAssistantTailFromSnapshots,
   syncMessagesWithStatusAtom
 } from "../stores/message-store"
 import { clearSubChatRuntimeCaches } from "../stores/sub-chat-runtime-cleanup"
@@ -2072,6 +2074,7 @@ const ChatViewInner = memo(function ChatViewInner({
   const isInitializingScrollRef = useRef(false) // Flag to ignore scroll events during scroll initialization (content loading)
   const scrollInitializedRef = useRef(false) // Track whether initial scroll setup has run for this pane
   const hasUnapprovedPlanRef = useRef(false) // Track unapproved plan state for scroll initialization
+  const manualDisclosureScrollRef = useRef<{ scrollTop: number; until: number } | null>(null)
   const chatContainerRef = useRef<HTMLElement | null>(null)
 
   // Cleanup isAutoScrollingRef on unmount to prevent stuck state
@@ -2080,6 +2083,32 @@ const ChatViewInner = memo(function ChatViewInner({
       isAutoScrollingRef.current = false
     }
   }, [])
+
+  useEffect(() => {
+    const container = chatContainerRef.current
+    if (!container) return
+
+    const handleManualDisclosureToggle = (event: Event) => {
+      const detail = (event as CustomEvent<{ scrollTop?: number }>).detail
+      manualDisclosureScrollRef.current = {
+        scrollTop: typeof detail?.scrollTop === "number" ? detail.scrollTop : container.scrollTop,
+        until: performance.now() + 500,
+      }
+      shouldAutoScrollRef.current = false
+      isAutoScrollingRef.current = false
+    }
+
+    container.addEventListener(
+      "ripple:manual-disclosure-toggle",
+      handleManualDisclosureToggle,
+    )
+    return () => {
+      container.removeEventListener(
+        "ripple:manual-disclosure-toggle",
+        handleManualDisclosureToggle,
+      )
+    }
+  }, [isVisiblePane, subChatId])
 
   const saveScrollPosition = useCallback(() => {
     // Skip cache writes for panes that never completed initial scroll setup.
@@ -3843,6 +3872,25 @@ const ChatViewInner = memo(function ChatViewInner({
       const newContentHeight = contentWrapper?.getBoundingClientRect().height ?? 0
       if (newContentHeight === lastContentHeight) return
       lastContentHeight = newContentHeight
+
+      const manualDisclosure = manualDisclosureScrollRef.current
+      if (manualDisclosure) {
+        if (performance.now() <= manualDisclosure.until) {
+          const preservedScrollTop = manualDisclosure.scrollTop
+          requestAnimationFrame(() => {
+            container.scrollTop = preservedScrollTop
+            requestAnimationFrame(() => {
+              container.scrollTop = preservedScrollTop
+              if (manualDisclosureScrollRef.current === manualDisclosure) {
+                manualDisclosureScrollRef.current = null
+              }
+            })
+          })
+          prevScrollHeight = container.scrollHeight
+          return
+        }
+        manualDisclosureScrollRef.current = null
+      }
 
       if (shouldAutoScrollRef.current) {
         // Auto-scroll to bottom as content grows
@@ -6801,7 +6849,10 @@ Make sure to preserve all functionality from both branches when resolving confli
         ? finishedMessages
         : (chat as any)?.messages
       if (!Array.isArray(latestMessages)) return
-      const latestMessagesJson = JSON.stringify(latestMessages)
+      const liveMessages = Array.isArray((chat as any)?.messages)
+        ? (chat as any).messages
+        : []
+      const storedMessages = getMessagesSnapshotForSubChat(subChatId)
 
       utils.agents.getAgentChat.setData({ chatId }, (old: any) => {
         if (!old?.subChats || !Array.isArray(old.subChats)) return old
@@ -6810,7 +6861,20 @@ Make sure to preserve all functionality from both branches when resolving confli
         const subChats = old.subChats.map((sc: any) => {
           if (sc.id !== subChatId) return sc
           found = true
-          return { ...sc, messages: latestMessagesJson }
+          let previousMessages: any[] = []
+          if (typeof sc.messages === "string" && sc.messages.trim()) {
+            try {
+              const parsed = JSON.parse(sc.messages)
+              if (Array.isArray(parsed)) previousMessages = parsed
+            } catch {
+              previousMessages = []
+            }
+          }
+          const messages = preserveDroppedAssistantTailFromSnapshots(
+            latestMessages,
+            [storedMessages, liveMessages, previousMessages],
+          )
+          return { ...sc, messages: JSON.stringify(messages) }
         })
 
         return found ? { ...old, subChats } : old

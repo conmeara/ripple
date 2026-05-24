@@ -819,7 +819,7 @@
         {
           "kind": "visual_check",
           "status": "pending",
-          "title": "Checking current frame",
+          "title": "Looking",
           "visual": "snapshot"
         }
       ],
@@ -833,7 +833,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         }
       ],
@@ -847,7 +847,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -866,7 +866,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -890,7 +890,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -914,7 +914,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -938,7 +938,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -962,7 +962,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -986,7 +986,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -1015,7 +1015,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -1044,7 +1044,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -1078,7 +1078,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -1112,7 +1112,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -1138,7 +1138,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Checked project"
+          "title": "Verified"
         }
       ],
       "shimmerCount": 0
@@ -1151,7 +1151,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -1177,7 +1177,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Checked project"
+          "title": "Verified"
         },
         {
           "kind": "thinking",
@@ -1195,7 +1195,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -1221,7 +1221,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Checked project"
+          "title": "Verified"
         },
         {
           "kind": "reply",
@@ -1239,7 +1239,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -1265,7 +1265,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Checked project"
+          "title": "Verified"
         },
         {
           "kind": "reply",
@@ -1275,7 +1275,7 @@
         {
           "kind": "motion_change",
           "status": "pending",
-          "title": "Updating composition"
+          "title": "Editing"
         }
       ],
       "shimmerCount": 1
@@ -1288,7 +1288,7 @@
         {
           "kind": "visual_check",
           "status": "done",
-          "title": "Checked current frame",
+          "title": "Looked",
           "visual": "snapshot"
         },
         {
@@ -1314,7 +1314,7 @@
         {
           "kind": "verification",
           "status": "done",
-          "title": "Checked project"
+          "title": "Verified"
         },
         {
           "kind": "reply",
@@ -1324,7 +1324,7 @@
         {
           "kind": "motion_change",
           "status": "done",
-          "title": "Updated composition"
+          "title": "Edited"
         }
       ],
       "shimmerCount": 0

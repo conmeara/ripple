@@ -24,6 +24,154 @@ export interface Message {
   createdAt?: Date
 }
 
+function messageHasContent(message: Pick<Message, "parts"> & Record<string, any>): boolean {
+  if (typeof message.content === "string" && message.content.trim()) return true
+  return Array.isArray(message.parts) && message.parts.length > 0
+}
+
+function isTextPartWithContent(part: MessagePart | undefined): boolean {
+  return part?.type === "text" && typeof part.text === "string" && part.text.trim().length > 0
+}
+
+function messageHasVisibleAssistantText(message: Pick<Message, "parts"> & Record<string, any>): boolean {
+  if (typeof message.content === "string" && message.content.trim()) return true
+  return Array.isArray(message.parts) && message.parts.some(isTextPartWithContent)
+}
+
+function nonTextPartRestoreKey(part: MessagePart): string | null {
+  if (part.type === "text") return null
+  if (typeof part.id === "string" && part.id.trim()) return `${part.type}:id:${part.id}`
+  if (typeof part.toolCallId === "string" && part.toolCallId.trim()) {
+    return `${part.type}:tool:${part.toolCallId}`
+  }
+  return null
+}
+
+function restoreTextPartsInOrder(
+  incomingParts: MessagePart[],
+  previousParts: MessagePart[],
+): MessagePart[] {
+  const previousTextParts = previousParts.filter(isTextPartWithContent)
+  if (previousTextParts.length === 0) return incomingParts
+
+  const incomingIndexesByKey = new Map<string, number[]>()
+  incomingParts.forEach((part, index) => {
+    const key = nonTextPartRestoreKey(part)
+    if (!key) return
+    const indexes = incomingIndexesByKey.get(key) ?? []
+    indexes.push(index)
+    incomingIndexesByKey.set(key, indexes)
+  })
+
+  if (incomingIndexesByKey.size === 0) {
+    return [...incomingParts, ...previousTextParts]
+  }
+
+  const textPartsBeforeIncomingIndex = new Map<number, MessagePart[]>()
+  let pendingTextParts: MessagePart[] = []
+  let matchedRuntimeAnchor = false
+
+  for (const previousPart of previousParts) {
+    if (isTextPartWithContent(previousPart)) {
+      pendingTextParts.push(previousPart)
+      continue
+    }
+
+    const key = nonTextPartRestoreKey(previousPart)
+    const incomingIndexes = key ? incomingIndexesByKey.get(key) : undefined
+    const incomingIndex = incomingIndexes?.shift()
+    if (incomingIndex === undefined) continue
+
+    matchedRuntimeAnchor = true
+    if (pendingTextParts.length === 0) continue
+
+    const textParts = textPartsBeforeIncomingIndex.get(incomingIndex) ?? []
+    textParts.push(...pendingTextParts)
+    textPartsBeforeIncomingIndex.set(incomingIndex, textParts)
+    pendingTextParts = []
+  }
+
+  if (!matchedRuntimeAnchor) {
+    return [...incomingParts, ...previousTextParts]
+  }
+
+  const restoredParts: MessagePart[] = []
+  incomingParts.forEach((part, index) => {
+    const textParts = textPartsBeforeIncomingIndex.get(index)
+    if (textParts) restoredParts.push(...textParts)
+    restoredParts.push(part)
+  })
+  restoredParts.push(...pendingTextParts)
+  return restoredParts
+}
+
+function restoreAssistantTextById<T extends Pick<Message, "id" | "role"> & Record<string, any>>(
+  incomingMessages: T[],
+  previousMessages: T[],
+): T[] {
+  if (incomingMessages.length === 0 || previousMessages.length === 0) return incomingMessages
+
+  const previousById = new Map(previousMessages.map((message) => [message.id, message]))
+  let changed = false
+  const restoredMessages = incomingMessages.map((message) => {
+    if (message.role !== "assistant" || messageHasVisibleAssistantText(message)) {
+      return message
+    }
+
+    const previous = previousById.get(message.id)
+    if (!previous || previous.role !== "assistant" || !messageHasVisibleAssistantText(previous)) {
+      return message
+    }
+
+    changed = true
+    const previousParts = Array.isArray(previous.parts) ? previous.parts : []
+    const incomingParts = Array.isArray(message.parts) ? message.parts : []
+    const restoredParts = restoreTextPartsInOrder(incomingParts, previousParts)
+    return {
+      ...previous,
+      ...message,
+      ...(typeof message.content === "string" && message.content.trim()
+        ? { content: message.content }
+        : typeof previous.content === "string" && previous.content.trim()
+          ? { content: previous.content }
+          : {}),
+      parts: restoredParts.length > 0 ? restoredParts : message.parts,
+    }
+  })
+
+  return changed ? restoredMessages : incomingMessages
+}
+
+export function preserveDroppedAssistantTail<T extends Pick<Message, "id" | "role"> & Record<string, any>>(
+  incomingMessages: T[],
+  previousMessages: T[],
+): T[] {
+  const messagesWithRestoredText = restoreAssistantTextById(incomingMessages, previousMessages)
+  if (incomingMessages.length === 0) return incomingMessages
+  if (previousMessages.length <= messagesWithRestoredText.length) return messagesWithRestoredText
+  if (!messagesWithRestoredText.every((message, index) => message.id === previousMessages[index]?.id)) {
+    return messagesWithRestoredText
+  }
+
+  const droppedTail = previousMessages.slice(messagesWithRestoredText.length)
+  const shouldRestore =
+    droppedTail.length > 0 &&
+    droppedTail.every((message) => message.role === "assistant") &&
+    droppedTail.some(messageHasContent)
+
+  return shouldRestore ? [...messagesWithRestoredText, ...droppedTail] : messagesWithRestoredText
+}
+
+export function preserveDroppedAssistantTailFromSnapshots<T extends Pick<Message, "id" | "role"> & Record<string, any>>(
+  incomingMessages: T[],
+  previousSnapshots: T[][],
+): T[] {
+  return previousSnapshots.reduce(
+    (messages, snapshot) => preserveDroppedAssistantTail(messages, snapshot),
+    incomingMessages,
+  )
+}
+
 // ============================================================================
 // MESSAGE STORE - OPTIMIZED ARCHITECTURE
 // ============================================================================
@@ -874,29 +1022,11 @@ export const syncMessagesWithStatusAtom = atom(
     }
 
     const previousPerChatIds = get(messageIdsPerChatAtom(currentSubChatId))
-    const previousPerChatRoles = get(messageRolesPerChatAtom(currentSubChatId))
-    const isSettledStatus = status !== "streaming" && status !== "submitted"
-    const canRestoreDroppedAssistantTail =
-      isSettledStatus &&
-      !get(isRollingBackAtom) &&
-      incomingMessages.length > 0 &&
-      previousPerChatIds.length > incomingMessages.length &&
-      incomingMessages.every((message, index) => message.id === previousPerChatIds[index])
-
-    const droppedTailIds = canRestoreDroppedAssistantTail
-      ? previousPerChatIds.slice(incomingMessages.length)
-      : []
-    const shouldRestoreDroppedAssistantTail =
-      droppedTailIds.length > 0 &&
-      droppedTailIds.every((id) => previousPerChatRoles.get(id) === "assistant")
-
-    const messages = shouldRestoreDroppedAssistantTail
-      ? [
-        ...incomingMessages,
-        ...droppedTailIds
-          .map((id) => get(messageAtomFamily(getPerChatMessageKey(currentSubChatId, id))))
-          .filter((message): message is Message => Boolean(message)),
-      ]
+    const previousMessages = previousPerChatIds
+      .map((id) => get(messageAtomFamily(getPerChatMessageKey(currentSubChatId, id))))
+      .filter((message): message is Message => Boolean(message))
+    const messages = !get(isRollingBackAtom)
+      ? preserveDroppedAssistantTailFromSnapshots(incomingMessages, [previousMessages])
       : incomingMessages
 
     // Build new IDs list and roles map
@@ -1047,6 +1177,13 @@ export const syncMessagesAtom = atom(
 // ============================================================================
 // CLEANUP - For clearing store when switching chats
 // ============================================================================
+
+export function getMessagesSnapshotForSubChat(subChatId: string): Message[] {
+  const ids = appStore.get(messageIdsPerChatAtom(subChatId))
+  return ids
+    .map((id) => appStore.get(messageAtomFamily(getPerChatMessageKey(subChatId, id))))
+    .filter((message): message is Message => Boolean(message))
+}
 
 // Clear all caches for a specific subChat (call when unmounting/switching)
 export function clearSubChatCaches(subChatId: string): {

@@ -74,7 +74,7 @@ describe("comment revision summaries", () => {
   test("sanitizes generated-change summary lines before they reach comment cards", () => {
     expect(compactOneLineSummary(
       "Running git diff -- /Users/example/Ripple/project/src/index.html and checking stdout.",
-    )).toBe("Checking project")
+    )).toBe("Verifying")
     expect(compactOneLineSummary(
       "Claude Code usage limit reached.",
       { tone: "error" },

@@ -29,8 +29,8 @@
         "riskLabel": "Project files will change",
         "target": {
           "type": "file",
-          "label": "showcase.tsx",
-          "projectRelativePath": "src/showcase.tsx"
+          "label": "app-showcase.html",
+          "projectRelativePath": "app-showcase.html"
         },
         "command": "python3 scripts/update_showcase.py"
       }

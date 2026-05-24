@@ -63,8 +63,8 @@ describe("agent runtime product summaries", () => {
     const editTitle = titleForAgentRuntimeSummaryPart(editPart)
 
     expect(commandTitle).toBe("Verified")
-    expect(editTitle).toBe("Edited composition")
-    expect(`${commandTitle} ${editTitle}`).not.toMatch(/Bash|Edit|\/Users|src\//)
+    expect(editTitle).toBe("Edited")
+    expect(`${commandTitle} ${editTitle}`).not.toMatch(/\bBash\b|\bEdit\b|\/Users|src\//)
   })
 
   test("classifies search, edit, approval, and assistant parts without provider coupling", () => {
@@ -233,7 +233,7 @@ describe("agent runtime product summaries", () => {
     expect(fileChangePart && summarizeAgentRuntimePart(fileChangePart)).toEqual(expect.objectContaining({
       kind: "motion_edit",
       status: "done",
-      title: "Edited composition",
+      title: "Edited",
     }))
   })
 

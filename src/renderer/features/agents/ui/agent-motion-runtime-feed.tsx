@@ -8,6 +8,7 @@ import { TextShimmer } from "../../../components/ui/text-shimmer"
 import {
   activeMotionRuntimeItemId,
   buildMotionRuntimeActivity,
+  type MotionRuntimeActivityDetail,
   type MotionRuntimeActivityItem,
   type MotionRuntimeCanonicalEvent,
   type MotionRuntimeMetadataLike,
@@ -212,19 +213,34 @@ function shouldAnimateActivity(
   return Boolean(isLive && isActive)
 }
 
+function preserveChatScrollForManualDisclosure(target: HTMLElement): void {
+  const scrollContainer = target.closest("[data-chat-container]") as HTMLElement | null
+  if (!scrollContainer) return
+
+  const scrollTop = scrollContainer.scrollTop
+  scrollContainer.dispatchEvent(new CustomEvent("ripple:manual-disclosure-toggle", {
+    detail: { scrollTop },
+  }))
+
+  requestAnimationFrame(() => {
+    scrollContainer.scrollTop = scrollTop
+    requestAnimationFrame(() => {
+      scrollContainer.scrollTop = scrollTop
+    })
+  })
+}
+
 function activeTitleForItem(item: MotionRuntimeActivityItem): string {
   if (item.kind === "thinking") return "Thinking"
   if (item.kind === "explored") return item.title.replace(/^Explored/, "Exploring")
-  if (item.kind === "visual_check") return item.title
-    .replace(/^Checked frame sheet/, "Checking frame sheet")
-    .replace(/^Checked current frame/, "Checking current frame")
-  if (item.kind === "motion_change") return "Updating composition"
+  if (item.kind === "visual_check") return "Looking"
+  if (item.kind === "motion_change") return "Editing"
   if (item.kind === "verification") return item.title
-    .replace(/^Checked changes/, "Checking changes")
-    .replace(/^Checked project/, "Checking project")
+    .replace(/^Verified/, "Verifying")
     .replace(/^Prepared export/, "Preparing export")
     .replace(/^Rendered preview/, "Rendering preview")
-  if (item.kind === "project_tool") return "Working on project"
+  if (item.kind === "approval") return "Approval needed"
+  if (item.kind === "project_activity") return "Working on project"
   return item.title
 }
 
@@ -254,7 +270,8 @@ function CollapsibleActivityItem({
           "group flex h-5 cursor-pointer items-center px-2 text-xs leading-5",
           "transition-colors hover:text-muted-foreground",
         )}
-        onClick={() => {
+        onClick={(event) => {
+          preserveChatScrollForManualDisclosure(event.currentTarget)
           setIsExpanded((value) => !value)
         }}
       >
@@ -276,14 +293,23 @@ function CollapsibleActivityItem({
       </div>
       {isExpanded && details.length > 0 ? (
         <div className="mt-1 grid gap-1.5 px-2 pb-0.5">
-          {details.map((detail) => (
-            <div key={detail.id} className="text-xs leading-5 text-muted-foreground/80">
-              <span>{detail.label}</span>
-              {detail.value ? (
-                <span className="ml-1 text-muted-foreground/50">{detail.value}</span>
-              ) : null}
-            </div>
-          ))}
+          {details.map((detail) => {
+            const shouldShimmerDetail = shouldShimmer && detail.status === "pending"
+            return (
+              <div key={detail.id} className="text-xs leading-5 text-muted-foreground/80">
+                <span className="activity-detail-title">
+                  {shouldShimmerDetail ? (
+                    <LiveActivityLabel>{detail.label}</LiveActivityLabel>
+                  ) : (
+                    detail.label
+                  )}
+                </span>
+                {detail.value ? (
+                  <span className="ml-1 text-muted-foreground/50">{detail.value}</span>
+                ) : null}
+              </div>
+            )
+          })}
         </div>
       ) : null}
     </div>
@@ -361,21 +387,178 @@ function ActivityItem({
   )
 }
 
-const TRAIL_COLLAPSE_THRESHOLD = 4
+const TRAIL_COLLAPSE_THRESHOLD = 2
 
-// A finished turn collapses to one Codex-style summary line ("Explored · Updated
-// composition · Checked current frame"), expandable to the full trail. Visual
-// artifacts (frames/frame sheets) stay visible even when collapsed.
-function summarizeTrail(items: MotionRuntimeActivityItem[]): string {
+// A finished turn collapses to one Codex-style summary line ("Edited
+// composition, looked, explored"), expandable to the full trail. Visual
+// artifacts (frames/frame sheets) stay inside the opened trail.
+function summarizeTrail(
+  items: MotionRuntimeActivityItem[],
+  activeItem?: MotionRuntimeActivityItem | null,
+): string {
   const meaningful = items.filter((item) => item.kind !== "thinking" && item.kind !== "status")
   const source = meaningful.length > 0 ? meaningful : items
-  const unique = Array.from(new Set(source.map((item) => item.title)))
-  const shown = unique.slice(0, 4)
+  const unique = Array.from(new Set(source.map((item) =>
+    activeItem && item.id === activeItem.id ? activeTitleForItem(item) : item.title
+  )))
+  const shown = unique.slice(0, 4).map((title, index) => {
+    if (index === 0) return title
+    return title.charAt(0).toLowerCase() + title.slice(1)
+  })
   const extra = unique.length - shown.length
-  return `${shown.join(" · ")}${extra > 0 ? ` +${extra} more` : ""}`
+  return `${shown.join(", ")}${extra > 0 ? `, +${extra} more` : ""}`
 }
 
-function ActivityList({
+function ActivityDetailRow({
+  detail,
+  isLive,
+  isActive,
+}: {
+  detail: MotionRuntimeActivityDetail
+  isLive?: boolean
+  isActive?: boolean
+}) {
+  const shouldShimmerDetail = Boolean(
+    isLive && isActive && (detail.status ?? "done") === "pending",
+  )
+
+  return (
+    <div
+      data-agent-motion-detail-row="true"
+      className="px-2 text-xs leading-5 text-muted-foreground/80"
+    >
+      <span className="activity-detail-title">
+        {shouldShimmerDetail ? (
+          <LiveActivityLabel>{detail.label}</LiveActivityLabel>
+        ) : (
+          detail.label
+        )}
+      </span>
+      {detail.value ? (
+        <span className="ml-1 text-muted-foreground/50">{detail.value}</span>
+      ) : null}
+    </div>
+  )
+}
+
+function ActivityTrailVisualRow({
+  item,
+  isLive,
+  isActive,
+}: {
+  item: MotionRuntimeActivityItem
+  isLive?: boolean
+  isActive?: boolean
+}) {
+  const shouldShimmer = shouldAnimateActivity(item, isLive, isActive)
+  const displayTitle = shouldShimmer ? activeTitleForItem(item) : settledTitleForItem(item)
+
+  return (
+    <div
+      data-agent-motion-row-id={item.id}
+      data-agent-motion-row-kind={item.kind}
+      data-agent-motion-row-status={item.status}
+      data-agent-motion-row-active={isActive ? "true" : "false"}
+      data-agent-motion-row-title={displayTitle}
+    >
+      <div
+        data-agent-motion-detail-row="true"
+        className="px-2 text-xs leading-5 text-muted-foreground/80"
+      >
+        <span className="activity-detail-title">
+          {shouldShimmer ? (
+            <LiveActivityLabel>{displayTitle}</LiveActivityLabel>
+          ) : (
+            displayTitle
+          )}
+        </span>
+        {item.subtitle ? (
+          <span className="ml-1 text-muted-foreground/50">{item.subtitle}</span>
+        ) : null}
+      </div>
+      <VisualPreview item={item} />
+    </div>
+  )
+}
+
+function ActivityTrailPlainRow({
+  item,
+  isLive,
+  isActive,
+}: {
+  item: MotionRuntimeActivityItem
+  isLive?: boolean
+  isActive?: boolean
+}) {
+  const shouldShimmer = shouldAnimateActivity(item, isLive, isActive)
+  const displayTitle = shouldShimmer ? activeTitleForItem(item) : settledTitleForItem(item)
+
+  return (
+    <div
+      data-agent-motion-row-id={item.id}
+      data-agent-motion-row-kind={item.kind}
+      data-agent-motion-row-status={item.status}
+      data-agent-motion-row-active={isActive ? "true" : "false"}
+      data-agent-motion-row-title={displayTitle}
+    >
+      <ActivityDetailRow
+        detail={{
+          id: `${item.id}-trail-detail`,
+          label: displayTitle,
+          value: item.subtitle,
+          status: item.status,
+        }}
+        isLive={isLive}
+        isActive={isActive}
+      />
+    </div>
+  )
+}
+
+function ActivityTrailDetail({
+  item,
+  isLive,
+  isActive,
+}: {
+  item: MotionRuntimeActivityItem
+  isLive?: boolean
+  isActive?: boolean
+}) {
+  if (item.details?.length) {
+    return (
+      <>
+        {item.details.map((detail) => (
+          <ActivityDetailRow
+            key={detail.id}
+            detail={detail}
+            isLive={isLive}
+            isActive={isActive}
+          />
+        ))}
+      </>
+    )
+  }
+
+  if (item.visual) {
+    return <ActivityTrailVisualRow item={item} isLive={isLive} isActive={isActive} />
+  }
+
+  return <ActivityTrailPlainRow item={item} isLive={isLive} isActive={isActive} />
+}
+
+type ActivityListSegment =
+  | {
+      key: string
+      kind: "activity"
+      items: MotionRuntimeActivityItem[]
+    }
+  | {
+      key: string
+      kind: "thinking"
+      item: MotionRuntimeActivityItem
+    }
+
+function ActivityGroup({
   items,
   isLive,
   activeItemId,
@@ -388,13 +571,18 @@ function ActivityList({
   const activeItem = useMemo(() => {
     if (!isLive) return null
     return items.find((item) => item.id === activeItemId) ?? null
-  }, [activeItemId, isLive, items])
-  const isCollapsible = !isLive && items.length >= TRAIL_COLLAPSE_THRESHOLD
-  const visualItems = useMemo(() => items.filter((item) => item.visual), [items])
+  }, [activeItemId, items, isLive])
+  const isCollapsible =
+    items.length >= TRAIL_COLLAPSE_THRESHOLD ||
+    items.some((item) => item.visual || item.details?.length)
+  const collapsedTitle = summarizeTrail(items, activeItem)
+  const collapsedTitleShouldAnimate = Boolean(
+    activeItem && shouldAnimateActivity(activeItem, isLive, true),
+  )
 
   if (!isCollapsible) {
     return (
-      <div className="min-h-5">
+      <>
         {items.map((item) => (
           <ActivityItem
             key={item.id}
@@ -403,7 +591,7 @@ function ActivityList({
             isActive={item.id === activeItemId}
           />
         ))}
-      </div>
+      </>
     )
   }
 
@@ -412,11 +600,18 @@ function ActivityList({
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setTrailExpanded((value) => !value)}
+        onClick={(event) => {
+          preserveChatScrollForManualDisclosure(event.currentTarget)
+          setTrailExpanded((value) => !value)
+        }}
         className="group flex h-5 cursor-pointer items-center gap-2 px-2 text-xs leading-5 text-muted-foreground transition-colors hover:text-foreground"
       >
         <span className="min-w-0 truncate font-medium">
-          {trailExpanded ? "Activity" : summarizeTrail(items)}
+          {collapsedTitleShouldAnimate ? (
+            <TextShimmer as="span" className="inline">
+              {collapsedTitle}
+            </TextShimmer>
+          ) : collapsedTitle}
         </span>
         <ChevronRight
           className={cn(
@@ -428,7 +623,7 @@ function ActivityList({
       {trailExpanded ? (
         <div className="mt-0.5">
           {items.map((item) => (
-            <ActivityItem
+            <ActivityTrailDetail
               key={item.id}
               item={item}
               isLive={isLive}
@@ -436,9 +631,76 @@ function ActivityList({
             />
           ))}
         </div>
-      ) : (
-        visualItems.map((item) => <VisualPreview key={item.id} item={item} />)
-      )}
+      ) : null}
+    </div>
+  )
+}
+
+function buildActivityListSegments(items: MotionRuntimeActivityItem[]): ActivityListSegment[] {
+  const segments: ActivityListSegment[] = []
+  let activityBuffer: MotionRuntimeActivityItem[] = []
+
+  const flushActivityBuffer = () => {
+    if (activityBuffer.length === 0) return
+    segments.push({
+      key: activityBuffer.map((item) => item.id).join("|"),
+      kind: "activity",
+      items: activityBuffer,
+    })
+    activityBuffer = []
+  }
+
+  for (const item of items) {
+    if (item.kind === "thinking") {
+      flushActivityBuffer()
+      segments.push({
+        key: item.id,
+        kind: "thinking",
+        item,
+      })
+      continue
+    }
+    activityBuffer.push(item)
+  }
+
+  flushActivityBuffer()
+  return segments
+}
+
+function ActivityList({
+  items,
+  isLive,
+  activeItemId,
+}: {
+  items: MotionRuntimeActivityItem[]
+  isLive?: boolean
+  activeItemId?: string
+}) {
+  const segments = useMemo(() => buildActivityListSegments(items), [items])
+
+  return (
+    <div className="min-h-5">
+      {segments.map((segment) => {
+        if (segment.kind === "thinking") {
+          return (
+            <ActivityItem
+              key={segment.key}
+              item={segment.item}
+              isLive={isLive}
+              isActive={segment.item.id === activeItemId}
+            />
+          )
+        }
+
+        return (
+          <ActivityGroup
+            key={segment.key}
+            items={segment.items}
+            isLive={isLive}
+            activeItemId={activeItemId}
+          />
+        )
+      })}
     </div>
   )
 }
