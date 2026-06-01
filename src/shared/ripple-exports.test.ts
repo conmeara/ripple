@@ -4,8 +4,11 @@ import {
   formatRippleExportDuration,
   formatRippleExportFileSize,
   getRippleExportDisplayPath,
+  getRippleExportExtension,
+  isRippleExportDirectoryFormat,
   isRippleExportTerminalStatus,
   parseRippleExportSettingsJson,
+  rippleExportFormatLabels,
 } from "./ripple-exports"
 
 describe("Ripple export helpers", () => {
@@ -30,6 +33,13 @@ describe("Ripple export helpers", () => {
     expect(parseRippleExportSettingsJson('{"workers":1,"useGpu":false}'))
       .toEqual({ workers: 1, useGpu: false })
     expect(parseRippleExportSettingsJson("not-json")).toEqual({})
+  })
+
+  test("describes PNG sequence as a directory-style export", () => {
+    expect(rippleExportFormatLabels["png-sequence"]).toBe("PNG sequence")
+    expect(getRippleExportExtension("png-sequence")).toBe("png-sequence")
+    expect(isRippleExportDirectoryFormat("png-sequence")).toBe(true)
+    expect(isRippleExportDirectoryFormat("mp4")).toBe(false)
   })
 
   test("formats compact file facts", () => {

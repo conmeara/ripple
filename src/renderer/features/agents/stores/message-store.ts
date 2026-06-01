@@ -1279,12 +1279,18 @@ export function clearAllCaches() {
 export const PLAYBACK_SPEEDS = [1, 2, 3] as const
 export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number]
 
+function getBrowserLocalStorage(): Storage | null {
+  if (typeof globalThis.localStorage === "undefined") return null
+  return globalThis.localStorage
+}
+
 // Atom with localStorage persistence
 export const ttsPlaybackRateAtom = atom<PlaybackSpeed>(
   // Initial value from localStorage
   (() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("tts-playback-rate")
+    const storage = getBrowserLocalStorage()
+    if (storage) {
+      const saved = storage.getItem("tts-playback-rate")
       if (saved && PLAYBACK_SPEEDS.includes(Number(saved) as PlaybackSpeed)) {
         return Number(saved) as PlaybackSpeed
       }
@@ -1298,8 +1304,6 @@ export const setTtsPlaybackRateAtom = atom(
   null,
   (_get, set, rate: PlaybackSpeed) => {
     set(ttsPlaybackRateAtom, rate)
-    if (typeof window !== "undefined") {
-      localStorage.setItem("tts-playback-rate", String(rate))
-    }
+    getBrowserLocalStorage()?.setItem("tts-playback-rate", String(rate))
   }
 )

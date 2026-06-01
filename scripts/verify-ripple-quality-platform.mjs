@@ -9,8 +9,9 @@ const packageJsonPath = "package.json"
 
 const requiredActiveSpecFiles = [
   "Comments.html",
-  "Visual Context.html",
-  "visual-context-eval.html",
+  "Visual Context/Visual Context.html",
+  "Visual Context/Visual Context Pipeline.html",
+  "Visual Context/visual-context-eval.html",
 ]
 
 const requiredArchivedSpecFiles = [
@@ -195,7 +196,9 @@ if (!qualityWorkflow.includes("bun run test:agent-ui:e2e")) {
 }
 
 const activeSpecs = existsSync(join(repoRoot, specsDir))
-  ? readdirSync(join(repoRoot, specsDir)).filter((file) => file.endsWith(".html"))
+  ? walk(specsDir)
+    .filter((file) => file.endsWith(".html"))
+    .map((file) => file.slice(`${specsDir}/`.length))
   : []
 const activeSpecSet = new Set(activeSpecs)
 const archivedSpecs = walk(archivedMdSpecsDir)

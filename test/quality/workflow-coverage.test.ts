@@ -7,9 +7,9 @@ const archivedMdSpecsDir = "docs/z_archive/md_specs"
 
 const requiredActiveSpecFiles = [
   "Comments.html",
-  "Visual Context.html",
-  "Visual Context Pipeline.html",
-  "visual-context-eval.html",
+  "Visual Context/Visual Context.html",
+  "Visual Context/Visual Context Pipeline.html",
+  "Visual Context/visual-context-eval.html",
 ]
 
 const requiredArchivedSpecFiles = [
@@ -131,7 +131,9 @@ function assertLocalReferenceExists(sourcePath: string, target: string): void {
 
 describe("Ripple v1 draft specs", () => {
   test("keeps the active HTML specs and archived Markdown specs as the product coverage map", () => {
-    const activeSpecs = readdirSync(specsDir).filter((file) => file.endsWith(".html"))
+    const activeSpecs = walk(specsDir)
+      .filter((file) => file.endsWith(".html"))
+      .map((file) => file.slice(`${specsDir}/`.length))
     const activeSpecSet = new Set(activeSpecs)
     const archivedSpecs = walk(archivedMdSpecsDir)
       .filter((file) => file.endsWith(".md"))

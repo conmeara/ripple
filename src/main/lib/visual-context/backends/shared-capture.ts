@@ -53,6 +53,7 @@ export async function importRuntimeCaptureModule(specifier: string): Promise<Run
     return await importer(specifier)
   } catch (error) {
     if (specifier !== "@hyperframes/engine") throw error
+    // Producer ships built capture exports that stay usable in packaged Electron.
     const producer = await importer("@hyperframes/producer")
     return {
       ...producer,
@@ -104,13 +105,6 @@ async function realpathOrNull(path: string | null | undefined): Promise<string |
   } catch {
     return null
   }
-}
-
-function runtimeImportWarnings(runtime: RuntimeCaptureModule): string[] {
-  if (runtime.__rippleImportFallback !== "producer-reexport") return []
-  return [
-    "Direct HyperFrames Engine import was unavailable, so Ripple used Producer's Engine-compatible capture exports.",
-  ]
 }
 
 async function toCapturedFrame(input: {
@@ -178,7 +172,6 @@ export async function captureFramesWithRuntimeModule(input: {
 
     const importStartedAt = performance.now()
     runtime = await importRuntimeCaptureModule(input.moduleSpecifier)
-    warnings.push(...runtimeImportWarnings(runtime))
     if (runtime.__rippleImportFallback) {
       timings.runtimeImportFallback = 1
     }
@@ -351,7 +344,6 @@ export class WarmRuntimeCaptureBackend {
         timings,
       })
       entry = sessionResult.entry
-      warnings.push(...runtimeImportWarnings(entry.runtime))
       if (entry.runtime.__rippleImportFallback) {
         timings.runtimeImportFallback = 1
       }

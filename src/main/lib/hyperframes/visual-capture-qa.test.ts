@@ -13,6 +13,7 @@ import {
   resolveProducerBrowserPath,
   runHyperframesCommand,
 } from "./runtime"
+import { importRuntimeCaptureModule } from "../visual-context/backends/shared-capture"
 
 const repoRoot = process.cwd()
 const qaFixtureRoot = resolve(repoRoot, "test", "fixtures", "hyperframes", "visual-capture-qa")
@@ -341,10 +342,7 @@ async function captureFrameWithHyperframesEngine(input: {
   const startedAt = performance.now()
 
   try {
-    const importer = new Function("specifier", "return import(specifier)") as (
-      specifier: string,
-    ) => Promise<any>
-    const engine = await importer("@hyperframes/engine")
+    const engine = await importRuntimeCaptureModule("@hyperframes/engine")
     const session = await engine.createCaptureSession(
       served.url,
       outputDir,

@@ -3,6 +3,7 @@ import { dialog, type SaveDialogOptions } from "electron"
 import { join } from "node:path"
 import { z } from "zod"
 import {
+  isRippleExportDirectoryFormat,
   rippleExportFormats,
   rippleExportFpsValues,
   rippleExportQualityPresets,
@@ -110,11 +111,12 @@ export const exportsRouter = router({
       })
 
       const window = ctx.getWindow()
+      const directoryOutput = isRippleExportDirectoryFormat(input.format)
       const saveDialogOptions: SaveDialogOptions = {
-        title: "Save export",
+        title: directoryOutput ? "Save PNG sequence folder" : "Save export",
         defaultPath: join(projectContext.projectPath, "exports", fileName),
-        buttonLabel: "Use Destination",
-        filters: [
+        buttonLabel: directoryOutput ? "Use Folder" : "Use Destination",
+        filters: directoryOutput ? undefined : [
           {
             name: input.format.toUpperCase(),
             extensions: [input.format],

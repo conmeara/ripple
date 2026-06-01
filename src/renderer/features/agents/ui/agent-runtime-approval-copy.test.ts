@@ -77,7 +77,7 @@ describe("agent runtime approval copy", () => {
 
     expect(summary).toEqual([
       { label: "Action", value: "check the project" },
-      { label: "Reason", value: "Checking project" },
+      { label: "Reason", value: "Verifying" },
     ])
     expect(summary.map((line) => line.value).join("\n"))
       .not.toMatch(/Claude|Bash|\/Users|src\/index|stdout|git diff/)

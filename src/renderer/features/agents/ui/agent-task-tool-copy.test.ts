@@ -25,7 +25,7 @@ describe("agent task tool copy", () => {
       }],
     })
 
-    expect(subtitle).toBe("Checking changes")
+    expect(subtitle).toBe("Verifying")
     expect(subtitle).not.toMatch(/Bash|git diff|\/Users|src\/index|stdout/)
   })
 
@@ -36,6 +36,6 @@ describe("agent task tool copy", () => {
       nestedTools: [],
     })
 
-    expect(subtitle).toBe("Checking project")
+    expect(subtitle).toBe("Verifying")
   })
 })

@@ -1,6 +1,10 @@
 import { lstat, mkdir, realpath } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
-import { getRippleExportExtension, type RippleExportFormat } from "../../../shared/ripple-exports"
+import {
+  getRippleExportExtension,
+  isRippleExportDirectoryFormat,
+  type RippleExportFormat,
+} from "../../../shared/ripple-exports"
 import {
   normalizeProjectRelativePath,
   resolveProjectRelativePath,
@@ -51,11 +55,10 @@ export async function createExportOutputPath(input: {
     input.projectContext.project.slug || input.projectContext.project.name,
   )
   const compositionStem = safeExportStem(input.compositionName)
-  const extension = getRippleExportExtension(input.format)
-  const outputPath = join(
-    exportsRealPath,
-    `${projectStem}-${compositionStem}-${input.jobId}.${extension}`,
-  )
+  const outputName = isRippleExportDirectoryFormat(input.format)
+    ? `${projectStem}-${compositionStem}-${input.jobId}-png-sequence`
+    : `${projectStem}-${compositionStem}-${input.jobId}.${getRippleExportExtension(input.format)}`
+  const outputPath = join(exportsRealPath, outputName)
 
   if (!isPathInsideDirectory(exportsRealPath, outputPath)) {
     throw new HyperframesError(
@@ -90,6 +93,16 @@ export function assertDestinationMatchesFormat(input: {
   path: string
   format: RippleExportFormat
 }): void {
+  if (isRippleExportDirectoryFormat(input.format)) {
+    if (!resolve(input.path)) {
+      throw new HyperframesError(
+        "Choose a folder for this export.",
+        "EXPORT_DESTINATION_FORMAT_MISMATCH",
+      )
+    }
+    return
+  }
+
   const expected = `.${getRippleExportExtension(input.format)}`
   if (!resolve(input.path).toLowerCase().endsWith(expected)) {
     throw new HyperframesError(

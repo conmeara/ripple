@@ -28,6 +28,23 @@ mock.module("../../../lib/trpc", () => ({
       },
     },
   },
+  trpcClient: {
+    agentRuntime: {
+      cancelRun: {
+        mutate: async () => ({ ok: true }),
+      },
+      chat: {
+        subscribe: () => ({
+          unsubscribe: () => {},
+        }),
+      },
+      resumeRun: {
+        subscribe: () => ({
+          unsubscribe: () => {},
+        }),
+      },
+    },
+  },
 }))
 
 mock.module("../../../components/ui/text-shimmer", () => ({

@@ -1,9 +1,10 @@
 import { and, desc, eq, inArray } from "drizzle-orm"
 import * as electron from "electron"
-import { copyFile, stat } from "node:fs/promises"
-import { resolve } from "node:path"
+import { copyFile, cp, mkdir, readdir, readFile, stat } from "node:fs/promises"
+import { join, resolve } from "node:path"
 import {
   getRippleExportDisplayPath,
+  isRippleExportDirectoryFormat,
   isRippleExportTerminalStatus,
   parseRippleExportSettingsJson,
   rippleExportTerminalStatuses,
@@ -77,6 +78,13 @@ interface ProbeResult {
   height: number | null
   formatName: string | null
   videoCodec: string | null
+}
+
+interface OutputFacts {
+  outputSizeBytes: number
+  durationSeconds: number | null
+  width: number | null
+  height: number | null
 }
 
 export interface StartExportInput {
@@ -211,6 +219,8 @@ function isProbeContainerCompatible(
       return names.includes("mov") || names.includes("quicktime")
     case "webm":
       return names.includes("webm") || names.includes("matroska")
+    case "png-sequence":
+      return false
   }
 }
 
@@ -227,6 +237,8 @@ function isProbeCodecCompatible(
       return ["prores", "qtrle", "png", "h264", "hevc", "h265"].includes(normalized)
     case "webm":
       return ["vp8", "vp9", "av1"].includes(normalized)
+    case "png-sequence":
+      return false
   }
 }
 
@@ -275,6 +287,177 @@ function assertValidProbeResult(input: {
       "EXPORT_OUTPUT_CODEC_MISMATCH",
     )
   }
+}
+
+function assertPngSignature(buffer: Buffer, path: string): void {
+  const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+  if (
+    buffer.length < 24 ||
+    !pngSignature.every((value, index) => buffer[index] === value)
+  ) {
+    throw new HyperframesError(
+      `PNG sequence frame is not a valid PNG: ${path}`,
+      "EXPORT_OUTPUT_VALIDATION_FAILED",
+    )
+  }
+}
+
+async function directorySizeBytes(path: string): Promise<number> {
+  const entries = await readdir(path, { withFileTypes: true })
+  let total = 0
+  for (const entry of entries) {
+    const entryPath = join(path, entry.name)
+    if (entry.isDirectory()) {
+      total += await directorySizeBytes(entryPath)
+      continue
+    }
+    if (!entry.isFile()) continue
+    total += (await stat(entryPath)).size
+  }
+  return total
+}
+
+async function inspectPngSequenceOutput(input: {
+  outputPath: string
+  expectedWidth: number | null
+  expectedHeight: number | null
+  fps: RippleExportFps
+  producerResult: Awaited<ReturnType<ProducerExecutor>>
+}): Promise<OutputFacts> {
+  const outputStat = await stat(input.outputPath)
+  if (!outputStat.isDirectory()) {
+    throw new HyperframesError(
+      "PNG sequence output was not a folder.",
+      "EXPORT_OUTPUT_VALIDATION_FAILED",
+    )
+  }
+
+  const entries = await readdir(input.outputPath, { withFileTypes: true })
+  const frameNames = entries
+    .filter((entry) => entry.isFile() && /^frame_\d{6}\.png$/i.test(entry.name))
+    .map((entry) => entry.name)
+    .sort()
+  if (!frameNames.length) {
+    throw new HyperframesError(
+      "PNG sequence output did not include any frames.",
+      "EXPORT_EMPTY_OUTPUT",
+    )
+  }
+
+  const firstFramePath = join(input.outputPath, frameNames[0])
+  const firstFrame = await readFile(firstFramePath)
+  assertPngSignature(firstFrame, firstFramePath)
+  const width = firstFrame.readUInt32BE(16)
+  const height = firstFrame.readUInt32BE(20)
+  if (!width || !height) {
+    throw new HyperframesError(
+      "Ripple could not confirm the PNG sequence dimensions.",
+      "EXPORT_OUTPUT_VALIDATION_FAILED",
+    )
+  }
+  if (
+    input.expectedWidth &&
+    input.expectedHeight &&
+    (width !== input.expectedWidth || height !== input.expectedHeight)
+  ) {
+    throw new HyperframesError(
+      `PNG sequence dimensions were ${width}x${height}, expected ${input.expectedWidth}x${input.expectedHeight}.`,
+      "EXPORT_OUTPUT_DIMENSIONS_MISMATCH",
+    )
+  }
+  if (
+    input.producerResult.width &&
+    input.producerResult.height &&
+    (width !== input.producerResult.width || height !== input.producerResult.height)
+  ) {
+    throw new HyperframesError(
+      "PNG sequence dimensions do not match the completed export.",
+      "EXPORT_OUTPUT_DIMENSIONS_MISMATCH",
+    )
+  }
+
+  const durationSeconds = input.producerResult.durationSeconds
+    ? Math.round(input.producerResult.durationSeconds)
+    : Math.round(frameNames.length / input.fps)
+  return {
+    outputSizeBytes: await directorySizeBytes(input.outputPath),
+    durationSeconds: durationSeconds > 0 ? durationSeconds : null,
+    width,
+    height,
+  }
+}
+
+async function inspectCompletedOutput(input: {
+  job: ExportJob
+  producerResult: Awaited<ReturnType<ProducerExecutor>>
+  probeOutput: (outputPath: string) => Promise<ProbeResult>
+}): Promise<OutputFacts> {
+  if (isRippleExportDirectoryFormat(input.job.format)) {
+    return inspectPngSequenceOutput({
+      outputPath: input.job.outputPath!,
+      expectedWidth: input.job.width,
+      expectedHeight: input.job.height,
+      fps: input.job.fps,
+      producerResult: input.producerResult,
+    })
+  }
+
+  const fileStat = await stat(input.job.outputPath!)
+  if (fileStat.size <= 0) {
+    throw new HyperframesError("Export output was empty.", "EXPORT_EMPTY_OUTPUT")
+  }
+
+  const probe = await input.probeOutput(input.job.outputPath!)
+  assertValidProbeResult({
+    job: input.job,
+    producerResult: input.producerResult,
+    probe,
+  })
+  return {
+    outputSizeBytes: fileStat.size,
+    durationSeconds: probe.durationSeconds,
+    width: probe.width,
+    height: probe.height,
+  }
+}
+
+async function prepareDestinationPath(input: {
+  path: string
+  format: RippleExportFormat
+}): Promise<void> {
+  if (isRippleExportDirectoryFormat(input.format)) {
+    await mkdir(input.path, { recursive: true })
+    return
+  }
+  await prepareDestinationDirectory(input.path)
+}
+
+async function copyExportOutput(input: {
+  sourcePath: string
+  destinationPath: string
+  format: RippleExportFormat
+}): Promise<void> {
+  if (isRippleExportDirectoryFormat(input.format)) {
+    await prepareDestinationPath({
+      path: input.destinationPath,
+      format: input.format,
+    })
+    const entries = await readdir(input.sourcePath, { withFileTypes: true })
+    for (const entry of entries) {
+      await cp(
+        join(input.sourcePath, entry.name),
+        join(input.destinationPath, entry.name),
+        { recursive: true, force: true },
+      )
+    }
+    return
+  }
+
+  await prepareDestinationPath({
+    path: input.destinationPath,
+    format: input.format,
+  })
+  await copyFile(input.sourcePath, input.destinationPath)
 }
 
 export class ExportService {
@@ -630,20 +813,19 @@ export class ExportService {
 
       if (markCancelledIfRequested()) return
 
-      const fileStat = await stat(job.outputPath!)
-      if (markCancelledIfRequested()) return
-      if (fileStat.size <= 0) {
-        throw new HyperframesError("Export output was empty.", "EXPORT_EMPTY_OUTPUT")
-      }
-
-      const probe = await (this.options.probeOutput ?? probeMediaOutput)(job.outputPath!)
-      assertValidProbeResult({ job, producerResult: result, probe })
+      const outputFacts = await inspectCompletedOutput({
+        job,
+        producerResult: result,
+        probeOutput: this.options.probeOutput ?? probeMediaOutput,
+      })
       if (markCancelledIfRequested()) return
 
       if (job.destinationPath && job.destinationPath !== job.outputPath) {
-        await prepareDestinationDirectory(job.destinationPath)
-        if (markCancelledIfRequested()) return
-        await copyFile(job.outputPath!, job.destinationPath)
+        await copyExportOutput({
+          sourcePath: job.outputPath!,
+          destinationPath: job.destinationPath,
+          format: job.format,
+        })
         if (markCancelledIfRequested()) return
       }
 
@@ -654,17 +836,17 @@ export class ExportService {
         progressLabel: "Complete",
         pid: null,
         errorMessage: null,
-        outputSizeBytes: fileStat.size,
-        durationSeconds: probe.durationSeconds,
-        width: probe.width,
-        height: probe.height,
+        outputSizeBytes: outputFacts.outputSizeBytes,
+        durationSeconds: outputFacts.durationSeconds,
+        width: outputFacts.width,
+        height: outputFacts.height,
         completedAt,
         updatedAt: completedAt,
       })
       trackExportSucceeded({
         format: job.format,
         qualityPreset: job.qualityPreset,
-        durationSeconds: probe.durationSeconds,
+        durationSeconds: outputFacts.durationSeconds,
         renderSeconds: (completedAt.getTime() - startedAt.getTime()) / 1000,
       })
     } catch (error) {
@@ -922,5 +1104,9 @@ export function buildDefaultExportFileName(input: {
   compositionName: string
   format: RippleExportFormat
 }): string {
-  return `${safeExportStem(input.projectName)}-${safeExportStem(input.compositionName)}.${input.format}`
+  const stem = `${safeExportStem(input.projectName)}-${safeExportStem(input.compositionName)}`
+  if (isRippleExportDirectoryFormat(input.format)) {
+    return `${stem}-png-sequence`
+  }
+  return `${stem}.${input.format}`
 }

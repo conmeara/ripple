@@ -403,7 +403,8 @@ export function RippleRendersPane({
     onError: (error) => toast.error(error.message),
   })
 
-  const effectiveQuality = format === "mov" ? "standard" : qualityPreset
+  const qualityLocked = format === "mov" || format === "png-sequence"
+  const effectiveQuality = qualityLocked ? "standard" : qualityPreset
   const canStart = Boolean(projectId && compositionId) && !startExport.isPending
 
   const handleStart = () => {
@@ -527,7 +528,7 @@ export function RippleRendersPane({
 
           <Select
             value={effectiveQuality}
-            disabled={format === "mov"}
+            disabled={qualityLocked}
             onValueChange={(value) =>
               setQualityPreset(value as RippleExportQualityPreset)
             }
@@ -562,6 +563,12 @@ export function RippleRendersPane({
         {format === "mov" ? (
           <div className="mt-2 text-[11px] leading-snug text-muted-foreground">
             MOV uses fixed ProRes quality for editor-friendly transparency.
+          </div>
+        ) : null}
+
+        {format === "png-sequence" ? (
+          <div className="mt-2 text-[11px] leading-snug text-muted-foreground">
+            PNG sequence creates a folder of lossless frames and an audio sidecar when audio is present.
           </div>
         ) : null}
 

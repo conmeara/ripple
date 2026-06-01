@@ -39,6 +39,6 @@ describe("AgentToolRegistry", () => {
       input: {
         description: "Bash /Users/example/project/src/index.html stdout",
       },
-    })).toBe("Checking project")
+    })).toBe("Verifying")
   })
 })

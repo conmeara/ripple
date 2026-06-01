@@ -579,6 +579,16 @@ function ActivityGroup({
   const collapsedTitleShouldAnimate = Boolean(
     activeItem && shouldAnimateActivity(activeItem, isLive, true),
   )
+  const collapsedRowItem = !trailExpanded && items.length === 1 ? items[0] : null
+  const collapsedRowProps = collapsedRowItem
+    ? {
+      "data-agent-motion-row-id": collapsedRowItem.id,
+      "data-agent-motion-row-kind": collapsedRowItem.kind,
+      "data-agent-motion-row-status": collapsedRowItem.status,
+      "data-agent-motion-row-active": collapsedRowItem.id === activeItemId ? "true" : "false",
+      "data-agent-motion-row-title": collapsedTitle,
+    }
+    : {}
 
   if (!isCollapsible) {
     return (
@@ -604,6 +614,7 @@ function ActivityGroup({
           preserveChatScrollForManualDisclosure(event.currentTarget)
           setTrailExpanded((value) => !value)
         }}
+        {...collapsedRowProps}
         className="group flex h-5 cursor-pointer items-center gap-2 px-2 text-xs leading-5 text-muted-foreground transition-colors hover:text-foreground"
       >
         <span className="min-w-0 truncate font-medium">

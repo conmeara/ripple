@@ -64,6 +64,13 @@ mock.module("sonner", () => ({
 }))
 
 mock.module("../../../lib/trpc", () => ({
+  trpc: {
+    files: {
+      readBinaryFile: {
+        useQuery: () => ({ data: undefined }),
+      },
+    },
+  },
   trpcClient: {
     agentRuntime: {
       cancelRun: {

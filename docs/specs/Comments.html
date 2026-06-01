@@ -1102,7 +1102,7 @@
       </div>
       <div class="concept-card">
         <div class="concept-name">Visual context <span class="concept-tag">frame attachment</span></div>
-        <div class="concept-desc">The frame or range image automatically attached to a comment so the agent can see what the user saw. See <a href="Visual Context.html">Visual Context</a>.</div>
+        <div class="concept-desc">The frame or range image automatically attached to a comment so the agent can see what the user saw. See <a href="Visual Context/Visual Context.html">Visual Context</a>.</div>
       </div>
     </div>
   </section>
@@ -1155,7 +1155,7 @@
       <li><strong>Enter sends.</strong> Shift+Enter inserts a newline. No mouse trip required.<a class="test-marker covered" href="#testplan">T-A4<span class="tip"><strong>Composer Enter sends; Shift+Enter newline</strong><em>component · covered · comment-composer.test.ts</em></span></a></li>
       <li><strong>Composer empties and refocuses.</strong> The user can immediately scrub to a new frame and type the next note.<a class="test-marker covered" href="#testplan">T-A5<span class="tip"><strong>Composer clears and refocuses on send</strong><em>component · covered</em></span></a></li>
       <li><strong>Anchor follows the user.</strong> Whatever frame or selection is visible when typing begins is the anchor. Ripple captures it; the user does not pick it.<a class="test-marker covered" href="#testplan">T-A1<span class="tip"><strong>Anchor captures current frame at compose time</strong><em>unit · covered</em></span></a><a class="test-marker covered" href="#testplan">T-A2<span class="tip"><strong>Anchor captures range when timeline selected</strong><em>component · covered</em></span></a><a class="test-marker covered" href="#testplan">T-A3<span class="tip"><strong>Reversed range start/end is normalized</strong><em>unit · covered · ripple-comments.test.ts</em></span></a></li>
-      <li><strong>Visual context attaches in the background.</strong> The current frame is captured asynchronously and attached to the agent run when ready. If capture fails, the comment still exists. See <a href="Visual Context.html">Visual Context</a>.<a class="test-marker covered" href="#testplan">T-B1<span class="tip"><strong>Visual capture is async; does not block card</strong><em>integration · covered</em></span></a><a class="test-marker covered" href="#testplan">T-B2<span class="tip"><strong>Comment persists if visual capture fails</strong><em>integration · covered</em></span></a><a class="test-marker covered" href="#testplan">T-B3<span class="tip"><strong>Range comments capture frame sheet (6 samples)</strong><em>integration · covered · comment-revisions.test.ts</em></span></a></li>
+      <li><strong>Visual context attaches in the background.</strong> The current frame is captured asynchronously and attached to the agent run when ready. If capture fails, the comment still exists. See <a href="Visual Context/Visual Context.html">Visual Context</a>.<a class="test-marker covered" href="#testplan">T-B1<span class="tip"><strong>Visual capture is async; does not block card</strong><em>integration · covered</em></span></a><a class="test-marker covered" href="#testplan">T-B2<span class="tip"><strong>Comment persists if visual capture fails</strong><em>integration · covered</em></span></a><a class="test-marker covered" href="#testplan">T-B3<span class="tip"><strong>Range comments capture frame sheet (6 samples)</strong><em>integration · covered · comment-revisions.test.ts</em></span></a></li>
     </ul>
   </section>
 
@@ -1772,7 +1772,7 @@
         <div class="related-name">Revisions</div>
         <div class="related-desc">Canonical lifecycle for every proposed version. The status colors used on comment cards are defined here. Read this for the safety model.</div>
       </div>
-      <a class="related-card" href="Visual Context.html">
+      <a class="related-card" href="Visual Context/Visual Context.html">
         <div class="related-name">Visual Context</div>
         <div class="related-desc">How the current frame is captured and attached to a comment so the agent can see what the user saw. Still being built.</div>
       </a>

@@ -34,8 +34,8 @@ and agent context so users can stay focused on the video.
 - Local project folders that live by default under `~/Ripple`.
 - Reviewable agent revisions that can be accepted, rejected, restored, or
   discussed in context.
-- MP4, MOV, and WebM exports through Ripple's main-process render/export
-  services.
+- MP4, MOV, WebM, and PNG sequence exports through Ripple's main-process
+  render/export services.
 
 ## Core Workflow
 

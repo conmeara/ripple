@@ -1,4 +1,4 @@
-export const rippleExportFormats = ["mp4", "mov", "webm"] as const
+export const rippleExportFormats = ["mp4", "mov", "webm", "png-sequence"] as const
 export type RippleExportFormat = (typeof rippleExportFormats)[number]
 
 export const rippleExportFpsValues = [24, 30, 60] as const
@@ -72,12 +72,14 @@ export const rippleExportFormatLabels: Record<RippleExportFormat, string> = {
   mp4: "MP4",
   mov: "MOV",
   webm: "WebM",
+  "png-sequence": "PNG sequence",
 }
 
 export const rippleExportFormatDescriptions: Record<RippleExportFormat, string> = {
   mp4: "Best for sharing, social posts, and review links.",
   mov: "Best for transparent overlays in editing tools.",
   webm: "Best for transparent browser playback.",
+  "png-sequence": "Best for lossless frame delivery to compositing tools.",
 }
 
 export const rippleExportQualityLabels: Record<RippleExportQualityPreset, string> = {
@@ -126,6 +128,12 @@ export function clampRippleExportProgress(value: number | null | undefined): num
 
 export function getRippleExportExtension(format: RippleExportFormat): string {
   return format
+}
+
+export function isRippleExportDirectoryFormat(
+  format: RippleExportFormat,
+): boolean {
+  return format === "png-sequence"
 }
 
 export function getRippleExportDisplayPath(job: {

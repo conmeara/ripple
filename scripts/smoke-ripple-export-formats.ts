@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { execFileSync } from "node:child_process"
-import { cp, copyFile, mkdir, mkdtemp, rm, stat } from "node:fs/promises"
+import { cp, copyFile, mkdir, mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises"
 import { existsSync } from "node:fs"
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
@@ -14,7 +14,7 @@ import {
 const repoRoot = process.cwd()
 const require = createRequire(import.meta.url)
 const fixturePath = join(repoRoot, "test", "fixtures", "hyperframes", "basic-title-card")
-const formats = ["mp4", "mov", "webm"] as const
+const formats = ["mp4", "mov", "webm", "png-sequence"] as const
 
 function run(command: string, args: string[], cwd: string): string {
   return execFileSync(command, args, {
@@ -79,6 +79,34 @@ function assertProbe(format: string, outputPath: string): void {
   }
 }
 
+async function assertPngSequence(outputPath: string): Promise<number> {
+  const entries = (await readdir(outputPath)).sort()
+  const frames = entries.filter((entry) => /^frame_\d{6}\.png$/i.test(entry))
+  if (!frames.length) {
+    throw new Error(`png-sequence produced no frame_XXXXXX.png files in ${outputPath}`)
+  }
+  const firstFrame = await readFile(join(outputPath, frames[0]))
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+  if (
+    firstFrame.length < 24 ||
+    !signature.every((value, index) => firstFrame[index] === value)
+  ) {
+    throw new Error(`png-sequence first frame is not a PNG: ${frames[0]}`)
+  }
+  const width = firstFrame.readUInt32BE(16)
+  const height = firstFrame.readUInt32BE(20)
+  if (width !== 640 || height !== 360) {
+    throw new Error(`png-sequence first frame reported ${width}x${height}, expected 640x360`)
+  }
+
+  let totalBytes = 0
+  for (const entry of entries) {
+    totalBytes += (await stat(join(outputPath, entry))).size
+  }
+  if (totalBytes <= 0) throw new Error(`${outputPath} is empty`)
+  return totalBytes
+}
+
 async function main(): Promise<void> {
   const projectPath = await mkdtemp(join(tmpdir(), "ripple-export-smoke-"))
   try {
@@ -92,7 +120,9 @@ async function main(): Promise<void> {
     const hyperframes = resolveHyperframesCommand()
 
     for (const format of formats) {
-      const outputPath = join(projectPath, "exports", `smoke.${format}`)
+      const outputPath = format === "png-sequence"
+        ? join(projectPath, "exports", "smoke-png-sequence")
+        : join(projectPath, "exports", `smoke.${format}`)
       await mkdir(dirname(outputPath), { recursive: true })
       run(hyperframes, [
         "render",
@@ -104,8 +134,12 @@ async function main(): Promise<void> {
         outputPath,
         projectPath,
       ], projectPath)
-      const size = await assertNonzero(outputPath)
-      assertProbe(format, outputPath)
+      const size = format === "png-sequence"
+        ? await assertPngSequence(outputPath)
+        : await assertNonzero(outputPath)
+      if (format !== "png-sequence") {
+        assertProbe(format, outputPath)
+      }
       console.log(`[export-smoke] ${format} OK (${size} bytes)`)
     }
   } finally {

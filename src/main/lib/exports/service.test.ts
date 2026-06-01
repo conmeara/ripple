@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, mock, test } from "bun:test"
 import { Database } from "bun:sqlite"
 import { drizzle } from "drizzle-orm/bun-sqlite"
 import { eq } from "drizzle-orm"
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { compositions, exportJobs, projects } from "../db/schema"
@@ -160,6 +160,16 @@ function createContextResolvers(root: string) {
   }
 }
 
+async function writePngFrame(path: string, width = 1920, height = 1080) {
+  const png = Buffer.alloc(24)
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(png, 0)
+  png.writeUInt32BE(13, 8)
+  png.write("IHDR", 12, "ascii")
+  png.writeUInt32BE(width, 16)
+  png.writeUInt32BE(height, 20)
+  await writeFile(path, png)
+}
+
 async function waitForStatus(
   service: InstanceType<ServiceModule["ExportService"]>,
   jobId: string,
@@ -229,6 +239,82 @@ describe("ExportService", () => {
         height: 1080,
       })
       expect(completed?.outputPath).toContain("/exports/")
+    } finally {
+      sqlite.close()
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test("persists a PNG sequence export as a directory and copies audio sidecars", async () => {
+    const { sqlite, db } = createTestDb()
+    const root = await createProjectFixture()
+    try {
+      db.insert(projects).values({
+        id: "project-1",
+        name: "Launch Promo",
+        slug: "launch",
+        path: root,
+        localPath: root,
+        activeCompositionId: "composition-1",
+      }).run()
+      db.insert(compositions).values({
+        id: "composition-1",
+        projectId: "project-1",
+        name: "Main",
+        filePath: "index.html",
+        dataCompositionId: "main",
+        width: 1920,
+        height: 1080,
+      }).run()
+
+      const destinationPath = join(root, "chosen", "launch-main-png-sequence")
+      const service = new serviceModule.ExportService({
+        db: db as never,
+        ...createContextResolvers(root),
+        execute: async (input) => {
+          expect(input.format).toBe("png-sequence")
+          expect(input.outputPath.endsWith("-png-sequence")).toBe(true)
+          await mkdir(input.outputPath, { recursive: true })
+          await writePngFrame(join(input.outputPath, "frame_000000.png"))
+          await writePngFrame(join(input.outputPath, "frame_000001.png"))
+          await writeFile(join(input.outputPath, "audio.aac"), "audio", "utf8")
+          return { durationSeconds: 2, width: 1920, height: 1080 }
+        },
+      })
+      const destination = service.createDestinationToken({
+        projectId: "project-1",
+        compositionId: "composition-1",
+        format: "png-sequence",
+        path: destinationPath,
+      })
+
+      const started = await service.start({
+        projectId: "project-1",
+        compositionId: "composition-1",
+        format: "png-sequence",
+        fps: 30,
+        qualityPreset: "standard",
+        destinationToken: destination.id,
+      })
+      const completed = await waitForStatus(service, started.id, "completed")
+
+      expect(completed).toMatchObject({
+        status: "completed",
+        progress: 100,
+        outputSizeBytes: 53,
+        durationSeconds: 2,
+        width: 1920,
+        height: 1080,
+        destinationPath,
+        displayPath: destinationPath,
+      })
+      expect(completed?.outputPath?.endsWith("-png-sequence")).toBe(true)
+      expect((await readdir(destinationPath)).sort()).toEqual([
+        "audio.aac",
+        "frame_000000.png",
+        "frame_000001.png",
+      ])
+      expect(await readFile(join(destinationPath, "audio.aac"), "utf8")).toBe("audio")
     } finally {
       sqlite.close()
       await rm(root, { recursive: true, force: true })
