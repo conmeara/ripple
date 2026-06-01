@@ -8,7 +8,7 @@ import { discoverInstalledPlugins, getPluginComponentPaths } from "../../plugins
 import { isDirentDirectory } from "../../fs/dirent"
 import { getEnabledPlugins } from "./claude-settings"
 import { isPathInsideDirectory } from "../../ripple-projects/paths"
-import { getAppManagedHyperframesSkillRoot } from "../../ripple-projects/hyperframes-skills"
+import { getAppManagedHyperframesSkillRoots } from "../../ripple-projects/hyperframes-skills"
 
 export interface FileSkill {
   name: string
@@ -121,10 +121,12 @@ const listSkillsProcedure = publicProcedure
   .query(async ({ input }) => {
     const userClaudeSkillsDir = path.join(os.homedir(), ".claude", "skills")
     const userCodexSkillsDir = path.join(os.homedir(), ".agents", "skills")
-    const appClaudeSkillsDir = getAppManagedHyperframesSkillRoot("claude")
-    const appCodexSkillsDir = getAppManagedHyperframesSkillRoot("codex")
-    const appClaudeSkillsPromise = scanSkillsDirectory(appClaudeSkillsDir, "app", "claude")
-    const appCodexSkillsPromise = scanSkillsDirectory(appCodexSkillsDir, "app", "codex")
+    const appClaudeSkillsPromises = getAppManagedHyperframesSkillRoots("claude").map((dir) =>
+      scanSkillsDirectory(dir, "app", "claude")
+    )
+    const appCodexSkillsPromises = getAppManagedHyperframesSkillRoots("codex").map((dir) =>
+      scanSkillsDirectory(dir, "app", "codex")
+    )
     const userClaudeSkillsPromise = scanSkillsDirectory(userClaudeSkillsDir, "user", "claude")
     const userCodexSkillsPromise = scanSkillsDirectory(userCodexSkillsDir, "user", "codex")
 
@@ -167,8 +169,8 @@ const listSkillsProcedure = publicProcedure
 
     // Scan all directories in parallel
     const [
-      appClaudeSkills,
-      appCodexSkills,
+      appClaudeSkillGroups,
+      appCodexSkillGroups,
       userClaudeSkills,
       userCodexSkills,
       projectClaudeSkills,
@@ -176,8 +178,8 @@ const listSkillsProcedure = publicProcedure
       ...pluginSkillsArrays
     ] =
       await Promise.all([
-        appClaudeSkillsPromise,
-        appCodexSkillsPromise,
+        Promise.all(appClaudeSkillsPromises),
+        Promise.all(appCodexSkillsPromises),
         userClaudeSkillsPromise,
         userCodexSkillsPromise,
         projectClaudeSkillsPromise,
@@ -185,6 +187,8 @@ const listSkillsProcedure = publicProcedure
         ...pluginSkillsPromises,
       ])
     const pluginSkills = pluginSkillsArrays.flat()
+    const appClaudeSkills = appClaudeSkillGroups.flat()
+    const appCodexSkills = appCodexSkillGroups.flat()
 
     return [
       ...appClaudeSkills,

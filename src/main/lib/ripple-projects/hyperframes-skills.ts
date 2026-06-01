@@ -1,16 +1,27 @@
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises"
+import { existsSync } from "node:fs"
+import {
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  readlink,
+  stat,
+  symlink,
+  unlink,
+  writeFile,
+} from "node:fs/promises"
 import { createRequire } from "node:module"
-import { dirname, join } from "node:path"
+import { dirname, join, resolve } from "node:path"
 
 const require = createRequire(import.meta.url)
 
-export const HYPERFRAMES_SKILL_NAMES = [
+export const REQUIRED_HYPERFRAMES_SKILL_NAMES = [
   "hyperframes",
   "hyperframes-cli",
-  "gsap",
+  "hyperframes-media",
 ] as const
 
-export type HyperframesSkillName = (typeof HYPERFRAMES_SKILL_NAMES)[number]
+export type HyperframesSkillName = string
 export type RippleSkillProvider = "claude" | "codex"
 export type HyperframesSkillStatus =
   | "created"
@@ -43,14 +54,53 @@ export function getBundledHyperframesSkillsRoot(): string {
   return join(getHyperframesPackageRoot(), "dist", "skills")
 }
 
+function getAppManagedResourcePath(...segments: string[]): string {
+  const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+  if (typeof resourcesPath === "string") {
+    const packagedRoot = join(resourcesPath, ...segments)
+    if (existsSync(packagedRoot)) return packagedRoot
+  }
+  return join(process.cwd(), "resources", ...segments)
+}
+
+export function getOfficialHyperframesPluginRoot(): string {
+  return getAppManagedResourcePath("hyperframes-official")
+}
+
+export function getOfficialHyperframesSkillsRoot(): string {
+  return join(getOfficialHyperframesPluginRoot(), "skills")
+}
+
+export function getAppManagedHyperframesSkillRoots(
+  _provider?: RippleSkillProvider,
+): string[] {
+  const officialRoot = getOfficialHyperframesSkillsRoot()
+  if (existsSync(officialRoot)) return [officialRoot]
+
+  const packageRoot = getBundledHyperframesSkillsRoot()
+  if (existsSync(packageRoot)) return [packageRoot]
+
+  return [officialRoot, packageRoot]
+}
+
 export function getAppManagedHyperframesSkillRoot(
-  _provider: RippleSkillProvider,
+  provider?: RippleSkillProvider,
 ): string {
-  return getBundledHyperframesSkillsRoot()
+  return getAppManagedHyperframesSkillRoots(provider)[0] ?? getBundledHyperframesSkillsRoot()
 }
 
 export function getClaudeHyperframesPluginRoot(): string {
   return join(getHyperframesPackageRoot(), "dist")
+}
+
+export function getClaudeHyperframesPluginRoots(): string[] {
+  const officialRoot = getOfficialHyperframesPluginRoot()
+  if (existsSync(join(officialRoot, "skills"))) return [officialRoot]
+
+  const packageRoot = getClaudeHyperframesPluginRoot()
+  if (existsSync(join(packageRoot, "skills"))) return [packageRoot]
+
+  return [officialRoot, packageRoot]
 }
 
 export function getProviderProjectSkillRoot(
@@ -100,6 +150,53 @@ async function listRelativeFiles(root: string, prefix = ""): Promise<string[]> {
   return files
 }
 
+async function listSkillNamesInRoot(root: string): Promise<string[]> {
+  let entries
+  try {
+    entries = await readdir(root, { withFileTypes: true })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
+    throw error
+  }
+
+  const names: string[] = []
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    if (entry.name.includes("..") || entry.name.includes("/") || entry.name.includes("\\")) {
+      continue
+    }
+    if (await pathExists(join(root, entry.name, "SKILL.md"))) {
+      names.push(entry.name)
+    }
+  }
+  return names
+}
+
+export async function listBundledHyperframesSkillNames(input?: {
+  provider?: RippleSkillProvider
+}): Promise<HyperframesSkillName[]> {
+  const names = new Set<string>()
+  for (const root of getAppManagedHyperframesSkillRoots(input?.provider)) {
+    for (const name of await listSkillNamesInRoot(root)) {
+      names.add(name)
+    }
+  }
+  return Array.from(names).sort()
+}
+
+async function resolveBundledHyperframesSkillPath(input: {
+  name: HyperframesSkillName
+  provider?: RippleSkillProvider
+}): Promise<string> {
+  for (const root of getAppManagedHyperframesSkillRoots(input.provider)) {
+    const sourcePath = join(root, input.name)
+    if (await pathExists(join(sourcePath, "SKILL.md"))) {
+      return sourcePath
+    }
+  }
+  return join(getAppManagedHyperframesSkillRoot(input.provider), input.name)
+}
+
 async function copyMissingOrIdenticalFiles(input: {
   sourceDir: string
   targetDir: string
@@ -128,44 +225,112 @@ async function copyMissingOrIdenticalFiles(input: {
   return created ? "created" : "present"
 }
 
-async function ensureProviderSkill(input: {
+function resolveSymlinkTarget(input: {
+  linkPath: string
+  targetPath: string
+}): string {
+  if (input.targetPath.startsWith("/")) return input.targetPath
+  return resolve(dirname(input.linkPath), input.targetPath)
+}
+
+async function linkOrCopySkill(input: {
+  sourceDir: string
+  targetDir: string
+}): Promise<"created" | "present"> {
+  await mkdir(dirname(input.targetDir), { recursive: true })
+  try {
+    await symlink(
+      input.sourceDir,
+      input.targetDir,
+      process.platform === "win32" ? "junction" : "dir",
+    )
+    return "created"
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code !== "EPERM" && code !== "EACCES" && code !== "ENOTSUP") {
+      throw error
+    }
+  }
+
+  await mkdir(input.targetDir, { recursive: true })
+  await copyMissingOrIdenticalFiles(input)
+  return "created"
+}
+
+export async function ensureProjectSkillFromSource(input: {
   projectPath: string
   provider: RippleSkillProvider
   name: HyperframesSkillName
+  sourcePath: string
 }): Promise<HyperframesSkillInstallStatus> {
-  const sourcePath = join(getBundledHyperframesSkillsRoot(), input.name)
   const targetPath = join(getProviderProjectSkillRoot(input.projectPath, input.provider), input.name)
 
-  if (!(await pathExists(join(sourcePath, "SKILL.md")))) {
+  if (!(await pathExists(join(input.sourcePath, "SKILL.md")))) {
     return {
       provider: input.provider,
       name: input.name,
-      sourcePath,
+      sourcePath: input.sourcePath,
       targetPath,
       status: "missing-source",
     }
   }
 
-  const targetSkillMd = join(targetPath, "SKILL.md")
-  if (!(await pathExists(targetSkillMd))) {
-    await mkdir(targetPath, { recursive: true })
-    await copyMissingOrIdenticalFiles({ sourceDir: sourcePath, targetDir: targetPath })
+  try {
+    const existing = await lstat(targetPath)
+    if (existing.isSymbolicLink()) {
+      const linkTarget = resolveSymlinkTarget({
+        linkPath: targetPath,
+        targetPath: await readlink(targetPath),
+      })
+      if (linkTarget === input.sourcePath) {
+        return {
+          provider: input.provider,
+          name: input.name,
+          sourcePath: input.sourcePath,
+          targetPath,
+          status: "present",
+        }
+      }
+      await unlink(targetPath)
+      return {
+        provider: input.provider,
+        name: input.name,
+        sourcePath: input.sourcePath,
+        targetPath,
+        status: await linkOrCopySkill({ sourceDir: input.sourcePath, targetDir: targetPath }),
+      }
+    }
+
     return {
       provider: input.provider,
       name: input.name,
-      sourcePath,
+      sourcePath: input.sourcePath,
       targetPath,
-      status: "created",
+      status: await copyMissingOrIdenticalFiles({
+        sourceDir: input.sourcePath,
+        targetDir: targetPath,
+      }),
     }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
   }
 
   return {
     provider: input.provider,
     name: input.name,
-    sourcePath,
+    sourcePath: input.sourcePath,
     targetPath,
-    status: await copyMissingOrIdenticalFiles({ sourceDir: sourcePath, targetDir: targetPath }),
+    status: await linkOrCopySkill({ sourceDir: input.sourcePath, targetDir: targetPath }),
   }
+}
+
+async function ensureProviderSkill(input: {
+  projectPath: string
+  provider: RippleSkillProvider
+  name: HyperframesSkillName
+}): Promise<HyperframesSkillInstallStatus> {
+  const sourcePath = await resolveBundledHyperframesSkillPath(input)
+  return ensureProjectSkillFromSource({ ...input, sourcePath })
 }
 
 export async function ensureProjectHyperframesSkills(input: {
@@ -176,7 +341,7 @@ export async function ensureProjectHyperframesSkills(input: {
   const skills: HyperframesSkillInstallStatus[] = []
 
   for (const provider of providers) {
-    for (const name of HYPERFRAMES_SKILL_NAMES) {
+    for (const name of await listBundledHyperframesSkillNames({ provider })) {
       skills.push(await ensureProviderSkill({
         projectPath: input.projectPath,
         provider,
@@ -195,8 +360,8 @@ export async function checkAppManagedHyperframesSkills(input?: {
   const skills: HyperframesSkillInstallStatus[] = []
 
   for (const provider of providers) {
-    for (const name of HYPERFRAMES_SKILL_NAMES) {
-      const sourcePath = join(getBundledHyperframesSkillsRoot(), name)
+    for (const name of await listBundledHyperframesSkillNames({ provider })) {
+      const sourcePath = await resolveBundledHyperframesSkillPath({ provider, name })
       skills.push({
         provider,
         name,

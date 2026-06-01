@@ -1,0 +1,23 @@
+{
+  "repository": "https://github.com/heygen-com/hyperframes",
+  "ref": "main",
+  "commit": "cfef6caf5f00caaa0980572007079b9d980d9c9d",
+  "skillsPath": "skills",
+  "skillNames": [
+    "animejs",
+    "contribute-catalog",
+    "css-animations",
+    "gsap",
+    "hyperframes",
+    "hyperframes-cli",
+    "hyperframes-media",
+    "hyperframes-registry",
+    "lottie",
+    "remotion-to-hyperframes",
+    "tailwind",
+    "three",
+    "typegpu",
+    "waapi",
+    "website-to-hyperframes"
+  ]
+}

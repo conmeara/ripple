@@ -11,6 +11,7 @@ import type {
 import { resolveProjectPathFromWorktree } from "../../claude-config"
 import {
   buildProjectNoteFallbackInstructions,
+  ensureProjectAppManagedAgentSkills,
   resolveAgentRunContext,
 } from "../agent-run-context-resolver"
 import {
@@ -469,6 +470,10 @@ export class CodexAppServerAdapter implements AgentProviderAdapter {
         console.warn("[codex-app-server] Failed to resolve Codex MCP context:", error)
       }
 
+      await ensureProjectAppManagedAgentSkills({
+        provider: "codex",
+        projectPath: input.projectPath,
+      })
       const runContext = await resolveAgentRunContext({
         provider: "codex",
         cwd: input.cwd,

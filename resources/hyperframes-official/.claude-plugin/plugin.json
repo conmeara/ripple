@@ -1,0 +1,8 @@
+{
+  "name": "ripple-hyperframes",
+  "description": "Official HyperFrames skills bundled by Ripple for motion projects, media assets, transparent overlays, animation guidance, previews, and exports.",
+  "version": "0.1.0",
+  "author": {
+    "name": "HeyGen HyperFrames"
+  }
+}

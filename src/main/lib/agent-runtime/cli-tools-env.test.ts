@@ -135,6 +135,14 @@ describe("Ripple agent CLI tool environment", () => {
       to: "bin",
     }))
     expect(packageJson.build?.extraResources).toContainEqual(expect.objectContaining({
+      from: "resources/hyperframes-official",
+      to: "hyperframes-official",
+    }))
+    expect(packageJson.build?.extraResources).not.toContainEqual(expect.objectContaining({
+      from: "resources/agent-skills",
+      to: "agent-skills",
+    }))
+    expect(packageJson.build?.extraResources).not.toContainEqual(expect.objectContaining({
       from: "resources/claude-plugins",
       to: "claude-plugins",
     }))

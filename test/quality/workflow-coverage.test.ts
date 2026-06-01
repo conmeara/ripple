@@ -6,6 +6,7 @@ const specsDir = "docs/specs"
 const archivedMdSpecsDir = "docs/z_archive/md_specs"
 
 const requiredActiveSpecFiles = [
+  "Agent Context and Skills.html",
   "Comments.html",
   "Visual Context/Visual Context.html",
   "Visual Context/Visual Context Pipeline.html",
@@ -50,6 +51,7 @@ const requiredArchivedSpecFiles = [
 const requiredScripts = [
   "bin:stage",
   "package:stage",
+  "hyperframes:skills:update",
   "test:quality",
   "test:ux",
   "test:agent",
@@ -60,8 +62,10 @@ const requiredScripts = [
   "test:export",
   "test:export:smoke",
   "test:e2e",
+  "test:e2e:agent-context",
   "test:e2e:packaged",
   "test:e2e:update",
+  "test:e2e:visual-context-live",
   "test:visual",
   "test:live",
   "test:package:smoke",
@@ -243,5 +247,33 @@ describe("Ripple v1 draft specs", () => {
     expect(packageJson.scripts["test:closeout"]).toContain("test:e2e")
     expect(packageJson.scripts["package"]).toContain("package:stage")
     expect(packageJson.scripts["package:stage"]).toContain("bin:stage")
+  })
+
+  test("keeps the agent context and skills workflow aligned to the ideal prompt/skill split", () => {
+    const html = readFileSync(join(specsDir, "Agent Context and Skills.html"), "utf8")
+    const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
+      scripts: Record<string, string>
+      build: {
+        extraResources: Array<{ from: string; to: string }>
+      }
+    }
+    const smokePackage = readFileSync("scripts/smoke-packaged-ripple.mjs", "utf8")
+    const extraResourceTargets = packageJson.build.extraResources.map((resource) => resource.to)
+
+    expect(html).toContain("Always-on Ripple prompt")
+    expect(html).toContain("Official HyperFrames skills")
+    expect(html).toContain("Project context")
+    expect(html).toContain("Agent work")
+    expect(html).not.toContain("ripple-visual-context")
+    expect(packageJson.scripts["hyperframes:skills:update"]).toContain("update-hyperframes-skills.mjs")
+    expect(packageJson.scripts["test:agent"]).toContain("src/main/lib/agent-runtime")
+    expect(packageJson.scripts["test:e2e:agent-context"]).toContain("agent-context-and-skills.e2e.ts")
+    expect(packageJson.scripts["test:e2e:visual-context-live"]).toContain("agent-visual-context-provider-matrix-live.e2e.ts")
+    expect(extraResourceTargets).toContain("hyperframes-official")
+    expect(extraResourceTargets).not.toContain("agent-skills")
+    expect(extraResourceTargets).not.toContain("claude-plugins")
+    expect(smokePackage).toContain("hyperframes-official/skills/hyperframes-media/SKILL.md")
+    expect(smokePackage).not.toContain('"agent-skills"')
+    expect(smokePackage).not.toContain('"claude-plugins"')
   })
 })

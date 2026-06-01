@@ -1,0 +1,22 @@
+{
+  "name": "ripple-hyperframes",
+  "version": "0.1.0",
+  "description": "Official HyperFrames agent skills bundled by Ripple for motion projects, media assets, transparent overlays, animation guidance, previews, and exports.",
+  "author": {
+    "name": "HeyGen HyperFrames"
+  },
+  "repository": "https://github.com/heygen-com/hyperframes",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "HyperFrames",
+    "shortDescription": "Official HyperFrames skills for Ripple motion projects.",
+    "longDescription": "Official HyperFrames skills bundled with Ripple so agents can create, inspect, and verify motion compositions and reusable media assets.",
+    "developerName": "HeyGen",
+    "category": "Creative",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Bash"
+    ]
+  }
+}

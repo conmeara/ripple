@@ -215,11 +215,21 @@ describe("HyperFrames packaged app configuration", () => {
     expect(pkg.scripts["bin:stage"]).toContain("bun run codex:download")
     expect(pkg.scripts["package:stage"]).toContain("bun run bin:stage")
     expect(pkg.scripts["package:stage"]).toContain("bun run ripple:stage-cli")
+    expect(pkg.scripts["hyperframes:skills:update"]).toBe("node scripts/update-hyperframes-skills.mjs")
     expect(pkg.bin?.ripple).toBe("bin/ripple.js")
     expect(pkg.build.extraResources).toContainEqual(expect.objectContaining({
       from: "resources/bin/${platform}-${arch}",
       to: "bin",
     }))
+    expect(pkg.build.extraResources).toContainEqual(expect.objectContaining({
+      from: "resources/hyperframes-official",
+      to: "hyperframes-official",
+    }))
+    const hyperframesOfficialResource = pkg.build.extraResources?.find((resource) =>
+      resource.from === "resources/hyperframes-official"
+    )
+    expect(hyperframesOfficialResource?.filter).toContain(".codex-plugin/**")
+    expect(hyperframesOfficialResource?.filter).toContain(".claude-plugin/**")
     expect(pkg.build.extraResources).not.toContainEqual(expect.objectContaining({
       from: "resources/cli",
       to: "bin",

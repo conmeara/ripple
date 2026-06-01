@@ -38,7 +38,7 @@ beforeAll(async () => {
 })
 
 describe("Claude runtime capabilities source contract", () => {
-  test("uses app policy append with native CLAUDE.md discovery and managed skills", async () => {
+  test("uses app policy append with native CLAUDE.md discovery and HyperFrames managed skills", async () => {
     const source = await readFile(
       "src/main/lib/agent-runtime/providers/claude-runtime-capabilities.ts",
       "utf8",
@@ -46,11 +46,12 @@ describe("Claude runtime capabilities source contract", () => {
 
     expect(source).toContain("CLAUDE.md")
     expect(source).toContain("settingSources")
+    expect(source).toContain("ensureProjectAppManagedAgentSkills")
     expect(source).toContain("runContext.appPolicy")
     expect(source).toContain("skills: \"all\"")
-    expect(source).toContain("getClaudeHyperframesPluginRoot")
-    expect(source).toContain("getAppManagedRippleClaudePluginRoot")
-    expect(source).toContain("ripple-visual-context")
+    expect(source).toContain("getClaudeHyperframesPluginRoots")
+    expect(source).not.toContain("getAppManagedRippleClaudePluginRoot")
+    expect(source).not.toContain("ripple-visual-context")
     expect(source).toContain("runContext.skillRoots.appManaged.map")
     expect(source).not.toContain("AGENTS.md")
   })
@@ -80,7 +81,7 @@ describe("Claude runtime capabilities source contract", () => {
     expect(source).not.toContain("allowDangerouslySkipPermissions")
   })
 
-  test("loads the Ripple visual-context plugin and skill without a user skill mention", async () => {
+  test("loads HyperFrames skills while keeping Ripple visual behavior in the always-on prompt", async () => {
     const projectPath = await mkdtemp(join(tmpdir(), "ripple-claude-capabilities-"))
     try {
       const capabilities = await capabilitiesModule.loadClaudeRuntimeCapabilities(
@@ -90,15 +91,22 @@ describe("Claude runtime capabilities source contract", () => {
       )
 
       expect(capabilities.plugins.some((plugin) =>
-        plugin.path.endsWith("resources/claude-plugins/ripple-visual-context")
+        plugin.path.endsWith("resources/hyperframes-official")
       )).toBe(true)
+      expect(capabilities.plugins.some((plugin) =>
+        plugin.path.endsWith("resources/claude-plugins/ripple-visual-context")
+      )).toBe(false)
       expect(capabilities.skills).toBe("all")
-      expect(capabilities.summary.pluginNames).toContain("ripple-visual-context")
-      expect(capabilities.summary.skillNames).toContain("ripple-visual-context")
+      expect(capabilities.summary.pluginNames).not.toContain("ripple-visual-context")
+      expect(capabilities.summary.skillNames).toContain("hyperframes-media")
+      expect(capabilities.summary.skillNames).not.toContain("ripple-visual-context")
+      expect(capabilities.summary.appManagedSkillRoots.some((root) =>
+        root.endsWith("resources/hyperframes-official/skills")
+      )).toBe(true)
       expect(capabilities.summary.appManagedSkillRoots.some((root) =>
         root.endsWith("resources/claude-plugins/ripple-visual-context/skills")
-      )).toBe(true)
-      expect(capabilities.systemPrompt?.append).toContain("Use it proactively after creating or editing visible motion work")
+      )).toBe(false)
+      expect(capabilities.systemPrompt?.append).toContain("Ripple visual tool-choice policy")
       expect(capabilities.systemPrompt?.append).toContain("make the native Ripple visual tool the first external action")
       expect(capabilities.systemPrompt?.append).toContain("Do not use shell commands, file lookup")
       expect(capabilities.systemPrompt?.append).toContain("only when the runtime does not expose native Ripple visual tools")

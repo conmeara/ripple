@@ -23,12 +23,12 @@ import {
 } from "../../trpc/routers/claude-settings"
 import {
   buildProjectNoteFallbackInstructions,
-  getAppManagedRippleClaudePluginRoot,
+  ensureProjectAppManagedAgentSkills,
   resolveAgentRunContext,
 } from "../agent-run-context-resolver"
 import type { WorkspaceKind } from "../types"
 import {
-  getClaudeHyperframesPluginRoot,
+  getClaudeHyperframesPluginRoots,
 } from "../../ripple-projects/hyperframes-skills"
 
 type SdkPluginConfig = { type: "local"; path: string }
@@ -198,6 +198,10 @@ export async function loadClaudeRuntimeCapabilities(
   workspaceKind: WorkspaceKind = "main",
 ): Promise<ClaudeRuntimeCapabilities> {
   const resolvedCwd = projectPath || resolveProjectPathFromWorktree(cwd) || cwd
+  await ensureProjectAppManagedAgentSkills({
+    provider: "claude",
+    projectPath: resolvedCwd,
+  })
   const runContext = await resolveAgentRunContext({
     provider: "claude",
     cwd,
@@ -205,8 +209,7 @@ export async function loadClaudeRuntimeCapabilities(
     workspaceKind,
   })
   const projectNoteFallback = buildProjectNoteFallbackInstructions(runContext)
-  const claudeHyperframesPluginRoot = getClaudeHyperframesPluginRoot()
-  const rippleVisualContextPluginRoot = getAppManagedRippleClaudePluginRoot()
+  const claudeHyperframesPluginRoots = getClaudeHyperframesPluginRoots()
   const [config, dirConfig, enabledPluginSources, installedPlugins, claudeMd] =
     await Promise.all([
       readClaudeConfig(),
@@ -220,8 +223,7 @@ export async function loadClaudeRuntimeCapabilities(
     enabledPluginSources.includes(plugin.source),
   )
   const plugins: SdkPluginConfig[] = [
-    { type: "local", path: claudeHyperframesPluginRoot },
-    { type: "local", path: rippleVisualContextPluginRoot },
+    ...claudeHyperframesPluginRoots.map((path) => ({ type: "local" as const, path })),
     ...enabledPlugins.map((plugin) => ({
       type: "local" as const,
       path: plugin.path,
@@ -281,7 +283,6 @@ export async function loadClaudeRuntimeCapabilities(
       skippedMcpServerNames: skippedMcpServerNames.sort(),
       pluginNames: [
         "ripple-hyperframes",
-        "ripple-visual-context",
         ...enabledPlugins.map((plugin) => plugin.source),
       ].sort(),
       skillNames,

@@ -31,6 +31,7 @@
     "claude:download:all": "node scripts/download-claude-binary.mjs --version=2.1.123 --all",
     "codex:download": "node scripts/download-codex-binary.mjs --version=0.125.0",
     "codex:download:all": "node scripts/download-codex-binary.mjs --version=0.125.0 --all",
+    "hyperframes:skills:update": "node scripts/update-hyperframes-skills.mjs",
     "release": "rm -rf release && bun install --frozen-lockfile && bun run claude:download:all && bun run codex:download:all && bun run browser:stage && bun run build && electron-builder --mac --publish never",
     "release:github:mac": "rm -rf release && bun install --frozen-lockfile && bun run claude:download:all && bun run codex:download:all && bun run browser:stage && bun run build && electron-builder --mac --publish always",
     "release:dev": "rm -rf release && bun run claude:download && bun run codex:download && bun run build && bun run package:mac && rm -rf node_modules && bun i",
@@ -56,6 +57,7 @@
     "test:export": "bun run test:hyperframes",
     "test:export:smoke": "bun scripts/smoke-ripple-export-formats.ts",
     "test:e2e": "bun run browser:stage && bun run build && playwright test --config test/e2e/playwright.config.ts",
+    "test:e2e:agent-context": "playwright test --config test/e2e/playwright.config.ts test/e2e/agent-context-and-skills.e2e.ts",
     "test:e2e:packaged": "RIPPLE_E2E_PACKAGED_APP=${RIPPLE_E2E_PACKAGED_APP:-release/mac-arm64/Ripple.app} playwright test --config test/e2e/playwright.config.ts test/e2e/release-qa.e2e.ts",
     "test:e2e:update": "bun run browser:stage && bun run build && playwright test --config test/e2e/playwright.config.ts --update-snapshots",
     "test:e2e:headed": "bun run browser:stage && bun run build && playwright test --config test/e2e/playwright.config.ts --headed",
@@ -268,17 +270,12 @@
         ]
       },
       {
-        "from": "resources/agent-skills",
-        "to": "agent-skills",
+        "from": "resources/hyperframes-official",
+        "to": "hyperframes-official",
         "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "resources/claude-plugins",
-        "to": "claude-plugins",
-        "filter": [
-          "**/*"
+          "**/*",
+          ".codex-plugin/**",
+          ".claude-plugin/**"
         ]
       }
     ],

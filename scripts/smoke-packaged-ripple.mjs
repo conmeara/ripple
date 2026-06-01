@@ -43,8 +43,16 @@ for (const relative of [
   "browser",
   "build",
   "hyperframes-templates",
-  "agent-skills",
-  "claude-plugins",
+  "hyperframes-official",
+]) {
+  assertExists(join(resourcesPath, relative))
+}
+
+for (const relative of [
+  "hyperframes-official/source.json",
+  "hyperframes-official/.codex-plugin/plugin.json",
+  "hyperframes-official/.claude-plugin/plugin.json",
+  "hyperframes-official/skills/hyperframes-media/SKILL.md",
 ]) {
   assertExists(join(resourcesPath, relative))
 }

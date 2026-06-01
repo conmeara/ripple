@@ -1,8 +1,0 @@
-{
-  "name": "ripple-visual-context",
-  "description": "App-managed Ripple visual context skill for HyperFrames preview, screenshot, frame-sheet, and render-aware review workflows.",
-  "version": "1.0.0",
-  "author": {
-    "name": "Ripple"
-  }
-}

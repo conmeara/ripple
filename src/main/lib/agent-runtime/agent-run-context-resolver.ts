@@ -1,16 +1,19 @@
-import { existsSync } from "node:fs"
 import { join } from "node:path"
 import type { AgentProviderId, WorkspaceKind } from "./types"
-import { RIPPLE_PROVIDER_POLICY } from "./ripple-provider-policy"
+import {
+  RIPPLE_PROVIDER_POLICY,
+  RIPPLE_VISUAL_CONTEXT_POLICY,
+} from "./ripple-provider-policy"
 import {
   readRippleProjectAgentNote,
   type RippleAgentNoteFileName,
   type RippleAgentNoteStatus,
 } from "../ripple-projects/project-agent-notes"
 import {
-  HYPERFRAMES_SKILL_NAMES,
-  getAppManagedHyperframesSkillRoot,
+  ensureProjectHyperframesSkills,
+  getAppManagedHyperframesSkillRoots,
   getProviderProjectSkillRoot,
+  listBundledHyperframesSkillNames,
   type RippleSkillProvider,
 } from "../ripple-projects/hyperframes-skills"
 
@@ -49,30 +52,19 @@ function skillProviderForAgent(provider: AgentProviderId): RippleSkillProvider {
   return provider === "claude" ? "claude" : "codex"
 }
 
-function getAppManagedRippleResourcePath(...segments: string[]): string {
-  const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
-  if (typeof resourcesPath === "string") {
-    const packagedRoot = join(resourcesPath, ...segments)
-    if (existsSync(packagedRoot)) return packagedRoot
-  }
-  return join(process.cwd(), "resources", ...segments)
-}
+export async function ensureProjectAppManagedAgentSkills(input: {
+  provider: AgentProviderId
+  projectPath: string
+}) {
+  const skillProvider = skillProviderForAgent(input.provider)
+  const hyperframesSkills = await ensureProjectHyperframesSkills({
+    projectPath: input.projectPath,
+    providers: [skillProvider],
+  })
 
-export function getAppManagedRippleAgentSkillRoot(
-  provider: RippleSkillProvider = "codex",
-): string {
-  if (provider === "claude") {
-    return getAppManagedRippleResourcePath(
-      "claude-plugins",
-      "ripple-visual-context",
-      "skills",
-    )
+  return {
+    skills: hyperframesSkills.skills,
   }
-  return getAppManagedRippleResourcePath("agent-skills")
-}
-
-export function getAppManagedRippleClaudePluginRoot(): string {
-  return getAppManagedRippleResourcePath("claude-plugins", "ripple-visual-context")
 }
 
 function discoveryStatus(input: {
@@ -113,30 +105,20 @@ export async function resolveAgentRunContext(input: {
     fallbackContent: projectNote.content,
   })
   const skillProvider = skillProviderForAgent(input.provider)
-  const appManagedSkillRoot = getAppManagedHyperframesSkillRoot(skillProvider)
-  const visualContextSkillRoot = getAppManagedRippleAgentSkillRoot(skillProvider)
+  const appManagedSkillRoots = getAppManagedHyperframesSkillRoots(skillProvider)
+  const hyperframesSkillNames = await listBundledHyperframesSkillNames({
+    provider: skillProvider,
+  })
   const projectSkillRoot = getProviderProjectSkillRoot(input.projectPath, skillProvider)
-  const visualToolChoicePolicy = [
-    "Ripple visual tool-choice policy:",
-    "When a user or comment asks for visual context, make the native Ripple visual tool the first external action. Do not preface it with a plan unless the user asked for a plan.",
-    "Use native snapshot at `current` for the visible app frame, native snapshot at a timestamp such as `1.25s` only for an exact-time request, and native frame sheet for motion over time or a time range.",
-    "Native Ripple visual tools return images directly in the tool result. Do not use shell commands, file lookup, generic image-view/open/browser tools, or video extraction before a native Ripple visual tool.",
-    "Comment runs may already include automatic visual context: frame comments get a still frame, and range comments get a frame sheet. Use that attached image first, then call a native Ripple visual tool only for a fresh or different visual.",
-    "Normal chats do not receive automatic run-start images; request visuals on demand with the native Ripple visual tools.",
-  ].join("\n")
   const appPolicy = [
-    visualToolChoicePolicy,
+    RIPPLE_VISUAL_CONTEXT_POLICY,
     RIPPLE_PROVIDER_POLICY,
     [
       "Ripple app-managed HyperFrames skills for this run:",
-      HYPERFRAMES_SKILL_NAMES.join(", "),
-      `Loaded from: ${appManagedSkillRoot}`,
-      "Prefer these bundled skills for HyperFrames composition authoring, validation, preview, timeline, and export guidance.",
+      hyperframesSkillNames.join(", "),
+      `Loaded from: ${appManagedSkillRoots.join(", ")}`,
+      "Prefer these official bundled skills for HyperFrames composition authoring, validation, preview, timeline, media preprocessing, transparent overlays, registry, animation library, and export guidance.",
       "",
-      "Ripple app-managed visual-context skill for this run:",
-      "ripple-visual-context",
-      `Loaded from: ${visualContextSkillRoot}`,
-      "Use it proactively after creating or editing visible motion work. Use reversible `ripple snapshot` and `ripple frame-sheet` commands only when the runtime does not expose native Ripple visual tools. Add `--composition <path>` only when you need a project-relative composition other than the active/default one.",
       "Use bundled HyperFrames CLI and skills for structure, linting, inspection, and export work. Use app-managed bare commands (`ripple`, `hyperframes`) instead of `npx`, `bunx`, or package installs.",
     ].join("\n"),
   ].join("\n\n")
@@ -154,7 +136,7 @@ export async function resolveAgentRunContext(input: {
       fallbackContent: projectNote.content,
     },
     skillRoots: {
-      appManaged: [appManagedSkillRoot, visualContextSkillRoot],
+      appManaged: appManagedSkillRoots,
       project: [projectSkillRoot],
     },
     statusLabels: [
@@ -165,7 +147,6 @@ export async function resolveAgentRunContext(input: {
           ? `${fileName} fallback`
           : `${fileName} ${noteDiscoveryStatus}`,
       "HyperFrames skills",
-      "Ripple visual context",
     ],
   }
 }

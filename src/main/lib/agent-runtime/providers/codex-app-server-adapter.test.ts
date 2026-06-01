@@ -680,6 +680,7 @@ describe("Codex App Server input", () => {
     expect(source).toContain('name: "ripple_desktop"')
     expect(source).toContain('serviceName: "ripple_desktop"')
     expect(source).toContain("experimentalApi: true")
+    expect(source).toContain("ensureProjectAppManagedAgentSkills")
     expect(source).toContain("let threadId: string | null = null")
     expect(source).toContain("ephemeral: true")
     expect(source).toContain('sessionStartSource: "clear"')
@@ -762,16 +763,16 @@ describe("Codex App Server input", () => {
     ])
   })
 
-  test("normalizes enabled skills/list entries for default app skills and typed skill mentions", () => {
+  test("normalizes enabled skills/list entries without defaulting Ripple prompt policy as a skill", () => {
     const skills = normalizeCodexSkillEntries({
       data: [
         {
           cwd: "/tmp/project",
           skills: [
             {
-              name: "ripple-visual-context",
-              description: "Inspect Ripple visuals",
-              path: "/tmp/app/resources/agent-skills/ripple-visual-context",
+              name: "user-custom-skill",
+              description: "A user-installed helper skill",
+              path: "/tmp/project/.agents/skills/user-custom-skill",
               enabled: true,
             },
             {
@@ -795,22 +796,11 @@ describe("Codex App Server input", () => {
     expect(buildCodexTurnSkillInputs(["hyperframes", "disabled", "missing"], skills)).toEqual([
       {
         type: "skill",
-        name: "ripple-visual-context",
-        path: "/tmp/app/resources/agent-skills/ripple-visual-context",
-      },
-      {
-        type: "skill",
         name: "hyperframes",
         path: "/tmp/project/.agents/skills/hyperframes",
       },
     ])
-    expect(buildCodexTurnSkillInputs([], skills)).toEqual([
-      {
-        type: "skill",
-        name: "ripple-visual-context",
-        path: "/tmp/app/resources/agent-skills/ripple-visual-context",
-      },
-    ])
+    expect(buildCodexTurnSkillInputs([], skills)).toEqual([])
   })
 })
 
