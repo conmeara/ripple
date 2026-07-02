@@ -40,6 +40,26 @@ test("densityFloor always shows the start, even when the first cut is nearby", (
   assert.deepEqual(frames.filter((f) => f.source === "scene").map((f) => f.t), [8, 16]);
 });
 
+test("densityFloor terminates on degenerate gaps instead of hanging", () => {
+  // Regression: gap <= 0 made the fill loop never advance.
+  for (const gap of [0, -5, NaN]) {
+    const frames = densityFloor([8], 30, gap);
+    assert.ok(frames.length > 0 && frames.length < 200, `gap=${gap} must terminate sanely`);
+  }
+});
+
+test("thinToMax never drops the earliest frame, even when scenes exceed the cap", () => {
+  // Regression: with more scene frames than the cap, all floors (including
+  // t=0) were discarded — the opening of the video vanished from the sheet.
+  const frames = [
+    { t: 0, source: "floor" },
+    ...Array.from({ length: 20 }, (_, i) => ({ t: 50 + i, source: "scene" })),
+  ];
+  const thinned = thinToMax(frames, 10);
+  assert.equal(thinned.length, 10);
+  assert.equal(thinned[0].t, 0);
+});
+
 test("thinToMax drops floor frames before scene frames", () => {
   const frames = [
     ...Array.from({ length: 8 }, (_, i) => ({ t: i * 10, source: "floor" })),

@@ -18,6 +18,7 @@ export function parseShowinfoTimes(stderr) {
 // Guarantee coverage: the start is always shown, and at most `gap` seconds
 // pass between frames.
 export function densityFloor(sceneTimes, duration, gap) {
+  gap = Math.max(Number(gap) || 10, 0.5); // a non-positive gap must never loop forever
   const all = [...sceneTimes].sort((a, b) => a - b);
   const filled = [];
   let prev = 0;
@@ -44,21 +45,26 @@ export function densityFloor(sceneTimes, duration, gap) {
 }
 
 // Cap frame count: floor frames drop first, then scene frames thin evenly.
+// The earliest frame always survives — the start of the video must stay visible.
 export function thinToMax(frames, max) {
   if (frames.length <= max) return frames;
-  const scenes = frames.filter((f) => f.source === "scene");
-  const floors = frames.filter((f) => f.source === "floor");
-  if (scenes.length >= max) {
-    const step = scenes.length / max;
-    const kept = [];
-    for (let i = 0; i < max; i++) kept.push(scenes[Math.floor(i * step)]);
-    return kept.sort((a, b) => a.t - b.t);
+  const first = frames.reduce((a, b) => (b.t < a.t ? b : a));
+  const scenes = frames.filter((f) => f.source === "scene" && f !== first);
+  const floors = frames.filter((f) => f.source === "floor" && f !== first);
+  const room = max - 1;
+  let kept;
+  if (scenes.length >= room) {
+    const step = scenes.length / room;
+    kept = [];
+    for (let i = 0; i < room; i++) kept.push(scenes[Math.floor(i * step)]);
+  } else {
+    const floorRoom = room - scenes.length;
+    const step = floors.length / floorRoom;
+    const keptFloors = [];
+    for (let i = 0; i < floorRoom; i++) keptFloors.push(floors[Math.floor(i * step)]);
+    kept = [...scenes, ...keptFloors];
   }
-  const room = max - scenes.length;
-  const step = floors.length / room;
-  const keptFloors = [];
-  for (let i = 0; i < room; i++) keptFloors.push(floors[Math.floor(i * step)]);
-  return [...scenes, ...keptFloors].sort((a, b) => a.t - b.t);
+  return [first, ...kept].sort((a, b) => a.t - b.t);
 }
 
 // Minimal P5 (binary) PGM parser → { width, height, pixels: Uint8Array }.
@@ -106,7 +112,9 @@ async function scenesMode(args, file) {
   const duration = Number(ffprobeJson(file).format?.duration ?? 0);
   if (!duration) fail(`Could not read duration of ${file}`, 1);
   const threshold = args["scene-threshold"] ?? 0.3;
+  if (threshold <= 0 || threshold >= 1) fail("--scene-threshold must be between 0 and 1 (exclusive)", 2);
   const gap = args.gap ?? 10;
+  if (!(gap > 0)) fail("--gap must be a positive number of seconds", 2);
   const cols = args.cols ?? 6;
   const scale = args.scale ?? 480;
 
