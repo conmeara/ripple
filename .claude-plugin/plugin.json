@@ -1,0 +1,13 @@
+{
+  "name": "ripple",
+  "displayName": "Ripple",
+  "version": "0.1.0",
+  "description": "Agent video editing: transcription-driven cuts, frame-sheet eyes, HDR-safe finishing, deterministic QA, and a persistent taste memory (VIDEO.md). Routes motion graphics to HyperFrames or Remotion.",
+  "author": {
+    "name": "Conor O'Meara"
+  },
+  "homepage": "https://github.com/conmeara/ripple",
+  "repository": "https://github.com/conmeara/ripple",
+  "license": "Apache-2.0",
+  "keywords": ["video", "editing", "ffmpeg", "whisper", "transcription", "motion-graphics", "hyperframes", "remotion"]
+}

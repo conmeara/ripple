@@ -1,0 +1,15 @@
+{
+  "name": "ripple",
+  "owner": {
+    "name": "Conor O'Meara"
+  },
+  "plugins": [
+    {
+      "name": "ripple",
+      "source": "./",
+      "description": "Agent video editing: transcription-driven cuts, frame-sheet eyes, HDR-safe finishing, deterministic QA, and a persistent taste memory (VIDEO.md).",
+      "category": "creative",
+      "tags": ["video", "editing", "ffmpeg", "motion-graphics"]
+    }
+  ]
+}

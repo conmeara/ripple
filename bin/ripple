@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Ripple CLI launcher. This directory is added to PATH by Claude Code while
+# the plugin is enabled, so skills can invoke `ripple` as a bare command.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec node "$SCRIPT_DIR/../cli/index.mjs" "$@"

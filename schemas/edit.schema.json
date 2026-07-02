@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/conmeara/ripple/schemas/edit.schema.json",
+  "title": "Ripple edit manifest",
+  "description": "The single source of truth for an edit. Renders are derived from this file; user corrections patch it locally.",
+  "type": "object",
+  "required": ["version", "scenes"],
+  "properties": {
+    "version": { "const": 1 },
+    "title": { "type": "string" },
+    "color": {
+      "type": "object",
+      "properties": {
+        "policy": { "enum": ["preserve", "sdr"] },
+        "source": {
+          "type": "object",
+          "description": "As detected by ripple probe (primaries/transfer/space)",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "width": { "type": "integer" },
+        "height": { "type": "integer" },
+        "fps": { "type": "string", "description": "e.g. 24000/1001" },
+        "container": { "type": "string" }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "slug", "source", "start", "end", "status"],
+        "properties": {
+          "id": { "type": "integer" },
+          "slug": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+          "title": { "type": "string", "description": "e.g. the question card text" },
+          "source": { "type": "string", "description": "path to source media" },
+          "start": { "type": "number", "description": "seconds in source" },
+          "end": { "type": "number" },
+          "take": { "type": "string", "description": "which take was chosen, when sources have several" },
+          "candidates": {
+            "type": "array",
+            "description": "other takes/ranges considered",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": { "type": "number" },
+                "end": { "type": "number" },
+                "note": { "type": "string" }
+              }
+            }
+          },
+          "reasoning": { "type": "string", "description": "why this take and these bounds — always filled in" },
+          "status": { "enum": ["proposed", "locked", "repaired"] },
+          "expectEnding": { "type": "string", "description": "phrase the scene must end with; used by qa" },
+          "card": { "type": "string", "description": "title card text preceding this scene, if any" },
+          "jcut": { "type": "number", "description": "seconds of scene audio to start under the preceding card" }
+        }
+      }
+    },
+    "qa": {
+      "type": "object",
+      "properties": {
+        "leakPatterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "regexes that must NOT appear in the final transcript (prompts, direction, take slates)"
+        },
+        "maxTailSilence": { "type": "number", "default": 1.0 },
+        "maxLeadingSilence": { "type": "number", "default": 0.5 }
+      }
+    }
+  }
+}
