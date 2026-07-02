@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import {
   ensureDir, fail, ffprobeJson, output, parseArgs, requireTool, round3, run,
@@ -6,14 +6,192 @@ import {
 
 const MAX_FRAMES = 120;
 
+// ---------- pure helpers (unit-tested) ----------
+
+// Parse showinfo stderr into frame timestamps.
+export function parseShowinfoTimes(stderr) {
+  const times = [];
+  for (const m of stderr.matchAll(/pts_time:([\d.]+)/g)) times.push(round3(Number(m[1])));
+  return times;
+}
+
+// Guarantee coverage: the start is always shown, and at most `gap` seconds
+// pass between frames.
+export function densityFloor(sceneTimes, duration, gap) {
+  const all = [...sceneTimes].sort((a, b) => a - b);
+  const filled = [];
+  let prev = 0;
+  const withEnd = [...all, duration];
+  if (!all.length || all[0] > 0.5) filled.push({ t: 0, source: "floor" });
+  for (const t of withEnd) {
+    let cursor = Math.max(prev, filled.length ? filled[filled.length - 1].t : 0);
+    while (t - cursor > gap) {
+      cursor = round3(cursor + gap);
+      if (cursor < t) filled.push({ t: cursor, source: "floor" });
+    }
+    if (t < duration) filled.push({ t, source: "scene" });
+    prev = t;
+  }
+  const seen = new Set();
+  return filled
+    .filter((f) => {
+      const key = f.t.toFixed(2);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => a.t - b.t);
+}
+
+// Cap frame count: floor frames drop first, then scene frames thin evenly.
+export function thinToMax(frames, max) {
+  if (frames.length <= max) return frames;
+  const scenes = frames.filter((f) => f.source === "scene");
+  const floors = frames.filter((f) => f.source === "floor");
+  if (scenes.length >= max) {
+    const step = scenes.length / max;
+    const kept = [];
+    for (let i = 0; i < max; i++) kept.push(scenes[Math.floor(i * step)]);
+    return kept.sort((a, b) => a.t - b.t);
+  }
+  const room = max - scenes.length;
+  const step = floors.length / room;
+  const keptFloors = [];
+  for (let i = 0; i < room; i++) keptFloors.push(floors[Math.floor(i * step)]);
+  return [...scenes, ...keptFloors].sort((a, b) => a.t - b.t);
+}
+
+// Minimal P5 (binary) PGM parser → { width, height, pixels: Uint8Array }.
+export function parsePgm(buffer) {
+  const text = buffer.subarray(0, 64).toString("latin1");
+  const m = text.match(/^P5\s+(\d+)\s+(\d+)\s+(\d+)\s/);
+  if (!m) throw new Error("not a P5 PGM");
+  const [header, w, h] = [m[0], Number(m[1]), Number(m[2])];
+  return { width: w, height: h, pixels: new Uint8Array(buffer.subarray(header.length, header.length + w * h)) };
+}
+
+export function meanAbsDiff(a, b) {
+  const len = Math.min(a.length, b.length);
+  if (!len) return 255;
+  let sum = 0;
+  for (let i = 0; i < len; i++) sum += Math.abs(a[i] - b[i]);
+  return sum / len;
+}
+
+// Sliding-window dedup: drop a frame when it barely differs from a recent kept one.
+export function dedupFrames(frames, { threshold = 5, window = 4 } = {}) {
+  const kept = [];
+  const dropped = [];
+  for (const frame of frames) {
+    const recent = kept.slice(-window);
+    const dup = recent.some((k) => meanAbsDiff(k.pixels, frame.pixels) < threshold);
+    if (dup) dropped.push(frame);
+    else kept.push(frame);
+  }
+  return { kept, dropped };
+}
+
+// ---------- impl ----------
+
+function extractFrame(ffmpeg, file, t, vf, out) {
+  const res = run(ffmpeg, [
+    "-hide_banner", "-v", "error", "-y",
+    "-ss", String(t), "-i", file, "-frames:v", "1", "-vf", vf, out,
+  ]);
+  return res.status === 0;
+}
+
+async function scenesMode(args, file) {
+  const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
+  const duration = Number(ffprobeJson(file).format?.duration ?? 0);
+  if (!duration) fail(`Could not read duration of ${file}`, 1);
+  const threshold = args["scene-threshold"] ?? 0.3;
+  const gap = args.gap ?? 10;
+  const cols = args.cols ?? 6;
+  const scale = args.scale ?? 480;
+
+  // Pass 1: where does the picture actually change?
+  const detect = run(ffmpeg, [
+    "-hide_banner", "-nostats",
+    "-i", file,
+    "-vf", `select='gt(scene,${threshold})',showinfo`,
+    "-f", "null", "-",
+  ]);
+  const sceneTimes = parseShowinfoTimes(detect.stderr);
+
+  // Coverage floor + cap.
+  let frames = thinToMax(densityFloor(sceneTimes, duration, gap), MAX_FRAMES);
+
+  // Dedup via tiny grayscale thumbs (catches floor frames of static footage).
+  const outDir = ensureDir(join(process.cwd(), "qa", "frame-sheets"));
+  const tmpDir = join(outDir, `.scenes-tmp-${process.pid}`);
+  mkdirSync(tmpDir, { recursive: true });
+  try {
+    const withThumbs = [];
+    for (const frame of frames) {
+      const thumb = join(tmpDir, `t_${frame.t.toFixed(3)}.pgm`);
+      if (extractFrame(ffmpeg, file, frame.t, "scale=32:18,format=gray", thumb) && existsSync(thumb)) {
+        withThumbs.push({ ...frame, pixels: parsePgm(readFileSync(thumb)).pixels });
+      }
+    }
+    const { kept, dropped } = dedupFrames(withThumbs, { threshold: args["dedup-threshold"] ?? 5 });
+
+    // Full-quality tiles for the kept frames only.
+    for (let i = 0; i < kept.length; i++) {
+      const jpg = join(tmpDir, `frame_${String(i).padStart(4, "0")}.jpg`);
+      if (!extractFrame(ffmpeg, file, kept[i].t, `scale=${scale}:-1`, jpg)) {
+        fail(`frame extraction failed at ${kept[i].t}s`, 1);
+      }
+    }
+    const tileCols = Math.max(1, Math.min(cols, kept.length));
+    const rows = Math.max(1, Math.ceil(kept.length / tileCols));
+    const outPath = args.out ?? join(outDir, `${basename(file, extname(file))}_scenes.jpg`);
+    const tile = run(ffmpeg, [
+      "-hide_banner", "-v", "error", "-y",
+      "-framerate", "1", "-pattern_type", "glob", "-i", join(tmpDir, "frame_*.jpg"),
+      "-vf", `tile=${tileCols}x${rows}:padding=8:margin=8:color=0x1a1a1a`,
+      "-frames:v", "1", outPath,
+    ]);
+    if (tile.status !== 0) fail(`scene sheet failed: ${tile.stderr.trim()}`, 1);
+
+    output({
+      ok: true,
+      file,
+      mode: "scenes",
+      sheet: outPath,
+      grid: `${tileCols}x${rows}`,
+      frames: kept.map((f, i) => ({ tile: i, t: f.t, source: f.source })),
+      sceneChanges: sceneTimes.length,
+      deduped: dropped.length,
+      params: { threshold, gap },
+      hints: [
+        "Tiles are row-major; `frames` maps each tile to its timestamp.",
+        "In mostly-static footage (talking head), `source: scene` timestamps often mark resets, look-downs, or take boundaries — cross-reference with the transcript to find takes.",
+        "Read the image before drawing conclusions.",
+      ],
+    });
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 export async function main(argv) {
   const args = parseArgs(argv, {
     fps: "number", cols: "number", scale: "number",
     start: "number", end: "number", tail: "number", out: "string",
+    scenes: "boolean", "scene-threshold": "number", gap: "number", "dedup-threshold": "number",
   });
   const file = args._[0];
-  if (!file) fail("Usage: ripple frame-sheet <file> [--fps 1] [--cols 6] [--scale 480] [--start S] [--end E] [--tail N] [--out path]", 2);
+  if (!file) {
+    fail(
+      "Usage: ripple frame-sheet <file> [--fps 1] [--cols 6] [--scale 480] [--start S] [--end E] [--tail N] [--out path]\n" +
+        "       ripple frame-sheet <file> --scenes [--scene-threshold 0.3] [--gap 10]   (sample where the picture changes)",
+      2
+    );
+  }
   if (!existsSync(file)) fail(`File not found: ${file}`, 2);
+
+  if (args.scenes) return scenesMode(args, file);
 
   const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
   const cols = args.cols ?? 6;
@@ -62,12 +240,13 @@ export async function main(argv) {
   output({
     ok: true,
     file,
+    mode: "fixed",
     sheet: outPath,
     frames,
     fps,
     grid: `${cols}x${rows}`,
     coveredSeconds: round3(duration),
-    ...(fpsAdjusted ? { note: `fps reduced to ${fps} to keep the sheet readable (${MAX_FRAMES} frame cap)` } : {}),
+    ...(fpsAdjusted ? { note: `fps reduced to ${fps} to keep the sheet readable (${MAX_FRAMES} frame cap); for long footage prefer --scenes` } : {}),
     reminder: "Read this image before declaring the edit good.",
   });
 }

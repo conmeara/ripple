@@ -4,8 +4,9 @@ const HELP = `Usage: ripple <command> [options]
 Commands:
   doctor                          Check ffmpeg/whisper/encoders and print fixes
   probe <file> [--filters]        Inspect media: streams, duration, HDR, ffmpeg capabilities
-  transcribe <file>               Word-level transcript via whisper-cpp (cached)
+  transcribe <file>               Transcript: existing subtitles first, whisper-cpp fallback (cached)
       [--out dir] [--model path] [--prompt "hints"] [--lang en] [--force]
+      [--whisper]                 force whisper (needed for word-level JSON timing)
   select <f1> <f2> [...]          Group takes across files by transcript; recommend best per group
       [--threshold 0.45] [--prompt "hints"]
   candidates <file> --start S --end E [--label slug]
@@ -13,6 +14,9 @@ Commands:
                                   Verify a cut range: audio, transcript, silence, edge frames
   frame-sheet <file>              Tiled frame sheet so you can SEE the video
       [--fps 1] [--cols 6] [--scale 480] [--start S] [--end E] [--tail N] [--out path]
+      [--scenes]                  sample where the picture CHANGES (scene detect +
+      [--scene-threshold 0.3]     coverage floor + dedup); emits tile→timestamp map —
+      [--gap 10]                  the discovery mode for takes/resets in long footage
   cut [edit.json]                 Render the manifest: per-scene clips + cards/J-cuts + full assembly
       [--profile draft|final] [--scene slug,slug] [--out path] [--no-clips] [--no-full]
   grade <file>                    Same-frame grading variants; --choose records the pick

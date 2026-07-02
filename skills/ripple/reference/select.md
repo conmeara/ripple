@@ -16,8 +16,11 @@ Treat scores as a shortlist, not a verdict — confirm the recommended take with
 The groom-video case: one 13-minute file, several attempts per question.
 The CLI can't cluster these — you can, from the transcript:
 
-1. Read the word-level transcript JSON from `ripple transcribe`.
-2. Repeated attempts show up as near-duplicate phrasings; the last attempt is
+1. Read the word-level transcript JSON from `ripple transcribe --whisper`.
+2. Run `ripple frame-sheet <src> --scenes` — in static footage, scene-change
+   tiles mark resets/look-downs between attempts. Scene timestamps that land
+   between near-duplicate transcript phrasings are your take boundaries.
+3. Repeated attempts show up as near-duplicate phrasings; the last attempt is
    usually the keeper, but verify — sometimes an early take is the complete
    one and the retry trails off.
 3. Log every candidate range in the scene's `candidates` array with a short
