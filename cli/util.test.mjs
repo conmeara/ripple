@@ -1,6 +1,23 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { detectHdr, parseArgs, parseSilence, round3, silenceEdges } from "./util.mjs";
+import { contentGatePlan } from "./qa.mjs";
+
+test("content gates run whenever a transcript is available or obtainable", () => {
+  assert.equal(contentGatePlan({ hasTranscript: true, transcribeRequested: false, whisperReady: false, expectsContent: true }), "run");
+  assert.equal(contentGatePlan({ hasTranscript: false, transcribeRequested: true, whisperReady: true, expectsContent: false }), "run");
+});
+
+test("content gates fail loudly instead of skipping when verification is expected", () => {
+  // --transcribe asked for but whisper can't run: never silently degrade.
+  assert.equal(contentGatePlan({ hasTranscript: false, transcribeRequested: true, whisperReady: false, expectsContent: false }), "fail-missing-whisper");
+  // Manifest expects endings/leak checks but no transcript: unverified content must not pass.
+  assert.equal(contentGatePlan({ hasTranscript: false, transcribeRequested: false, whisperReady: true, expectsContent: true }), "fail-unverified");
+});
+
+test("content gates skip (excluded from totals) only when nothing expects them", () => {
+  assert.equal(contentGatePlan({ hasTranscript: false, transcribeRequested: false, whisperReady: true, expectsContent: false }), "skip");
+});
 
 test("parseSilence extracts spans from ffmpeg stderr", () => {
   const stderr = [

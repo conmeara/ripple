@@ -10,6 +10,20 @@ function check(id, ok, detail) {
   return { id, ok: Boolean(ok), detail };
 }
 
+// Content gates must never silently pass. Decide what to do about the
+// transcript-backed checks (prompt-leak, scene endings):
+//   run                  — transcript available, verify for real
+//   fail-missing-whisper — user asked for --transcribe but whisper can't run
+//   fail-unverified      — the manifest EXPECTS content checks but there is no transcript
+//   skip                 — nothing expects content checks; report as skipped, excluded from totals
+export function contentGatePlan({ hasTranscript, transcribeRequested, whisperReady, expectsContent }) {
+  if (hasTranscript) return "run";
+  if (transcribeRequested && whisperReady) return "run";
+  if (transcribeRequested && !whisperReady) return "fail-missing-whisper";
+  if (expectsContent) return "fail-unverified";
+  return "skip";
+}
+
 export async function main(argv) {
   const args = parseArgs(argv, {
     manifest: "string", "clips-dir": "string", "expect-clips": "number",
@@ -89,17 +103,27 @@ export async function main(argv) {
   checks.push(check("leading-silence", edges.leading <= maxLeading, `${edges.leading}s (max ${maxLeading}s)`));
   checks.push(check("tail-silence", edges.tail <= maxTail, `${edges.tail}s (max ${maxTail}s)`));
 
-  // 5. Transcript content gates.
-  let transcriptPath = args.transcript;
-  if (!transcriptPath && args.transcribe) {
-    const { findTool } = await import("./util.mjs");
-    const { resolveModel, transcribeFile } = await import("./transcribe.mjs");
-    if (findTool(["whisper-cli", "whisper-cpp", "main"]) && resolveModel(null)) {
+  // 5. Transcript content gates — these must fail loudly, never skip silently,
+  // whenever the manifest or the caller expects them.
+  const { findTool } = await import("./util.mjs");
+  const { resolveModel, transcribeFile } = await import("./transcribe.mjs");
+  const expectsContent =
+    Boolean(manifest?.qa?.leakPatterns?.length) ||
+    (manifest?.scenes ?? []).some((s) => s.expectEnding);
+  const whisperReady = Boolean(findTool(["whisper-cli", "whisper-cpp", "main"]) && resolveModel(null));
+  const plan = contentGatePlan({
+    hasTranscript: Boolean(args.transcript && existsSync(args.transcript)),
+    transcribeRequested: Boolean(args.transcribe),
+    whisperReady,
+    expectsContent,
+  });
+
+  if (plan === "run") {
+    let transcriptPath = args.transcript;
+    if (!transcriptPath || !existsSync(transcriptPath)) {
       const t = transcribeFile(file, { outDir: join(process.cwd(), "qa") });
       transcriptPath = t.files.txt;
     }
-  }
-  if (transcriptPath && existsSync(transcriptPath)) {
     const text = readFileSync(transcriptPath, "utf8");
     const leakPatterns = manifest?.qa?.leakPatterns ?? DEFAULT_LEAK_PATTERNS;
     const leaks = leakPatterns.filter((p) => new RegExp(p, "i").test(text));
@@ -110,12 +134,21 @@ export async function main(argv) {
       checks.push(check("scene-endings", missing.length === 0,
         missing.length ? `missing endings: ${missing.map((s) => s.slug).join(", ")}` : `all ${endings.length} expected endings present`));
     }
+  } else if (plan === "fail-missing-whisper") {
+    checks.push(check("content-gates", false,
+      "--transcribe requested but whisper-cpp or its model is unavailable — run `ripple doctor` for setup"));
+  } else if (plan === "fail-unverified") {
+    checks.push(check("content-gates", false,
+      "manifest defines expected endings/leak patterns but no transcript was provided — " +
+        "re-run with --transcribe (or --transcript <path>); a delivery must not pass with unverified content"));
   } else {
-    checks.push(check("transcript-gates", true, "skipped — pass --transcript <path> or --transcribe to enable prompt-leak and ending checks"));
+    checks.push({ id: "content-gates", ok: true, skipped: true,
+      detail: "no transcript and no content expectations in the manifest — content gates not run (excluded from totals)" });
   }
 
-  const passed = checks.filter((c) => c.ok).length;
-  const ok = passed === checks.length;
+  const counted = checks.filter((c) => !c.skipped);
+  const passed = counted.filter((c) => c.ok).length;
+  const ok = passed === counted.length;
 
   // Snapshot + trend.
   let trend = null;
@@ -131,13 +164,13 @@ export async function main(argv) {
         return "?";
       }
     });
-    trend.push(`${passed}/${checks.length} (this run)`);
+    trend.push(`${passed}/${counted.length} (this run)`);
     writeFileSync(
       join(qaDir, `qa-${Date.now()}.json`),
-      JSON.stringify({ file, timestamp: new Date().toISOString(), passed, total: checks.length, checks }, null, 2)
+      JSON.stringify({ file, timestamp: new Date().toISOString(), passed, total: counted.length, checks }, null, 2)
     );
   }
 
-  output({ ok, file, passed: `${passed}/${checks.length}`, checks, trend });
+  output({ ok, file, passed: `${passed}/${counted.length}`, checks, trend });
   if (!ok) process.exit(1);
 }

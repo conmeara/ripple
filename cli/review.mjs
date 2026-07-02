@@ -60,9 +60,10 @@ export async function main(argv) {
     : "";
 
   const qaRows = latest
-    ? latest.checks.map((c) =>
-        `<tr><td class="mono">${esc(c.id)}</td><td><span class="chip ${c.ok ? "pass" : "fail"}">${c.ok ? "PASS" : "FAIL"}</span></td><td class="dim">${esc(typeof c.detail === "string" ? c.detail : JSON.stringify(c.detail))}</td></tr>`
-      ).join("\n")
+    ? latest.checks.map((c) => {
+        const state = c.skipped ? "skip" : c.ok ? "pass" : "fail";
+        return `<tr><td class="mono">${esc(c.id)}</td><td><span class="chip ${state}">${state.toUpperCase()}</span></td><td class="dim">${esc(typeof c.detail === "string" ? c.detail : JSON.stringify(c.detail))}</td></tr>`;
+      }).join("\n")
     : "";
   const trendLine = snapshots.map((s) => `${s.passed}/${s.total}`).join(" → ");
 
@@ -87,6 +88,7 @@ export async function main(argv) {
   .chip.proposed { color:#d9a54a; border-color:#d9a54a66; }
   .chip.repaired { color:#6a9ec9; border-color:#6a9ec966; }
   .chip.fail { color:#c97a6a; border-color:#c97a6a66; }
+  .chip.skip { color:#6b7078; border-color:#6b707866; }
   figure { margin:0 0 16px; } figcaption { color:#6b7078; font-size:12px; margin-top:4px; }
   img { max-width:100%; border-radius:4px; border:1px solid #2a2e38; }
   .scroll { overflow-x:auto; }
