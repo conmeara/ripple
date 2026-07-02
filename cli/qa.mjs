@@ -13,7 +13,8 @@ function check(id, ok, detail) {
 export async function main(argv) {
   const args = parseArgs(argv, {
     manifest: "string", "clips-dir": "string", "expect-clips": "number",
-    transcript: "string", "max-tail-silence": "number", "max-leading-silence": "number",
+    transcript: "string", transcribe: "boolean",
+    "max-tail-silence": "number", "max-leading-silence": "number",
     "no-snapshot": "boolean",
   });
   const file = args._[0];
@@ -89,8 +90,17 @@ export async function main(argv) {
   checks.push(check("tail-silence", edges.tail <= maxTail, `${edges.tail}s (max ${maxTail}s)`));
 
   // 5. Transcript content gates.
-  if (args.transcript && existsSync(args.transcript)) {
-    const text = readFileSync(args.transcript, "utf8");
+  let transcriptPath = args.transcript;
+  if (!transcriptPath && args.transcribe) {
+    const { findTool } = await import("./util.mjs");
+    const { resolveModel, transcribeFile } = await import("./transcribe.mjs");
+    if (findTool(["whisper-cli", "whisper-cpp", "main"]) && resolveModel(null)) {
+      const t = transcribeFile(file, { outDir: join(process.cwd(), "qa") });
+      transcriptPath = t.files.txt;
+    }
+  }
+  if (transcriptPath && existsSync(transcriptPath)) {
+    const text = readFileSync(transcriptPath, "utf8");
     const leakPatterns = manifest?.qa?.leakPatterns ?? DEFAULT_LEAK_PATTERNS;
     const leaks = leakPatterns.filter((p) => new RegExp(p, "i").test(text));
     checks.push(check("prompt-leak", leaks.length === 0, leaks.length ? `leaked: ${leaks.join(" | ")}` : "no prompt/take leakage"));
@@ -101,7 +111,7 @@ export async function main(argv) {
         missing.length ? `missing endings: ${missing.map((s) => s.slug).join(", ")}` : `all ${endings.length} expected endings present`));
     }
   } else {
-    checks.push(check("transcript-gates", true, "skipped — pass --transcript qa/final_transcript.txt to enable prompt-leak and ending checks"));
+    checks.push(check("transcript-gates", true, "skipped — pass --transcript <path> or --transcribe to enable prompt-leak and ending checks"));
   }
 
   const passed = checks.filter((c) => c.ok).length;

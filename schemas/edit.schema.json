@@ -28,6 +28,14 @@
         "container": { "type": "string" }
       }
     },
+    "grade": {
+      "type": "object",
+      "description": "Chosen color grade, applied only in the final encode (set via ripple grade --choose)",
+      "properties": {
+        "name": { "type": "string" },
+        "filter": { "type": ["string", "null"], "description": "ffmpeg filter chain; null = neutral" }
+      }
+    },
     "scenes": {
       "type": "array",
       "items": {
@@ -57,6 +65,8 @@
           "status": { "enum": ["proposed", "locked", "repaired"] },
           "expectEnding": { "type": "string", "description": "phrase the scene must end with; used by qa" },
           "card": { "type": "string", "description": "title card text preceding this scene, if any" },
+          "cardFile": { "type": "string", "description": "pre-rendered card image (e.g. from HyperFrames/Remotion) instead of generated text card" },
+          "cardDuration": { "type": "number", "default": 2.5 },
           "jcut": { "type": "number", "description": "seconds of scene audio to start under the preceding card" }
         }
       }

@@ -9,9 +9,10 @@ to see and cut footage, and a persistent memory for a project's taste.
   repairs, and deterministic QA. Motion graphics route to the official
   [HyperFrames](https://github.com/heygen-com/hyperframes) and
   [Remotion](https://www.remotion.dev/docs/ai/skills) skills.
-- **Tools** — the `ripple` CLI: `probe`, `transcribe`, `candidates`,
-  `frame-sheet`, `qa`. One command per verification loop that agents
-  otherwise rebuild by hand.
+- **Tools** — the `ripple` CLI: `doctor`, `probe`, `transcribe`, `select`,
+  `candidates`, `frame-sheet`, `cut`, `grade`, `qa`, `review`. One command per
+  loop that agents otherwise rebuild by hand — including a manifest-driven
+  renderer with title cards, J-cuts, and HDR-safe assembly.
 - **Taste** — `VIDEO.md` holds a project's standing creative direction
   (register, color policy, pacing, brand); `edit.json` holds each video's cut
   decisions with reasoning. User steering writes back, so lessons persist.
@@ -36,10 +37,15 @@ synced to the track") or invoke commands directly:
 |---|---|
 | `/ripple init` | Interview → `VIDEO.md` (the project's taste memory) |
 | `/ripple plan` | Probe + transcribe sources → first `edit.json` |
+| `/ripple select` | Pick the best takes, with recorded reasoning |
 | `/ripple edit` | Execute the cut with verified endpoints |
+| `/ripple grade` | Compare color grades on stills; record the pick |
 | `/ripple finish` | Color-safe assembly and delivery QA |
 | `/ripple repair` | "Question 5 got cut off" → localized fix |
-| `/ripple review` | Review artifacts + independent QA pass |
+| `/ripple review` | HTML review page + independent QA pass |
+
+Steering adjectives — "tighter", "punchier", "let it breathe" — are
+operationalized protocols, not vibes.
 
 ## Principles
 

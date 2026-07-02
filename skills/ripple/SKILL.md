@@ -17,9 +17,10 @@ project's standing creative direction is honored.
    - `RESOLVED_CONTEXT` → note the project root and manifest path it reports.
 2. If a command was invoked (`/ripple <command>`), read
    `reference/<command>.md` and follow it exactly.
-3. Confirm the `ripple` CLI is available (`ripple help`). It is your eyes and
-   hands; prefer it over hand-built ffmpeg incantations for probe, transcribe,
-   candidates, frame-sheet, and qa.
+3. Confirm the `ripple` CLI is available (`ripple help`; first time on a
+   machine, `ripple doctor`). It is your eyes and hands; prefer it over
+   hand-built ffmpeg incantations: `probe`, `transcribe`, `select`,
+   `candidates`, `frame-sheet`, `cut`, `grade`, `qa`, `review`.
 
 ## Absolute rules
 
@@ -69,10 +70,13 @@ them for speed.
 |---|---|---|
 | `init` | No VIDEO.md, or user wants to set/change direction | `reference/init.md` |
 | `plan` | New edit: probe sources, transcribe, draft edit.json | `reference/plan.md` |
+| `select` | Multiple takes; choose and justify the best | `reference/select.md` |
 | `edit` | Execute/iterate the cut: endpoints, trims, assembly | `reference/edit.md` |
+| `grade` | Color: generate/compare/record grading variants | `reference/grade.md` |
 | `finish` | Export: color policy, safe concat, delivery QA | `reference/finish.md` |
 | `repair` | User flags broken scenes ("Q5 got cut off") | `reference/repair.md` |
-| `review` | Generate review artifacts; run QA subagent | `reference/review.md` |
+| `review` | Generate review page + artifacts; run QA subagent | `reference/review.md` |
+| adjectives | "tighter", "punchier", "quieter", "let it breathe" | `reference/adjectives.md` |
 
 ## Routing
 

@@ -23,10 +23,10 @@ reset.
 
 1. For each `proposed` scene, run `candidates`, adjust bounds in edit.json,
    set `status: "locked"` and update `reasoning` with what confirmed it.
-2. Render per-scene clips and the assembly draft (draft profile: fast encode,
-   keep resolution unless huge). Until `ripple cut render` ships, build the
-   ffmpeg commands yourself, but read `reference/finish.md` first for the
-   color and concat rules — they apply to drafts too.
+2. Render with `ripple cut edit.json --profile draft` — it renders per-scene
+   clips, cards (with J-cut audio when `jcut` is set), and the full assembly
+   from the manifest, HDR-aware. Iterating one scene? `--scene <slug>`
+   re-renders just it. Read its `warnings` array every time.
 3. After EVERY render: `ripple frame-sheet` the result and `ripple qa` it.
    Fix before showing the user.
 4. Present: what changed, the scene table, and where to look. Ask for
@@ -42,10 +42,6 @@ log the steering decision to VIDEO.md.
 
 ## Vocabulary
 
-"Tighter" = trim tails toward 0.3–0.5s, cut on sentence ends, remove
-mid-answer pauses >0.8s. "Punchier" = tighter + cut INTO action/speech
-(reduce pre-roll toward 0.1s) + prefer takes with energy. "Let it breathe" =
-extend tails toward 1.5s, keep natural pauses, never cut mid-gesture. Apply
-via edit.json bounds, verify with `candidates`, and confirm the result reads
-differently on a frame sheet — if it looks like every other AI-tightened
-video, reconsider.
+When the user steers with an adjective — "tighter", "punchier", "quieter",
+"let it breathe" — read `reference/adjectives.md` and follow that protocol.
+Adjectives are lever sets with numbers and verification, not vibes.
