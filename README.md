@@ -36,6 +36,7 @@ synced to the track") or invoke commands directly:
 | Command | What it does |
 |---|---|
 | `/ripple init` | Interview → `VIDEO.md` (the project's taste memory) |
+| `/ripple develop` | Pre-production: script, AV script, shot list, storyboards |
 | `/ripple plan` | Probe + transcribe sources → first `edit.json` |
 | `/ripple select` | Pick the best takes, with recorded reasoning |
 | `/ripple edit` | Execute the cut with verified endpoints |

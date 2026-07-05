@@ -1,6 +1,6 @@
 ---
 name: ripple
-description: Video editing with agents. Use for any request to edit, cut, trim, assemble, caption, grade, or render video files; to pick the best takes from footage; to build title cards or motion graphics; to review or repair a video edit ("question 5 got cut off"); or to export/QA a finished video. Commands - init, plan, edit, finish, repair, review, plus free-form editing intents.
+description: Making and editing video with agents. Use for any request to make, plan, script, storyboard, edit, cut, trim, assemble, caption, grade, or render video; to write a script, AV script, or shot list; to pick the best takes from footage; to build title cards or motion graphics; to review or repair a video edit ("question 5 got cut off"); or to export/QA a finished video. Commands - init, develop, plan, edit, finish, repair, review, plus free-form intents.
 ---
 
 # Ripple — agent video editing
@@ -69,6 +69,7 @@ them for speed.
 | Command | When | Playbook |
 |---|---|---|
 | `init` | No VIDEO.md, or user wants to set/change direction | `reference/init.md` |
+| `develop` | Video doesn't exist yet: script / AV script / shot list / boards | `reference/develop.md` |
 | `plan` | New edit: probe sources, transcribe, draft edit.json | `reference/plan.md` |
 | `select` | Multiple takes; choose and justify the best | `reference/select.md` |
 | `edit` | Execute/iterate the cut: endpoints, trims, assembly | `reference/edit.md` |
@@ -82,6 +83,8 @@ them for speed.
 
 - **No argument** → summarize project state from context.mjs output and
   recommend the 1–2 highest-value commands with reasons.
+- **"Make me a video" with no footage or script** → `develop` first. Align on
+  words before producing anything expensive.
 - **Command match** → load the reference file and follow it.
 - **Intent match** → route free text: "cut this down" → `edit`; "it looks
   washed out" → `finish` (color policy); "the ending is cut off" → `repair`;

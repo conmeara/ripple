@@ -2,6 +2,10 @@
 
 Goal: structured edit data before any rendering. Do not cut anything yet.
 
+If `av-script.md` (or a script) exists from `/ripple develop`, seed edit.json
+from it: one scene per AV row, same slug, `title` from the visual column,
+`reasoning` = "from av-script row N" until real bounds replace estimates.
+
 ## Steps
 
 1. **Inventory sources.** Find video/audio files (don't forget .MOV/.MP4 case
