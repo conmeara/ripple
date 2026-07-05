@@ -44,6 +44,7 @@ synced to the track") or invoke commands directly:
 | `/ripple finish` | Color-safe assembly and delivery QA |
 | `/ripple repair` | "Question 5 got cut off" → localized fix |
 | `/ripple review` | HTML review page + independent QA pass |
+| `/ripple handoff` | Rough cut → Premiere/Resolve timeline (OTIO, FCP7 XML, EDL) with reasoning as markers |
 
 Steering adjectives — "tighter", "punchier", "let it breathe" — are
 operationalized protocols, not vibes.

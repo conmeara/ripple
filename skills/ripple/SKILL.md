@@ -1,6 +1,6 @@
 ---
 name: ripple
-description: Making and editing video. Use when the user wants to make a video (script, shot list, storyboard), edit footage (cut, assemble, pick takes), add title cards or motion graphics, grade color, repair a flagged edit ("question 5 got cut off"), or QA/export a finished video.
+description: Making and editing video. Use when the user wants to make a video (script, shot list, storyboard), edit footage (cut, assemble, pick takes), add title cards or motion graphics, grade color, repair a flagged edit ("question 5 got cut off"), QA/export a finished video, or hand a rough cut to Premiere, Resolve, or another editor.
 ---
 
 # Ripple — agent video editing
@@ -64,6 +64,7 @@ Each exists because a real session failed without it.
 | `finish` | Export: color policy, safe concat, delivery QA | `reference/finish.md` |
 | `repair` | User flags broken scenes ("Q5 got cut off") | `reference/repair.md` |
 | `review` | Generate review page + artifacts; run QA subagent | `reference/review.md` |
+| `handoff` | User finishes in Premiere/Resolve/another NLE | `reference/nle.md` |
 | adjectives | "tighter", "punchier", "quieter", "let it breathe" | `reference/adjectives.md` |
 
 ## Routing
@@ -75,5 +76,6 @@ Each exists because a real session failed without it.
 - **Command match** → load the reference file and follow it.
 - **Intent match** → "cut this down" → `edit`; "it looks washed out" →
   `finish`; "the ending is cut off" → `repair`; "make a title card" → stack
-  routing above.
+  routing above; "open this in Premiere / I'll finish it in Resolve" →
+  `handoff`.
 - **General video question** → answer with the absolute rules in force.

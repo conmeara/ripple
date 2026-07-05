@@ -65,6 +65,12 @@ const COMMANDS = {
     usage: `  review [--manifest edit.json]   Generate the HTML review page (cut list, QA, evidence strips)
       [--out qa/review.html] [--title "..."]`,
   },
+  handoff: {
+    load: () => import("./handoff.mjs"),
+    usage: `  handoff [edit.json]             Hand the cut to an NLE: timeline files referencing original media
+      [--format otio,xmeml,edl]       otio → Resolve (native) · xmeml → Premiere · edl → universal
+      [--out handoff/] [--no-cards]   scene reasoning travels as timeline markers`,
+  },
 };
 
 const HELP = `Usage: ripple <command> [options]
