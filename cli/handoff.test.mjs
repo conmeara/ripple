@@ -96,6 +96,17 @@ test("otio: golden-sample shape — Timeline/Stack/Track/Clip with rational time
   assert.match(clip.markers[0].metadata.ripple.comment, /clean take/);
 });
 
+test("otio: clip markers sit in the clip's source_range space, not 0-based", () => {
+  // OTIO spec: "The marked_range of a Marker on a Clip is in the Clip's time
+  // frame (same as the Clip's source_range)". Scene 2 starts at src 1.0s, so
+  // its head marker must be at frame 24 — matching source_range.start_time.
+  const otio = JSON.parse(buildOtio(eventsFixture(), { title: "T", rate: FPS24.rate, manifestPath: "edit.json" }));
+  const scene2 = otio.tracks.children[0].children[3];
+  assert.equal(scene2.name, "favorite_memory");
+  assert.equal(scene2.source_range.start_time.value, 24);
+  assert.deepEqual(scene2.markers[0].marked_range.start_time, scene2.source_range.start_time);
+});
+
 test("xmlEscape covers the five", () => {
   assert.equal(xmlEscape(`<a & "b">'`), "&lt;a &amp; &quot;b&quot;&gt;&apos;");
 });

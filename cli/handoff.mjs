@@ -175,6 +175,9 @@ export function buildOtio(events, { title, rate, manifestPath }) {
           OTIO_SCHEMA: "Marker.2",
           name: e.marker.name,
           color: "GREEN",
+          // Per OTIO time-ranges doc: a Clip marker's marked_range is in the
+          // Clip's time frame, the SAME space as source_range — so the clip's
+          // head is srcIn, not 0 (0-based is Track-marker semantics).
           marked_range: { OTIO_SCHEMA: "TimeRange.1", start_time: rt(e.srcIn), duration: rt(0) },
           metadata: { ripple: { comment: e.marker.comment } },
         }]
