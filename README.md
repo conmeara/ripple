@@ -48,6 +48,15 @@ synced to the track") or invoke commands directly:
 Steering adjectives — "tighter", "punchier", "let it breathe" — are
 operationalized protocols, not vibes.
 
+## CLI conventions
+
+`ripple` follows [clig.dev](https://clig.dev/) with two deliberate deviations,
+chosen because the primary user is an agent: **errors go to stdout as JSON
+envelopes** (`{ok:false, error:{…}}`) so consumers parse one stream with one
+shape, and state lives in **`~/.ripple/`** rather than XDG paths. Exit codes:
+0 success, 1 failed gate or runtime failure, 2 invalid usage or missing tool.
+`--version` and per-command `--help` behave as expected.
+
 ## Principles
 
 Everything is a file: transcripts, the edit manifest, QA snapshots. Renders

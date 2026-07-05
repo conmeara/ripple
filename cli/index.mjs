@@ -1,62 +1,112 @@
 #!/usr/bin/env node
-const HELP = `Usage: ripple <command> [options]
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-Commands:
-  doctor                          Check ffmpeg/whisper/encoders and print fixes
-  probe <file> [--filters]        Inspect media: streams, duration, HDR, ffmpeg capabilities
-  transcribe <file>               Transcript: existing subtitles first, whisper-cpp fallback (cached)
+const VERSION = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8")
+).version;
+
+// Single source of truth for usage text: top-level help and per-command
+// `--help` both render from these blocks.
+const COMMANDS = {
+  doctor: {
+    load: () => import("./doctor.mjs"),
+    usage: `  doctor                          Check ffmpeg/whisper/encoders and print fixes`,
+  },
+  probe: {
+    load: () => import("./probe.mjs"),
+    usage: `  probe <file> [--filters]        Inspect media: streams, duration, HDR, ffmpeg capabilities`,
+  },
+  transcribe: {
+    load: () => import("./transcribe.mjs"),
+    usage: `  transcribe <file>               Transcript: existing subtitles first, whisper-cpp fallback (cached)
       [--out dir] [--model path] [--prompt "hints"] [--lang en] [--force]
-      [--whisper]                 force whisper (needed for word-level JSON timing)
-  select <f1> <f2> [...]          Group takes across files by transcript; recommend best per group
-      [--threshold 0.45] [--prompt "hints"]
-  candidates <file> --start S --end E [--label slug]
+      [--whisper]                 force whisper (needed for word-level JSON timing)`,
+  },
+  select: {
+    load: () => import("./select.mjs"),
+    usage: `  select <f1> <f2> [...]          Group takes across files by transcript; recommend best per group
+      [--threshold 0.4] [--prompt "hints"]`,
+  },
+  candidates: {
+    load: () => import("./candidates.mjs"),
+    usage: `  candidates <file> --start S --end E [--label slug]
       [--out dir] [--thresholds -35,-40,-45] [--no-transcribe]
-                                  Verify a cut range: audio, transcript, silence, edge frames
-  frame-sheet <file>              Tiled frame sheet so you can SEE the video
+                                  Verify a cut range: audio, transcript, silence, edge frames`,
+  },
+  "frame-sheet": {
+    load: () => import("./frame-sheet.mjs"),
+    usage: `  frame-sheet <file>              Tiled frame sheet so you can SEE the video
       [--fps 1] [--cols 6] [--scale 480] [--start S] [--end E] [--tail N] [--out path]
       [--scenes]                  sample where the picture CHANGES (scene detect +
       [--scene-threshold 0.3]     coverage floor + dedup); emits tile→timestamp map —
-      [--gap 10]                  the discovery mode for takes/resets in long footage
-  cut [edit.json]                 Render the manifest: per-scene clips + cards/J-cuts + full assembly
-      [--profile draft|final] [--scene slug,slug] [--out path] [--no-clips] [--no-full]
-  grade <file>                    Same-frame grading variants; --choose records the pick
-      [--at s] [--variants warm,cool,...] | --choose <preset> [--manifest edit.json]
-  qa <file> [--manifest edit.json]
+      [--gap 10]                  the discovery mode for takes/resets in long footage`,
+  },
+  cut: {
+    load: () => import("./cut.mjs"),
+    usage: `  cut [edit.json]                 Render the manifest: per-scene clips + cards/J-cuts + full assembly
+      [--profile draft|final] [--scene slug,slug] [--out path] [--no-clips] [--no-full]`,
+  },
+  grade: {
+    load: () => import("./grade.mjs"),
+    usage: `  grade <file>                    Same-frame grading variants; --choose records the pick
+      [--at s] [--variants warm,cool,...] | --choose <preset> [--manifest edit.json]`,
+  },
+  qa: {
+    load: () => import("./qa.mjs"),
+    usage: `  qa <file> [--manifest edit.json]
       [--clips-dir clips] [--expect-clips N] [--transcript path] [--transcribe]
       [--max-tail-silence 1.0] [--max-leading-silence 0.5] [--no-snapshot]
-                                  Deterministic delivery gates + trend snapshots
-  review [--manifest edit.json]   Generate the HTML review page (cut list, QA, evidence strips)
-      [--out qa/review.html] [--title "..."]
+                                  Deterministic delivery gates + trend snapshots`,
+  },
+  review: {
+    load: () => import("./review.mjs"),
+    usage: `  review [--manifest edit.json]   Generate the HTML review page (cut list, QA, evidence strips)
+      [--out qa/review.html] [--title "..."]`,
+  },
+};
 
-All commands print JSON. Non-zero exit means a failed gate or missing tool.
+const HELP = `Usage: ripple <command> [options]
+
+Commands:
+${Object.values(COMMANDS).map((c) => c.usage).join("\n")}
+
+Global:
+  -h, --help                      Show this help (or <command> --help for one command)
+  --version                       Print the ripple version
+
+All commands print JSON to stdout (including error envelopes: {ok:false, error}).
+Exit codes: 0 success · 1 failed gate or runtime failure · 2 invalid usage or missing tool.
 `;
 
-const command = process.argv[2];
-const rest = process.argv.slice(3);
-
-const commands = {
-  doctor: () => import("./doctor.mjs"),
-  probe: () => import("./probe.mjs"),
-  transcribe: () => import("./transcribe.mjs"),
-  select: () => import("./select.mjs"),
-  candidates: () => import("./candidates.mjs"),
-  "frame-sheet": () => import("./frame-sheet.mjs"),
-  cut: () => import("./cut.mjs"),
-  grade: () => import("./grade.mjs"),
-  qa: () => import("./qa.mjs"),
-  review: () => import("./review.mjs"),
-};
+const argv = process.argv.slice(2);
+const command = argv[0];
+const rest = argv.slice(1);
 
 if (!command || command === "help" || command === "--help" || command === "-h") {
   process.stdout.write(HELP);
   process.exit(0);
 }
 
-const loader = commands[command];
-if (!loader) {
-  process.stdout.write(JSON.stringify({ ok: false, error: { message: `Unknown command: ${command}. Run \`ripple help\`.` } }, null, 2) + "\n");
+if (command === "--version" || command === "-V" || command === "version") {
+  process.stdout.write(`${VERSION}\n`);
+  process.exit(0);
+}
+
+const entry = COMMANDS[command];
+if (!entry) {
+  process.stdout.write(
+    JSON.stringify({ ok: false, error: { message: `Unknown command: ${command}. Run \`ripple help\`.` } }, null, 2) + "\n"
+  );
   process.exit(2);
 }
 
-const mod = await loader();
+// `ripple <command> --help` always shows help and ignores other args.
+if (rest.includes("--help") || rest.includes("-h")) {
+  process.stdout.write(`Usage:\n${entry.usage}\n`);
+  process.exit(0);
+}
+
+const mod = await entry.load();
 await mod.main(rest);
