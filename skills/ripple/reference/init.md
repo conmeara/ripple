@@ -26,9 +26,8 @@ existing one — offer create / refresh / skip.
    `templates/VIDEO.md` as the skeleton. Keep it under a page.
 5. **If init interrupted another command, resume that command now.**
 
-## Write-back rule (applies to every command, not just init)
+## Write-back mechanics
 
-When the user gives a correction that changes *standing* direction — "remove
-all zooms", "always keep it HDR", "tighter cuts everywhere" — append a dated
-line to the Steering log and update the relevant section. Decisions about one
-scene stay in edit.json; decisions about the project live here.
+When steering writes back (the rule lives in SKILL.md): append a dated line
+to the Steering log AND update the section it changes, so the log is history
+and the sections stay current.

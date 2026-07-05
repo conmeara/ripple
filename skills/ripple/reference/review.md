@@ -35,6 +35,5 @@ Verify the latest outputs only, without modifying files:
 Return concise findings. Do not edit files.
 ```
 
-Independent QA is another signal — it never replaces the deterministic gates,
-and a subagent pass does not excuse you from reading the frame sheets
-yourself.
+Independent QA is another signal — never a replacement for the deterministic
+gates.

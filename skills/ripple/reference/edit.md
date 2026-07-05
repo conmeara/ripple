@@ -27,8 +27,7 @@ reset.
    clips, cards (with J-cut audio when `jcut` is set), and the full assembly
    from the manifest, HDR-aware. Iterating one scene? `--scene <slug>`
    re-renders just it. Read its `warnings` array every time.
-3. After EVERY render: `ripple frame-sheet` the result and `ripple qa` it.
-   Fix before showing the user.
+3. After every render: qa it and look at it. Fix before showing the user.
 4. Present: what changed, the scene table, and where to look. Ask for
    corrections by scene ("Q5 too long?") — corrections route to `repair`.
 

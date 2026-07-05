@@ -30,16 +30,14 @@ drawtext (only if present). Cards must carry the delivery color tags.
 - J-cuts: trim the body segment's video while letting its audio start under
   the preceding card, inside the concat filtergraph.
 
-`ripple cut <manifest> --profile final` implements the rules above: single
-clean encode via the concat filter, HDR tags carried onto cards, grade from
-the manifest applied only in the final encode. Check its `warnings` array —
-it tells you when it had to degrade (no 10-bit encoder, grade skipped on HDR).
+`ripple cut <manifest> --profile final` implements the rules above; heed its
+`warnings` array — it says when it had to degrade.
 
 ## Delivery gates
 
 `ripple qa <final> --manifest edit.json` must pass:
 full decode clean; color metadata matches policy; expected clip count; leading
 /tail silence in bounds; transcript of the final contains every scene's
-ending phrase and zero prompt leakage. Then look at a final frame sheet
-yourself. Draft profile is for iteration; the final export is always a fresh
-single encode from source via the manifest — never a re-encode of a draft.
+ending phrase and zero prompt leakage. Draft profile is for iteration; the
+final export is always a fresh single encode from source via the manifest —
+never a re-encode of a draft.

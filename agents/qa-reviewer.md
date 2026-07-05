@@ -21,4 +21,4 @@ Rules:
 - Report per item: PASS/FAIL, the evidence (numbers, timestamps, file paths),
   and nothing else. Flag anything alarming you noticed outside the checklist
   in a final "unprompted observations" line, but keep it to one line each.
-- Your final message is the findings report. Be concise and specific.
+- Your final message is the findings report.

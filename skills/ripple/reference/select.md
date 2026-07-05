@@ -23,7 +23,7 @@ The CLI can't cluster these — you can, from the transcript:
 3. Repeated attempts show up as near-duplicate phrasings; the last attempt is
    usually the keeper, but verify — sometimes an early take is the complete
    one and the retry trails off.
-3. Log every candidate range in the scene's `candidates` array with a short
+4. Log every candidate range in the scene's `candidates` array with a short
    note ("take 2, stumbles at the end"), then run `candidates` on the winner.
 
 ## What to record
