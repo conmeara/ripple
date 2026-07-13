@@ -38,6 +38,7 @@ synced to the track") or invoke commands directly:
 | `/ripple init` | Interview → `VIDEO.md` (the project's taste memory) |
 | `/ripple develop` | Pre-production: script, AV script, shot list, storyboards |
 | `/ripple plan` | Probe + transcribe sources → first `edit.json` |
+| `/ripple generate` | Create missing elements: VO (ElevenLabs), music, stills/b-roll (Gemini/Veo) |
 | `/ripple select` | Pick the best takes, with recorded reasoning |
 | `/ripple edit` | Execute the cut with verified endpoints |
 | `/ripple grade` | Compare color grades on stills; record the pick |

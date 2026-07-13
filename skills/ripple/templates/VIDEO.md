@@ -30,6 +30,13 @@ Policy: preserve
 - Card typography / colors: unset
 - Credit line: none
 
+## Generated elements
+
+<!-- Standing picks for /ripple generate. Ask once, record, reuse. -->
+- Voice: unset (ElevenLabs voice ID + model once chosen)
+- Music direction: unset (e.g. "warm acoustic, no vocals, sparse")
+- Image style: unset (prompt fragment reused across stills/cards)
+
 ## Anti-references
 
 <!-- What this project must NOT look like. -->

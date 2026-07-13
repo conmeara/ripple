@@ -58,6 +58,7 @@ Each exists because a real session failed without it.
 | `init` | No VIDEO.md, or user wants to set/change direction | `reference/init.md` |
 | `develop` | Video doesn't exist yet: script / AV script / shot list / boards | `reference/develop.md` |
 | `plan` | New edit: probe sources, transcribe, draft edit.json | `reference/plan.md` |
+| `generate` | An element doesn't exist: VO, music bed, SFX, still, b-roll | `reference/generate.md` |
 | `select` | Multiple takes; choose and justify the best | `reference/select.md` |
 | `edit` | Execute/iterate the cut: endpoints, trims, assembly | `reference/edit.md` |
 | `grade` | Color: generate/compare/record grading variants | `reference/grade.md` |
@@ -76,6 +77,7 @@ Each exists because a real session failed without it.
 - **Command match** → load the reference file and follow it.
 - **Intent match** → "cut this down" → `edit`; "it looks washed out" →
   `finish`; "the ending is cut off" → `repair`; "make a title card" → stack
-  routing above; "open this in Premiere / I'll finish it in Resolve" →
+  routing above; "add a voiceover / needs music / I don't have b-roll" →
+  `generate`; "open this in Premiere / I'll finish it in Resolve" →
   `handoff`.
 - **General video question** → answer with the absolute rules in force.
