@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  detectHdr, fail, ffprobeJson, output, parseArgs, parseSilence, requireTool, round3, run, silenceEdges,
+  detectHdr, fail, ffprobeJson, output, parseArgs, parseLoudnorm, parseSilence, requireTool, round3, run, silenceEdges,
 } from "./util.mjs";
 
 const DEFAULT_LEAK_PATTERNS = ["next question", "take [0-9]"];
@@ -100,8 +100,26 @@ export async function main(argv) {
     "-vn", "-af", "silencedetect=noise=-40dB:d=0.25", "-f", "null", "-",
   ]);
   const edges = silenceEdges(parseSilence(silenceRes.stderr), duration);
-  checks.push(check("leading-silence", edges.leading <= maxLeading, `${edges.leading}s (max ${maxLeading}s)`));
-  checks.push(check("tail-silence", edges.tail <= maxTail, `${edges.tail}s (max ${maxTail}s)`));
+  const bedNote = manifest?.music ? " — music bed present: edges reflect the mix, not dialogue" : "";
+  checks.push(check("leading-silence", edges.leading <= maxLeading, `${edges.leading}s (max ${maxLeading}s)${bedNote}`));
+  checks.push(check("tail-silence", edges.tail <= maxTail, `${edges.tail}s (max ${maxTail}s)${bedNote}`));
+
+  // 4b. Loudness. A bed masks dialogue-edge silence (noted above), so the
+  // gate that actually catches a bed mixed too hot — or a final mastered off
+  // target — is integrated loudness against manifest.music.loudnessTarget.
+  const loudnessTarget = manifest?.music?.loudnessTarget;
+  if (loudnessTarget !== undefined) {
+    const ln = run(ffmpeg, [
+      "-hide_banner", "-nostats", "-i", file,
+      "-vn", "-af", `loudnorm=I=${loudnessTarget}:TP=-1.5:LRA=11:print_format=json`, "-f", "null", "-",
+    ]);
+    const measured = parseLoudnorm(ln.stderr);
+    checks.push(check("loudness",
+      measured ? Math.abs(measured.input_i - loudnessTarget) <= 1.0 : false,
+      measured
+        ? `${measured.input_i} LUFS integrated (target ${loudnessTarget} ±1)`
+        : "loudness measurement failed — no loudnorm stats in ffmpeg output"));
+  }
 
   // 5. Transcript content gates — these must fail loudly, never skip silently,
   // whenever the manifest or the caller expects them.

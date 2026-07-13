@@ -45,7 +45,7 @@ const COMMANDS = {
   },
   cut: {
     load: () => import("./cut.mjs"),
-    usage: `  cut [edit.json]                 Render the manifest: per-scene clips + cards/J-cuts + full assembly
+    usage: `  cut [edit.json]                 Render the manifest: per-scene clips + cards/J-cuts + music bed + full assembly
       [--profile draft|final] [--scene slug,slug] [--out path] [--no-clips] [--no-full]`,
   },
   grade: {

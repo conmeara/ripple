@@ -4,7 +4,8 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  buildConcatFilter, buildEncodeArgs, buildSceneVf, clipName, setparamsFilter, validateManifest,
+  assemblyDuration, buildConcatFilter, buildEncodeArgs, buildMusicFilter, buildSceneVf, clipName,
+  setparamsFilter, validateManifest,
 } from "./cut.mjs";
 
 function sceneFixture(overrides = {}) {
@@ -97,4 +98,62 @@ test("buildConcatFilter normalizes every input and concats once", () => {
 
 test("clipName is stable and ordered", () => {
   assert.equal(clipName({ id: 3, slug: "first_kiss" }), "03_first_kiss.mp4");
+});
+
+test("validateManifest checks the music bed", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-test-"));
+  writeFileSync(join(dir, "src.mp4"), "stub");
+  writeFileSync(join(dir, "bed.mp3"), "stub");
+
+  const ok = validateManifest(
+    { version: 1, scenes: [sceneFixture()], music: { source: "bed.mp3", gainDb: -16 } },
+    dir
+  );
+  assert.deepEqual(ok, []);
+
+  const errors = validateManifest(
+    { version: 1, scenes: [sceneFixture()], music: { source: "missing.mp3", gainDb: "loud" } },
+    dir
+  );
+  assert.ok(errors.some((e) => e.includes("music: source not found")));
+  assert.ok(errors.some((e) => e.includes("gainDb must be a number")));
+
+  const noSource = validateManifest({ version: 1, scenes: [sceneFixture()], music: {} }, dir);
+  assert.ok(noSource.some((e) => e.includes("music: missing source")));
+});
+
+test("assemblyDuration mirrors segment math: cards added, jcut heads subtracted", () => {
+  // scene 1: plain 4s body; scene 2: 2.5s card + 10s body with a 1s j-cut head under the card
+  const scenes = [
+    sceneFixture({ start: 0, end: 4 }),
+    sceneFixture({ id: 2, slug: "q2", start: 10, end: 20, card: "Q2?", jcut: 1 }),
+  ];
+  assert.equal(assemblyDuration(scenes), 4 + 2.5 + 10 - 1);
+  // cardFile without card: card duration counts, but jcut is ignored (as in main())
+  assert.equal(assemblyDuration([sceneFixture({ start: 0, end: 4, cardFile: "c.png", jcut: 1 })]), 6.5);
+});
+
+test("buildMusicFilter gains, fades, ducks under dialogue, and mixes without renormalizing", () => {
+  const filter = buildMusicFilter(
+    { source: "bed.mp3", gainDb: -16, duck: { threshold: 0.05, ratio: 10 }, fadeIn: 0.5, fadeOut: 2, loudnessTarget: -14 },
+    { inputIndex: 5, total: 60 }
+  );
+  assert.ok(filter.startsWith("[5:a]"));
+  assert.ok(filter.includes("volume=-16dB"));
+  assert.ok(filter.includes("afade=t=in:d=0.5"));
+  assert.ok(filter.includes("afade=t=out:st=58:d=2"));
+  assert.ok(filter.includes("sidechaincompress=threshold=0.05:ratio=10"));
+  assert.ok(filter.includes("[a]asplit=2[dlg][sc]"));
+  assert.ok(filter.includes("amix=inputs=2:duration=first:normalize=0"));
+  assert.ok(filter.includes("loudnorm=I=-14"));
+  assert.ok(filter.endsWith("[amix]"));
+});
+
+test("buildMusicFilter defaults are sane and omit loudnorm without a target", () => {
+  const filter = buildMusicFilter({ source: "bed.mp3" }, { inputIndex: 2, total: 30 });
+  assert.ok(filter.includes("volume=-18dB"));
+  assert.ok(filter.includes("sidechaincompress=threshold=0.03:ratio=8"));
+  assert.ok(filter.includes("afade=t=in:d=1"));
+  assert.ok(filter.includes("afade=t=out:st=28:d=2"));
+  assert.ok(!filter.includes("loudnorm"));
 });

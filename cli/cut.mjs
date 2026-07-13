@@ -30,7 +30,55 @@ export function validateManifest(manifest, baseDir = ".") {
       if (typeof s.jcut === "number" && s.jcut >= s.end - s.start) errors.push(`${where}: jcut longer than the scene`);
     }
   }
+  const music = manifest.music;
+  if (music !== undefined) {
+    if (!music || typeof music !== "object" || Array.isArray(music)) {
+      errors.push("music must be an object");
+    } else {
+      if (!music.source) errors.push("music: missing source");
+      else if (!existsSync(resolve(baseDir, music.source))) errors.push(`music: source not found: ${music.source}`);
+      for (const key of ["gainDb", "fadeIn", "fadeOut", "loudnessTarget"]) {
+        if (music[key] !== undefined && typeof music[key] !== "number") errors.push(`music: ${key} must be a number`);
+      }
+      if (music.fadeIn < 0 || music.fadeOut < 0) errors.push("music: fades must be >= 0");
+    }
+  }
   return errors;
+}
+
+// Assembly duration implied by the manifest: cards + bodies, minus the J-cut
+// head that plays under each card. Mirrors the segment math in main().
+export function assemblyDuration(scenes) {
+  return round3(
+    scenes.reduce((total, s) => {
+      const hasCard = Boolean(s.card || s.cardFile);
+      const cardDuration = hasCard ? s.cardDuration ?? 2.5 : 0;
+      const jcut = s.card ? s.jcut ?? 0 : 0;
+      return total + cardDuration + (s.end - s.start) - jcut;
+    }, 0)
+  );
+}
+
+// Music-bed filtergraph, appended after buildConcatFilter's `[v][a]`.
+// Bed: format → gain → fades; dialogue splits to feed the sidechain; the bed
+// ducks under speech; the mix (optionally loudness-normalized) lands on [amix].
+export function buildMusicFilter(music, { inputIndex, total }) {
+  const gain = music.gainDb ?? -18;
+  const duck = music.duck ?? {};
+  const threshold = duck.threshold ?? 0.03;
+  const ratio = duck.ratio ?? 8;
+  const fadeIn = music.fadeIn ?? 1.0;
+  const fadeOut = music.fadeOut ?? 2.0;
+  const fades =
+    (fadeIn > 0 ? `,afade=t=in:d=${round3(fadeIn)}` : "") +
+    (fadeOut > 0 && total > fadeOut ? `,afade=t=out:st=${round3(total - fadeOut)}:d=${round3(fadeOut)}` : "");
+  const loudnorm = music.loudnessTarget !== undefined ? `,loudnorm=I=${music.loudnessTarget}:TP=-1.5:LRA=11` : "";
+  return (
+    `[${inputIndex}:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,volume=${gain}dB${fades}[bed];` +
+    `[a]asplit=2[dlg][sc];` +
+    `[bed][sc]sidechaincompress=threshold=${threshold}:ratio=${ratio}:attack=20:release=400[ducked];` +
+    `[dlg][ducked]amix=inputs=2:duration=first:normalize=0${loudnorm}[amix]`
+  );
 }
 
 export function buildEncodeArgs({ profile, color, encoders }) {
@@ -313,20 +361,40 @@ export async function main(argv) {
   }
 
   // 3. Full assembly: decode every segment, concat once, single clean encode.
+  // The music bed (manifest.music) exists only here — clips and segments stay
+  // clean so the bed can change without touching a single cut.
+  const music = manifest.music ?? null;
   let finalPath = null;
   if (!args["no-full"] && !sceneFilter) {
     const slug = (manifest.title ?? "final").toLowerCase().replace(/[^a-z0-9]+/g, "_");
     finalPath = args.out ?? join(outputsDir, `${slug}_${profile}.mp4`);
     const inputs = rendered.segments.flatMap((s) => ["-i", s]);
+    let filter = buildConcatFilter(rendered.segments.length, { width, height, fps, pixFmt: enc.pixFmt, color });
+    let audioLabel = "[a]";
+    if (music) {
+      const musicPath = resolve(baseDir, music.source);
+      const total = assemblyDuration(manifest.scenes);
+      const bedDuration = Number(ffprobeJson(musicPath).format?.duration ?? 0);
+      if (bedDuration && bedDuration + 0.05 < total) {
+        rendered.warnings.push(
+          `music bed is ${round3(bedDuration)}s but the assembly is ~${total}s — the bed ends early; regenerate at length`
+        );
+      }
+      inputs.push("-i", musicPath);
+      filter += ";" + buildMusicFilter(music, { inputIndex: rendered.segments.length, total });
+      audioLabel = "[amix]";
+    }
     ffmpegOrFail(
       [
         ...inputs,
-        "-filter_complex", buildConcatFilter(rendered.segments.length, { width, height, fps, pixFmt: enc.pixFmt, color }),
-        "-map", "[v]", "-map", "[a]",
+        "-filter_complex", filter,
+        "-map", "[v]", "-map", audioLabel,
         ...enc.video, ...enc.audio, "-movflags", "+faststart", finalPath,
       ],
       "assembly"
     );
+  } else if (music) {
+    rendered.warnings.push("music bed applies to the full assembly only — this scene-subset render has no bed");
   }
 
   output({
@@ -338,6 +406,7 @@ export async function main(argv) {
     clips: rendered.clips,
     segments: args["no-full"] || sceneFilter ? rendered.segments : undefined,
     final: finalPath,
+    music: music ? { source: music.source, applied: Boolean(finalPath) } : undefined,
     warnings: rendered.warnings,
     next: finalPath
       ? `Run: ripple qa ${finalPath} --manifest ${manifestPath}  — then READ a frame sheet of it.`

@@ -29,6 +29,10 @@ drawtext (only if present). Cards must carry the delivery color tags.
   reliable. HEVC stream-copy concat produces packet-level errors at joins.
 - J-cuts: trim the body segment's video while letting its audio start under
   the preceding card, inside the concat filtergraph.
+- Music bed: `manifest.music` is mixed only at assembly — gained
+  (`gainDb`, default −18), ducked under dialogue via `sidechaincompress`,
+  faded, and loudness-normalized to `loudnessTarget`. Clips and segments
+  stay bed-free by design.
 
 `ripple cut <manifest> --profile final` implements the rules above; heed its
 `warnings` array — it says when it had to degrade.
@@ -37,7 +41,8 @@ drawtext (only if present). Cards must carry the delivery color tags.
 
 `ripple qa <final> --manifest edit.json` must pass:
 full decode clean; color metadata matches policy; expected clip count; leading
-/tail silence in bounds; transcript of the final contains every scene's
-ending phrase and zero prompt leakage. Draft profile is for iteration; the
+/tail silence in bounds; integrated loudness within ±1 LU of
+`music.loudnessTarget` when a bed is set; transcript of the final contains
+every scene's ending phrase and zero prompt leakage. Draft profile is for iteration; the
 final export is always a fresh single encode from source via the manifest —
 never a re-encode of a draft.

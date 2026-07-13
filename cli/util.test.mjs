@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { detectHdr, parseArgs, parseSilence, round3, silenceEdges } from "./util.mjs";
+import { detectHdr, parseArgs, parseLoudnorm, parseSilence, round3, silenceEdges } from "./util.mjs";
 import { contentGatePlan } from "./qa.mjs";
 
 test("content gates run whenever a transcript is available or obtainable", () => {
@@ -79,4 +79,24 @@ test("parseArgs handles positionals, typed flags, and booleans", () => {
 
 test("round3 rounds to milliseconds", () => {
   assert.equal(round3(2.0136666), 2.014);
+});
+
+test("parseLoudnorm extracts numeric stats from loudnorm stderr", () => {
+  const stderr = [
+    "[Parsed_loudnorm_0 @ 0x600] ",
+    "{",
+    '\t"input_i" : "-19.82",',
+    '\t"input_tp" : "-5.32",',
+    '\t"input_lra" : "6.30",',
+    '\t"normalization_type" : "dynamic"',
+    "}",
+  ].join("\n");
+  const stats = parseLoudnorm(stderr);
+  assert.equal(stats.input_i, -19.82);
+  assert.equal(stats.input_tp, -5.32);
+  assert.equal(stats.normalization_type, "dynamic");
+});
+
+test("parseLoudnorm returns null when no stats block exists", () => {
+  assert.equal(parseLoudnorm("frame=100 fps=30 nothing here"), null);
 });

@@ -147,6 +147,24 @@ export function round3(n) {
   return Math.round(n * 1000) / 1000;
 }
 
+// Parse the JSON stats block loudnorm prints to stderr (print_format=json)
+// into numbers ({input_i, input_tp, ...}); null if absent or unparseable.
+export function parseLoudnorm(stderr) {
+  const match = stderr.match(/\{[^{}]*"input_i"[^{}]*\}/);
+  if (!match) return null;
+  try {
+    const raw = JSON.parse(match[0]);
+    const out = {};
+    for (const [key, value] of Object.entries(raw)) {
+      const n = Number(value);
+      out[key] = Number.isNaN(n) ? value : n;
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 export function detectHdr(videoStream) {
   if (!videoStream) return { hdr: false };
   const primaries = videoStream.color_primaries ?? "";

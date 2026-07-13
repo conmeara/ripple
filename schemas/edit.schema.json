@@ -36,6 +36,26 @@
         "filter": { "type": ["string", "null"], "description": "ffmpeg filter chain; null = neutral" }
       }
     },
+    "music": {
+      "type": "object",
+      "description": "Optional music bed, mixed under dialogue in the full assembly only — per-scene clips stay clean (applied by ripple cut)",
+      "required": ["source"],
+      "properties": {
+        "source": { "type": "string", "description": "path to the bed audio file" },
+        "gainDb": { "type": "number", "default": -18, "description": "bed level relative to dialogue, in dB (applied before ducking)" },
+        "duck": {
+          "type": "object",
+          "description": "sidechain ducking driven by dialogue",
+          "properties": {
+            "threshold": { "type": "number", "default": 0.03, "description": "linear dialogue level that triggers ducking" },
+            "ratio": { "type": "number", "default": 8 }
+          }
+        },
+        "fadeIn": { "type": "number", "default": 1.0, "description": "seconds" },
+        "fadeOut": { "type": "number", "default": 2.0, "description": "seconds, ending at the assembly tail" },
+        "loudnessTarget": { "type": "number", "description": "integrated LUFS for the final mix (e.g. -14 social, -23 broadcast); applied via loudnorm and verified by ripple qa" }
+      }
+    },
     "scenes": {
       "type": "array",
       "items": {
