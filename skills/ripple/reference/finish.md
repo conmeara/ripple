@@ -34,8 +34,29 @@ drawtext (only if present). Cards must carry the delivery color tags.
   faded, and loudness-normalized to `loudnessTarget`. Clips and segments
   stay bed-free by design.
 
+- Transitions: `scene.transition {type: dissolve|fadeblack, duration}` on
+  the incoming scene — rendered as a real xfade/acrossfade overlap (the
+  assembly shortens by each duration). Must be shorter than both adjacent
+  segments; the manifest validator enforces it.
+- L-cuts: `scene.lcut` trails that scene's audio under the FOLLOWING card
+  (mirror of jcut). Picture leaves early; per-scene clips stay full-bounds.
+- Dialogue levels: `qa`'s dialogue-loudness gate flags scenes off the pack;
+  fix with `scene.gainDb`, never by re-mastering the mix.
+
 `ripple cut <manifest> --profile final` implements the rules above; heed its
-`warnings` array — it says when it had to degrade.
+`warnings` array — it says when it had to degrade. It snapshots the manifest
+to `.ripple/history` before every render (`ripple snapshot --list`,
+`ripple compare` to measure a change against any saved version).
+
+## Delivery extras
+
+- Captions: `ripple captions edit.json --style subtitle` (readability-bound
+  SRT + styled ASS) or `--style social` (karaoke word highlight). Sidecars
+  always; burn-in needs a libass ffmpeg (`RIPPLE_FFMPEG`).
+- Reframes: `ripple cut --preset vertical|square` delivers the same cut
+  reframed (fit `crop`); set `output.crop {x,y,w,h}` after READING a full
+  frame when center-crop misses the subject. Preset renders never clobber
+  the primary output.
 
 ## Delivery gates
 

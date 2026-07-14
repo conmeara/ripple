@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { basename, extname, join } from "node:path";
-import { loadAnalysis, referenceSilences } from "./analyze.mjs";
+import { loadAnalysis, referenceSilences, resolveProxy } from "./analyze.mjs";
 import { resolveCardFont } from "./cut.mjs";
 import { cutTiming } from "./timing.mjs";
 import {
@@ -132,6 +132,7 @@ const COLORS = {
 // THROW (callers degrade gracefully); only main() converts to fail().
 export function renderSheet({
   file, start, end, out, width = 1920, index, markers = [], somMarks = [], mode = "detail",
+  noProxy = false,
 }) {
   const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
   const magick = findTool(["magick", "convert"]);
@@ -164,12 +165,14 @@ export function renderSheet({
   const tmp = join(ensureDir(join(process.cwd(), "qa", "frame-sheets")), `.tsheet-${process.pid}`);
   mkdirSync(tmp, { recursive: true });
   try {
-    // Thumbnails: one frame per column, centered in its slice.
+    // Thumbnails: one frame per column, centered in its slice — from the
+    // proxy when one exists (frame extraction only; 10x faster on 4K).
     if (THUMB_H > 0) {
+      const frameSrc = noProxy ? file : resolveProxy(file) ?? file;
       for (let i = 0; i < thumbCount; i++) {
         const t = start + (i + 0.5) * (windowSec / thumbCount);
         const res = run(ffmpeg, [
-          "-hide_banner", "-v", "error", "-y", "-ss", String(Math.max(t, 0)), "-i", file,
+          "-hide_banner", "-v", "error", "-y", "-ss", String(Math.max(t, 0)), "-i", frameSrc,
           "-frames:v", "1", "-vf", `scale=${thumbW}:${THUMB_H}`,
           join(tmp, `th_${String(i).padStart(2, "0")}.jpg`),
         ]);
@@ -387,7 +390,7 @@ export async function main(argv) {
   const args = parseArgs(argv, {
     start: "number", end: "number", around: "number", span: "number",
     manifest: "string", scene: "string", markers: "string", marks: "string",
-    out: "string", width: "number", force: "boolean",
+    out: "string", width: "number", force: "boolean", "no-proxy": "boolean",
   });
   const file = args._[0];
   if (!file) {
@@ -446,6 +449,7 @@ export async function main(argv) {
     result = renderSheet({
       file, start, end, out: outPath,
       width: args.width ?? 1920, index, markers, somMarks, mode,
+      noProxy: args["no-proxy"] ?? false,
     });
   } catch (e) {
     fail(`timeline sheet failed: ${e.message}`, 1);

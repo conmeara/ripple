@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  assemblyDuration, buildConcatFilter, buildEncodeArgs, buildMusicFilter, buildSceneVf, clipName, directJoins, jumpCutReading,
+  assemblyDuration, assemblyTimeline, buildAssemblyFilter, buildConcatFilter, buildEncodeArgs, buildMusicFilter, buildSceneVf, clipName, directJoins, geometryChain, jumpCutReading, segmentBoundaries,
   expectedLeadingSilence, setparamsFilter, validateManifest,
 } from "./cut.mjs";
 
@@ -185,4 +185,146 @@ test("directJoins skips joins hidden by an incoming card", () => {
   ];
   const joins = directJoins(scenes).map(([x, y]) => `${x.slug}→${y.slug}`);
   assert.deepEqual(joins, ["b→c", "d→e"]);
+});
+
+test("assemblyTimeline: lcut trims the body and lands its tail under the next card", () => {
+  const scenes = [
+    { slug: "a", source: "s.mov", start: 10, end: 14, lcut: 1 },
+    { slug: "b", source: "s.mov", start: 20, end: 24, card: "Q", cardDuration: 2.5, jcut: 0.5 },
+  ];
+  const tl = assemblyTimeline(scenes);
+  assert.deepEqual(tl.map((s) => [s.kind, s.slug, s.outStart, s.outEnd]), [
+    ["body", "a", 0, 3], // 4s scene minus 1s lcut
+    ["card", "b", 3, 5.5],
+    ["body", "b", 5.5, 9],
+  ]);
+  assert.equal(tl[0].sourceEnd, 13); // picture leaves 1s early
+  const audio = tl[1].audio;
+  assert.deepEqual(audio.map((a) => a.kind), ["lcut", "silence", "jcut"]);
+  assert.deepEqual([audio[0].sourceStart, audio[0].sourceEnd, audio[0].outStart], [13, 14, 3]);
+  assert.deepEqual([audio[2].sourceStart, audio[2].sourceEnd, audio[2].outStart], [20, 20.5, 5]);
+});
+
+test("assemblyTimeline: transitions overlap and shorten the assembly", () => {
+  const scenes = [
+    { slug: "a", source: "s.mov", start: 0, end: 5 },
+    { slug: "b", source: "s.mov", start: 10, end: 15, transition: { type: "dissolve", duration: 1 } },
+  ];
+  const tl = assemblyTimeline(scenes);
+  assert.equal(tl[1].outStart, 4); // starts under a's last second
+  assert.equal(tl[1].outEnd, 9);
+  assert.deepEqual(tl[1].transitionIn, { type: "dissolve", duration: 1 });
+  assert.equal(assemblyDuration(scenes), 9); // 5 + 5 − 1
+  const bounds = segmentBoundaries(scenes);
+  assert.deepEqual(bounds, [{ t: 4.5, label: "b body", transition: "dissolve" }]); // midpoint
+});
+
+test("buildAssemblyFilter: no transitions delegates to plain concat", () => {
+  const geo = { width: 1280, height: 720, fps: "30", pixFmt: "yuv420p", color: { mode: "sdr" } };
+  const meta = [{ duration: 4 }, { duration: 5 }];
+  assert.equal(buildAssemblyFilter(meta, geo), buildConcatFilter(2, geo));
+});
+
+test("buildAssemblyFilter: xfade offsets, planar chain, terminal format restore", () => {
+  const geo = { width: 1280, height: 720, fps: "30", pixFmt: "p010le", color: { mode: "hdr", transfer: "arib-std-b67" } };
+  const meta = [
+    { duration: 4 },
+    { duration: 5 }, // hard join
+    { duration: 6, transitionIn: { type: "dissolve", duration: 1 } },
+    { duration: 3, transitionIn: { type: "fadeblack", duration: 0.5 } },
+  ];
+  const f = buildAssemblyFilter(meta, geo);
+  assert.match(f, /format=yuv420p10le\[v0\]/); // planar through the chain
+  assert.match(f, /concat=n=2:v=1:a=1\[vc1\]\[ac1\]/); // hard join pairwise
+  assert.match(f, /\[vc1\]fps=30\[vcf1\]/); // concat re-stamp
+  assert.match(f, /xfade=transition=fade:duration=1:offset=8\[vx2\]/); // 4+5−1
+  assert.match(f, /xfade=transition=fadeblack:duration=0.5:offset=13.5\[vx3\]/); // 9+6−1 −0.5
+  assert.match(f, /acrossfade=d=1\[ax2\]/);
+  assert.match(f, /format=p010le,setparams=[^[]*arib-std-b67[^[]*\[v\]/); // terminal restore
+  assert.match(f, /anull\[a\]$/);
+});
+
+test("geometryChain: pad default, crop reframe, source-pixel rect first", () => {
+  assert.equal(
+    geometryChain({ width: 1920, height: 1080 }),
+    ",scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1"
+  );
+  assert.equal(
+    geometryChain({ width: 1080, height: 1920, fit: "crop" }),
+    ",scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1"
+  );
+  assert.match(
+    geometryChain({ width: 1080, height: 1920, fit: "crop", cropRect: { x: 854, y: 0, w: 426, h: 720 } }),
+    /^,crop=426:720:854:0,scale=1080:1920/
+  );
+  assert.equal(geometryChain({}), "");
+});
+
+test("validateManifest: lcut and transition rules", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-test-"));
+  writeFileSync(join(dir, "src.mp4"), "stub");
+  const errs = (scenes) => validateManifest({ version: 1, scenes }, dir);
+
+  // lcut without a following card
+  assert.ok(errs([sceneFixture({ lcut: 1 }), sceneFixture({ id: 2, slug: "b" })])
+    .some((e) => e.includes("lcut needs a following scene with a card")));
+  // lcut + next jcut exceed the card
+  assert.ok(errs([
+    sceneFixture({ lcut: 2 }),
+    sceneFixture({ id: 2, slug: "b", card: "Q", cardDuration: 2.5, jcut: 1 }),
+  ]).some((e) => e.includes("exceed the next card")));
+  // valid lcut passes
+  assert.deepEqual(errs([
+    sceneFixture({ start: 0, end: 10, lcut: 1 }),
+    sceneFixture({ id: 2, slug: "b", card: "Q", cardDuration: 2.5, jcut: 1 }),
+  ]), []);
+  // transition on scene 1
+  assert.ok(errs([sceneFixture({ transition: { type: "dissolve", duration: 0.5 } })])
+    .some((e) => e.includes("needs a preceding scene")));
+  // bad type
+  assert.ok(errs([sceneFixture(), sceneFixture({ id: 2, slug: "b", transition: { type: "wipe", duration: 1 } })])
+    .some((e) => e.includes('must be "dissolve" or "fadeblack"')));
+  // too long for its neighbors (scenes are 4s each; 5s dissolve)
+  assert.ok(errs([sceneFixture(), sceneFixture({ id: 2, slug: "b", transition: { type: "dissolve", duration: 5 } })])
+    .some((e) => e.includes("shorter than both adjacent segments")));
+  // valid transition passes
+  assert.deepEqual(errs([sceneFixture(), sceneFixture({ id: 2, slug: "b", transition: { type: "dissolve", duration: 1 } })]), []);
+});
+
+test("validateManifest: output fit and crop rules", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-test-"));
+  writeFileSync(join(dir, "src.mp4"), "stub");
+  const base = { version: 1, scenes: [sceneFixture()] };
+  assert.ok(validateManifest({ ...base, output: { fit: "stretch" } }, dir).some((e) => e.includes("output.fit")));
+  assert.ok(validateManifest({ ...base, output: { crop: { x: 0, y: 0, w: 0, h: 10 } } }, dir).some((e) => e.includes("output.crop")));
+  assert.deepEqual(validateManifest({ ...base, output: { fit: "crop", crop: { x: 10, y: 0, w: 400, h: 700 } } }, dir), []);
+});
+
+test("validateManifest: jcut type/range and cardDuration guards (review findings)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-test-"));
+  writeFileSync(join(dir, "src.mp4"), "stub");
+  const errs = (scene) => validateManifest({ version: 1, scenes: [scene] }, dir);
+  assert.ok(errs(sceneFixture({ card: "Q", jcut: -1 })).some((e) => e.includes("non-negative")));
+  assert.ok(errs(sceneFixture({ card: "Q", jcut: "1" })).some((e) => e.includes("non-negative")));
+  assert.ok(errs(sceneFixture({ card: "Q", cardDuration: 2.5, jcut: 4 })).some((e) => e.includes("exceeds the card duration")));
+  assert.ok(errs(sceneFixture({ card: "Q", cardDuration: "2.5" })).some((e) => e.includes("cardDuration must be a positive number")));
+  assert.deepEqual(errs(sceneFixture({ card: "Q", cardDuration: 3, jcut: 1 })), []);
+});
+
+test("validateManifest: back-to-back transitions and lcut+transition conflicts", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-test-"));
+  writeFileSync(join(dir, "src.mp4"), "stub");
+  // b is 2s squeezed by 1.9s in + 1.9s out.
+  const squeeze = validateManifest({ version: 1, scenes: [
+    sceneFixture({ start: 0, end: 10 }),
+    sceneFixture({ id: 2, slug: "b", start: 20, end: 22, transition: { type: "dissolve", duration: 1.9 } }),
+    sceneFixture({ id: 3, slug: "c", start: 30, end: 40, transition: { type: "dissolve", duration: 1.9 } }),
+  ] }, dir);
+  assert.ok(squeeze.some((e) => e.includes("consume the whole segment")));
+  // lcut into a transitioned join is incoherent.
+  const conflict = validateManifest({ version: 1, scenes: [
+    sceneFixture({ start: 0, end: 10, lcut: 1 }),
+    sceneFixture({ id: 2, slug: "b", card: "Q", start: 20, end: 30, transition: { type: "dissolve", duration: 1 } }),
+  ] }, dir);
+  assert.ok(conflict.some((e) => e.includes("cannot combine with the previous scene's lcut")));
 });

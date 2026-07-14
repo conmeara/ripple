@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { resolveProxy } from "./analyze.mjs";
 import { basename, extname, join } from "node:path";
 import {
   ensureDir, fail, ffprobeJson, output, parseArgs, requireTool, round3, run,
@@ -149,10 +150,11 @@ async function scenesMode(args, file) {
   const tmpDir = join(outDir, `.scenes-tmp-${process.pid}`);
   mkdirSync(tmpDir, { recursive: true });
   try {
+    const frameSrc = args["no-proxy"] ? file : resolveProxy(file) ?? file;
     const withThumbs = [];
     for (const frame of frames) {
       const thumb = join(tmpDir, `t_${frame.t.toFixed(3)}.pgm`);
-      if (extractFrame(ffmpeg, file, frame.t, "scale=32:18,format=gray", thumb) && existsSync(thumb)) {
+      if (extractFrame(ffmpeg, frameSrc, frame.t, "scale=32:18,format=gray", thumb) && existsSync(thumb)) {
         withThumbs.push({ ...frame, pixels: parsePgm(readFileSync(thumb)).pixels });
       }
     }
@@ -161,7 +163,7 @@ async function scenesMode(args, file) {
     // Full-quality tiles for the kept frames only.
     for (let i = 0; i < kept.length; i++) {
       const jpg = join(tmpDir, `frame_${String(i).padStart(4, "0")}.jpg`);
-      if (!extractFrame(ffmpeg, file, kept[i].t, `scale=${scale}:-1`, jpg)) {
+      if (!extractFrame(ffmpeg, frameSrc, kept[i].t, `scale=${scale}:-1`, jpg)) {
         fail(`frame extraction failed at ${kept[i].t}s`, 1);
       }
     }
@@ -202,6 +204,7 @@ export async function main(argv) {
     fps: "number", cols: "number", scale: "number",
     start: "number", end: "number", tail: "number", out: "string", crop: "string",
     scenes: "boolean", "scene-threshold": "number", gap: "number", "dedup-threshold": "number",
+    "no-proxy": "boolean",
   });
   const file = args._[0];
   if (!file) {
@@ -258,9 +261,10 @@ export async function main(argv) {
       `${basename(file, extname(file))}${args.tail !== undefined ? "_tail" : ""}.jpg`
     );
 
+  const frameSrc = crop || args["no-proxy"] ? file : resolveProxy(file) ?? file;
   const res = run(ffmpeg, [
     "-hide_banner", "-v", "error", "-y",
-    ...rangeArgs, "-i", file,
+    ...rangeArgs, "-i", frameSrc,
     "-vf", `fps=${fps},${crop}scale=${scale}:-1,tile=${cols}x${rows}:padding=8:margin=8:color=0x1a1a1a`,
     "-frames:v", "1", outPath,
   ]);

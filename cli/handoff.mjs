@@ -296,6 +296,12 @@ export async function main(argv) {
       "Timelines reference ORIGINAL media by absolute path — keep sources where they are, or relink after moving.",
       ...(events.some((e) => e.kind === "card") ? ["Cards reference ripple-rendered segment files; editors will likely rebuild titles natively."] : []),
       ...(manifest.scenes.some((s) => s.jcut) ? ["J-cuts are flattened to straight cuts; the intended overlap is noted in each scene's marker."] : []),
+      ...(manifest.scenes.some((s) => s.transition)
+        ? ["Transitions are flattened to straight cuts — the NLE timeline runs longer than ripple's render by the summed dissolve overlaps; rebuild the dissolves in the NLE."]
+        : []),
+      ...(manifest.scenes.some((s) => s.lcut)
+        ? ["L-cuts are flattened: each lcut scene's full bounds are laid out; ripple's render trails that audio under the following card instead."]
+        : []),
     ],
   });
 }

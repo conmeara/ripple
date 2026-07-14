@@ -9,14 +9,18 @@ to see and cut footage, and a persistent memory for a project's taste.
   repairs, and deterministic QA. Motion graphics route to the official
   [HyperFrames](https://github.com/heygen-com/hyperframes) and
   [Remotion](https://www.remotion.dev/docs/ai/skills) skills.
-- **Tools** — the `ripple` CLI: `doctor`, `probe`, `analyze`, `transcribe`,
-  `beats`, `select`, `candidates`, `frame-sheet`, `timeline-sheet`, `cut`, `grade`,
-  `qa`, `review`, `handoff`. One command per loop that agents otherwise
-  rebuild by hand — including a perception layer (a cached per-source index
-  of word timings, silence, sentences, motion, and reaction beats; an
-  editor's-timeline image; fused cut-point numbers with categorical red
-  flags) and a manifest-driven renderer with title cards, J-cuts, music
-  beds, and HDR-safe assembly.
+- **Tools** — the `ripple` CLI: `doctor`, `probe`, `sources`, `analyze`,
+  `search`, `sync`, `transcribe`, `beats`, `select`, `candidates`,
+  `frame-sheet`, `timeline-sheet`, `locate`, `snapshot`, `compare`, `cut`,
+  `captions`, `grade`, `qa`, `review`, `handoff`. One command per loop that
+  agents otherwise rebuild by hand: a perception layer (a cached per-source
+  index of word timings, silence, sentences, prosody, motion, and reaction
+  beats; an editor's-timeline image; fused cut-point numbers with
+  categorical red flags), an editor's workbench (output↔source timecode
+  mapping, manifest history + cut diffs, cross-source phrase search,
+  multicam audio sync, word-accurate captions), and a manifest-driven
+  renderer with title cards, J/L-cuts, dissolves, music beds, per-scene
+  gain, reframe presets, and HDR-safe assembly.
 - **Taste** — `VIDEO.md` holds a project's standing creative direction
   (register, color policy, pacing, brand); `edit.json` holds each video's cut
   decisions with reasoning. User steering writes back, so lessons persist.

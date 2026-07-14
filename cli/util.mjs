@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 export function run(cmd, args, opts = {}) {
   const result = spawnSync(cmd, args, {
@@ -97,10 +97,12 @@ export function rippleHome() {
   return ensureDir(join(homedir(), ".ripple"));
 }
 
+// Cache stem for a source file. The path is resolved first — a relative and
+// an absolute invocation must land on the SAME cache, not silently rebuild.
 export function fileStamp(file) {
   const st = statSync(file);
   return createHash("sha1")
-    .update(`${file}:${st.size}:${st.mtimeMs}`)
+    .update(`${resolve(file)}:${st.size}:${st.mtimeMs}`)
     .digest("hex")
     .slice(0, 12);
 }

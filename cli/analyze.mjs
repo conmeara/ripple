@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, renameSync, rmSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { readWav } from "./pcm.mjs";
 import { breathSpans, highpass, sentenceProsody } from "./prosody.mjs";
@@ -74,6 +74,70 @@ function detectSilences(ffmpeg, wav, thresholdKeys) {
     }));
   }
   return out;
+}
+
+// Seek-friendly small proxy for FRAME EXTRACTION ONLY (thumbnails, strips,
+// motion) — 12x realtime via videotoolbox on 4K HDR, ~0.5s GOP for fast
+// accurate -ss. Never for grade/cut/qa decisions (8-bit re-encode), and -an
+// so accidental audio use fails loudly. Staleness is free: the stem embeds
+// fileStamp.
+export function ensureProxy(file, {
+  outDir = join(process.cwd(), "work", "analysis"), force = false,
+} = {}) {
+  const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
+  ensureDir(outDir);
+  const stem = `${basename(file, extname(file))}_${fileStamp(file)}`;
+  const proxyPath = join(outDir, `${stem}.proxy.mp4`);
+  if (!force && existsSync(proxyPath)) return { path: proxyPath, cached: true };
+
+  const probe = ffprobeJson(file);
+  const video = (probe.streams ?? []).find((s) => s.codec_type === "video");
+  if (!video || (video.width ?? 0) <= 1280) return null; // nothing to gain
+
+  const tmp = `${proxyPath}.tmp-${process.pid}.mp4`;
+  const hwaccels = run(ffmpeg, ["-hide_banner", "-hwaccels"]).stdout;
+  const encoders = run(ffmpeg, ["-hide_banner", "-encoders"]).stdout;
+  const vt = process.platform === "darwin" && /videotoolbox/.test(hwaccels) && /h264_videotoolbox/.test(encoders);
+  // videotoolbox propagates color tags itself (verified); libx264 needs them
+  // passed explicitly — built unconditionally because the libx264 path also
+  // runs as the fallback when a videotoolbox attempt fails.
+  const colorArgs = [];
+  for (const [flag, key] of [["-color_primaries", "color_primaries"], ["-color_trc", "color_transfer"], ["-colorspace", "color_space"]]) {
+    if (video[key]) colorArgs.push(flag, video[key]);
+  }
+  let res = run(ffmpeg, [
+    "-hide_banner", "-v", "error", "-y",
+    ...(vt ? ["-hwaccel", "videotoolbox"] : []),
+    "-i", file, "-map", "0:v:0", "-vf", "scale=960:-2",
+    ...(vt
+      ? ["-c:v", "h264_videotoolbox", "-b:v", "2000k"]
+      : ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", ...colorArgs]),
+    "-g", "12", "-an", tmp,
+  ]);
+  if (res.status !== 0 && vt) {
+    res = run(ffmpeg, [
+      "-hide_banner", "-v", "error", "-y", "-i", file, "-map", "0:v:0",
+      "-vf", "scale=960:-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+      "-pix_fmt", "yuv420p", ...colorArgs, "-g", "12", "-an", tmp,
+    ]);
+  }
+  if (res.status !== 0) {
+    rmSync(tmp, { force: true });
+    return null; // proxy is an optimization, never a failure
+  }
+  renameSync(tmp, proxyPath);
+  return { path: proxyPath, cached: false };
+}
+
+// The proxy for a source, if one exists (frame extraction callers only).
+export function resolveProxy(file, { outDir = join(process.cwd(), "work", "analysis") } = {}) {
+  try {
+    const stem = `${basename(file, extname(file))}_${fileStamp(file)}`;
+    const proxyPath = join(outDir, `${stem}.proxy.mp4`);
+    return existsSync(proxyPath) ? proxyPath : null;
+  } catch {
+    return null;
+  }
 }
 
 // Options that change the index's content. A cached index is reusable only
@@ -278,7 +342,7 @@ export async function main(argv) {
   const args = parseArgs(argv, {
     out: "string", model: "string", prompt: "string", lang: "string",
     force: "boolean", thresholds: "string", "rms-window": "number",
-    "no-scenes": "boolean",
+    "no-scenes": "boolean", "no-proxy": "boolean",
   });
   const file = args._[0];
   if (!file) {
@@ -298,6 +362,14 @@ export async function main(argv) {
     scenes: args["no-scenes"] ? false : undefined,
   });
 
+  // Proxy generation lives in main (not loadAnalysis): it must never enter
+  // the cache-validity logic, and a cached index run still fills in a
+  // missing proxy.
+  let proxy = null;
+  if (!args["no-proxy"]) {
+    proxy = ensureProxy(file, { outDir: args.out ? args.out : undefined, force: args.force ?? false })?.path ?? null;
+  }
+
   // The envelope is a summary — the index itself can be thousands of words.
   // Slice it with timeline-sheet/candidates or jq; don't cat the whole file.
   output({
@@ -305,6 +377,7 @@ export async function main(argv) {
     file,
     index: path,
     cached,
+    ...(proxy ? { proxy } : {}),
     duration: index.duration,
     words: index.words ? index.words.length : null,
     ...(index.wordsNote ? { wordsNote: index.wordsNote } : {}),

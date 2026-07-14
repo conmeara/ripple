@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadAnalysis, referenceSilences } from "./analyze.mjs";
+import { loadAnalysis, referenceSilences, resolveProxy } from "./analyze.mjs";
 import { cropFilter } from "./frame-sheet.mjs";
 import { cutTiming } from "./timing.mjs";
 import { renderSheet } from "./timeline-sheet.mjs";
@@ -89,7 +89,7 @@ export async function main(argv) {
     start: "number", end: "number", label: "string", out: "string",
     thresholds: "string", "no-transcribe": "boolean", prompt: "string",
     "max-tail": "number", "max-lead": "number", "tail-preference": "number",
-    "no-sheet": "boolean", crop: "string",
+    "no-sheet": "boolean", crop: "string", "no-proxy": "boolean",
   });
   const src = args._[0];
   if (!src || args.start === undefined || args.end === undefined) {
@@ -182,6 +182,8 @@ export async function main(argv) {
   }
   const strips = {};
   const stripLen = Math.min(2, duration);
+  // Proxy for speed — but --crop coords are SOURCE pixels, so crop bypasses.
+  const stripSrc = crop || args["no-proxy"] ? src : resolveProxy(src) ?? src;
   const stripSpecs = [
     ["head", args.start],
     ["tail", Math.max(args.start, args.end - stripLen)],
@@ -190,7 +192,7 @@ export async function main(argv) {
     const path = join(outDir, `${label}_${name}.jpg`);
     const res = run(ffmpeg, [
       "-hide_banner", "-v", "error", "-y",
-      "-ss", String(at), "-t", String(stripLen), "-i", src,
+      "-ss", String(at), "-t", String(stripLen), "-i", stripSrc,
       "-vf", `fps=4,${crop}scale=360:-1,tile=8x1:padding=6:margin=6:color=0x222222`,
       "-frames:v", "1", path,
     ]);
@@ -221,6 +223,7 @@ export async function main(argv) {
           markers,
           somMarks,
           mode: "detail",
+          noProxy: args["no-proxy"] ?? false,
         });
         sheets[name] = path;
       } catch (e) {

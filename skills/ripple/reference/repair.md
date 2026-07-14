@@ -6,11 +6,14 @@ cheap; keep them cheap.
 
 ## Steps
 
-1. **Map the complaint to scenes.** Users count what they see ("the second
-   question") — map against edit.json order, and confirm which scene if
-   ambiguous. Users also misremember which scene (a real session had "first
-   question" that turned out to be the second) — verify the complaint against
-   the actual clip before editing anything.
+1. **Map the complaint to scenes — with `ripple locate`, never by counting.**
+   "At 1:23 it drags" → `ripple locate 1:23 edit.json` returns the scene and
+   the SOURCE time (through cards, J-cuts, dissolves). Users also misremember
+   which scene (a real session had "first question" that turned out to be
+   the second) — verify against the actual clip before editing anything.
+   Snapshot before patching: `ripple snapshot edit.json --label "before fix"`
+   (cut also auto-snapshots), so any repair is one `ripple compare` away
+   from being measured and one copy away from being reverted.
 2. **Diagnose from source, not from the render.** Start by LOOKING at the
    flagged region: `ripple timeline-sheet <src> --scene <slug> --manifest
    edit.json` shows the current bounds against the waveform, words, and

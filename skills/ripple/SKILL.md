@@ -80,8 +80,11 @@ Each exists because a real session failed without it.
   words before producing anything expensive.
 - **Command match** → load the reference file and follow it.
 - **Intent match** → "cut this down" → `edit`; "it looks washed out" →
-  `finish`; "the ending is cut off" → `repair`; "make a title card" → stack
-  routing above; "add a voiceover / needs music / I don't have b-roll" →
-  `generate`; "open this in Premiere / I'll finish it in Resolve" →
-  `handoff`.
+  `finish`; "the ending is cut off" → `repair`; "at 1:23 it drags" →
+  `ripple locate` then `repair`; "make a title card" → stack routing above;
+  "add a voiceover / needs music / I don't have b-roll" → `generate`;
+  "add captions/subtitles" or "make a vertical version" → `finish`
+  (`ripple captions`, `cut --preset vertical`); "find where he says X" →
+  `ripple search`; "sync these two angles" → `ripple sync`; "open this in
+  Premiere / I'll finish it in Resolve" → `handoff`.
 - **General video question** → answer with the absolute rules in force.

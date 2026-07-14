@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { clipName, expectedLeadingSilence } from "./cut.mjs";
 import {
@@ -106,6 +106,14 @@ export async function main(argv) {
       const rows = [];
       const tailFails = [];
       const ffprobe = requireTool(["ffprobe"], "Install ffmpeg (brew install ffmpeg).");
+      // Clips older than the manifest measure a PREVIOUS cut — say so, or
+      // per-scene numbers (tails, loudness, gainDb advice) mislead.
+      const manifestMtime = args.manifest && existsSync(args.manifest) ? statSync(args.manifest).mtimeMs : 0;
+      const staleClips = manifest.scenes.filter((s) => {
+        const p = join(clipsDir, clipName(s));
+        return existsSync(p) && manifestMtime && statSync(p).mtimeMs < manifestMtime;
+      }).length;
+      const staleNote = staleClips ? ` — ${staleClips} clip(s) predate the manifest; re-run ripple cut before trusting per-scene numbers` : "";
       for (const scene of manifest.scenes) {
         const clipPath = join(clipsDir, clipName(scene));
         if (!existsSync(clipPath)) continue;
@@ -126,7 +134,30 @@ export async function main(argv) {
       }
       if (rows.length) {
         checks.push(check("scene-tails", tailFails.length === 0,
-          tailFails.length ? tailFails.join("; ") : `all scene tails within ${maxTail}s (${rows.join(", ")})`));
+          (tailFails.length ? tailFails.join("; ") : `all scene tails within ${maxTail}s (${rows.join(", ")})`) + staleNote));
+      }
+
+      // Dialogue loudness consistency: one scene 6dB quieter than its
+      // neighbor is the defect a mixing panel exists to prevent. Clips are
+      // bed-free by design, so this measures dialogue, not the mix.
+      const loud = [];
+      for (const scene of manifest.scenes) {
+        const clipPath = join(clipsDir, clipName(scene));
+        if (!existsSync(clipPath)) continue;
+        const ln = run(ffmpeg, [
+          "-hide_banner", "-nostats", "-i", clipPath,
+          "-vn", "-map", "0:a:0", "-af", "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-",
+        ]);
+        const m = parseLoudnorm(ln.stderr);
+        if (m && Number.isFinite(m.input_i)) loud.push({ slug: scene.slug, lufs: m.input_i });
+      }
+      if (loud.length >= 2) {
+        const vals = loud.map((l) => l.lufs);
+        const spread = round3(Math.max(...vals) - Math.min(...vals));
+        const maxSpread = manifest?.qa?.maxLoudnessSpread ?? 3;
+        checks.push(check("dialogue-loudness", spread <= maxSpread,
+          `${spread} LU spread across scenes (max ${maxSpread} — fix with scene.gainDb): ` +
+            loud.map((l) => `${l.slug} ${l.lufs}`).join(", ") + staleNote));
       }
     }
   }
