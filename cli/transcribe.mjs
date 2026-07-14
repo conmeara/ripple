@@ -1,8 +1,10 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join } from "node:path";
+import { dtwPreset, parseWhisperWords } from "./timing.mjs";
 import {
-  ensureDir, fail, ffprobeJson, fileStamp, findTool, output, parseArgs, requireTool, run,
+  ensureDir, fail, ffprobeJson, fileStamp, findTool, output, parseArgs,
+  readJsonOrNull, requireTool, run, writeJsonAtomic,
 } from "./util.mjs";
 
 const WHISPER_HINT = [
@@ -95,6 +97,69 @@ export function transcribeFile(file, { outDir, model, prompt, lang = "en", force
   return { files, cached: false, model: resolvedModel };
 }
 
+// Word-level timing pass: a second whisper run (`-ml 1 -sow`) over the same
+// wav, normalized into `<stem>.words.json` — [{start, end, text}] in source
+// seconds. Segment outputs (.json/.srt/.txt) are untouched; readable
+// transcripts and word timing are different artifacts with different
+// consumers. Word timestamps are fuzzy (±100–200ms, worse right after long
+// pauses) — downstream code must fuse them with silencedetect via
+// timing.mjs, never trust them alone.
+// Word timing needs a whisper build with --split-on-word; probe once.
+let whisperCapsCache = null;
+export function whisperWordCapable() {
+  if (whisperCapsCache) return whisperCapsCache;
+  const whisper = findTool(["whisper-cli", "whisper-cpp", "main"]);
+  if (!whisper) return (whisperCapsCache = { ok: false, dtw: false });
+  const help = run(whisper, ["--help"]);
+  const text = help.stdout + help.stderr;
+  whisperCapsCache = { ok: /--split-on-word/.test(text), dtw: /--dtw/.test(text) };
+  return whisperCapsCache;
+}
+
+export function transcribeWords(file, { outDir, model, prompt, lang = "en", force = false }) {
+  const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
+  const whisper = findTool(["whisper-cli", "whisper-cpp", "main"]);
+  if (!whisper) fail(WHISPER_HINT, 2, { missing: "whisper-cpp" });
+  const resolvedModel = resolveModel(model);
+  if (!resolvedModel) fail(WHISPER_HINT, 2, { missing: "model" });
+
+  ensureDir(outDir);
+  const stem = `${basename(file, extname(file))}_${fileStamp(file)}`;
+  const wav = join(outDir, `${stem}.16k.wav`);
+  const wordsJson = join(outDir, `${stem}.words.json`);
+
+  if (!force) {
+    const cached = readJsonOrNull(wordsJson);
+    if (cached?.words && (prompt === undefined || cached.prompt === prompt)) {
+      return { files: { wordsJson, wav }, cached: true, model: resolvedModel, words: cached.words };
+    }
+  }
+
+  if (!existsSync(wav)) {
+    const extract = run(ffmpeg, [
+      "-hide_banner", "-y", "-v", "error",
+      "-i", file, "-map", "0:a:0", "-ac", "1", "-ar", "16000", "-vn", wav,
+    ]);
+    if (extract.status !== 0) fail(`Audio extraction failed: ${extract.stderr.trim()}`, 1);
+  }
+
+  const rawPrefix = join(outDir, `${stem}.words-raw`);
+  const baseArgs = ["-m", resolvedModel, "-f", wav, "-l", lang, "-ml", "1", "-sow", "-oj", "-of", rawPrefix];
+  if (prompt) baseArgs.push("--prompt", prompt);
+  // Token-level DTW alignment when this build and model support it; a build
+  // that chokes on it falls back to plain -ml 1 -sow rather than failing.
+  const preset = whisperWordCapable().dtw ? dtwPreset(resolvedModel) : null;
+  let res = run(whisper, preset ? [...baseArgs, "--dtw", preset] : baseArgs);
+  if (res.status !== 0 && preset) res = run(whisper, baseArgs);
+  if (res.status !== 0) fail(`whisper (word pass) failed: ${(res.stderr || res.stdout).trim().slice(-2000)}`, 1);
+
+  const raw = readJsonOrNull(`${rawPrefix}.json`);
+  if (!raw) fail(`whisper produced unreadable word JSON at ${rawPrefix}.json`, 1);
+  const words = parseWhisperWords(raw);
+  writeJsonAtomic(wordsJson, { file, model: basename(resolvedModel), prompt: prompt ?? null, words });
+  return { files: { wordsJson, wav }, cached: false, model: resolvedModel, words };
+}
+
 // Pull existing subtitles into the standard transcript file layout.
 export function transcribeFromSubtitles(file, subs, { outDir, force = false }) {
   ensureDir(outDir);
@@ -120,17 +185,17 @@ export function transcribeFromSubtitles(file, subs, { outDir, force = false }) {
 export async function main(argv) {
   const args = parseArgs(argv, {
     out: "string", model: "string", prompt: "string", lang: "string",
-    force: "boolean", whisper: "boolean",
+    force: "boolean", whisper: "boolean", words: "boolean",
   });
   const file = args._[0];
-  if (!file) fail("Usage: ripple transcribe <file> [--out dir] [--model path] [--prompt hints] [--lang en] [--force] [--whisper]", 2);
+  if (!file) fail("Usage: ripple transcribe <file> [--out dir] [--model path] [--prompt hints] [--lang en] [--force] [--whisper] [--words]", 2);
   if (!existsSync(file)) fail(`File not found: ${file}`, 2);
 
   const outDir = args.out ?? join(process.cwd(), "work", "transcripts");
 
-  // Prefer existing subtitles unless --whisper forces re-transcription
-  // (whisper is still required when you need word-level JSON timing).
-  if (!args.whisper) {
+  // Prefer existing subtitles unless --whisper/--words forces whisper
+  // (subtitles can never provide word-level timing).
+  if (!args.whisper && !args.words) {
     const subs = findSubtitles(file);
     if (subs) {
       const result = transcribeFromSubtitles(file, subs, { outDir, force: args.force ?? false });
@@ -138,19 +203,26 @@ export async function main(argv) {
         ok: true,
         file,
         ...result,
-        note: `Used existing ${result.source} subtitles — no word-level JSON. Re-run with --whisper if you need word timing (overlays, precise cut points).`,
+        note: `Used existing ${result.source} subtitles — no word-level timing. Re-run with --words when cutting (precise endpoints need word timing; \`ripple analyze\` builds it plus the full timing index).`,
       });
       return;
     }
   }
 
-  const result = transcribeFile(file, {
+  const opts = {
     outDir,
     model: args.model,
     prompt: args.prompt,
     lang: args.lang ?? "en",
     force: args.force ?? false,
-  });
+  };
+  const result = transcribeFile(file, opts);
+
+  if (args.words) {
+    const w = transcribeWords(file, opts);
+    result.files.wordsJson = w.files.wordsJson;
+    result.words = w.words.length;
+  }
 
   output({ ok: true, file, source: "whisper", ...result });
 }

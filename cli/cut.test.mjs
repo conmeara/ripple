@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   assemblyDuration, buildConcatFilter, buildEncodeArgs, buildMusicFilter, buildSceneVf, clipName,
-  setparamsFilter, validateManifest,
+  expectedLeadingSilence, setparamsFilter, validateManifest,
 } from "./cut.mjs";
 
 function sceneFixture(overrides = {}) {
@@ -156,4 +156,15 @@ test("buildMusicFilter defaults are sane and omit loudnorm without a target", ()
   assert.ok(filter.includes("afade=t=in:d=1"));
   assert.ok(filter.includes("afade=t=out:st=28:d=2"));
   assert.ok(!filter.includes("loudnorm"));
+});
+
+test("expectedLeadingSilence: card silence minus J-cut head, else 0", () => {
+  assert.equal(expectedLeadingSilence([{ slug: "a", start: 0, end: 5 }]), 0);
+  assert.equal(expectedLeadingSilence([{ slug: "a", card: "Q1", start: 0, end: 5 }]), 2.5);
+  assert.equal(expectedLeadingSilence([{ slug: "a", card: "Q1", cardDuration: 4, start: 0, end: 5 }]), 4);
+  assert.equal(expectedLeadingSilence([{ slug: "a", card: "Q1", cardDuration: 4, jcut: 1.5, start: 0, end: 5 }]), 2.5);
+  // cardFile without card: jcut is ignored by the renderer, so full duration.
+  assert.equal(expectedLeadingSilence([{ slug: "a", cardFile: "x.png", cardDuration: 3, jcut: 1, start: 0, end: 5 }]), 3);
+  assert.equal(expectedLeadingSilence([]), 0);
+  assert.equal(expectedLeadingSilence(undefined), 0);
 });

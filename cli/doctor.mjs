@@ -40,6 +40,16 @@ export async function main() {
 
   const whisper = findTool(["whisper-cli", "whisper-cpp", "main"]);
   add("whisper-cpp", Boolean(whisper), whisper ?? "not found", "brew install whisper-cpp");
+  if (whisper) {
+    const help = run(whisper, ["--help"]);
+    const sow = /--split-on-word/.test(help.stdout + help.stderr);
+    add(
+      "word-timing",
+      sow,
+      sow ? "split-on-word supported (word-level timing available)" : "whisper build lacks --split-on-word",
+      "update whisper-cpp (brew upgrade whisper-cpp) — word-level cut timing needs it"
+    );
+  }
   const model = resolveModel(null);
   add(
     "whisper-model",

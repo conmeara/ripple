@@ -11,14 +11,17 @@ cheap; keep them cheap.
    ambiguous. Users also misremember which scene (a real session had "first
    question" that turned out to be the second) — verify the complaint against
    the actual clip before editing anything.
-2. **Diagnose from source, not from the render.** For a cut-off ending, find
-   the missing phrase in the SOURCE transcript, then probe candidate
-   endpoints: `ripple candidates <src> --start <current-start> --end
-   <proposed-new-end> --label <slug>`.
+2. **Diagnose from source, not from the render.** Start by LOOKING at the
+   flagged region: `ripple timeline-sheet <src> --scene <slug> --manifest
+   edit.json` shows the current bounds against the waveform, words, and
+   silence — a mistimed cut is usually visible instantly. For a cut-off
+   ending, find the missing phrase in the SOURCE transcript, then probe
+   candidate endpoints: `ripple candidates <src> --start <current-start>
+   --end <proposed-new-end> --label <slug>`.
 3. **Patch only when the three signals confirm** (ending present, next prompt
-   absent, tail tight and visually clean). Update the scene's bounds,
-   `status: "repaired"`, and reasoning ("re-extended to include 'truly in the
-   present'; tail 0.95s").
+   absent per `timing.nextText`, `flags` empty, tail tight and visually
+   clean). Update the scene's bounds, `status: "repaired"`, and reasoning
+   ("re-extended to include 'truly in the present'; tailGap 0.95s").
 4. **Re-render only what changed**: the affected scene clips, then the full
    assembly (one re-encode). Never touch other scenes' bounds.
 5. **Focused QA**: `ripple qa` with the repaired scenes' expected ending

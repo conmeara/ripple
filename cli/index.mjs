@@ -18,11 +18,19 @@ const COMMANDS = {
     load: () => import("./probe.mjs"),
     usage: `  probe <file> [--filters]        Inspect media: streams, duration, HDR, ffmpeg capabilities`,
   },
+  analyze: {
+    load: () => import("./analyze.mjs"),
+    usage: `  analyze <file>                  Build the perception index: word timings, silence/speech maps,
+      [--out dir] [--model path]  sentences (with pace), fillers, non-speech events (laughs/claps),
+      [--prompt "hints"] [--lang en]  scene changes, motion + energy curves — cached; run once per source
+      [--force] [--thresholds -35,-40,-45] [--rms-window 0.5] [--no-scenes]`,
+  },
   transcribe: {
     load: () => import("./transcribe.mjs"),
     usage: `  transcribe <file>               Transcript: existing subtitles first, whisper-cpp fallback (cached)
       [--out dir] [--model path] [--prompt "hints"] [--lang en] [--force]
-      [--whisper]                 force whisper (needed for word-level JSON timing)`,
+      [--whisper]                 force whisper even when subtitles exist
+      [--words]                   also emit word-level timing (.words.json; implied by analyze)`,
   },
   select: {
     load: () => import("./select.mjs"),
@@ -32,8 +40,13 @@ const COMMANDS = {
   candidates: {
     load: () => import("./candidates.mjs"),
     usage: `  candidates <file> --start S --end E [--label slug]
-      [--out dir] [--thresholds -35,-40,-45] [--no-transcribe]
-                                  Verify a cut range: audio, transcript, silence, edge frames`,
+      [--out dir] [--prompt "hints"] [--thresholds -35,-40,-45]
+      [--max-tail 1.0] [--max-lead 0.5] [--tail-preference 0.6]
+      [--no-sheet]                skip the cut-card sheets
+      [--no-transcribe]           skip the range transcript (word timing still
+                                  comes from the cached index)
+                                  Verify a cut range: word timing + red flags + suggested OUT,
+                                  silence, transcript, edge frames, head/tail cut-card sheets`,
   },
   "frame-sheet": {
     load: () => import("./frame-sheet.mjs"),
@@ -42,6 +55,14 @@ const COMMANDS = {
       [--scenes]                  sample where the picture CHANGES (scene detect +
       [--scene-threshold 0.3]     coverage floor + dedup); emits tile→timestamp map —
       [--gap 10]                  the discovery mode for takes/resets in long footage`,
+  },
+  "timeline-sheet": {
+    load: () => import("./timeline-sheet.mjs"),
+    usage: `  timeline-sheet <file>           The editor's timeline as one image: thumbnails + motion strip +
+      [--start S --end E]         waveform with silence shading + word-aligned transcript + cut
+      [--around T --span 12]      markers, on a shared time axis. Overview for discovery; zoom
+      [--manifest edit.json [--scene slug]]   (--around/--scene) before locking any cut
+      [--markers "209:IN,233.3:OUT"] [--out path] [--width 1920] [--force]`,
   },
   cut: {
     load: () => import("./cut.mjs"),

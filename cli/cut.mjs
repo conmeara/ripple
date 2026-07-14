@@ -59,6 +59,17 @@ export function assemblyDuration(scenes) {
   );
 }
 
+// Silence the assembly legitimately opens with: scene 1's card plays silent
+// audio for its duration minus any J-cut head. QA's leading-silence gate
+// must not count intentional card quiet as a defect.
+export function expectedLeadingSilence(scenes) {
+  const first = scenes?.[0];
+  if (!first || !(first.card || first.cardFile)) return 0;
+  const cardDuration = first.cardDuration ?? 2.5;
+  const jcut = first.card ? first.jcut ?? 0 : 0;
+  return round3(Math.max(cardDuration - jcut, 0));
+}
+
 // Music-bed filtergraph, appended after buildConcatFilter's `[v][a]`.
 // Bed: format → gain → fades; dialogue splits to feed the sidechain; the bed
 // ducks under speech; the mix (optionally loudness-normalized) lands on [amix].

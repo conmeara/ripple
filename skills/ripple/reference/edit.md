@@ -4,20 +4,27 @@ The core loop. Everything here assumes edit.json exists (`plan` creates it).
 
 ## The three-signal endpoint rule (never skip)
 
-A cut point is confirmed only when all three agree, via `ripple candidates
-<src> --start S --end E --label <slug>`:
+A cut point is confirmed by numbers, sound, and sight together, via `ripple
+candidates <src> --start S --end E --label <slug>` (read
+`reference/perception.md` for the full signal guide):
 
-1. **Transcript** of the candidate range contains the final intended phrase
-   and does NOT contain the next prompt/take ("next question", a re-ask).
-2. **Silence** analysis shows leading silence ≈ 0 and tail silence within the
-   VIDEO.md bound (default ≤1.0s). Check multiple thresholds — one threshold
-   can eat soft speech.
-3. **Tail frames** show no look-down, reset, or glance at notes. Read the
-   strip image; don't just confirm it exists.
+1. **Numbers.** The endpoint law: `OUT = timing.lastWordEnd + tail preference`
+   (VIDEO.md, default ≤1.0s) — verify `tailGap` against it, and verify
+   `timing.nextText` is the next prompt/take, not more of the answer.
+   **No scene locks while `flags` is non-empty**: every flag is either
+   resolved or overridden with a written reason in the scene's `reasoning`.
+   `suggestedOut` is the mechanical answer; taste may hold longer (a smile,
+   a laugh) — as a recorded decision, never a shrug.
+2. **Silence** at multiple thresholds — one threshold can eat soft speech.
+   Tail silence 0 is a red flag, not a pass: someone is speaking at the cut.
+3. **Sight.** READ the head/tail cut-card sheets (`sheets.in`/`sheets.out`)
+   and frame strips: the OUT line must sit in shaded silence, not touching
+   the next waveform burst, and the frames show no look-down, reset, or
+   glance at notes.
 
-Start points: just before the first complete word, keeping the VIDEO.md
-pre-roll (default 0.1–0.3s). End points: after the final sentence, before the
-reset.
+Start points: just before the first complete word (`firstWordStart`), keeping
+the VIDEO.md pre-roll (default 0.1–0.3s). End points: after the final
+sentence, before the reset.
 
 ## Loop
 

@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { clipName, expectedLeadingSilence } from "./cut.mjs";
 import {
   detectHdr, fail, ffprobeJson, output, parseArgs, parseLoudnorm, parseSilence, requireTool, round3, run, silenceEdges,
 } from "./util.mjs";
@@ -78,8 +79,13 @@ export async function main(argv) {
       color.hdr ? "policy is sdr but output carries HDR metadata" : "SDR delivery as specified"));
   }
 
-  // 3. Clip inventory + decode.
-  const clipsDir = args["clips-dir"];
+  // 3. Clip inventory + decode. The clips dir defaults to the manifest's
+  // sibling clips/ (where cut renders them) — the per-scene gates must not
+  // silently vanish just because --clips-dir wasn't spelled out.
+  const clipsDir = args["clips-dir"] ??
+    (args.manifest && existsSync(join(dirname(resolve(args.manifest)), "clips"))
+      ? join(dirname(resolve(args.manifest)), "clips")
+      : undefined);
   const expected = args["expect-clips"] ?? manifest?.scenes?.length;
   if (clipsDir && existsSync(clipsDir)) {
     const clips = readdirSync(clipsDir).filter((f) => /\.(mp4|mov|webm)$/i.test(f)).sort();
@@ -92,16 +98,53 @@ export async function main(argv) {
       if (res.status !== 0 || res.stderr.trim()) badClips.push(clip);
     }
     checks.push(check("clip-decode", badClips.length === 0, badClips.length ? `decode errors: ${badClips.join(", ")}` : `all ${clips.length} clips decode cleanly`));
+
+    // Per-scene edge silence. The final file's outer edges structurally
+    // cannot see a 3s dead tail INSIDE scene 6 — the per-scene clips can.
+    // (A real session shipped two >2s interior tails past the global gates.)
+    if (manifest?.scenes?.length) {
+      const rows = [];
+      const tailFails = [];
+      const ffprobe = requireTool(["ffprobe"], "Install ffmpeg (brew install ffmpeg).");
+      for (const scene of manifest.scenes) {
+        const clipPath = join(clipsDir, clipName(scene));
+        if (!existsSync(clipPath)) continue;
+        // Unreadable clips are clip-decode's finding — skip, don't abort QA.
+        const probeRes = run(ffprobe, ["-hide_banner", "-v", "error", "-show_format", "-print_format", "json", clipPath]);
+        let clipDur = 0;
+        if (probeRes.status === 0) {
+          try { clipDur = Number(JSON.parse(probeRes.stdout).format?.duration ?? 0); } catch { /* skip */ }
+        }
+        if (!(clipDur > 0)) continue;
+        const res = run(ffmpeg, [
+          "-hide_banner", "-nostats", "-i", clipPath,
+          "-vn", "-map", "0:a:0", "-af", "silencedetect=noise=-40dB:d=0.25", "-f", "null", "-",
+        ]);
+        const e = silenceEdges(parseSilence(res.stderr), clipDur);
+        rows.push(`${scene.slug} ${e.tail}s`);
+        if (e.tail > maxTail) tailFails.push(`${scene.slug}: ${e.tail}s tail (max ${maxTail}s)`);
+      }
+      if (rows.length) {
+        checks.push(check("scene-tails", tailFails.length === 0,
+          tailFails.length ? tailFails.join("; ") : `all scene tails within ${maxTail}s (${rows.join(", ")})`));
+      }
+    }
   }
 
-  // 4. Leading/tail silence of the final.
+  // 4. Leading/tail silence of the final. An opening title card plays
+  // intentional silence — the gate allows for it instead of failing red on
+  // every card-led cut (which just teaches everyone to ignore red QA).
   const silenceRes = run(ffmpeg, [
     "-hide_banner", "-nostats", "-i", file,
-    "-vn", "-af", "silencedetect=noise=-40dB:d=0.25", "-f", "null", "-",
+    "-vn", "-map", "0:a:0", "-af", "silencedetect=noise=-40dB:d=0.25", "-f", "null", "-",
   ]);
   const edges = silenceEdges(parseSilence(silenceRes.stderr), duration);
   const bedNote = manifest?.music ? " — music bed present: edges reflect the mix, not dialogue" : "";
-  checks.push(check("leading-silence", edges.leading <= maxLeading, `${edges.leading}s (max ${maxLeading}s)${bedNote}`));
+  const cardLead = manifest?.scenes ? expectedLeadingSilence(manifest.scenes) : 0;
+  const leadDetail = cardLead > 0
+    ? `${edges.leading}s (${cardLead}s intentional opening card + max ${maxLeading}s)${bedNote}`
+    : `${edges.leading}s (max ${maxLeading}s)${bedNote}`;
+  checks.push(check("leading-silence", edges.leading <= cardLead + maxLeading, leadDetail));
   checks.push(check("tail-silence", edges.tail <= maxTail, `${edges.tail}s (max ${maxTail}s)${bedNote}`));
 
   // 4b. Loudness. A bed masks dialogue-edge silence (noted above), so the

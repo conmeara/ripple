@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -107,6 +107,24 @@ export function fileStamp(file) {
 
 export function fileExists(p) {
   return existsSync(p);
+}
+
+// Cache reads must never crash a command: a corrupt or half-written cache
+// file is a cache miss, not an error.
+export function readJsonOrNull(path) {
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+// Atomic cache write: never leave a truncated JSON file for the next
+// process to trip over.
+export function writeJsonAtomic(path, obj, space = 1) {
+  const tmp = `${path}.tmp-${process.pid}`;
+  writeFileSync(tmp, JSON.stringify(obj, null, space));
+  renameSync(tmp, path);
 }
 
 // Parse ffmpeg silencedetect stderr into [{start, end, duration}] (end/duration

@@ -1,23 +1,100 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { findTool } from "./util.mjs";
-import {
-  ensureDir, fail, output, parseArgs, parseSilence, requireTool, round3, run, silenceEdges,
-} from "./util.mjs";
+import { loadAnalysis, referenceSilences } from "./analyze.mjs";
+import { cutTiming } from "./timing.mjs";
+import { renderSheet } from "./timeline-sheet.mjs";
 import { resolveModel, transcribeFile } from "./transcribe.mjs";
+import {
+  ensureDir, fail, findTool, output, parseArgs, parseSilence, requireTool, round3, run, silenceEdges,
+} from "./util.mjs";
+
+// Categorical verdicts, not vibes: the numbers say whether a cut range is
+// clean, and each red flag names the exact failure it prevents. A real
+// session shipped two next-question leaks because "tail silence: 0" read as
+// a pass and the transcript was untimed text.
+export function endpointFlags(timing, silence, { maxTail = 1.0, maxLead = 0.5, end }) {
+  const flags = [];
+  const zeroTailEverywhere = Object.values(silence).every((s) => s.tail === 0);
+  // Zero tail silence means audio at the cut — but when word timing shows a
+  // clean positive gap after the last word (no straddle), the "audio" is
+  // just a cut placed right after speech ends: expected, not a defect. The
+  // flag fires only when word data is absent or corroborates it.
+  const corroborated = !timing || timing.straddleEnd !== null ||
+    timing.wordsInRange === 0 ||
+    (timing.tailGap !== null && timing.tailGap < 0.15);
+  if (zeroTailEverywhere && corroborated) {
+    flags.push({
+      flag: "SPEECH_AT_OUT",
+      detail: "tail silence is 0 at every threshold — someone is speaking at the cut point. This is a red flag, not a pass.",
+    });
+  }
+  if (!timing) return flags;
+  if (timing.straddleEnd) {
+    flags.push({
+      flag: "MID_WORD_OUT",
+      detail: `the cut lands inside the word "${timing.straddleEnd}"`,
+    });
+  }
+  if (timing.nextWordStart !== null && timing.nextWordStart < end - 0.05) {
+    flags.push({
+      flag: "NEXT_SPEECH_INSIDE",
+      detail: `next speech starts at ${timing.nextWordStart}s, INSIDE this range (ends ${end}s): "${timing.nextText}"`,
+    });
+  }
+  if (timing.tailGap !== null && timing.tailGap > maxTail) {
+    flags.push({
+      flag: "DEAD_AIR_TAIL",
+      detail: `${timing.tailGap}s of nothing after the last word (bound ${maxTail}s) — cut at lastWordEnd + tail preference`,
+    });
+  }
+  if (timing.straddleStart) {
+    flags.push({
+      flag: "MID_WORD_IN",
+      detail: `the range starts inside the word "${timing.straddleStart}"`,
+    });
+  }
+  if (timing.leadGap !== null && timing.leadGap > maxLead) {
+    flags.push({
+      flag: "LATE_FIRST_WORD",
+      detail: `${timing.leadGap}s before the first word (bound ${maxLead}s) — move the IN toward firstWordStart`,
+    });
+  }
+  return flags;
+}
+
+// Mechanical OUT suggestion: last word's acoustic end plus a breath of tail,
+// capped so it can never reach the next speech. When no clean gap exists
+// between the last word and the next sound, there is no suggestion — that
+// cut needs a human-grade judgment call, not a nudge.
+export function suggestOut(timing, { tailPreference = 0.6 } = {}) {
+  if (!timing || timing.lastWordEnd === null) return null;
+  let out = timing.lastWordEnd + tailPreference;
+  const ceiling = Math.min(
+    timing.nextWordStart ?? Infinity,
+    timing.nextAudioStart ?? Infinity
+  );
+  if (out > ceiling - 0.15) out = ceiling - 0.15;
+  return out > timing.lastWordEnd ? round3(out) : null;
+}
 
 // The three-signal endpoint check in one command:
-//   1. transcript of the candidate range (final phrase present? next prompt absent?)
-//   2. leading/tail silence at multiple thresholds (soft speech safety)
-//   3. head/tail frame strips (look-down / reset detection — read them!)
+//   1. timing — word-level numbers fused with silence (lastWordEnd, tailGap,
+//      nextWordStart) + categorical red flags
+//   2. silence at multiple thresholds (soft-speech safety)
+//   3. sight — head/tail cut-card sheets and frame strips (READ them)
+// plus the transcript text of the range (final phrase present? next prompt absent?)
 export async function main(argv) {
   const args = parseArgs(argv, {
     start: "number", end: "number", label: "string", out: "string",
     thresholds: "string", "no-transcribe": "boolean", prompt: "string",
+    "max-tail": "number", "max-lead": "number", "tail-preference": "number",
+    "no-sheet": "boolean",
   });
   const src = args._[0];
   if (!src || args.start === undefined || args.end === undefined) {
-    fail("Usage: ripple candidates <src> --start S --end E [--label slug] [--out dir] [--thresholds -35,-40,-45] [--no-transcribe]", 2);
+    fail("Usage: ripple candidates <src> --start S --end E [--label slug] [--out dir] [--prompt \"hints\"]\n" +
+      "       [--thresholds -35,-40,-45] [--max-tail 1.0] [--max-lead 0.5] [--tail-preference 0.6]\n" +
+      "       [--no-sheet] [--no-transcribe]", 2);
   }
   if (!existsSync(src)) fail(`File not found: ${src}`, 2);
   if (args.end <= args.start) fail("--end must be greater than --start", 2);
@@ -28,20 +105,47 @@ export async function main(argv) {
   const outDir = ensureDir(args.out ?? join(process.cwd(), "work", "candidates"));
   const thresholds = (args.thresholds ?? "-35,-40,-45").split(",").map((t) => t.trim());
 
+  // Signal 1: word-level timing from the per-source index (whole-file, so
+  // no window-edge truncation can hide the next prompt). Built first so the
+  // range can be validated against the real duration — a range past EOF
+  // must be a usage error, not fabricated silence numbers.
+  const { index } = loadAnalysis(src, { prompt: args.prompt });
+  const fileEnd = index.duration;
+  if (args.start >= fileEnd) fail(`--start ${args.start} is past the end of the file (${fileEnd}s)`, 2);
+  if (args.end > fileEnd + 0.05) fail(`--end ${args.end} is past the end of the file (${fileEnd}s)`, 2);
+  const silenceRef = referenceSilences(index).map((s) => ({ ...s, end: s.end ?? fileEnd }));
+  const timing = index.words
+    ? cutTiming(index.words, silenceRef, { start: args.start, end: args.end })
+    : null;
+
   // Signal 2: silence at each threshold, across the exact candidate range.
   const silence = {};
   for (const db of thresholds) {
     const res = run(ffmpeg, [
       "-hide_banner", "-nostats",
       "-ss", String(args.start), "-t", String(duration), "-i", src,
-      "-vn", "-af", `silencedetect=noise=${db}dB:d=0.25`,
+      "-vn", "-map", "0:a:0", "-af", `silencedetect=noise=${db}dB:d=0.25`,
       "-f", "null", "-",
     ]);
+    if (res.status !== 0) fail(`silencedetect (${db}dB) failed: ${res.stderr.trim().slice(-500)}`, 1);
     const spans = parseSilence(res.stderr);
     silence[`${db}dB`] = { ...silenceEdges(spans, duration), spans: spans.length };
   }
+  const flags = endpointFlags(timing, silence, {
+    maxTail: args["max-tail"] ?? 1.0,
+    maxLead: args["max-lead"] ?? 0.5,
+    end: args.end,
+  });
+  // A nudge only helps when the range ends where it means to. Ending
+  // mid-speech means the OUT is scoped to the wrong sentence — re-scope
+  // (the index's `sentences` array is the lattice), don't nudge.
+  const brokenScope = flags.some((f) =>
+    ["SPEECH_AT_OUT", "MID_WORD_OUT", "NEXT_SPEECH_INSIDE"].includes(f.flag));
+  const suggestedOut = brokenScope
+    ? null
+    : suggestOut(timing, { tailPreference: args["tail-preference"] ?? 0.6 });
 
-  // Signal 3: head and tail frame strips (2s each, 4 fps).
+  // Signal 3a: head and tail frame strips (2s each, 4 fps).
   const strips = {};
   const stripLen = Math.min(2, duration);
   const stripSpecs = [
@@ -59,7 +163,38 @@ export async function main(argv) {
     strips[name] = res.status === 0 ? path : `strip failed: ${res.stderr.trim()}`;
   }
 
-  // Signal 1: transcript of the candidate audio.
+  // Signal 3b: cut-card sheets — the editor's zoomed timeline around each
+  // endpoint (thumbnails + waveform + silence + words + the cut line).
+  const sheets = {};
+  if (!args["no-sheet"]) {
+    const cards = [
+      ["in", args.start, [{ t: args.start, label: "IN" }]],
+      ["out", args.end, [
+        { t: args.end, label: "OUT" },
+        ...(suggestedOut !== null && Math.abs(suggestedOut - args.end) > 0.15
+          ? [{ t: suggestedOut, label: "suggested" }] : []),
+      ]],
+    ];
+    for (const [name, at, markers] of cards) {
+      const path = join(outDir, `${label}_${name}_card.png`);
+      try {
+        renderSheet({
+          file: src,
+          start: Math.max(0, at - 6),
+          end: Math.min(fileEnd, at + 6),
+          out: path,
+          index,
+          markers,
+          mode: "detail",
+        });
+        sheets[name] = path;
+      } catch (e) {
+        sheets[name] = `sheet failed: ${e.message}`;
+      }
+    }
+  }
+
+  // Transcript text of the range (the "final phrase present?" check).
   let transcript = null;
   if (!args["no-transcribe"]) {
     const whisperAvailable = findTool(["whisper-cli", "whisper-cpp", "main"]) && resolveModel(null);
@@ -78,7 +213,7 @@ export async function main(argv) {
         };
       }
     } else {
-      transcript = { skipped: "whisper-cpp or model unavailable — run `ripple transcribe` guidance to set up" };
+      transcript = { skipped: "whisper-cpp or model unavailable — run `ripple doctor` for setup" };
     }
   }
 
@@ -87,13 +222,19 @@ export async function main(argv) {
     src,
     label,
     range: { start: args.start, end: args.end, duration },
+    timing,
+    ...(timing === null && index.wordsNote ? { timingNote: index.wordsNote } : {}),
+    flags,
+    suggestedOut,
     silence,
     strips,
+    ...(Object.keys(sheets).length ? { sheets } : {}),
     transcript,
     verdictHints: [
-      "Confirm the final intended phrase appears in transcript.text and the next prompt/take does NOT.",
-      "Leading silence should be ~0; tail silence within VIDEO.md bounds (default ≤1.0s). Distrust a single threshold.",
-      "READ the head/tail strips: no look-down, reset, or glance at notes near the cut.",
+      "The endpoint rule is arithmetic: OUT = timing.lastWordEnd + tail preference (VIDEO.md, default ≤1.0s). Verify tailGap against it.",
+      "Any entry in `flags` blocks locking this range until resolved or overridden with a written reason.",
+      "READ the cut-card sheets and strips: no look-down, reset, or glance at notes near the cut — and the OUT line must not touch the next waveform burst.",
+      "Confirm the final intended phrase appears in transcript.text and timing.nextText is the next prompt/take, NOT more of the answer.",
     ],
   });
 }

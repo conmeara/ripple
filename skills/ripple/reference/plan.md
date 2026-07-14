@@ -11,12 +11,14 @@ from it: one scene per AV row, same slug, `title` from the visual column,
 1. **Inventory sources.** Find video/audio files (don't forget .MOV/.MP4 case
    variants). `ripple probe` each unique source — note duration, resolution,
    codec, and especially HDR flags. Record the color policy implication.
-2. **Transcribe everything.** `ripple transcribe <src>` per source — it uses
-   existing subtitles (sidecar .srt/.vtt or embedded streams) when present,
-   whisper otherwise. Pass `--prompt` with proper nouns you expect (names,
-   places, product terms) — it materially improves whisper accuracy. When you
-   need word-level timing (overlays, precise cut points), force `--whisper`;
-   subtitle-derived transcripts have no word JSON.
+2. **Analyze everything.** `ripple analyze <src>` per source builds the
+   perception index — word-level timing, silence/speech maps, sentences with
+   pace, fillers, non-speech events (laughs/claps), motion, scene changes —
+   cached, so candidates and timeline-sheet are instant afterwards. Pass
+   `--prompt` with proper nouns you expect (names, places, product terms) —
+   it materially improves whisper accuracy. `ripple transcribe <src>` still
+   gives the readable transcript (subtitles first, whisper fallback); read
+   `reference/perception.md` for how to use the index.
 3. **Group takes.** Multiple takes of the same content cluster by transcript
    similarity. Heuristics (verify, don't assume): later takes are usually
    better; fewer filler words is better; a complete final sentence beats a
@@ -25,12 +27,12 @@ from it: one scene per AV row, same slug, `title` from the visual column,
    For each scene: id, slug, source, proposed start/end from transcript
    timestamps, chosen take, and **reasoning** — one line on why this take and
    these bounds. Mark every scene `status: "proposed"`.
-5. **Look at what you plan to use.** Start with `ripple frame-sheet <src>
-   --scenes` — it samples where the picture actually changes and maps each
-   tile to a timestamp. In mostly-static footage, scene-change tiles are
-   usually resets, look-downs, and take boundaries: cross-reference those
-   timestamps with the transcript to segment takes. Then sheet each chosen
-   range (`--start X --end Y`) to check framing and that the person is
+5. **Look at what you plan to use.** Start with `ripple timeline-sheet <src>`
+   — the whole source on one time axis: waveform bursts between silence are
+   the take structure, green ticks are sentence ends, the motion strip shows
+   resets; zoom with `--around T --span 12` on each chosen range. Then
+   `ripple frame-sheet <src> --scenes` for picture-change sampling, and
+   `frame-sheet --start X --end Y` to check framing and that the person is
    mid-take, not resetting.
 6. **Present the plan.** Scene table (slug, take, in/out, duration, reasoning)
    plus the color policy and any risks (HDR, missing drawtext, noisy audio).

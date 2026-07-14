@@ -22,13 +22,16 @@ verified by looking, and the project's standing direction is honored.
 
 Each exists because a real session failed without it.
 
-- **Look at your work.** `ripple frame-sheet` after every render, and read
-  the image. Editing blind is the #1 agent failure in video.
+- **Look at your work.** `ripple timeline-sheet` before locking any cut,
+  `ripple frame-sheet` after every render — and read the images. Editing
+  blind is the #1 agent failure in video.
 - **The manifest is the edit.** Every cut lives in `edit.json` with bounds
   and reasoning; renders are derived artifacts.
 - **Three-signal rule.** No cut point locks on one signal — `ripple
-  candidates` checks transcript, silence, and edge frames together. Full
-  protocol: `reference/edit.md`.
+  candidates` fuses word timing, silence, and sight, and its `flags` block
+  locking until resolved or overridden with a written reason. The endpoint
+  law: OUT = lastWordEnd + tail preference. Full protocol:
+  `reference/edit.md` and `reference/perception.md`.
 - **Never silently convert color.** HDR in means HDR out unless VIDEO.md or
   the user chose SDR. Accidental conversion is a release blocker.
 - **Repairs are localized.** Patch the flagged scene, re-render only what
@@ -67,6 +70,7 @@ Each exists because a real session failed without it.
 | `review` | Generate review page + artifacts; run QA subagent | `reference/review.md` |
 | `handoff` | User finishes in Premiere/Resolve/another NLE | `reference/nle.md` |
 | adjectives | "tighter", "punchier", "quieter", "let it breathe" | `reference/adjectives.md` |
+| perception | Seeing/hearing footage: the index, timeline sheets, timing numbers | `reference/perception.md` |
 
 ## Routing
 
