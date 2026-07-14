@@ -21,10 +21,14 @@ count, silence bounds, leak grep. It snapshots results to `.ripple/qa/` so
 quality trends across runs; report the trend when it exists ("3 runs: 8/10 →
 9/10 → 10/10 checks passing").
 
-## The qa-reviewer subagent (narrow prompts only)
+## Independent QA reviewer (narrow prompts only)
 
 Broad prompts ("check the video") pass artifacts that specific prompts catch.
-Give the `qa-reviewer` agent a checklist naming known failure modes:
+Give a fresh read-only reviewer a checklist naming known failure modes. Use
+the bundled `qa-reviewer` agent when the host exposes it. Otherwise start a
+subagent with `<ripple-plugin-root>/agents/qa-reviewer.md` as its contract; if
+subagents are unavailable, follow that contract in the current agent and say
+that the pass was not independent.
 
 ```
 Verify the latest outputs only, without modifying files:

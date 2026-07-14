@@ -1,0 +1,39 @@
+{
+  "name": "ripple",
+  "version": "0.8.0",
+  "description": "Agent video editing: transcription-driven cuts, frame-sheet eyes, HDR-safe finishing, deterministic QA, and a persistent taste memory (VIDEO.md). Routes motion graphics to HyperFrames or Remotion.",
+  "author": {
+    "name": "Conor O'Meara"
+  },
+  "homepage": "https://github.com/conmeara/ripple",
+  "repository": "https://github.com/conmeara/ripple",
+  "license": "Apache-2.0",
+  "keywords": [
+    "video",
+    "editing",
+    "ffmpeg",
+    "whisper",
+    "transcription",
+    "motion-graphics",
+    "hyperframes",
+    "remotion"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Ripple",
+    "shortDescription": "Give agents eyes and ears for video editing",
+    "longDescription": "Ripple gives Codex an evidence-driven workflow for editing real footage. It pairs professional editing playbooks with a local CLI for transcription, perception indexes, cut-point analysis, timeline and frame sheets, rendering, localized repair, deterministic QA, and NLE handoff. VIDEO.md preserves standing creative direction and edit.json records every cut decision with its reasoning.",
+    "developerName": "Conor O'Meara",
+    "category": "Creativity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/conmeara/ripple",
+    "defaultPrompt": [
+      "Edit this footage into a concise video and verify every cut.",
+      "Repair this mistimed scene without rebuilding the rest of the edit.",
+      "Inspect this render for cut, color, and audio problems."
+    ]
+  }
+}

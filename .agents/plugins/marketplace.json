@@ -1,0 +1,20 @@
+{
+  "name": "ripple",
+  "interface": {
+    "displayName": "Ripple"
+  },
+  "plugins": [
+    {
+      "name": "ripple",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/conmeara/ripple.git"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Creativity"
+    }
+  ]
+}

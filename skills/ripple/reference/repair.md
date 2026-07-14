@@ -29,8 +29,8 @@ cheap; keep them cheap.
    assembly (one re-encode). Never touch other scenes' bounds.
 5. **Focused QA**: `ripple qa` with the repaired scenes' expected ending
    phrases as explicit checks, plus a full decode of the final. If the fix
-   was user-flagged, also spawn the `qa-reviewer` subagent with a narrow
-   checklist naming each repaired scene and its expected content.
+   was user-flagged, also run the independent reviewer from `review.md` with
+   a narrow checklist naming each repaired scene and its expected content.
 6. **Report** the patch table: scene, old bounds → new bounds, why, QA result.
 
 ## Repeated repairs are a signal

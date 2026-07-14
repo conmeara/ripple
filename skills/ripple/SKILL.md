@@ -10,13 +10,23 @@ verified by looking, and the project's standing direction is honored.
 
 ## Setup (ALWAYS, before anything else)
 
-1. Run `node "${CLAUDE_SKILL_DIR}/scripts/context.mjs"` and obey its
-   directives (`NO_VIDEO_MD` → read `reference/init.md`, create VIDEO.md with
-   the user, then resume what was asked).
-2. If a command was invoked (`/ripple <command>`), read
-   `reference/<command>.md` and follow it exactly.
-3. Use the `ripple` CLI (`ripple help`; first run on a new machine:
-   `ripple doctor`) instead of hand-built ffmpeg for anything it covers.
+1. Let `<ripple-skill-dir>` mean the absolute directory containing this
+   `SKILL.md` (Claude Code exposes the same path as `$CLAUDE_SKILL_DIR`). Let
+   `<ripple-plugin-root>` mean the directory two levels above it. Substitute
+   those literal absolute paths in every command; do not guess them from the
+   user's working directory or rely on shell variables persisting between
+   calls.
+2. Run `node "<ripple-skill-dir>/scripts/context.mjs"` and obey its directives
+   (`NO_VIDEO_MD` → read `<ripple-skill-dir>/reference/init.md`, create
+   VIDEO.md with the user, then resume what was asked).
+3. If a phase was invoked explicitly (`/ripple <phase>` in Claude Code or
+   `$ripple <phase>` in Codex), read
+   `<ripple-skill-dir>/reference/<phase>.md` and follow it exactly.
+4. Run the bundled CLI as
+   `node "<ripple-plugin-root>/cli/index.mjs" <command> ...` (`help`; first
+   run on a new machine: `doctor`) instead of hand-built ffmpeg for anything
+   it covers. The playbooks use `ripple ...` as shorthand for this resolved
+   command; a bare `ripple` is equivalent when the host adds it to PATH.
 
 ## Absolute rules
 
@@ -36,9 +46,13 @@ Each exists because a real session failed without it.
   the user chose SDR. Accidental conversion is a release blocker.
 - **Repairs are localized.** Patch the flagged scene, re-render only what
   changed, run focused QA. Never rebuild the edit.
-- **QA is narrow and deterministic.** `ripple qa` after every render. A
-  verification subagent gets a checklist of named failure modes, never
-  "check the video".
+- **QA is narrow and deterministic.** `ripple qa` after every render. An
+  independent reviewer gets a checklist of named failure modes, never
+  "check the video". Use the bundled `qa-reviewer` agent when the host
+  exposes it; otherwise start a fresh read-only subagent with
+  `<ripple-plugin-root>/agents/qa-reviewer.md` as its contract. If subagents
+  are unavailable, run that same narrow contract yourself and disclose that
+  the pass was not independent.
 - **Steering writes back.** A correction that changes standing direction
   ("remove all zooms") goes to VIDEO.md's steering log; scene-level fixes
   stay in edit.json.
@@ -74,7 +88,7 @@ Each exists because a real session failed without it.
 
 ## Routing
 
-- **No argument** → summarize project state from context.mjs output and
+- **No phase or intent** → summarize project state from context.mjs output and
   recommend the 1–2 highest-value commands with reasons.
 - **"Make me a video" with no footage or script** → `develop` first. Align on
   words before producing anything expensive.

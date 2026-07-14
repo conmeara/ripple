@@ -9,14 +9,28 @@ that closes the gap — the **craft** of editing as skills, the **senses** as a
 CLI that turns footage into artifacts a model reads natively, and **taste** as
 memory that survives the session.
 
+## Install
+
+Claude Code:
+
 ```
 /plugin marketplace add conmeara/ripple
 /plugin install ripple@ripple
 ```
 
-Requires `ffmpeg`/`ffprobe` on PATH (`brew install ffmpeg`). Optional but
-recommended for word-accurate editing: `brew install whisper-cpp` plus a model
-in `~/.ripple/models/` (the plugin walks you through it).
+Codex:
+
+```bash
+codex plugin marketplace add conmeara/ripple
+codex plugin add ripple@ripple
+```
+
+Start a new Codex task after installation so its skill catalog refreshes.
+
+The bundled CLI requires Node.js 20 or newer. Both hosts require
+`ffmpeg`/`ffprobe` on PATH (`brew install ffmpeg`). Optional but recommended
+for word-accurate editing: `brew install whisper-cpp` plus a model in
+`~/.ripple/models/` (the plugin walks you through it).
 
 ## What the agent sees
 
@@ -121,7 +135,8 @@ reason.
 ## Commands
 
 Ask in plain language ("cut a 30-second promo from these clips, synced to the
-track") or invoke a phase directly:
+track") or invoke a phase directly: `/ripple <phase>` in Claude Code, or
+`$ripple <phase>` in Codex.
 
 | Command | What it does |
 |---|---|

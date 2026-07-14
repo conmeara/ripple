@@ -6,20 +6,26 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 function findProjectRoot(startDir) {
-  let dir = resolve(startDir);
+  const start = resolve(startDir);
+  let dir = start;
   for (let i = 0; i < 12; i++) {
     if (
       existsSync(join(dir, "VIDEO.md")) ||
       existsSync(join(dir, "edit.json")) ||
-      existsSync(join(dir, ".ripple"))
+      existsSync(join(dir, "work", "edit.json")) ||
+      existsSync(join(dir, ".ripple", "history")) ||
+      existsSync(join(dir, ".ripple", "qa"))
     ) {
       return dir;
     }
+    // A repository root is a safe fallback for a new project. Do not keep
+    // climbing and mistake the global ~/.ripple model cache for project state.
+    if (existsSync(join(dir, ".git"))) return dir;
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  return resolve(startDir);
+  return start;
 }
 
 const root = findProjectRoot(process.cwd());
@@ -35,7 +41,7 @@ if (existsSync(videoPath)) {
 } else {
   console.log(
     "NO_VIDEO_MD: This project has no VIDEO.md yet. Stop the current task, " +
-      "read reference/init.md, and interview the user to create VIDEO.md " +
+      "read the Ripple skill's reference/init.md, and interview the user to create VIDEO.md " +
       "before resuming. If the user explicitly declines, proceed with " +
       "conservative defaults (preserve source color, 0.2s pre-roll, tight " +
       "tails) and note that direction is unset."

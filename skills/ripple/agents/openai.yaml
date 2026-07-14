@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ripple"
+  short_description: "Plan, edit, finish, and QA video"
+  default_prompt: "Use $ripple to plan, edit, verify, and deliver this video project."
