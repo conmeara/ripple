@@ -1,12 +1,16 @@
 import { existsSync } from "node:fs";
 import { basename, extname, join } from "node:path";
+import { readWav } from "./pcm.mjs";
+import { breathSpans, highpass, sentenceProsody } from "./prosody.mjs";
 import {
   fillerSpans, nonSpeechSpans, parseMetadataTrack, sceneChangesFromMotion,
   sentenceEnds, sentenceSpans, snapWords, subtractSpans,
 } from "./timing.mjs";
-import { resolveModel, transcribeWords, whisperWordCapable } from "./transcribe.mjs";
 import {
-  ensureDir, fail, ffprobeJson, fileStamp, output, parseArgs, parseSilence,
+  resolveModel, resolveTdrzModel, transcribeTurns, transcribeWords, whisperWordCapable,
+} from "./transcribe.mjs";
+import {
+  ensureDir, extractWav16k, fail, ffprobeJson, fileStamp, output, parseArgs, parseSilence,
   readJsonOrNull, requireTool, round3, run, writeJsonAtomic,
 } from "./util.mjs";
 
@@ -16,7 +20,26 @@ import {
 // ~1 min for a 13-minute 4K source, then free (cache keys on file stamp).
 
 export const DEFAULT_THRESHOLDS = ["-35", "-40", "-45"];
-const INDEX_VERSION = 3;
+const INDEX_VERSION = 4;
+
+// Snap a fuzzy speaker-turn time (±300ms segment granularity) into the
+// nearest silence span — the cut belongs in the inter-speaker gap. Snap to
+// the closest point inside the span padded off its edges: for a short gap
+// that's near the midpoint; for a long silence it stays near the turn
+// itself instead of drifting to the middle of 30 empty seconds.
+export function snapTurnToSilence(t, silences, duration) {
+  let best = null;
+  for (const s of silences) {
+    const end = s.end ?? duration;
+    const dist = t >= s.start && t <= end ? 0 : Math.min(Math.abs(t - s.start), Math.abs(t - end));
+    if (dist > 1.5) continue;
+    if (!best || dist < best.dist) best = { start: s.start, end, dist };
+  }
+  if (!best) return t;
+  const pad = Math.min(0.3, (best.end - best.start) / 2);
+  const snapped = Math.min(Math.max(t, best.start + pad), best.end - pad);
+  return Math.round(snapped * 1000) / 1000;
+}
 
 // The silence map downstream timing reads by default: the stored threshold
 // closest to -40dB. Consumers must use this instead of hardcoding a key —
@@ -88,14 +111,17 @@ export function loadAnalysis(file, {
     whisperWordCapable().ok && resolveModel(model ?? null)
   );
 
+  const tdrzReady = Boolean(whisperWordCapable().tdrz && resolveTdrzModel());
   if (!force) {
     const cached = readJsonOrNull(indexPath);
     if (
       cached?.version === INDEX_VERSION &&
       optionsCompatible(cached, requested) &&
-      // A degraded no-words index goes stale the moment whisper becomes
-      // usable — installing it later must upgrade the index, not be ignored.
-      !(cached.words === null && cached.hasAudio !== false && whisperReady)
+      // A degraded index goes stale the moment the missing capability
+      // arrives — installing whisper (or the tdrz model) later must upgrade
+      // the index, not be ignored.
+      !(cached.words === null && cached.hasAudio !== false && whisperReady) &&
+      !(cached.turns == null && cached.hasAudio !== false && tdrzReady)
     ) {
       return { index: cached, path: indexPath, cached: true };
     }
@@ -112,26 +138,24 @@ export function loadAnalysis(file, {
   const hasAudio = (probe.streams ?? []).some((s) => s.codec_type === "audio");
 
   // Audio layer (soft: a video-only source still gets motion/scenes).
+  const wav = join(outDir, `${stem}.16k.wav`);
   let rawWords = null;
   let wordsNote = null;
   let silences = {};
   let rms = [];
+  let turns = null;
+  let turnsNote = null;
   if (hasAudio) {
+    // All audio passes run on the cached 16kHz mono wav (fast to decode, and
+    // identical timing to the source since it was extracted from t=0).
+    // --force re-extracts FIRST — every pass below, including the whisper
+    // word pass, must see the healed wav, not a corrupt cached one.
+    extractWav16k(file, wav, { force });
+
     if (whisperReady) {
       rawWords = transcribeWords(file, { outDir, model, prompt, lang, force }).words;
     } else {
       wordsNote = "whisper-cpp (with --split-on-word) or model unavailable — no word timing; run `ripple doctor`";
-    }
-
-    // All audio passes run on the cached 16kHz mono wav (fast to decode, and
-    // identical timing to the source since it was extracted from t=0).
-    const wav = join(outDir, `${stem}.16k.wav`);
-    if (!existsSync(wav)) {
-      const extract = run(ffmpeg, [
-        "-hide_banner", "-y", "-v", "error",
-        "-i", file, "-map", "0:a:0", "-ac", "1", "-ar", "16000", "-vn", wav,
-      ]);
-      if (extract.status !== 0) fail(`Audio extraction failed: ${extract.stderr.trim()}`, 1);
     }
 
     silences = detectSilences(ffmpeg, wav, thresholdKeys);
@@ -142,6 +166,15 @@ export function loadAnalysis(file, {
       "-f", "null", "-",
     ]);
     rms = parseMetadataTrack(rmsRes.stdout, "RMS_level").map((v) => ({ t: v.t, db: v.value }));
+
+    // Speaker turns (optional tier: needs the tinydiarize model + a tdrz
+    // whisper build). turns:[] means "ran, found none" — common on interview
+    // footage with a quiet off-camera interviewer; null means "not run".
+    if (tdrzReady) {
+      const t = transcribeTurns(file, { outDir, lang, force });
+      turns = t?.turns ?? null;
+      if (t === null) turnsNote = "turns pass failed (whisper -tdrz errored) — turns unavailable this build";
+    }
   } else {
     wordsNote = "source has no audio stream — no words, silence, or energy data";
   }
@@ -177,6 +210,31 @@ export function loadAnalysis(file, {
   const words = rawWords ? snapWords(rawWords, silences[snapKey] ?? []) : null;
 
   const silenceRef = referenceSilences({ silences });
+
+  // Prosody layer: terminal pitch per sentence (falling = thought complete)
+  // and breath events, both from one high-passed read of the cached wav.
+  // Bounded: the whole-file Float32 + high-passed copy is ~8MB/min — past
+  // 45 minutes we skip rather than risk memory pressure (analyze a trimmed
+  // working copy for prosody on very long sources).
+  let sentences = words ? sentenceSpans(words, silenceRef) : null;
+  let breaths = null;
+  let prosodyNote = null;
+  if (words && existsSync(wav)) {
+    if (duration <= 2700) {
+      let pcm = null;
+      try {
+        pcm = readWav(wav);
+      } catch {
+        extractWav16k(file, wav, { force: true }); // heal a corrupt cached wav
+        pcm = readWav(wav);
+      }
+      const hp = highpass(pcm.samples, pcm.sampleRate);
+      sentences = sentences.map((s) => ({ ...s, ...sentenceProsody(hp, pcm.sampleRate, s) }));
+      breaths = breathSpans(hp, pcm.sampleRate, words);
+    } else {
+      prosodyNote = "source over 45 min — terminal-pitch/breath analysis skipped (bounded); analyze a trimmed working copy if the edit needs prosody";
+    }
+  }
   const index = {
     version: INDEX_VERSION,
     file,
@@ -196,12 +254,18 @@ export function loadAnalysis(file, {
     ...(wordsNote ? { wordsNote } : {}),
     silences,
     speech: hasAudio ? speechSpans(silenceRef, duration) : [],
-    sentences: words ? sentenceSpans(words, silenceRef) : null,
+    sentences,
+    ...(prosodyNote ? { prosodyNote } : {}),
+    ...(turnsNote ? { turnsNote } : {}),
     sentenceEnds: words ? sentenceEnds(words, silenceRef) : null,
     fillers: words ? fillerSpans(words) : null,
     nonSpeech: words
       ? nonSpeechSpans(silenceRef, words, { start: 0, end: duration })
       : null,
+    breaths,
+    turns: turns
+      ? turns.map((t) => ({ ...t, snappedT: snapTurnToSilence(t.t, silenceRef, duration) }))
+      : turns,
     sceneChanges,
     motion,
     rms: { windowSec: effRmsWindow, values: rms },
@@ -252,10 +316,19 @@ export async function main(argv) {
       : null,
     sceneChanges: index.sceneChanges ? index.sceneChanges.length : null,
     motion: index.motion ? index.motion.values.length : null,
+    terminalPitch: index.sentences
+      ? index.sentences.reduce((acc, s) => {
+          if (s.terminalPitch) acc[s.terminalPitch] = (acc[s.terminalPitch] ?? 0) + 1;
+          return acc;
+        }, {})
+      : null,
+    breaths: index.breaths ? index.breaths.length : null,
+    turns: index.turns ? index.turns.length : index.turns,
     hints: [
       "The index is the cached perception layer — candidates and timeline-sheet read it automatically.",
       "nonSpeech spans are audible-but-wordless (laughs, claps, music stings): prime reaction cut-aways.",
-      "sentences carry wps (words/sec) — slow, weighted delivery earns a longer tail.",
+      "sentences carry wps and terminalPitch — falling = thought complete (safe OUT); rising/level = more coming. Never use it as a question detector.",
+      "Trust terminalPitch only when the sentence's voicedRatio ≥ 0.25.",
       "Don't cat the index; slice it (jq) or view it (ripple timeline-sheet).",
     ],
   });

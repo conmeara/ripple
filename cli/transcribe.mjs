@@ -3,8 +3,8 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, join } from "node:path";
 import { dtwPreset, parseWhisperWords } from "./timing.mjs";
 import {
-  ensureDir, fail, ffprobeJson, fileStamp, findTool, output, parseArgs,
-  readJsonOrNull, requireTool, run, writeJsonAtomic,
+  ensureDir, extractWav16k, fail, ffprobeJson, fileStamp, findTool, output, parseArgs,
+  readJsonOrNull, requireTool, round3, run, writeJsonAtomic,
 } from "./util.mjs";
 
 const WHISPER_HINT = [
@@ -22,9 +22,24 @@ export function resolveModel(explicit) {
   const dirs = [join(process.cwd(), "models"), join(homedir(), ".ripple", "models")];
   for (const dir of dirs) {
     if (!existsSync(dir)) continue;
-    const bins = readdirSync(dir).filter((f) => f.endsWith(".bin")).sort();
-    const preferred = bins.find((f) => f.includes("base.en")) ?? bins[0];
+    // tdrz models are for the speaker-turn pass — deprioritized, but a
+    // tinydiarize model is still transcription-capable, so it remains the
+    // last resort when it's the ONLY model installed.
+    const all = readdirSync(dir).filter((f) => f.endsWith(".bin") && !/silero|vad/i.test(f)).sort();
+    const bins = all.filter((f) => !/tdrz/i.test(f));
+    const preferred = bins.find((f) => f.includes("base.en")) ?? bins[0] ?? all[0];
     if (preferred) return join(dir, preferred);
+  }
+  return null;
+}
+
+// The tinydiarize model (speaker-turn markers), if installed.
+export function resolveTdrzModel() {
+  const dirs = [join(process.cwd(), "models"), join(homedir(), ".ripple", "models")];
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue;
+    const bin = readdirSync(dir).find((f) => f.endsWith(".bin") && /tdrz/i.test(f));
+    if (bin) return join(dir, bin);
   }
   return null;
 }
@@ -80,11 +95,7 @@ export function transcribeFile(file, { outDir, model, prompt, lang = "en", force
     return { files, cached: true, model: resolvedModel };
   }
 
-  const extract = run(ffmpeg, [
-    "-hide_banner", "-y", "-v", "error",
-    "-i", file, "-map", "0:a:0", "-ac", "1", "-ar", "16000", "-vn", wav,
-  ]);
-  if (extract.status !== 0) fail(`Audio extraction failed: ${extract.stderr.trim()}`, 1);
+  extractWav16k(file, wav);
 
   const whisperArgs = [
     "-m", resolvedModel, "-f", wav, "-l", lang,
@@ -109,11 +120,58 @@ let whisperCapsCache = null;
 export function whisperWordCapable() {
   if (whisperCapsCache) return whisperCapsCache;
   const whisper = findTool(["whisper-cli", "whisper-cpp", "main"]);
-  if (!whisper) return (whisperCapsCache = { ok: false, dtw: false });
+  if (!whisper) return (whisperCapsCache = { ok: false, dtw: false, tdrz: false });
   const help = run(whisper, ["--help"]);
   const text = help.stdout + help.stderr;
-  whisperCapsCache = { ok: /--split-on-word/.test(text), dtw: /--dtw/.test(text) };
+  whisperCapsCache = {
+    ok: /--split-on-word/.test(text),
+    dtw: /--dtw/.test(text),
+    tdrz: /--tinydiarize/.test(text),
+  };
   return whisperCapsCache;
+}
+
+// Speaker-turn pass via tinydiarize (-tdrz): each JSON segment gains
+// speaker_turn_next. Works on conversational hand-offs (podcasts, two-mic
+// chats); on interview footage with a quiet off-camera interviewer it often
+// detects nothing — callers must treat turns as evidence, never proof.
+export function transcribeTurns(file, { outDir, lang = "en", force = false }) {
+  const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
+  const whisper = findTool(["whisper-cli", "whisper-cpp", "main"]);
+  const tdrzModel = resolveTdrzModel();
+  if (!whisper || !tdrzModel || !whisperWordCapable().tdrz) return null;
+
+  ensureDir(outDir);
+  const stem = `${basename(file, extname(file))}_${fileStamp(file)}`;
+  const wav = join(outDir, `${stem}.16k.wav`);
+  const turnsJson = join(outDir, `${stem}.turns.json`);
+
+  if (!force) {
+    const cached = readJsonOrNull(turnsJson);
+    if (cached?.turns) return { files: { turnsJson }, cached: true, turns: cached.turns };
+  }
+
+  extractWav16k(file, wav);
+
+  const rawPrefix = join(outDir, `${stem}.turns-raw`);
+  const res = run(whisper, ["-m", tdrzModel, "-f", wav, "-l", lang, "-tdrz", "-oj", "-of", rawPrefix]);
+  // Optional tier: a failed turns pass degrades (turns stay null with a
+  // note), it must never abort the whole index build.
+  if (res.status !== 0) return null;
+
+  const raw = readJsonOrNull(`${rawPrefix}.json`);
+  const segments = raw?.transcription ?? [];
+  const turns = [];
+  for (let i = 0; i < segments.length; i++) {
+    if (!segments[i].speaker_turn_next) continue;
+    turns.push({
+      t: round3((segments[i].offsets?.to ?? 0) / 1000),
+      textBefore: (segments[i].text ?? "").trim().slice(-80),
+      textAfter: (segments[i + 1]?.text ?? "").trim().slice(0, 80),
+    });
+  }
+  writeJsonAtomic(turnsJson, { file, model: basename(tdrzModel), turns });
+  return { files: { turnsJson }, cached: false, turns };
 }
 
 export function transcribeWords(file, { outDir, model, prompt, lang = "en", force = false }) {
@@ -135,13 +193,7 @@ export function transcribeWords(file, { outDir, model, prompt, lang = "en", forc
     }
   }
 
-  if (!existsSync(wav)) {
-    const extract = run(ffmpeg, [
-      "-hide_banner", "-y", "-v", "error",
-      "-i", file, "-map", "0:a:0", "-ac", "1", "-ar", "16000", "-vn", wav,
-    ]);
-    if (extract.status !== 0) fail(`Audio extraction failed: ${extract.stderr.trim()}`, 1);
-  }
+  extractWav16k(file, wav);
 
   const rawPrefix = join(outDir, `${stem}.words-raw`);
   const baseArgs = ["-m", resolvedModel, "-f", wav, "-l", lang, "-ml", "1", "-sow", "-oj", "-of", rawPrefix];

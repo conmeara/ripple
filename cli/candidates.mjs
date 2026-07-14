@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadAnalysis, referenceSilences } from "./analyze.mjs";
+import { cropFilter } from "./frame-sheet.mjs";
 import { cutTiming } from "./timing.mjs";
 import { renderSheet } from "./timeline-sheet.mjs";
 import { resolveModel, transcribeFile } from "./transcribe.mjs";
@@ -88,13 +89,13 @@ export async function main(argv) {
     start: "number", end: "number", label: "string", out: "string",
     thresholds: "string", "no-transcribe": "boolean", prompt: "string",
     "max-tail": "number", "max-lead": "number", "tail-preference": "number",
-    "no-sheet": "boolean",
+    "no-sheet": "boolean", crop: "string",
   });
   const src = args._[0];
   if (!src || args.start === undefined || args.end === undefined) {
     fail("Usage: ripple candidates <src> --start S --end E [--label slug] [--out dir] [--prompt \"hints\"]\n" +
       "       [--thresholds -35,-40,-45] [--max-tail 1.0] [--max-lead 0.5] [--tail-preference 0.6]\n" +
-      "       [--no-sheet] [--no-transcribe]", 2);
+      "       [--crop x,y,w,h] [--no-sheet] [--no-transcribe]", 2);
   }
   if (!existsSync(src)) fail(`File not found: ${src}`, 2);
   if (args.end <= args.start) fail("--end must be greater than --start", 2);
@@ -117,6 +118,30 @@ export async function main(argv) {
   const timing = index.words
     ? cutTiming(index.words, silenceRef, { start: args.start, end: args.end })
     : null;
+  // Prosody at the OUT: the melody of the last sentence says whether the
+  // thought is complete; a sharp inhale right after the last word says the
+  // speaker is about to continue.
+  if (timing?.lastWordEnd !== null && timing) {
+    // Nearest sentence end within tolerance — first-match can bind the
+    // wrong sentence when two end close together.
+    const ending = (index.sentences ?? []).reduce((best, s) => {
+      const d = Math.abs(s.end - timing.lastWordEnd);
+      if (d > 0.3) return best;
+      return !best || d < Math.abs(best.end - timing.lastWordEnd) ? s : best;
+    }, null);
+    if (ending?.terminalPitch) {
+      timing.terminalPitch = ending.terminalPitch;
+      timing.terminalPitchDetail = {
+        slopeSemitonesPerSec: ending.slopeSemitonesPerSec,
+        voicedRatio: ending.voicedRatio,
+        reliable: ending.voicedRatio >= 0.25,
+      };
+    }
+    const inhale = (index.breaths ?? []).find(
+      (b) => b.t >= timing.lastWordEnd - 0.05 && b.t <= timing.lastWordEnd + 1.0
+    );
+    if (inhale) timing.breathAfterLastWord = { t: inhale.t, dur: inhale.dur };
+  }
 
   // Signal 2: silence at each threshold, across the exact candidate range.
   const silence = {};
@@ -145,7 +170,16 @@ export async function main(argv) {
     ? null
     : suggestOut(timing, { tailPreference: args["tail-preference"] ?? 0.6 });
 
-  // Signal 3a: head and tail frame strips (2s each, 4 fps).
+  // Signal 3a: head and tail frame strips (2s each, 4 fps). With --crop
+  // "x,y,w,h" (state it once per locked-off source) the strips zoom to the
+  // eye region — a look-down and a read-the-next-question are separable at
+  // eye scale, not at 360px-frame scale.
+  let crop = "";
+  try {
+    crop = cropFilter(args.crop);
+  } catch (e) {
+    fail(e.message, 2);
+  }
   const strips = {};
   const stripLen = Math.min(2, duration);
   const stripSpecs = [
@@ -157,7 +191,7 @@ export async function main(argv) {
     const res = run(ffmpeg, [
       "-hide_banner", "-v", "error", "-y",
       "-ss", String(at), "-t", String(stripLen), "-i", src,
-      "-vf", "fps=4,scale=360:-1,tile=8x1:padding=6:margin=6:color=0x222222",
+      "-vf", `fps=4,${crop}scale=360:-1,tile=8x1:padding=6:margin=6:color=0x222222`,
       "-frames:v", "1", path,
     ]);
     strips[name] = res.status === 0 ? path : `strip failed: ${res.stderr.trim()}`;
@@ -167,15 +201,15 @@ export async function main(argv) {
   // endpoint (thumbnails + waveform + silence + words + the cut line).
   const sheets = {};
   if (!args["no-sheet"]) {
+    // "S" is the Set-of-Marks anchor for suggestedOut — the envelope's
+    // number and the dashed chip on the image share the ID.
     const cards = [
-      ["in", args.start, [{ t: args.start, label: "IN" }]],
-      ["out", args.end, [
-        { t: args.end, label: "OUT" },
-        ...(suggestedOut !== null && Math.abs(suggestedOut - args.end) > 0.15
-          ? [{ t: suggestedOut, label: "suggested" }] : []),
-      ]],
+      ["in", args.start, [{ t: args.start, label: "IN" }], []],
+      ["out", args.end, [{ t: args.end, label: "OUT" }],
+        suggestedOut !== null && Math.abs(suggestedOut - args.end) > 0.15
+          ? [{ mark: "S", t: suggestedOut }] : []],
     ];
-    for (const [name, at, markers] of cards) {
+    for (const [name, at, markers, somMarks] of cards) {
       const path = join(outDir, `${label}_${name}_card.png`);
       try {
         renderSheet({
@@ -185,6 +219,7 @@ export async function main(argv) {
           out: path,
           index,
           markers,
+          somMarks,
           mode: "detail",
         });
         sheets[name] = path;
@@ -233,6 +268,8 @@ export async function main(argv) {
     verdictHints: [
       "The endpoint rule is arithmetic: OUT = timing.lastWordEnd + tail preference (VIDEO.md, default ≤1.0s). Verify tailGap against it.",
       "Any entry in `flags` blocks locking this range until resolved or overridden with a written reason.",
+      "timing.terminalPitch falling = thought complete (safe OUT); rising/level = may be mid-thought — re-read the transcript before trusting the cut. Never use it as a question detector.",
+      "timing.breathAfterLastWord = a sharp inhale after the last word: the speaker is about to continue — check what follows.",
       "READ the cut-card sheets and strips: no look-down, reset, or glance at notes near the cut — and the OUT line must not touch the next waveform burst.",
       "Confirm the final intended phrase appears in transcript.text and timing.nextText is the next prompt/take, NOT more of the answer.",
     ],

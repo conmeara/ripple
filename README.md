@@ -10,7 +10,7 @@ to see and cut footage, and a persistent memory for a project's taste.
   [HyperFrames](https://github.com/heygen-com/hyperframes) and
   [Remotion](https://www.remotion.dev/docs/ai/skills) skills.
 - **Tools** — the `ripple` CLI: `doctor`, `probe`, `analyze`, `transcribe`,
-  `select`, `candidates`, `frame-sheet`, `timeline-sheet`, `cut`, `grade`,
+  `beats`, `select`, `candidates`, `frame-sheet`, `timeline-sheet`, `cut`, `grade`,
   `qa`, `review`, `handoff`. One command per loop that agents otherwise
   rebuild by hand — including a perception layer (a cached per-source index
   of word timings, silence, sentences, motion, and reaction beats; an

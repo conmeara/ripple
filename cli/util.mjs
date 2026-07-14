@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -125,6 +125,27 @@ export function writeJsonAtomic(path, obj, space = 1) {
   const tmp = `${path}.tmp-${process.pid}`;
   writeFileSync(tmp, JSON.stringify(obj, null, space));
   renameSync(tmp, path);
+}
+
+// The shared per-source 16kHz mono wav, extracted atomically (tmp+rename):
+// a concurrent run or an interrupted extraction must never leave a
+// half-written wav that a bare existsSync would then trust — every timing
+// number downstream would silently come from truncated audio.
+export function extractWav16k(file, wav, { force = false } = {}) {
+  const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
+  if (force) rmSync(wav, { force: true });
+  if (existsSync(wav)) return wav;
+  const tmp = `${wav}.tmp-${process.pid}.wav`;
+  const res = run(ffmpeg, [
+    "-hide_banner", "-y", "-v", "error",
+    "-i", file, "-map", "0:a:0", "-ac", "1", "-ar", "16000", "-vn", tmp,
+  ]);
+  if (res.status !== 0) {
+    rmSync(tmp, { force: true });
+    fail(`Audio extraction failed: ${res.stderr.trim()}`, 1);
+  }
+  renameSync(tmp, wav);
+  return wav;
 }
 
 // Parse ffmpeg silencedetect stderr into [{start, end, duration}] (end/duration

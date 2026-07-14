@@ -1,5 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { loadBeatGrid, ON_BEAT_TOLERANCE } from "./beats.mjs";
+import { meanAbsDiff, parsePgm } from "./frame-sheet.mjs";
 import {
   detectHdr, ensureDir, fail, ffprobeJson, findTool, output, parseArgs, requireTool, round3, run,
 } from "./util.mjs";
@@ -68,6 +70,50 @@ export function expectedLeadingSilence(scenes) {
   const cardDuration = first.cardDuration ?? 2.5;
   const jcut = first.card ? first.jcut ?? 0 : 0;
   return round3(Math.max(cardDuration - jcut, 0));
+}
+
+// Assembly-time visual boundaries (where the picture changes): card starts
+// and body starts, in output seconds. The lattice montage cuts snap to when
+// a music bed sets the rhythm.
+export function segmentBoundaries(scenes) {
+  const bounds = [];
+  let t = 0;
+  for (const s of scenes) {
+    const hasCard = Boolean(s.card || s.cardFile);
+    const cardDuration = hasCard ? s.cardDuration ?? 2.5 : 0;
+    const jcut = s.card ? s.jcut ?? 0 : 0;
+    if (hasCard) {
+      if (t > 0) bounds.push({ t: round3(t), label: `${s.slug} card` });
+      t += cardDuration;
+      bounds.push({ t: round3(t), label: `${s.slug} body` });
+    } else if (t > 0) {
+      bounds.push({ t: round3(t), label: `${s.slug} body` });
+    }
+    t += s.end - s.start - jcut;
+  }
+  return bounds;
+}
+
+// A direct join (no card between scenes) from the same locked-off setup
+// produces a JUMP CUT when the frames mostly match but visibly mismatch —
+// the uncanny band between "continuous" (invisible splice) and "clean
+// change" (reads as a deliberate cut). Score = mean abs luma diff of the
+// join's two frames at thumbnail scale.
+export function jumpCutReading(score, { min = 3, max = 18 } = {}) {
+  if (score < min) return "continuous";
+  if (score <= max) return "jump-cut risk";
+  return "clean change";
+}
+
+// Direct joins to score: adjacent scene pairs where the incoming scene has
+// no card (a card between scenes hides any mismatch).
+export function directJoins(scenes) {
+  const joins = [];
+  for (let i = 0; i + 1 < scenes.length; i++) {
+    const next = scenes[i + 1];
+    if (!(next.card || next.cardFile)) joins.push([scenes[i], next]);
+  }
+  return joins;
 }
 
 // Music-bed filtergraph, appended after buildConcatFilter's `[v][a]`.
@@ -371,6 +417,41 @@ export async function main(argv) {
     }
   }
 
+  // Jump-cut advisory on direct joins (no card between): compare the two
+  // frames that will sit next to each other in the assembly.
+  if (!sceneFilter) {
+    const tmpJoin = join(segmentsDir, `.join-${process.pid}`);
+    ensureDir(tmpJoin);
+    try {
+      for (const [a, b] of directJoins(manifest.scenes)) {
+        const frames = [];
+        const specs = [
+          [resolve(baseDir, a.source), Math.max(a.end - 0.05, a.start), "a.pgm"],
+          [resolve(baseDir, b.source), b.start + 0.05, "b.pgm"],
+        ];
+        for (const [srcFile, t, name] of specs) {
+          const p = join(tmpJoin, name);
+          rmSync(p, { force: true }); // a stale frame from the previous join must never score this one
+          const res = run(ffmpeg, [
+            "-hide_banner", "-v", "error", "-y", "-ss", String(round3(t)), "-i", srcFile,
+            "-frames:v", "1", "-vf", "scale=32:18,format=gray", p,
+          ]);
+          if (res.status === 0 && existsSync(p)) frames.push(parsePgm(readFileSync(p)).pixels);
+        }
+        if (frames.length === 2) {
+          const score = round3(meanAbsDiff(frames[0], frames[1]));
+          if (jumpCutReading(score) === "jump-cut risk") {
+            rendered.warnings.push(
+              `possible jump cut at ${a.slug}→${b.slug} (frame diff ${score}: same setup, visible mismatch) — a card, cutaway, or bigger reframe hides it`
+            );
+          }
+        }
+      }
+    } finally {
+      rmSync(tmpJoin, { recursive: true, force: true });
+    }
+  }
+
   // 3. Full assembly: decode every segment, concat once, single clean encode.
   // The music bed (manifest.music) exists only here — clips and segments stay
   // clean so the bed can change without touching a single cut.
@@ -408,6 +489,37 @@ export async function main(argv) {
     rendered.warnings.push("music bed applies to the full assembly only — this scene-subset render has no bed");
   }
 
+  // On-beat report: when a bed sets the rhythm, say where each visual
+  // boundary lands relative to its grid. Advisory — cutting on the beat is
+  // a style choice; knowing you're 140ms off is perception.
+  let beatCheck;
+  if (music && finalPath) {
+    // Advisory only — a beat-analysis hiccup must never fail a cut whose
+    // render already succeeded.
+    try {
+      const { record } = loadBeatGrid(resolve(baseDir, music.source), {
+        outDir: join(baseDir, "work", "analysis"),
+      });
+      if (record.bpm !== null && record.beats.length) {
+        const boundaries = segmentBoundaries(manifest.scenes).map((b) => {
+          const nearest = record.beats.reduce(
+            (best, bt) => (Math.abs(bt - b.t) < Math.abs(best - b.t) ? bt : best),
+            record.beats[0]
+          );
+          return { ...b, beatOffset: round3(b.t - nearest) };
+        });
+        beatCheck = {
+          bpm: record.bpm,
+          confidence: record.confidence,
+          offGrid: boundaries.filter((b) => Math.abs(b.beatOffset) > ON_BEAT_TOLERANCE).length,
+          boundaries,
+        };
+      }
+    } catch (e) {
+      rendered.warnings.push(`beat check skipped: ${e.message}`);
+    }
+  }
+
   output({
     ok: true,
     profile,
@@ -417,7 +529,7 @@ export async function main(argv) {
     clips: rendered.clips,
     segments: args["no-full"] || sceneFilter ? rendered.segments : undefined,
     final: finalPath,
-    music: music ? { source: music.source, applied: Boolean(finalPath) } : undefined,
+    music: music ? { source: music.source, applied: Boolean(finalPath), ...(beatCheck ? { beatCheck } : {}) } : undefined,
     warnings: rendered.warnings,
     next: finalPath
       ? `Run: ripple qa ${finalPath} --manifest ${manifestPath}  — then READ a frame sheet of it.`

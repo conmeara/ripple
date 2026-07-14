@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  assemblyDuration, buildConcatFilter, buildEncodeArgs, buildMusicFilter, buildSceneVf, clipName,
+  assemblyDuration, buildConcatFilter, buildEncodeArgs, buildMusicFilter, buildSceneVf, clipName, directJoins, jumpCutReading,
   expectedLeadingSilence, setparamsFilter, validateManifest,
 } from "./cut.mjs";
 
@@ -167,4 +167,22 @@ test("expectedLeadingSilence: card silence minus J-cut head, else 0", () => {
   assert.equal(expectedLeadingSilence([{ slug: "a", cardFile: "x.png", cardDuration: 3, jcut: 1, start: 0, end: 5 }]), 3);
   assert.equal(expectedLeadingSilence([]), 0);
   assert.equal(expectedLeadingSilence(undefined), 0);
+});
+
+test("jumpCutReading bands: continuous / risk / clean change", () => {
+  assert.equal(jumpCutReading(1.2), "continuous");
+  assert.equal(jumpCutReading(7.5), "jump-cut risk");
+  assert.equal(jumpCutReading(30), "clean change");
+});
+
+test("directJoins skips joins hidden by an incoming card", () => {
+  const scenes = [
+    sceneFixture({ id: 1, slug: "a" }),
+    sceneFixture({ id: 2, slug: "b", card: "Q2" }),
+    sceneFixture({ id: 3, slug: "c" }),
+    sceneFixture({ id: 4, slug: "d", cardFile: "d.png" }),
+    sceneFixture({ id: 5, slug: "e" }),
+  ];
+  const joins = directJoins(scenes).map(([x, y]) => `${x.slug}→${y.slug}`);
+  assert.deepEqual(joins, ["b→c", "d→e"]);
 });

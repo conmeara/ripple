@@ -20,6 +20,26 @@ import {
 
 // ---------- pure helpers (unit-tested) ----------
 
+// Set-of-Marks anchors: "A:493.52,B:494.2" → [{mark, t}]. Lettered chips
+// give the model unambiguous image↔JSON grounding — VLMs reference labeled
+// anchors far more reliably than they estimate positions.
+export function parseSomMarks(spec) {
+  if (!spec) return [];
+  return spec
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean)
+    .map((m) => {
+      const idx = m.indexOf(":");
+      if (idx === -1) return null;
+      const mark = m.slice(0, idx).trim();
+      const t = Number(m.slice(idx + 1));
+      if (!mark || Number.isNaN(t)) return null;
+      return { mark: mark.slice(0, 2), t };
+    })
+    .filter(Boolean);
+}
+
 // "209:IN,233.3:OUT howmet" → [{t, label}]
 export function parseMarkers(spec) {
   if (!spec) return [];
@@ -111,7 +131,7 @@ const COLORS = {
 // Returns { sheet, geometry, crowded, degraded }. Library function: failures
 // THROW (callers degrade gracefully); only main() converts to fail().
 export function renderSheet({
-  file, start, end, out, width = 1920, index, markers = [], mode = "detail",
+  file, start, end, out, width = 1920, index, markers = [], somMarks = [], mode = "detail",
 }) {
   const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
   const magick = findTool(["magick", "convert"]);
@@ -131,7 +151,7 @@ export function renderSheet({
   const THUMB_H = video ? Math.min(Math.round(thumbW * aspect), 160) : 0;
   // The motion strip only renders on the ImageMagick path — geometry must
   // not reserve space for it otherwise.
-  const MOTION_H = index?.motion && magick ? 10 : 0;
+  const MOTION_H = index?.motion && magick ? 16 : 0;
   const WAVE_H = 200;
   const wordsInWindow = (index?.words ?? []).filter((w) => w.end > start && w.start < end);
   const wordMode = mode === "detail" && wordsInWindow.length > 0;
@@ -218,32 +238,58 @@ export function renderSheet({
     const draw = [];
 
     // Silence shading (red) and audible-but-wordless shading (amber) over
-    // the waveform.
+    // the waveform — with their durations PRINTED on them. A VLM reads
+    // "6.8s" reliably; it cannot convert rectangle width to seconds.
     for (const s of silences) {
+      const x0 = x(Math.max(s.start, start));
+      const x1 = x(Math.min(s.end, end));
       draw.push("-fill", COLORS.silence, "-stroke", "none",
-        "-draw", `rectangle ${x(Math.max(s.start, start))},${waveY} ${x(Math.min(s.end, end))},${waveY + WAVE_H}`);
+        "-draw", `rectangle ${x0},${waveY} ${x1},${waveY + WAVE_H}`);
+      const dur = Math.round((Math.min(s.end, end) - Math.max(s.start, start)) * 10) / 10;
+      if (x1 - x0 >= 70) {
+        draw.push("-stroke", "none", "-fill", "#ff8080", "-pointsize", "18",
+          "-draw", `text ${Math.round((x0 + x1) / 2) - 20},${waveY + 24} '${dur}s'`);
+      }
+      if (x1 - x0 >= 160) {
+        draw.push("-stroke", "none", "-fill", "#ff8080", "-pointsize", "14",
+          "-draw", `text ${x0 + 3},${waveY + WAVE_H - 8} '${round3(Math.max(s.start, start))}'`,
+          "-draw", `text ${x1 - 52},${waveY + WAVE_H - 8} '${round3(Math.min(s.end, end))}'`);
+      }
     }
     for (const s of nonSpeech) {
+      const x0 = x(Math.max(s.start, start));
+      const x1 = x(Math.min(s.end, end));
       draw.push("-fill", COLORS.nonSpeech, "-stroke", "none",
-        "-draw", `rectangle ${x(Math.max(s.start, start))},${waveY} ${x(Math.min(s.end, end))},${waveY + Math.round(WAVE_H / 4)}`);
+        "-draw", `rectangle ${x0},${waveY} ${x1},${waveY + Math.round(WAVE_H / 4)}`);
+      if (x1 - x0 >= 70) {
+        draw.push("-stroke", "none", "-fill", "#ffd650", "-pointsize", "16",
+          "-draw", `text ${Math.round((x0 + x1) / 2) - 30},${waveY + Math.round(WAVE_H / 4) - 6} 'sound ${s.duration}s'`);
+      }
     }
 
-    // Motion heat strip under the thumbnails.
+    // Motion heat strip under the thumbnails: black → orange (hue ramp, not
+    // grayscale — lightness is the encoding VLMs read worst).
     if (MOTION_H > 0) {
       const inWindow = index.motion.values.filter((v) => v.t >= start && v.t <= end)
         .map((v) => ({ t: v.t, value: v.ydif }));
       const samples = downsampleTrack(inWindow, Math.floor(width / 2));
       const stripY = RULER_H + THUMB_H;
       for (const s of samples) {
-        const heat = Math.min(Math.round((s.value / 20) * 255), 255);
-        const hex = heat.toString(16).padStart(2, "0");
-        draw.push("-fill", `#${hex}${hex}${hex}`, "-stroke", "none",
+        const heat = Math.min(s.value / 20, 1);
+        const r = Math.round(255 * heat).toString(16).padStart(2, "0");
+        const g = Math.round(140 * heat).toString(16).padStart(2, "0");
+        draw.push("-fill", `#${r}${g}00`, "-stroke", "none",
           "-draw", `rectangle ${x(s.t)},${stripY} ${x(s.t) + 2},${stripY + MOTION_H}`);
       }
     }
 
-    // Ruler.
+    // Ruler. The image and the JSON must share ONE coordinate system:
+    // absolute seconds. In detail mode every minor tick is labeled with
+    // seconds and carries a full-height gridline — labeled, axis-aligned
+    // positions are the channel VLMs actually read reliably.
     const { minor, major } = rulerSteps(windowSec, width);
+    const minorPx = (minor / windowSec) * width;
+    const labelMinors = mode === "detail" && minorPx >= 40;
     for (let t = Math.ceil(start / minor) * minor; t <= end; t += minor) {
       const isMajor = t % major === 0;
       draw.push("-fill", "none", "-stroke", isMajor ? COLORS.majorTick : COLORS.tick, "-strokewidth", "1",
@@ -251,9 +297,15 @@ export function renderSheet({
       if (isMajor) {
         const mm = String(Math.floor(t / 60)).padStart(2, "0");
         const ss = String(Math.round(t % 60)).padStart(2, "0");
-        draw.push("-stroke", "none", "-fill", COLORS.majorTick, "-pointsize", "15",
-          "-draw", `text ${Math.min(x(t) + 4, width - 52)},16 '${mm}:${ss}'`);
-        draw.push("-fill", "none", "-stroke", COLORS.grid,
+        const label = labelMinors ? `${mm}:${ss} (${t}s)` : `${mm}:${ss}`;
+        draw.push("-stroke", "none", "-fill", COLORS.majorTick, "-pointsize", "16",
+          "-draw", `text ${Math.min(x(t) + 4, width - (labelMinors ? 110 : 52))},16 '${label}'`);
+      } else if (labelMinors) {
+        draw.push("-stroke", "none", "-fill", COLORS.tick, "-pointsize", "14",
+          "-draw", `text ${Math.min(x(t) + 3, width - 40)},31 '${t}'`);
+      }
+      if (isMajor || labelMinors) {
+        draw.push("-fill", "none", "-stroke", COLORS.grid, "-strokewidth", "1",
           "-draw", `line ${x(t)},${RULER_H} ${x(t)},${H}`);
       }
     }
@@ -262,14 +314,14 @@ export function renderSheet({
     let crowded = 0;
     const textY = waveY + WAVE_H;
     if (wordMode) {
-      const layout = layoutLanes(wordsInWindow, { start, end, width, lanes: LANES });
+      const layout = layoutLanes(wordsInWindow, { start, end, width, lanes: LANES, fontPx: 18 });
       crowded = layout.crowded;
       for (const w of layout.placed) {
         draw.push("-fill", "none", "-stroke", COLORS.wave, "-strokewidth", "1",
           "-draw", `line ${x(w.start)},${textY} ${x(w.start)},${w.lane === null ? textY + 8 : textY + 10 + w.lane * LANE_H}`);
         if (w.lane === null) continue;
         const safe = w.text.replace(/['"\\]/g, "");
-        if (safe) draw.push("-stroke", "none", "-fill", COLORS.word, "-pointsize", "16",
+        if (safe) draw.push("-stroke", "none", "-fill", COLORS.word, "-pointsize", "18",
           "-draw", `text ${x(w.start)},${textY + 24 + w.lane * LANE_H} '${safe}'`);
       }
     } else {
@@ -280,15 +332,38 @@ export function renderSheet({
       }
     }
 
-    // Markers last: full-height orange cut lines.
+    // Markers last: full-height orange cut lines with a chip in the ruler
+    // band — dark background, label + exact seconds, never over thumbnails.
     for (const m of markers) {
       if (m.t < start || m.t > end) continue;
       draw.push("-fill", "none", "-stroke", COLORS.marker, "-strokewidth", "2",
         "-draw", `line ${x(m.t)},0 ${x(m.t)},${H}`);
-      const label = (m.label ?? "").replace(/['"\\]/g, "");
-      if (label) draw.push("-stroke", "none", "-fill", COLORS.marker, "-pointsize", "16",
-        "-draw", `text ${Math.min(x(m.t) + 5, width - 90)},${RULER_H + 16} '${label}'`);
+      // Chip sits just below the ruler (solid dark bg keeps it legible over
+      // thumbnails) — never over the ruler's own time labels.
+      const label = `${(m.label ?? "").replace(/['"\\]/g, "")} ${m.t}s`.trim();
+      const chipW = Math.round(label.length * 9.5) + 10;
+      const cx = x(m.t) + chipW + 6 > width ? x(m.t) - chipW - 4 : x(m.t) + 4;
+      draw.push("-fill", "rgba(0,0,0,0.82)", "-stroke", "none",
+        "-draw", `roundrectangle ${cx},${RULER_H + 2} ${cx + chipW},${RULER_H + 24} 4,4`);
+      draw.push("-stroke", "none", "-fill", COLORS.marker, "-pointsize", "17",
+        "-draw", `text ${cx + 5},${RULER_H + 19} '${label}'`);
     }
+
+    // Set-of-Marks anchors: dashed line + lettered chip; the envelope
+    // repeats {mark, t} so image and JSON share IDs.
+    const somColors = ["#4fd1c5", "#c084fc", "#f472b6", "#a3e635"];
+    somMarks.forEach((m, i) => {
+      if (m.t < start || m.t > end) return;
+      const color = somColors[i % somColors.length];
+      draw.push("-fill", "none", "-stroke", color, "-strokewidth", "2",
+        "-draw", `stroke-dasharray 6 4 line ${x(m.t)},0 ${x(m.t)},${H}`);
+      // A row below the marker chips so the two never collide.
+      const cx = Math.min(Math.max(x(m.t) - 12, 0), width - 26);
+      draw.push("-fill", color, "-stroke", "none",
+        "-draw", `roundrectangle ${cx},${RULER_H + 28} ${cx + 25},${RULER_H + 52} 5,5`);
+      draw.push("-stroke", "none", "-fill", "#101010", "-pointsize", "18",
+        "-draw", `text ${cx + 6},${RULER_H + 46} '${m.mark.replace(/['"\\]/g, "")}'`);
+    });
 
     const composeArgs = [
       "-size", `${width}x${H}`, `xc:${COLORS.bg}`,
@@ -311,7 +386,7 @@ export function renderSheet({
 export async function main(argv) {
   const args = parseArgs(argv, {
     start: "number", end: "number", around: "number", span: "number",
-    manifest: "string", scene: "string", markers: "string",
+    manifest: "string", scene: "string", markers: "string", marks: "string",
     out: "string", width: "number", force: "boolean",
   });
   const file = args._[0];
@@ -365,11 +440,12 @@ export async function main(argv) {
     `${basename(file, extname(file))}_timeline_${Math.round(start)}_${Math.round(end)}.png`
   );
 
+  const somMarks = parseSomMarks(args.marks);
   let result;
   try {
     result = renderSheet({
       file, start, end, out: outPath,
-      width: args.width ?? 1920, index, markers, mode,
+      width: args.width ?? 1920, index, markers, somMarks, mode,
     });
   } catch (e) {
     fail(`timeline sheet failed: ${e.message}`, 1);
@@ -403,6 +479,9 @@ export async function main(argv) {
     sheet: result.sheet,
     ...(result.degraded ? { degraded: result.degraded } : {}),
     markers,
+    ...(somMarks.length
+      ? { marks: somMarks.map((m) => (m.t < start || m.t > end ? { ...m, offSheet: true } : m)) }
+      : {}),
     ...(timing ? { timing } : {}),
     words: wordsIn.length,
     ...(result.crowded ? { crowdedWords: result.crowded } : {}),

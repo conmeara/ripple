@@ -42,6 +42,7 @@ const COMMANDS = {
     usage: `  candidates <file> --start S --end E [--label slug]
       [--out dir] [--prompt "hints"] [--thresholds -35,-40,-45]
       [--max-tail 1.0] [--max-lead 0.5] [--tail-preference 0.6]
+      [--crop x,y,w,h]            zoom strips to a source region (eyes) — set once per locked-off shot
       [--no-sheet]                skip the cut-card sheets
       [--no-transcribe]           skip the range transcript (word timing still
                                   comes from the cached index)
@@ -52,6 +53,7 @@ const COMMANDS = {
     load: () => import("./frame-sheet.mjs"),
     usage: `  frame-sheet <file>              Tiled frame sheet so you can SEE the video
       [--fps 1] [--cols 6] [--scale 480] [--start S] [--end E] [--tail N] [--out path]
+      [--crop x,y,w,h]            zoom every tile to a source region (eyes, hands)
       [--scenes]                  sample where the picture CHANGES (scene detect +
       [--scene-threshold 0.3]     coverage floor + dedup); emits tile→timestamp map —
       [--gap 10]                  the discovery mode for takes/resets in long footage`,
@@ -62,7 +64,14 @@ const COMMANDS = {
       [--start S --end E]         waveform with silence shading + word-aligned transcript + cut
       [--around T --span 12]      markers, on a shared time axis. Overview for discovery; zoom
       [--manifest edit.json [--scene slug]]   (--around/--scene) before locking any cut
-      [--markers "209:IN,233.3:OUT"] [--out path] [--width 1920] [--force]`,
+      [--markers "209:IN,233.3:OUT"]  orange cut lines with time chips
+      [--marks "A:493.5,B:494.2"]     lettered candidate anchors (image ↔ JSON share IDs)
+      [--out path] [--width 1920] [--force]`,
+  },
+  beats: {
+    load: () => import("./beats.mjs"),
+    usage: `  beats <audio>                   Beat grid for a music bed: bpm + beat times + confidence
+      [--out dir] [--force]       (auto-reports "no grid" on non-periodic audio like speech)`,
   },
   cut: {
     load: () => import("./cut.mjs"),

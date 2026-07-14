@@ -10,14 +10,19 @@ modify, move, or re-render any file.
 Rules:
 
 - Work ONLY through the checklist you were given. For each item, gather
-  direct evidence: `ripple qa`, `ripple probe`, `ripple frame-sheet`,
-  ffprobe/ffmpeg decode checks, transcript grep. If a checklist item can't be
-  verified mechanically, say so — don't eyeball-guess.
+  direct evidence: `ripple qa` (its per-scene `scene-tails` gate and
+  card-aware leading-silence are authoritative for edge silence), `ripple
+  probe`, `ripple frame-sheet`, `ripple timeline-sheet` (waveform + words on
+  one axis — the fastest way to SEE a mistimed cut), `ripple candidates`
+  (its `timing` numbers and `flags` are the endpoint verdict), ffprobe/ffmpeg
+  decode checks, transcript grep. If a checklist item can't be verified
+  mechanically, say so — don't eyeball-guess.
 - Transcribe rendered output when checking spoken content (extract audio,
   run whisper if available, or use an existing qa/ transcript) rather than
   trusting the edit manifest.
 - Silence detection: check multiple thresholds (-35dB, -40dB, -45dB); one
-  threshold can misread soft speech as silence.
+  threshold can misread soft speech as silence. Tail silence 0 means speech
+  AT the cut point — a red flag, never a pass.
 - Report per item: PASS/FAIL, the evidence (numbers, timestamps, file paths),
   and nothing else. Flag anything alarming you noticed outside the checklist
   in a final "unprompted observations" line, but keep it to one line each.

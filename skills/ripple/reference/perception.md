@@ -16,15 +16,35 @@ JSON. ~1 min for a 13-min 4K source, then free. It contains:
   stretches word ends across trailing silence and smears resumed speech
   backwards into pauses; the index corrects both)
 - `silences` (3 thresholds) and `speech` spans
-- `sentences` — bounds, text, and `wps` (words/sec): slow, weighted delivery
-  earns a longer tail; rushed delivery cuts tighter
+- `sentences` — bounds, text, `wps` (words/sec: slow, weighted delivery
+  earns a longer tail), and **prosody**: `terminalPitch`
+  (falling/level/rising/unknown), slope in semitones/sec, `voicedRatio`.
+  Falling = the thought sounds complete — the strongest "safe OUT" cue
+  after the words. Trust it only when `voicedRatio ≥ 0.25`, expect
+  sentence-final vocal fry to bias falling→level, and NEVER use it as a
+  question detector (wh-questions fall in American English)
 - `fillers` — um/uh + word restarts, with exact removable spans ("tighter")
 - `nonSpeech` — audible-but-wordless spans: laughs, claps, music stings.
   These are reaction beats — prime cut-away and hold material you cannot
   hear any other way
+- `breaths` — inhales in word gaps (level + duration). A sharp inhale right
+  after the "last" word means the speaker is about to continue. Precision-
+  first and capture-chain-bound: close-mic audio yields many, processed or
+  distant-mic audio near zero — absence proves nothing
+- `turns` — speaker-turn markers (optional: needs the tinydiarize model,
+  `ripple doctor` has the download). Detects conversational hand-offs
+  (podcasts, two-mic chats); quiet off-camera interviewers usually produce
+  ZERO turns — find those instead as short question-shaped sentences
+  bounded by long silences. `snappedT` places each turn in its silence gap
 - `sceneChanges` + `motion` — luma-diff curve: cuts, resets, gestures,
   fidgeting vs stillness
 - `rms` — energy envelope (delivery intensity over time)
+
+For music, `ripple beats <audio>` builds the beat grid: `bpm`, beat times,
+and a confidence gate that auto-reports "no grid" on speech. When
+`manifest.music` is set, `ripple cut` reports every visual boundary's
+offset from the grid (`music.beatCheck`) — cutting on the beat is a style
+choice; knowing you're 140ms off is perception.
 
 Don't `cat` the index (it's thousands of entries); slice it with jq or view
 it through the sheet.
@@ -42,6 +62,11 @@ with shading / word-aligned transcript, plus orange cut markers.
   then zoom `--around <t> --span 12` (or `--scene <slug>`) before locking
   anything. A cut line touching the next waveform burst is a leak you can
   see.
+- In zoom mode every second is labeled on the ruler and long silences carry
+  their duration and edge times printed on them — the image and the JSON
+  share one coordinate system (absolute seconds). Comparing alternatives?
+  `--marks "A:493.5,B:494.2"` draws lettered anchor chips; refer to A/B in
+  your reasoning and the numbers stay grounded.
 - The sheet distinguishes what frames alone cannot: "pausing while looking
   down" and "quietly reading the next question" look identical in
   thumbnails — only the waveform tells them apart.
@@ -60,7 +85,9 @@ with shading / word-aligned transcript, plus orange cut markers.
 | `timing.nextWordStart` / `timing.nextText` | what starts after the content — verify it's the next prompt, not more answer |
 | `timing.nextAudioStart` | when sound actually resumes (breath, laugh, speech) |
 | `timing.leadGap` / `timing.firstWordStart` | head-side equivalents |
-| `suggestedOut` | `lastWordEnd + tail preference`, capped before next speech; null when no clean gap exists |
+| `timing.terminalPitch` | melody of the ending sentence: falling = thought complete |
+| `timing.breathAfterLastWord` | a sharp inhale after the last word — the speaker is about to continue |
+| `suggestedOut` | `lastWordEnd + tail preference`, capped before next speech; null when no clean gap exists. Drawn as the dashed "S" anchor on the out card when it differs from your `--end` by >0.15s — no "S" chip means you're already on the suggestion (or there is none; the number tells you which) |
 
 **The endpoint law: OUT = lastWordEnd + tail preference (VIDEO.md, default
 ≤1.0s).** Holding longer for a smile or a laugh is a taste call you're
@@ -88,16 +115,25 @@ on purpose: re-scope using the index's `sentences`, don't nudge.
 
 - Reaction cuts: sort `nonSpeech` by duration — every laugh/clap is a
   timestamped candidate for a hold or an L-cut.
-- Best-take feel: compare `sentences[].wps` and the rms envelope across
-  takes — flat + fast reads rushed; ranged + slower reads alive.
-- Cut on action: zoom the sheet where the motion strip lights up; cut into
-  movement, not out of it.
+- Best-take feel: compare `sentences[].wps`, `terminalPitch`, and the rms
+  envelope across takes — flat + fast reads rushed; ranged + slower with a
+  clean terminal fall reads alive and finished.
+- Cut on action: zoom the sheet where the motion strip (orange = movement)
+  lights up; cut into movement, not out of it. `cut` warns about jump-cut
+  risk on direct joins (same setup, visible mismatch) — hide those with a
+  card, a cutaway, or a bigger reframe.
+- Music-driven cuts: `ripple beats` + `cut`'s `beatCheck` — land scene
+  changes within ~70ms of a beat, card durations in whole beats.
+- Eyes: state a face crop once per locked-off shot (READ one full frame
+  first, then `--crop x,y,w,h` on frame-sheet/candidates) — look-downs and
+  reading-the-next-question are separable at eye scale, not at 360px.
 - "Tighter": `fillers` lists exact removable spans; check the sheet that
   removal doesn't jump-cut.
 
 ## Not built yet (don't fake these)
 
-Pitch contour (terminal fall = thought complete), breath detection, music
-beat grids, jump-cut severity scoring, eye-region crop strips, learned VAD
-(Silero), speaker-turn diarization. If an edit truly needs one, say so and
-degrade gracefully — never eyeball a number these would have measured.
+Learned VAD as a silence-map upgrade (whisper-cli's built-in `--vad` exists
+but shifts word timestamps — never enable it in the word pass), full
+multi-speaker diarization, lip-sync drift detection, downbeat/bar
+inference. If an edit truly needs one, say so and degrade gracefully —
+never eyeball a number these would have measured.

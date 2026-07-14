@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  dedupFrames, densityFloor, meanAbsDiff, parsePgm, parseShowinfoTimes, thinToMax,
+  cropFilter, dedupFrames, densityFloor, meanAbsDiff, parsePgm, parseShowinfoTimes, thinToMax,
 } from "./frame-sheet.mjs";
 import { subtitleToText } from "./transcribe.mjs";
 
@@ -104,4 +104,12 @@ test("subtitleToText strips srt and vtt scaffolding", () => {
   assert.equal(subtitleToText(srt), "We met on Bumble.\nIt was perfect.");
   const vtt = "WEBVTT\n\nNOTE internal\n\n00:01.000 --> 00:03.000\nHello there.\n";
   assert.equal(subtitleToText(vtt), "Hello there.");
+});
+
+test("cropFilter builds the prefix and rejects junk", () => {
+  assert.equal(cropFilter("100,80,640,360"), "crop=640:360:100:80,");
+  assert.equal(cropFilter(undefined), "");
+  assert.throws(() => cropFilter("1,2,3"), /x,y,w,h/);
+  assert.throws(() => cropFilter("a,b,c,d"), /x,y,w,h/);
+  assert.throws(() => cropFilter("0,0,0,100"), /x,y,w,h/);
 });

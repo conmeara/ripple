@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { findTool, output, run } from "./util.mjs";
-import { resolveModel } from "./transcribe.mjs";
+import { resolveModel, resolveTdrzModel } from "./transcribe.mjs";
 
 // One-shot environment check: everything ripple needs, with the fix for
 // anything missing. Run this before a first edit on a new machine.
@@ -57,13 +57,23 @@ export async function main() {
     model ?? `none in ./models or ${join(homedir(), ".ripple", "models")}`,
     "mkdir -p ~/.ripple/models && curl -L --fail -o ~/.ripple/models/ggml-base.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
   );
+  const tdrz = resolveTdrzModel();
+  add(
+    "tdrz-model",
+    Boolean(tdrz),
+    tdrz ?? "not installed (optional: speaker-turn markers in the index)",
+    "curl -L --fail -o ~/.ripple/models/ggml-small.en-tdrz.bin https://huggingface.co/akashmjn/tinydiarize-whisper.cpp/resolve/main/ggml-small.en-tdrz.bin  # 465 MB; detects conversational hand-offs, not quiet off-camera interviewers"
+  );
 
   const major = Number(process.versions.node.split(".")[0]);
   add("node", major >= 20, `v${process.versions.node}`, "Node 20+ required");
 
   const required = ["ffmpeg", "ffprobe", "node"];
   const ok = checks.filter((c) => required.includes(c.id)).every((c) => c.ok);
-  const ready = checks.every((c) => c.ok);
+  // Optional pieces don't hold readiness hostage: tdrz is an optional tier,
+  // and missing drawtext is fully covered when ImageMagick is present.
+  const optional = new Set(["tdrz-model", ...(magick ? ["drawtext-filter"] : [])]);
+  const ready = checks.filter((c) => !optional.has(c.id)).every((c) => c.ok);
 
   output({
     ok,

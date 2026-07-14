@@ -67,6 +67,20 @@ export function thinToMax(frames, max) {
   return [first, ...kept].sort((a, b) => a.t - b.t);
 }
 
+// "x,y,w,h" (source pixels) → an ffmpeg crop filter prefix, or "" when
+// unset. The model states the crop once per locked-off source (e.g. the
+// eye region) and every strip/sheet zooms there — reading eyes from 120px
+// tiles is how look-downs get missed.
+export function cropFilter(spec) {
+  if (!spec) return "";
+  const parts = spec.split(",").map((n) => Number(n.trim()));
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0) || !parts[2] || !parts[3]) {
+    throw new Error(`--crop expects "x,y,w,h" in source pixels, got: ${spec}`);
+  }
+  const [x, y, w, h] = parts;
+  return `crop=${w}:${h}:${x}:${y},`;
+}
+
 // Minimal P5 (binary) PGM parser → { width, height, pixels: Uint8Array }.
 export function parsePgm(buffer) {
   const text = buffer.subarray(0, 64).toString("latin1");
@@ -186,18 +200,25 @@ async function scenesMode(args, file) {
 export async function main(argv) {
   const args = parseArgs(argv, {
     fps: "number", cols: "number", scale: "number",
-    start: "number", end: "number", tail: "number", out: "string",
+    start: "number", end: "number", tail: "number", out: "string", crop: "string",
     scenes: "boolean", "scene-threshold": "number", gap: "number", "dedup-threshold": "number",
   });
   const file = args._[0];
   if (!file) {
     fail(
       "Usage: ripple frame-sheet <file> [--fps 1] [--cols 6] [--scale 480] [--start S] [--end E] [--tail N] [--out path]\n" +
+        "       [--crop x,y,w,h]   zoom every tile to a source region (eyes, hands) before scaling\n" +
         "       ripple frame-sheet <file> --scenes [--scene-threshold 0.3] [--gap 10]   (sample where the picture changes)",
       2
     );
   }
   if (!existsSync(file)) fail(`File not found: ${file}`, 2);
+  let crop = "";
+  try {
+    crop = cropFilter(args.crop);
+  } catch (e) {
+    fail(e.message, 2);
+  }
 
   if (args.scenes) return scenesMode(args, file);
 
@@ -240,7 +261,7 @@ export async function main(argv) {
   const res = run(ffmpeg, [
     "-hide_banner", "-v", "error", "-y",
     ...rangeArgs, "-i", file,
-    "-vf", `fps=${fps},scale=${scale}:-1,tile=${cols}x${rows}:padding=8:margin=8:color=0x1a1a1a`,
+    "-vf", `fps=${fps},${crop}scale=${scale}:-1,tile=${cols}x${rows}:padding=8:margin=8:color=0x1a1a1a`,
     "-frames:v", "1", outPath,
   ]);
   if (res.status !== 0) fail(`frame sheet failed: ${res.stderr.trim()}`, 1);
@@ -249,6 +270,7 @@ export async function main(argv) {
     ok: true,
     file,
     mode: "fixed",
+    ...(args.crop ? { crop: args.crop } : {}),
     sheet: outPath,
     frames,
     fps,
