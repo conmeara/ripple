@@ -4,9 +4,10 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  assemblyDuration, assemblyTimeline, buildAssemblyFilter, buildConcatFilter, buildEncodeArgs, buildMusicFilter, buildSceneVf, clipName, directJoins, geometryChain, jumpCutReading, segmentBoundaries,
+  assemblyDuration, assemblyTimeline, buildAssemblyFilter, buildConcatFilter, buildEncodeArgs, buildMusicFilter, buildSceneVf, clipName, directJoins, geometryChain, jumpCutFinding, jumpCutReading, offBeatFinding, segmentBoundaries,
   expectedLeadingSilence, setparamsFilter, validateManifest,
 } from "./cut.mjs";
+import { RULE_INDEX } from "./rules.mjs";
 
 function sceneFixture(overrides = {}) {
   return { id: 1, slug: "intro", source: "src.mp4", start: 1, end: 5, status: "locked", ...overrides };
@@ -175,16 +176,41 @@ test("jumpCutReading bands: continuous / risk / clean change", () => {
   assert.equal(jumpCutReading(30), "clean change");
 });
 
-test("directJoins skips joins hidden by an incoming card", () => {
+test("jump-cut and off-beat findings carry registered render-rule ids", () => {
+  const f = jumpCutFinding({ slug: "a" }, { slug: "b" }, 7.5);
+  assert.equal(f.rule, "jump-cut");
+  assert.equal(f.join, "a→b");
+  assert.match(f.detail, /possible jump cut at a→b \(frame diff 7.5/);
+  // Continuous and clean-change joins produce nothing.
+  assert.equal(jumpCutFinding({ slug: "a" }, { slug: "b" }, 1.2), null);
+  assert.equal(jumpCutFinding({ slug: "a" }, { slug: "b" }, 30), null);
+
+  const ob = offBeatFinding({ bpm: 120, offGrid: 3 });
+  assert.equal(ob.rule, "off-beat");
+  assert.match(ob.detail, /3 visual boundaries land off the music grid/);
+  assert.equal(offBeatFinding({ bpm: 120, offGrid: 0 }), null);
+  assert.equal(offBeatFinding(undefined), null);
+
+  for (const id of ["jump-cut", "off-beat"]) {
+    assert.equal(RULE_INDEX.get(id)?.phase, "render", id);
+    assert.equal(RULE_INDEX.get(id)?.severity, "warn", id);
+  }
+});
+
+test("directJoins skips joins hidden by a card or bridged by a transition", () => {
   const scenes = [
     sceneFixture({ id: 1, slug: "a" }),
     sceneFixture({ id: 2, slug: "b", card: "Q2" }),
     sceneFixture({ id: 3, slug: "c" }),
     sceneFixture({ id: 4, slug: "d", cardFile: "d.png" }),
     sceneFixture({ id: 5, slug: "e" }),
+    // The welcome→registry regression: a fadeblack bridges this join, so its
+    // two frames never sit adjacent — nothing to score for a jump cut.
+    sceneFixture({ id: 6, slug: "f", transition: { type: "fadeblack", duration: 0.5 } }),
+    sceneFixture({ id: 7, slug: "g" }),
   ];
   const joins = directJoins(scenes).map(([x, y]) => `${x.slug}→${y.slug}`);
-  assert.deepEqual(joins, ["b→c", "d→e"]);
+  assert.deepEqual(joins, ["b→c", "d→e", "f→g"]); // f→g stays a scored direct join
 });
 
 test("assemblyTimeline: lcut trims the body and lands its tail under the next card", () => {

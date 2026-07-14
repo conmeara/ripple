@@ -1,5 +1,6 @@
 import { existsSync, readdirSync } from "node:fs";
 import { basename, extname, join } from "node:path";
+import { realWords } from "./timing.mjs";
 import { fail, fileStamp, output, parseArgs, readJsonOrNull, round3 } from "./util.mjs";
 
 // "Find where anyone says X across all footage" — word-accurate spans from
@@ -10,10 +11,14 @@ import { fail, fileStamp, output, parseArgs, readJsonOrNull, round3 } from "./ut
 const norm = (t) => t.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 // Word-sequence match over [{start, end, text}] — returns word-accurate
-// spans for every occurrence of the phrase.
-export function searchWords(words, phrase) {
+// spans for every occurrence of the phrase. Suspect words are whisper
+// fabrications over silence/music: a phrase the speaker never said must not
+// come back as a timestamped hit, so the filter lives in the helper every
+// caller shares (the timing.mjs consumer-filters idiom).
+export function searchWords(allWords, phrase) {
+  const words = realWords(allWords ?? []);
   const tokens = phrase.split(/\s+/).map(norm).filter(Boolean);
-  if (!tokens.length || !words?.length) return [];
+  if (!tokens.length || !words.length) return [];
   const normalized = words.map((w) => norm(w.text));
   const matches = [];
   for (let i = 0; i + tokens.length <= words.length; i++) {

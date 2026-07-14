@@ -30,7 +30,9 @@ Start a new Codex task after installation so its skill catalog refreshes.
 The bundled CLI requires Node.js 20 or newer. Both hosts require
 `ffmpeg`/`ffprobe` on PATH (`brew install ffmpeg`). Optional but recommended
 for word-accurate editing: `brew install whisper-cpp` plus a model in
-`~/.ripple/models/` (the plugin walks you through it).
+`~/.ripple/models/` (the plugin walks you through it). A standalone npm
+package for the CLI is planned but not yet published — the plugin installs
+above are the supported path today.
 
 ## What the agent sees
 
@@ -54,11 +56,17 @@ but consistently mistimed, and the failure always had the same shape:
 - **Word timings lie at the edges.** Whisper stretches word ends across
   silence and smears resumed speech back into pauses — exactly the boundaries
   an edit lands on.
+- **Whisper fabricates.** Over music beds and long silences it writes words
+  nobody spoke — "Thanks for watching." across an outro where no one is
+  talking.
 
 A human resolves this by looking and listening. Ripple resolves it with
 measurement: silence detection at three thresholds fused with word timings,
 pitch contour on the last word, breaths, motion energy — and a standing rule
-that no cut is locked on a single signal.
+that no cut is locked on a single signal. Fabricated words are marked
+suspect: visible everywhere, used nowhere. Timing numbers, phrase search,
+and captions all filter them, and the timeline sheet renders them dim gray
+with a leading `?` so the transcript never silently edits itself.
 
 ## Craft, senses, taste
 
@@ -68,18 +76,21 @@ An editor is three things. Ripple gives the agent all three.
 perception index, the endpoint rule (`OUT = lastWordEnd + tail`, arithmetic,
 never eyeballed), localized repair ("question 5 got cut off" → fix one scene,
 not the whole timeline), HDR-safe finishing, deterministic QA. Steering
-adjectives — "tighter", "punchier", "let it breathe" — are operationalized
-protocols, not vibes. Motion graphics route to the official
+adjectives are operationalized protocols, not vibes — `/ripple tighter`,
+`punchier`, `breathe`, and `quieter` are first-class invocations, each with a
+defined read/change/re-render/verify loop. Motion graphics route to the official
 [HyperFrames](https://github.com/heygen-com/hyperframes) and
 [Remotion](https://www.remotion.dev/docs/ai/skills) skills.
 
 **Senses and hands — the `ripple` CLI.** One command per loop agents otherwise
 rebuild by hand. A cached per-source **perception index** (word timings fused
 with silence, sentences with pace, fillers, laughs/claps, pitch, breaths,
-motion, scene changes); **sheets** that put picture, sound, and text on one
-time axis; **cut-point arithmetic** with categorical red flags; an editor's
-**workbench** (output↔source timecode mapping, manifest history and diffs,
-phrase search across sources, multicam sync, word-accurate captions); and a
+motion, scene changes — keyed on content, not path, so footage that moves to
+another folder keeps its analysis); **sheets** that put picture, sound, and
+text on one time axis, with `describe` as their text twin; **cut-point
+arithmetic** with categorical red flags; an editor's **workbench**
+(output↔source timecode mapping, manifest history and diffs, phrase search
+across sources, multicam sync, word-accurate captions); and a
 manifest-driven **renderer** — title cards, J/L-cuts, dissolves, music beds,
 per-scene gain, reframe presets, HDR-safe assembly.
 
@@ -87,7 +98,12 @@ per-scene gain, reframe presets, HDR-safe assembly.
 direction (register, color policy, pacing, brand); `edit.json` holds each
 video's cut decisions *with reasoning*. User steering writes back, so lessons
 persist across sessions — and travel into Premiere/Resolve as timeline markers
-on handoff.
+on handoff. Taste can also be measured: point `ripple study` at a reference
+edit — a local file, or a URL fetched with yt-dlp (optional; `ripple doctor`
+probes for it) — and it measures the cutting rhythm, delivery pace, tail
+preference, silence usage, energy character, and grade lean, then proposes
+VIDEO.md values with the measurement behind each one. It never writes
+VIDEO.md itself; the merge happens with the user.
 
 ## One cut, end to end
 
@@ -125,12 +141,28 @@ suggested OUT — 232.52, last word end plus the project's tail preference.
 Move the cut, clear the flag, then:
 
 ```
+ripple lint edit.json                       # every scene re-judged from cached perception
 ripple cut edit.json                        # clips, cards, J/L-cuts, dissolves, music, assembly
 ripple qa outputs/final.mp4 --manifest edit.json   # gates: tail silence, loudness, leaked takes
 ```
 
 Any flag blocks locking a range until resolved or overridden with a written
 reason.
+
+## The rules
+
+Those flags come from one registry: 26 deterministic editing rules
+(`skills/ripple/reference/rules.md` — a test keeps that count honest against
+the code), each named for a failure that shipped in a real session. The same
+rule ID is checked at three moments: `candidates` flags a cut range before it
+locks, `lint` re-judges every scene of edit.json before anything renders, and
+`qa` gates the rendered artifacts — including black frames and frozen picture
+the manifest doesn't explain. A plugin hook runs lint on every manifest
+write, so findings surface without anyone choosing to look; it never blocks
+the write. Rules bend without breaking: waivers live at two tiers — per-scene
+in edit.json, project-wide (waive or retune) in VIDEO.md front-matter — and
+every waiver carries a written reason, surfaced on every report, never
+silently dropped.
 
 ## Commands
 
@@ -156,10 +188,11 @@ Underneath, the `ripple` CLI (run `ripple help`, or `<command> --help`):
 
 | | Commands |
 |---|---|
-| **Perceive** | `analyze` · `timeline-sheet` · `frame-sheet` · `candidates` · `transcribe` · `probe` · `sources` · `search` · `beats` · `sync` |
-| **Decide** | `select` · `locate` · `snapshot` · `compare` |
+| **Perceive** | `analyze` · `timeline-sheet` · `describe` · `frame-sheet` · `candidates` · `transcribe` · `probe` · `sources` · `search` · `beats` · `sync` |
+| **Decide** | `status` · `select` · `locate` · `snapshot` · `compare` |
 | **Render** | `cut` · `captions` · `grade` |
-| **Verify** | `qa` · `review` · `doctor` |
+| **Verify** | `lint` · `qa` · `review` · `doctor` |
+| **Taste** | `study` |
 | **Ship** | `handoff` |
 
 ## CLI conventions

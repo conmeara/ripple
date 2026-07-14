@@ -211,6 +211,26 @@
             "type": "string",
             "description": "why this take and these bounds \u2014 always filled in"
           },
+          "waivers": {
+            "type": "array",
+            "description": "Scene-tier rule waivers, read by ripple lint. Each names a registry rule id (reference/rules.md) and states why the finding is intentional \u2014 waivers surface as waived-with-reason, never silently dropped; one without a reason is ignored and reported.",
+            "items": {
+              "type": "object",
+              "required": [
+                "rule",
+                "reason"
+              ],
+              "properties": {
+                "rule": {
+                  "type": "string",
+                  "description": "registry rule id, e.g. DEAD_AIR_TAIL"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "status": {
             "enum": [
               "proposed",

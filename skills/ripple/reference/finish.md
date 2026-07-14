@@ -64,6 +64,10 @@ to `.ripple/history` before every render (`ripple snapshot --list`,
 full decode clean; color metadata matches policy; expected clip count; leading
 /tail silence in bounds; integrated loudness within ±1 LU of
 `music.loudnessTarget` when a bed is set; transcript of the final contains
-every scene's ending phrase and zero prompt leakage. Draft profile is for iteration; the
+every scene's ending phrase and zero prompt leakage; no black frames or
+frozen picture the manifest doesn't explain (declared cards and
+dissolve/fadeblack overlaps are expected — everything else fails). Each
+check carries its registry rule id (`reference/rules.md`), the same name
+`candidates` and `lint` use for the failure. Draft profile is for iteration; the
 final export is always a fresh single encode from source via the manifest —
 never a re-encode of a draft.

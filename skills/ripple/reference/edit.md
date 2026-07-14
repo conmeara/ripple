@@ -30,12 +30,20 @@ sentence, before the reset.
 
 1. For each `proposed` scene, run `candidates`, adjust bounds in edit.json,
    set `status: "locked"` and update `reasoning` with what confirmed it.
-2. Render with `ripple cut edit.json --profile draft` — it renders per-scene
+2. Before rendering, `ripple lint edit.json` — the endpoint rules
+   `candidates` applies to one range, re-judged across the whole manifest
+   from cached perception (milliseconds; a plugin hook runs the same check
+   on every manifest write). It exists because a scene re-scoped by hand
+   after candidates ran kept shipping fresh flags nobody re-checked. Exit 1
+   means an unwaived block finding stands: re-scope, or waive with a written
+   reason (`scenes[].waivers`, or VIDEO.md front-matter for project-wide —
+   see `reference/rules.md`).
+3. Render with `ripple cut edit.json --profile draft` — it renders per-scene
    clips, cards (with J-cut audio when `jcut` is set), and the full assembly
    from the manifest, HDR-aware. Iterating one scene? `--scene <slug>`
    re-renders just it. Read its `warnings` array every time.
-3. After every render: qa it and look at it. Fix before showing the user.
-4. Present: what changed, the scene table, and where to look. Ask for
+4. After every render: qa it and look at it. Fix before showing the user.
+5. Present: what changed, the scene table, and where to look. Ask for
    corrections by scene ("Q5 too long?") — corrections route to `repair`.
 
 ## Style vs. content
@@ -50,4 +58,7 @@ log the steering decision to VIDEO.md.
 
 When the user steers with an adjective — "tighter", "punchier", "quieter",
 "let it breathe" — read `reference/adjectives.md` and follow that protocol.
-Adjectives are lever sets with numbers and verification, not vibes.
+Those four are promoted to first-class invocations (`/ripple tighter
+[scene]` and friends); any other adjective earns its levers through the same
+file's generic protocol. Adjectives are lever sets with numbers and
+verification, not vibes.

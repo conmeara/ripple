@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
+import { fileStamp } from "./util.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -71,4 +73,216 @@ test("the plugin-relative CLI path used by Codex is runnable", () => {
   });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), readJson("package.json").version);
+});
+
+test("the editor-suite commands dispatch through the CLI registry", () => {
+  // Every other test drives the command modules directly, so a dropped or
+  // typo'd COMMANDS entry (the user's only entry point) would stay green.
+  // Each command proves dispatch by emitting ITS OWN JSON envelope.
+  const cli = join(ROOT, "cli", "index.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "ripple-dispatch-"));
+  const runCli = (args, cwd = dir) =>
+    spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", cwd });
+
+  const status = runCli(["status", dir]);
+  assert.equal(status.status, 0, status.stderr);
+  const env = JSON.parse(status.stdout);
+  assert.equal(env.ok, true);
+  assert.equal(env.next, "init"); // empty project routes to init
+
+  const lint = runCli(["lint", "missing.json"]);
+  assert.equal(lint.status, 2);
+  assert.match(JSON.parse(lint.stdout).error.message, /Manifest not found/);
+
+  const describe = runCli(["describe"]);
+  assert.equal(describe.status, 2);
+  assert.match(JSON.parse(describe.stdout).error.message, /ripple describe/);
+
+  const study = runCli(["study"]);
+  assert.equal(study.status, 2);
+  assert.match(JSON.parse(study.stdout).error.message, /ripple study/);
+});
+
+test("the npm bin survives the .bin symlink npm installs", () => {
+  // npm materializes `ripple` as node_modules/.bin/ripple -> the package's
+  // bin/ripple. The shim once resolved SCRIPT_DIR from the symlink's own
+  // directory, exec-ing node against node_modules/cli/index.mjs — a dead
+  // binary for every registry user.
+  const dir = mkdtempSync(join(tmpdir(), "ripple-bin-"));
+  mkdirSync(join(dir, "node_modules", ".bin"), { recursive: true });
+  symlinkSync(ROOT, join(dir, "node_modules", "ripple-video"));
+  symlinkSync(
+    join("..", "ripple-video", "bin", "ripple"),
+    join(dir, "node_modules", ".bin", "ripple")
+  );
+  const res = spawnSync(join(dir, "node_modules", ".bin", "ripple"), ["--version"], {
+    encoding: "utf8",
+    cwd: dir,
+  });
+  assert.equal(res.status, 0, res.stderr);
+  assert.equal(res.stdout.trim(), readJson("package.json").version);
+});
+
+// ---------- lint-on-write hook ----------
+
+const HOOK = join(ROOT, "hooks", "lint-manifest.mjs");
+
+test("hooks.json wires the lint hook to manifest writes on both hosts", () => {
+  // Claude registers the config explicitly; Codex discovers the same file at
+  // its default hooks/hooks.json path (its manifest validation rejects a
+  // `hooks` field, which the codex-manifest test above pins).
+  assert.equal(readJson(".claude-plugin", "plugin.json").hooks, "./hooks/hooks.json");
+  const entries = readJson("hooks", "hooks.json").hooks.PostToolUse;
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].matcher, "Write|Edit");
+  assert.equal(entries[0].hooks.length, 1);
+  const [hook] = entries[0].hooks;
+  assert.equal(hook.type, "command");
+  // Shell-form fallback: Claude exports CLAUDE_PLUGIN_ROOT to hook
+  // processes, Codex exports PLUGIN_ROOT — one command serves both.
+  assert.match(hook.command, /\$\{CLAUDE_PLUGIN_ROOT:-\$PLUGIN_ROOT\}/);
+  assert.match(hook.command, /\/hooks\/lint-manifest\.mjs/);
+  assert.ok(existsSync(HOOK));
+});
+
+// Drive the hook exactly as a host does: PostToolUse JSON on stdin, exit
+// code and stdout observed.
+function runHook(event, cwd) {
+  const res = spawnSync(process.execPath, [HOOK], {
+    encoding: "utf8",
+    cwd,
+    input: typeof event === "string" ? event : JSON.stringify(event),
+  });
+  return { status: res.status, stdout: res.stdout, stderr: res.stderr };
+}
+
+function writeEvent(dir, file, extra = {}) {
+  return {
+    hook_event_name: "PostToolUse",
+    tool_name: "Write",
+    cwd: dir,
+    tool_input: { file_path: join(dir, file) },
+    ...extra,
+  };
+}
+
+// Same fixture shape as lint.test.mjs: clean scene at 0–10, 3s dead tail at
+// 15–25.
+function project({ scenes, indexed = true } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-hook-"));
+  const src = join(dir, "src.mp4");
+  writeFileSync(src, "stub");
+  mkdirSync(join(dir, "work", "analysis"), { recursive: true });
+  if (indexed) {
+    writeFileSync(
+      join(dir, "work", "analysis", `src_${fileStamp(src)}.analysis.json`),
+      JSON.stringify({
+        version: 4, file: src, duration: 30, hasAudio: true,
+        words: [
+          { start: 0.3, end: 0.6, text: "We" },
+          { start: 0.7, end: 1.1, text: "met" },
+          { start: 1.2, end: 9.2, text: "here." },
+          { start: 15.2, end: 15.5, text: "I" },
+          { start: 15.6, end: 22.0, text: "do." },
+          { start: 26.5, end: 27.0, text: "What's" },
+          { start: 27.1, end: 27.5, text: "next?" },
+        ],
+        silences: { "-40dB": [{ start: 9.2, end: 15.2 }, { start: 22.0, end: 26.5 }, { start: 27.5, end: null }] },
+      })
+    );
+  }
+  writeFileSync(join(dir, "edit.json"), JSON.stringify({ version: 1, scenes }));
+  return dir;
+}
+
+const CLEAN = { id: 1, slug: "met", source: "src.mp4", start: 0, end: 10, status: "locked" };
+const DEAD_TAIL = { id: 2, slug: "vows", source: "src.mp4", start: 15, end: 25, status: "locked" };
+
+test("a manifest write with findings surfaces a compact summary and never blocks", () => {
+  const dir = project({ scenes: [CLEAN, DEAD_TAIL] });
+  const { status, stdout } = runHook(writeEvent(dir, "edit.json"), dir);
+  assert.equal(status, 0);
+  const out = JSON.parse(stdout);
+  assert.equal(out.hookSpecificOutput.hookEventName, "PostToolUse");
+  assert.equal(out.suppressOutput, true);
+  assert.equal("decision" in out, false);
+  const context = out.hookSpecificOutput.additionalContext;
+  assert.match(context, /1 block, 0 warn/);
+  assert.match(context, /\[DEAD_AIR_TAIL\] vows:/);
+  assert.match(context, /run `ripple lint` for the full report/);
+});
+
+test("a clean manifest write stays silent", () => {
+  const dir = project({ scenes: [CLEAN] });
+  const { status, stdout } = runHook(writeEvent(dir, "edit.json"), dir);
+  assert.equal(status, 0);
+  assert.equal(stdout, "");
+});
+
+test("fully waived findings stay quiet — the waiver already spoke", () => {
+  const dir = project({
+    scenes: [{ ...DEAD_TAIL, waivers: [{ rule: "DEAD_AIR_TAIL", reason: "the silence is the scene" }] }],
+  });
+  const { status, stdout } = runHook(writeEvent(dir, "edit.json"), dir);
+  assert.equal(status, 0);
+  assert.equal(stdout, "");
+});
+
+test("non-manifest writes are ignored in total silence", () => {
+  const dir = project({ scenes: [CLEAN, DEAD_TAIL] });
+  writeFileSync(join(dir, "notes.txt"), "version scenes edit.json");
+  writeFileSync(join(dir, "data.json"), JSON.stringify({ version: 1, items: [] }));
+  for (const file of ["notes.txt", "data.json"]) {
+    const { status, stdout } = runHook(writeEvent(dir, file), dir);
+    assert.equal(status, 0, file);
+    assert.equal(stdout, "", file);
+  }
+});
+
+test("a manifest under another name is sniffed by its schema markers", () => {
+  const dir = project({ scenes: [CLEAN, DEAD_TAIL] });
+  writeFileSync(join(dir, "wedding-cut.json"), readFileSync(join(dir, "edit.json")));
+  const { status, stdout } = runHook(writeEvent(dir, "wedding-cut.json"), dir);
+  assert.equal(status, 0);
+  assert.match(JSON.parse(stdout).hookSpecificOutput.additionalContext, /DEAD_AIR_TAIL/);
+});
+
+test("broken JSON on stdin fails open: exit 0, debug note only", () => {
+  const { status, stdout } = runHook("{not json", tmpdir());
+  assert.equal(status, 0);
+  assert.match(stdout, /fail-open/);
+});
+
+test("an unreadable manifest fails open instead of erroring the write", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-hook-"));
+  writeFileSync(join(dir, "edit.json"), "{not json");
+  const { status, stdout } = runHook(writeEvent(dir, "edit.json"), dir);
+  assert.equal(status, 0);
+  assert.match(stdout, /fail-open/);
+});
+
+test("a scene with no cached index surfaces NO_INDEX without blocking", () => {
+  const dir = project({ scenes: [CLEAN], indexed: false });
+  const { status, stdout } = runHook(writeEvent(dir, "edit.json"), dir);
+  assert.equal(status, 0);
+  assert.match(JSON.parse(stdout).hookSpecificOutput.additionalContext, /\[NO_INDEX\]/);
+});
+
+test("Codex apply_patch envelopes reach the same lint", () => {
+  const dir = project({ scenes: [CLEAN, DEAD_TAIL] });
+  const patch = [
+    "*** Begin Patch",
+    "*** Update File: edit.json",
+    "@@",
+    '+{"version": 1}',
+    "*** End Patch",
+  ].join("\n");
+  // Spawn cwd differs from the event cwd on purpose: relative patch paths
+  // must resolve against the event's cwd, not the hook process's.
+  const { status, stdout } = runHook(
+    { hook_event_name: "PostToolUse", tool_name: "apply_patch", cwd: dir, tool_input: { command: patch } },
+    tmpdir()
+  );
+  assert.equal(status, 0);
+  assert.match(JSON.parse(stdout).hookSpecificOutput.additionalContext, /\[DEAD_AIR_TAIL\] vows:/);
 });

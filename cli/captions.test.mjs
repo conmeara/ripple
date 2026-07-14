@@ -30,6 +30,29 @@ test("mapWordsToOutput: bodies, J-cut heads, and L-cut tails all land in output 
   ]);
 });
 
+test("suspect words never become captions — excluded from mapping and the emitted srt/ass", () => {
+  const scenes = [{ slug: "a", source: "s.mov", start: 10, end: 14 }];
+  const timeline = assemblyTimeline(scenes);
+  const words = {
+    "s.mov": [
+      W(10.2, 10.8, "hello"),
+      { ...W(11.5, 12.1, "Thanks"), suspect: true, suspectReason: "in-silence" }, // fabricated mid-scene
+      W(12.4, 12.9, "again"),
+    ],
+  };
+  const { words: mapped, dropped, suspects } = mapWordsToOutput(timeline, words);
+  assert.equal(suspects, 1);
+  assert.equal(dropped, 0); // a fabrication is not a "real word outside the cut"
+  assert.deepEqual(mapped.map((m) => m.text), ["hello", "again"]);
+  const chunks = chunkCaptions(mapped, "subtitle");
+  const srt = toSrt(chunks);
+  const ass = toAss(chunks);
+  assert.ok(!srt.includes("Thanks"), srt);
+  assert.ok(!ass.includes("Thanks"), ass);
+  assert.match(srt, /hello/);
+  assert.match(ass, /again/);
+});
+
 test("chunkCaptions subtitle: sentence breaks, silence gaps, min duration", () => {
   const words = [
     { start: 0, end: 0.4, text: "Hi.", segIndex: 0 },

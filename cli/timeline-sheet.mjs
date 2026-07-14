@@ -127,6 +127,25 @@ const COLORS = {
   sentence: "#8fd47a",
 };
 
+// Transcript-lane draw commands. Suspect words (whisper fabrications the
+// index keeps, flagged) stay VISIBLE — dimmed to the ruler's muted tick
+// gray with a '?' prefix — because a lane that silently hides what whisper
+// wrote would misrepresent the index; the reader must see the fabrication
+// AND see at a glance that it isn't trusted. Exported pure so the treatment
+// is assertable without a render.
+export function wordLaneDraws(placed, { px, textY, laneH }) {
+  const draw = [];
+  for (const w of placed) {
+    draw.push("-fill", "none", "-stroke", w.suspect ? COLORS.tick : COLORS.wave, "-strokewidth", "1",
+      "-draw", `line ${px(w.start)},${textY} ${px(w.start)},${w.lane === null ? textY + 8 : textY + 10 + w.lane * laneH}`);
+    if (w.lane === null) continue;
+    const safe = (w.suspect ? `?${w.text}` : w.text).replace(/['"\\]/g, "");
+    if (safe) draw.push("-stroke", "none", "-fill", w.suspect ? COLORS.tick : COLORS.word, "-pointsize", "18",
+      "-draw", `text ${px(w.start)},${textY + 24 + w.lane * laneH} '${safe}'`);
+  }
+  return draw;
+}
+
 // Render the sheet PNG. Exported for candidates (cut cards share this path).
 // Returns { sheet, geometry, crowded, degraded }. Library function: failures
 // THROW (callers degrade gracefully); only main() converts to fail().
@@ -319,14 +338,7 @@ export function renderSheet({
     if (wordMode) {
       const layout = layoutLanes(wordsInWindow, { start, end, width, lanes: LANES, fontPx: 18 });
       crowded = layout.crowded;
-      for (const w of layout.placed) {
-        draw.push("-fill", "none", "-stroke", COLORS.wave, "-strokewidth", "1",
-          "-draw", `line ${x(w.start)},${textY} ${x(w.start)},${w.lane === null ? textY + 8 : textY + 10 + w.lane * LANE_H}`);
-        if (w.lane === null) continue;
-        const safe = w.text.replace(/['"\\]/g, "");
-        if (safe) draw.push("-stroke", "none", "-fill", COLORS.word, "-pointsize", "18",
-          "-draw", `text ${x(w.start)},${textY + 24 + w.lane * LANE_H} '${safe}'`);
-      }
+      draw.push(...wordLaneDraws(layout.placed, { px: x, textY, laneH: LANE_H }));
     } else {
       for (const t of index?.sentenceEnds ?? []) {
         if (t < start || t > end) continue;
@@ -457,6 +469,7 @@ export async function main(argv) {
 
   // Everything drawn is also here as numbers — decide on these, not pixels.
   const wordsIn = (index.words ?? []).filter((w) => w.end > start && w.start < end);
+  const suspectsIn = wordsIn.filter((w) => w.suspect);
   const silenceRef = referenceSilences(index).map((s) => ({ ...s, end: s.end ?? duration }));
   // Timing is only meaningful for an unambiguous cut range: an explicit
   // --scene, or exactly one IN/OUT pair from the same scene (or unscoped
@@ -488,6 +501,9 @@ export async function main(argv) {
       : {}),
     ...(timing ? { timing } : {}),
     words: wordsIn.length,
+    ...(suspectsIn.length
+      ? { suspectWords: suspectsIn.map((w) => ({ start: w.start, end: w.end, text: w.text, reason: w.suspectReason })) }
+      : {}),
     ...(result.crowded ? { crowdedWords: result.crowded } : {}),
     silences: silenceRef.filter((s) => s.end > start && s.start < end)
       .map((s) => ({ start: Math.max(round3(s.start), round3(start)), end: Math.min(round3(s.end), round3(end)) })),
@@ -500,6 +516,9 @@ export async function main(argv) {
       mode === "overview"
         ? "Overview mode: green ticks are sentence ends. Zoom with --around <t> --span 12 before locking any cut."
         : "Detail mode: every word tick is drawn; crowded labels degrade to bare ticks.",
+      ...(suspectsIn.length
+        ? ["Dim gray '?'-prefixed words are suspect — whisper fabrications over silence/music (see suspectWords). Never anchor a cut to one."]
+        : []),
     ],
   });
 }

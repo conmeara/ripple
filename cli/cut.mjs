@@ -240,13 +240,39 @@ export function jumpCutReading(score, { min = 3, max = 18 } = {}) {
   return "clean change";
 }
 
+// Registry-tagged advisory finding (rules.mjs: "jump-cut") for a scored
+// direct join; null when the score reads continuous or as a clean change.
+// Warn severity — cut never blocks a render ffmpeg completed; lint and qa
+// hold the block-level gates.
+export function jumpCutFinding(a, b, score) {
+  if (jumpCutReading(score) !== "jump-cut risk") return null;
+  return {
+    rule: "jump-cut",
+    join: `${a.slug}→${b.slug}`,
+    score,
+    detail: `possible jump cut at ${a.slug}→${b.slug} (frame diff ${score}: same setup, visible mismatch) — a card, cutaway, or bigger reframe hides it`,
+  };
+}
+
+// Registry-tagged advisory finding (rules.mjs: "off-beat") when a beat check
+// found boundaries off the music grid; null when on-grid or unchecked.
+export function offBeatFinding(beatCheck) {
+  if (!beatCheck?.offGrid) return null;
+  return {
+    rule: "off-beat",
+    offGrid: beatCheck.offGrid,
+    detail: `${beatCheck.offGrid} visual boundar${beatCheck.offGrid === 1 ? "y lands" : "ies land"} off the music grid (±${ON_BEAT_TOLERANCE}s) — see music.beatCheck.boundaries; on-beat is a style choice, knowing you're off is perception`,
+  };
+}
+
 // Direct joins to score: adjacent scene pairs where the incoming scene has
-// no card (a card between scenes hides any mismatch).
+// no card and no transition — a card between scenes hides any mismatch, and
+// a dissolve/fadeblack bridge means the two frames never sit adjacent.
 export function directJoins(scenes) {
   const joins = [];
   for (let i = 0; i + 1 < scenes.length; i++) {
     const next = scenes[i + 1];
-    if (!(next.card || next.cardFile)) joins.push([scenes[i], next]);
+    if (!(next.card || next.cardFile) && !next.transition) joins.push([scenes[i], next]);
   }
   return joins;
 }
@@ -543,7 +569,7 @@ export async function main(argv) {
   const cardsDir = ensureDir(join(baseDir, "work", `cards${dirSuffix}`));
   const outputsDir = ensureDir(join(baseDir, "outputs"));
 
-  const rendered = { clips: [], segments: [], warnings: [enc.warning, gradeSkipped].filter(Boolean) };
+  const rendered = { clips: [], segments: [], warnings: [enc.warning, gradeSkipped].filter(Boolean), findings: [] };
   // Aligned with rendered.segments: what buildAssemblyFilter needs to fold
   // transitioned joins (exact -t durations + the incoming transition).
   const segMeta = [];
@@ -701,11 +727,10 @@ export async function main(argv) {
           if (res.status === 0 && existsSync(p)) frames.push(parsePgm(readFileSync(p)).pixels);
         }
         if (frames.length === 2) {
-          const score = round3(meanAbsDiff(frames[0], frames[1]));
-          if (jumpCutReading(score) === "jump-cut risk") {
-            rendered.warnings.push(
-              `possible jump cut at ${a.slug}→${b.slug} (frame diff ${score}: same setup, visible mismatch) — a card, cutaway, or bigger reframe hides it`
-            );
+          const finding = jumpCutFinding(a, b, round3(meanAbsDiff(frames[0], frames[1])));
+          if (finding) {
+            rendered.warnings.push(finding.detail);
+            rendered.findings.push(finding);
           }
         }
       }
@@ -773,11 +798,14 @@ export async function main(argv) {
           return { ...b, beatOffset: round3(b.t - nearest) };
         });
         beatCheck = {
+          rule: "off-beat",
           bpm: record.bpm,
           confidence: record.confidence,
           offGrid: boundaries.filter((b) => Math.abs(b.beatOffset) > ON_BEAT_TOLERANCE).length,
           boundaries,
         };
+        const offBeat = offBeatFinding(beatCheck);
+        if (offBeat) rendered.findings.push(offBeat);
       }
     } catch (e) {
       rendered.warnings.push(`beat check skipped: ${e.message}`);
@@ -795,6 +823,7 @@ export async function main(argv) {
     final: finalPath,
     music: music ? { source: music.source, applied: Boolean(finalPath), ...(beatCheck ? { beatCheck } : {}) } : undefined,
     ...(snapshotPath ? { snapshot: snapshotPath } : {}),
+    ...(rendered.findings.length ? { findings: rendered.findings } : {}),
     warnings: rendered.warnings,
     next: finalPath
       ? `Run: ripple qa ${finalPath} --manifest ${manifestPath}  — then READ a frame sheet of it.`

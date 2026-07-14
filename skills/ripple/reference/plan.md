@@ -26,7 +26,12 @@ from it: one scene per AV row, same slug, `title` from the visual column,
 4. **Draft edit.json** (schema: `schemas/edit.schema.json` in the plugin).
    For each scene: id, slug, source, proposed start/end from transcript
    timestamps, chosen take, and **reasoning** — one line on why this take and
-   these bounds. Mark every scene `status: "proposed"`.
+   these bounds. Mark every scene `status: "proposed"`. Then `ripple lint
+   edit.json`: the same rules `candidates` flags one range at a time, applied
+   to every scene from the cached index (registry: `reference/rules.md`). On
+   proposed bounds its findings are the worklist `edit` will clear, not
+   blockers — and a plugin hook re-runs the check on every manifest write,
+   so they stay visible as the draft evolves.
 5. **Look at what you plan to use.** Start with `ripple timeline-sheet <src>`
    — the whole source on one time axis: waveform bursts between silence are
    the take structure, green ticks are sentence ends, the motion strip shows

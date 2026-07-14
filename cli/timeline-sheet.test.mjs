@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { existsSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
-  downsampleTrack, layoutLanes, manifestMarkers, parseMarkers, rulerSteps,
+  downsampleTrack, layoutLanes, manifestMarkers, parseMarkers, renderSheet, rulerSteps, wordLaneDraws,
 } from "./timeline-sheet.mjs";
+import { findTool, run } from "./util.mjs";
+
+const ffmpeg = findTool(["ffmpeg"]);
 
 test("parseMarkers reads t:label pairs, bare times, and junk", () => {
   assert.deepEqual(parseMarkers("209:IN,233.3:OUT howmet"), [
@@ -56,6 +62,69 @@ test("layoutLanes places words greedily and reports crowding", () => {
   assert.equal(crowded, 1);
   assert.equal(placed[4].lane, 0);
   assert.equal(placed[4].x, 500);
+});
+
+test("wordLaneDraws keeps suspect words visible but dimmed with a '?' marker", () => {
+  const { placed } = layoutLanes([
+    { start: 1, end: 1.4, text: "real" },
+    { start: 5, end: 5.5, text: "ghost", suspect: true, suspectReason: "over-music" },
+  ], { start: 0, end: 10, width: 1000 });
+  const px = (t) => Math.round((t / 10) * 1000);
+  const draw = wordLaneDraws(placed, { px, textY: 100, laneH: 30 });
+
+  // Text draws push [..., "-fill", COLOR, "-pointsize", "18", "-draw", value]
+  // — the color sits 4 slots before the draw value. Trusted words render
+  // bright; suspects reuse the ruler's muted tick gray and gain a '?'.
+  const realText = draw.findIndex((d) => d.includes("'real'"));
+  const ghostText = draw.findIndex((d) => d.includes("'?ghost'"));
+  assert.notEqual(realText, -1);
+  assert.notEqual(ghostText, -1, draw.join(" | "));
+  assert.equal(draw[realText - 4], "#f0f0f0");
+  assert.equal(draw[ghostText - 4], "#8a8a8a");
+  assert.ok(!draw.some((d) => d.includes("'ghost'"))); // never drawn unmarked
+
+  // The tick line dims too (px(5) = 500).
+  const ghostTick = draw.findIndex((d) => d.startsWith("line 500"));
+  assert.equal(draw[ghostTick - 4], "#8a8a8a");
+  const realTick = draw.findIndex((d) => d.startsWith("line 100"));
+  assert.equal(draw[realTick - 4], "#53a6ff");
+});
+
+test("renderSheet renders a window containing suspect words", { skip: !ffmpeg }, () => {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-tsheet-"));
+  const file = join(dir, "clip.mp4");
+  const gen = run(ffmpeg, [
+    "-hide_banner", "-v", "error", "-y",
+    "-f", "lavfi", "-i", "testsrc=s=64x36:r=10:d=3",
+    "-pix_fmt", "yuv420p", file,
+  ]);
+  assert.equal(gen.status, 0, gen.stderr);
+
+  // Hand-built index: hasAudio false keeps the waveform synthetic, so the
+  // fixture needs no audio stream or whisper run.
+  const index = {
+    hasAudio: false,
+    duration: 3,
+    silences: { "-40dB": [] },
+    words: [
+      { start: 0.5, end: 0.9, text: "real" },
+      { start: 2.0, end: 2.4, text: "ghost", suspect: true, suspectReason: "in-silence" },
+    ],
+  };
+
+  // renderSheet writes its scratch under cwd/qa/frame-sheets — keep that
+  // inside the fixture dir, not the repo.
+  const prevCwd = process.cwd();
+  process.chdir(dir);
+  try {
+    const out = join(dir, "sheet.png");
+    const result = renderSheet({ file, start: 0, end: 3, out, width: 320, index });
+    assert.equal(result.sheet, out);
+    assert.ok(existsSync(out));
+    assert.equal(result.geometry.width, 320);
+  } finally {
+    process.chdir(prevCwd);
+  }
 });
 
 test("downsampleTrack preserves peaks", () => {

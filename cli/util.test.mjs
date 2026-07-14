@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { detectHdr, parseArgs, parseLoudnorm, parseSilence, round3, silenceEdges } from "./util.mjs";
+import { mkdirSync, mkdtempSync, renameSync, utimesSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { detectHdr, fileStamp, parseArgs, parseLoudnorm, parseSilence, round3, silenceEdges } from "./util.mjs";
 import { contentGatePlan } from "./qa.mjs";
 
 test("content gates run whenever a transcript is available or obtainable", () => {
@@ -17,6 +20,47 @@ test("content gates fail loudly instead of skipping when verification is expecte
 
 test("content gates skip (excluded from totals) only when nothing expects them", () => {
   assert.equal(contentGatePlan({ hasTranscript: false, transcribeRequested: false, whisperReady: true, expectsContent: false }), "skip");
+});
+
+test("fileStamp keys on content: a moved source keeps its stamp", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-stamp-"));
+  const a = join(dir, "a.mp4");
+  writeFileSync(a, "the same bytes");
+  const before = fileStamp(a);
+  assert.match(before, /^[0-9a-f]{12}$/);
+  mkdirSync(join(dir, "footage"));
+  const b = join(dir, "footage", "a.mp4");
+  renameSync(a, b);
+  // The move must HIT the cache — moving footage is free, re-running whisper is minutes.
+  assert.equal(fileStamp(b), before);
+});
+
+test("fileStamp ignores mtime but changes with content and size", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-stamp-"));
+  const f = join(dir, "clip.mp4");
+  writeFileSync(f, "aaaaaaaaaa");
+  const original = fileStamp(f);
+  utimesSync(f, new Date(2000, 0, 1), new Date(2000, 0, 1));
+  assert.equal(fileStamp(f), original); // a touch is not a new file
+  writeFileSync(f, "baaaaaaaaa"); // same size, different head bytes
+  assert.notEqual(fileStamp(f), original);
+  writeFileSync(f, "aaaaaaaaaaa"); // size change alone
+  assert.notEqual(fileStamp(f), original);
+});
+
+test("fileStamp tradeoff: an edit outside both 64KB windows is invisible", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-stamp-"));
+  const f = join(dir, "big.bin");
+  const buf = Buffer.alloc(200 * 1024, 7);
+  writeFileSync(f, buf);
+  const before = fileStamp(f);
+  buf[100 * 1024] = 8; // middle of the file: same size, both windows intact
+  writeFileSync(f, buf);
+  // Accepted (documented in util.mjs): real re-exports virtually always change size.
+  assert.equal(fileStamp(f), before);
+  buf[200 * 1024 - 1] = 9; // inside the tail window
+  writeFileSync(f, buf);
+  assert.notEqual(fileStamp(f), before);
 });
 
 test("parseSilence extracts spans from ffmpeg stderr", () => {

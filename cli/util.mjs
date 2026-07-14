@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
 export function run(cmd, args, opts = {}) {
   const result = spawnSync(cmd, args, {
@@ -97,14 +97,28 @@ export function rippleHome() {
   return ensureDir(join(homedir(), ".ripple"));
 }
 
-// Cache stem for a source file. The path is resolved first — a relative and
-// an absolute invocation must land on the SAME cache, not silently rebuild.
+// Cache stem for a source file, keyed on CONTENT — sha1 of (first 64KB +
+// last 64KB + size) — never on path or mtime: moving a source to another
+// folder must HIT its analysis, wav, proxy, and transcript caches, not
+// throw away minutes of whisper. (Consumers prefix the stem with the
+// basename, so renaming the file itself still rebuilds.) Accepted
+// tradeoff: an in-place edit that preserves the size and both 64KB windows
+// would wrongly reuse the cache — real re-exports virtually always change
+// size.
 export function fileStamp(file) {
-  const st = statSync(file);
-  return createHash("sha1")
-    .update(`${resolve(file)}:${st.size}:${st.mtimeMs}`)
-    .digest("hex")
-    .slice(0, 12);
+  const { size } = statSync(file);
+  const hash = createHash("sha1");
+  const fd = openSync(file, "r");
+  try {
+    const buf = Buffer.alloc(Math.min(65536, size));
+    if (buf.length) {
+      hash.update(buf.subarray(0, readSync(fd, buf, 0, buf.length, 0)));
+      hash.update(buf.subarray(0, readSync(fd, buf, 0, buf.length, Math.max(0, size - buf.length))));
+    }
+  } finally {
+    closeSync(fd);
+  }
+  return hash.update(`:${size}`).digest("hex").slice(0, 12);
 }
 
 export function fileExists(p) {

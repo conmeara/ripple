@@ -10,11 +10,20 @@ Decide with the numbers; confirm with your eyes on the sheet.
 ## Layer 1 — `ripple analyze <src>`: the index
 
 Run once per source (plan does this); everything downstream slices its cached
-JSON. ~1 min for a 13-min 4K source, then free. It contains:
+JSON. ~1 min for a 13-min 4K source, then free. The cache is keyed on the
+file's CONTENT, not its path — footage moved to another folder keeps its
+index; renaming or re-exporting the file rebuilds it. It contains:
 
 - `words` — word-level timings, **fused with the silence map** (whisper alone
   stretches word ends across trailing silence and smears resumed speech
-  backwards into pauses; the index corrects both)
+  backwards into pauses; the index corrects both). Words whisper fabricated
+  over silence or music carry `suspect: true` (`suspectReason`:
+  `in-silence` — the whole word sits inside measured silence with no RMS
+  energy; `over-music` — an isolated island in continuous audio with no word
+  neighbors). Suspect words are visible-but-ignored everywhere: every timing
+  number, `search`, and `captions` filter them (captions reports
+  `suspectWordsExcluded`), and the sheets draw them dimmed. **Never anchor a
+  cut to one.**
 - `silences` (3 thresholds) and `speech` spans
 - `sentences` — bounds, text, `wps` (words/sec: slow, weighted delivery
   earns a longer tail), and **prosody**: `terminalPitch`
@@ -46,8 +55,19 @@ and a confidence gate that auto-reports "no grid" on speech. When
 offset from the grid (`music.beatCheck`) — cutting on the beat is a style
 choice; knowing you're 140ms off is perception.
 
-Don't `cat` the index (it's thousands of entries); slice it with jq or view
-it through the sheet.
+Don't `cat` the index (it's thousands of entries). Read it through `ripple
+describe <src>` — the sheet's text twin, the numbers channel beside the
+sheet's picture channel. Pure cache reads: instant, no ffmpeg, no whisper,
+safe to call as often as the reasoning needs. Overview mode is the digest:
+per-sentence rows (duration, wps, terminalPitch, `gapAfter` — the pause the
+speaker left, `breathAfter`), silences, reaction beats sorted longest-first,
+fillers, motion character; long sources collapse into groups plus `notable`
+rows (longest gaps, slowest/fastest delivery). Zoom
+(`--around T --span 12`) gives word-level detail with `fuzzy: true` marking
+post-pause timestamps; `--manifest edit.json` renders per-scene endpoint
+verdicts for the whole cut. Every duration arrives pre-computed — reason
+with the printed numbers, never subtract timestamps yourself. jq stays for
+exotic queries describe doesn't answer.
 
 ## Layer 2 — `ripple timeline-sheet`: look like an editor
 
@@ -57,7 +77,10 @@ with shading / word-aligned transcript, plus orange cut markers.
 - **Red shading** = silence. **Amber** = audible but wordless (a laugh, a
   clap — check it before cutting through it). **Green ticks** (overview) =
   sentence ends, the legal OUT lattice. **White blips** in the motion strip =
-  movement; black = stillness.
+  movement; black = stillness. **Dim-gray `?`-prefixed words** in the
+  transcript lane = suspect (whisper fabrications over silence/music; the
+  envelope lists them as `suspectWords`) — kept visible so the lane never
+  silently edits itself, ignored by every timing number.
 - Protocol: overview first (`--manifest edit.json` draws every scene bound),
   then zoom `--around <t> --span 12` (or `--scene <slug>`) before locking
   anything. A cut line touching the next waveform burst is a leak you can

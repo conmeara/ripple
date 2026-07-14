@@ -8,7 +8,16 @@ import { detectHdr, fail, ffprobeJson, fileStamp, output, parseArgs, readJsonOrN
 
 const MEDIA_RE = /\.(mov|mp4|mkv|webm|m4v|avi|mts|m2ts|mxf|mp3|wav|m4a|aac|flac|aiff|ogg)$/i;
 // Derived/managed dirs an editor's bin never shows.
-const SKIP_DIRS = new Set(["work", "clips", "outputs", "qa", "handoff", "node_modules", ".git", ".ripple"]);
+const SKIP_DIRS = new Set(["work", "outputs", "qa", "handoff", "node_modules", ".git", ".ripple"]);
+// cut.mjs derives per-preset clip dirs as "clips" + `_${preset}` (clips/,
+// clips_vertical/, clips_square/, any future preset) — cut.mjs dirSuffix is
+// the source of truth. Counting ripple's own derived clips as project
+// sources made status report phantom unindexed footage after a preset cut.
+const CLIPS_DIR_RE = /^clips(_.+)?$/;
+
+function skipDir(name) {
+  return SKIP_DIRS.has(name) || CLIPS_DIR_RE.test(name);
+}
 
 export function findMedia(root, { maxDepth = 3 } = {}) {
   const found = [];
@@ -23,7 +32,7 @@ export function findMedia(root, { maxDepth = 3 } = {}) {
       if (e.name.startsWith(".")) continue;
       const full = join(dir, e.name);
       if (e.isDirectory()) {
-        if (!SKIP_DIRS.has(e.name) && depth < maxDepth) walk(full, depth + 1);
+        if (!skipDir(e.name) && depth < maxDepth) walk(full, depth + 1);
       } else if (MEDIA_RE.test(e.name)) {
         found.push(full);
       }

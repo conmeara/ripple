@@ -23,6 +23,12 @@ const COMMANDS = {
     usage: `  sources [dir]                   The bins panel: every media file with duration/codec/HDR and
                                   whether the perception index has seen it`,
   },
+  status: {
+    load: () => import("./status.mjs"),
+    usage: `  status [dir]                    git-status for the edit: sources/index state, manifest findings,
+      [--manifest edit.json]      render freshness, last QA, history — and the next-command verdict
+      [--analysis-dir dir]        (cached facts only: no ffprobe, no whisper, no writes)`,
+  },
   search: {
     load: () => import("./search.mjs"),
     usage: `  search "phrase" [files...]      Find where anyone says it, word-accurate, across all indexed
@@ -86,10 +92,24 @@ const COMMANDS = {
       [--marks "A:493.5,B:494.2"]     lettered candidate anchors (image ↔ JSON share IDs)
       [--out path] [--width 1920] [--force] [--no-proxy]`,
   },
+  describe: {
+    load: () => import("./describe.mjs"),
+    usage: `  describe <file>                 The timeline sheet's text twin: the index/manifest as a compact
+      [--around T --span 12]      digest — sentence table with pace/pitch/gaps, silences, reaction
+      [--start S --end E]         beats, fillers; zoom (--around/--start) = word-level detail
+      [--manifest edit.json [--scene slug]]   per-scene endpoint verdicts for the whole cut
+      [--analysis-dir dir] [--out path]`,
+  },
   beats: {
     load: () => import("./beats.mjs"),
     usage: `  beats <audio>                   Beat grid for a music bed: bpm + beat times + confidence
       [--out dir] [--force]       (auto-reports "no grid" on non-periodic audio like speech)`,
+  },
+  lint: {
+    load: () => import("./lint.mjs"),
+    usage: `  lint [edit.json]                Pre-render rule check from cached perception only: every scene's
+      [--scene slug]              endpoint flags + waiver accounting — exit 1 on unwaived block
+      [--analysis-dir dir] [--video-md path] [--max-tail 1.0] [--max-lead 0.5]  findings`,
   },
   cut: {
     load: () => import("./cut.mjs"),
@@ -126,12 +146,21 @@ const COMMANDS = {
     usage: `  grade <file>                    Same-frame grading variants; --choose records the pick
       [--at s] [--variants warm,cool,...] | --choose <preset> [--manifest edit.json]`,
   },
+  study: {
+    load: () => import("./study.mjs"),
+    usage: `  study <file-or-url>             Taste extraction from a reference edit: cutting rhythm, pacing,
+      [--out dir] [--force]       tail preference, silence/energy character, grade fingerprint →
+                                  proposed VIDEO.md values with the measurement behind each
+                                  (URLs fetched via yt-dlp, cached in ~/.ripple/study)`,
+  },
   qa: {
     load: () => import("./qa.mjs"),
     usage: `  qa <file> [--manifest edit.json]
       [--clips-dir clips] [--expect-clips N] [--transcript path] [--transcribe]
       [--max-tail-silence 1.0] [--max-leading-silence 0.5] [--no-snapshot]
-                                  Deterministic delivery gates + trend snapshots`,
+                                  Deterministic delivery gates + trend snapshots
+                                  (--manifest defaults to the project's edit.json /
+                                  work/edit.json so cards stay explained)`,
   },
   review: {
     load: () => import("./review.mjs"),

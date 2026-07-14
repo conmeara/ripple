@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadAnalysis, referenceSilences, resolveProxy } from "./analyze.mjs";
 import { cropFilter } from "./frame-sheet.mjs";
+import { endpointFlags, projectOverrides } from "./rules.mjs";
 import { cutTiming } from "./timing.mjs";
 import { renderSheet } from "./timeline-sheet.mjs";
 import { resolveModel, transcribeFile } from "./transcribe.mjs";
@@ -9,59 +10,10 @@ import {
   ensureDir, fail, findTool, output, parseArgs, parseSilence, requireTool, round3, run, silenceEdges,
 } from "./util.mjs";
 
-// Categorical verdicts, not vibes: the numbers say whether a cut range is
-// clean, and each red flag names the exact failure it prevents. A real
-// session shipped two next-question leaks because "tail silence: 0" read as
-// a pass and the transcript was untimed text.
-export function endpointFlags(timing, silence, { maxTail = 1.0, maxLead = 0.5, end }) {
-  const flags = [];
-  const zeroTailEverywhere = Object.values(silence).every((s) => s.tail === 0);
-  // Zero tail silence means audio at the cut — but when word timing shows a
-  // clean positive gap after the last word (no straddle), the "audio" is
-  // just a cut placed right after speech ends: expected, not a defect. The
-  // flag fires only when word data is absent or corroborates it.
-  const corroborated = !timing || timing.straddleEnd !== null ||
-    timing.wordsInRange === 0 ||
-    (timing.tailGap !== null && timing.tailGap < 0.15);
-  if (zeroTailEverywhere && corroborated) {
-    flags.push({
-      flag: "SPEECH_AT_OUT",
-      detail: "tail silence is 0 at every threshold — someone is speaking at the cut point. This is a red flag, not a pass.",
-    });
-  }
-  if (!timing) return flags;
-  if (timing.straddleEnd) {
-    flags.push({
-      flag: "MID_WORD_OUT",
-      detail: `the cut lands inside the word "${timing.straddleEnd}"`,
-    });
-  }
-  if (timing.nextWordStart !== null && timing.nextWordStart < end - 0.05) {
-    flags.push({
-      flag: "NEXT_SPEECH_INSIDE",
-      detail: `next speech starts at ${timing.nextWordStart}s, INSIDE this range (ends ${end}s): "${timing.nextText}"`,
-    });
-  }
-  if (timing.tailGap !== null && timing.tailGap > maxTail) {
-    flags.push({
-      flag: "DEAD_AIR_TAIL",
-      detail: `${timing.tailGap}s of nothing after the last word (bound ${maxTail}s) — cut at lastWordEnd + tail preference`,
-    });
-  }
-  if (timing.straddleStart) {
-    flags.push({
-      flag: "MID_WORD_IN",
-      detail: `the range starts inside the word "${timing.straddleStart}"`,
-    });
-  }
-  if (timing.leadGap !== null && timing.leadGap > maxLead) {
-    flags.push({
-      flag: "LATE_FIRST_WORD",
-      detail: `${timing.leadGap}s before the first word (bound ${maxLead}s) — move the IN toward firstWordStart`,
-    });
-  }
-  return flags;
-}
+// The red-flag implementation lives in rules.mjs (the rule registry) so
+// candidates and lint judge a range with the SAME code — re-exported here
+// because this is where editing sessions historically imported it from.
+export { endpointFlags };
 
 // Mechanical OUT suggestion: last word's acoustic end plus a breath of tail,
 // capped so it can never reach the next speech. When no clean gap exists
@@ -156,9 +108,17 @@ export async function main(argv) {
     const spans = parseSilence(res.stderr);
     silence[`${db}dB`] = { ...silenceEdges(spans, duration), spans: spans.length };
   }
+  // Project-tier retunes (VIDEO.md at the cwd project root, same anchor as
+  // work/analysis) apply here exactly as at the lint gate — the same range
+  // must never flag differently at the two moments. An explicit flag
+  // outranks the retune (rules.mjs projectOverrides precedence).
+  const project = projectOverrides(join(process.cwd(), "VIDEO.md"), {
+    maxTail: args["max-tail"],
+    maxLead: args["max-lead"],
+  });
   const flags = endpointFlags(timing, silence, {
-    maxTail: args["max-tail"] ?? 1.0,
-    maxLead: args["max-lead"] ?? 0.5,
+    maxTail: project.maxTail,
+    maxLead: project.maxLead,
     end: args.end,
   });
   // A nudge only helps when the range ends where it means to. Ending
@@ -263,6 +223,8 @@ export async function main(argv) {
     timing,
     ...(timing === null && index.wordsNote ? { timingNote: index.wordsNote } : {}),
     flags,
+    // Retunes are never silent: echo them exactly as lint does.
+    ...(project.overrides.length ? { overrides: project.overrides } : {}),
     suggestedOut,
     silence,
     strips,

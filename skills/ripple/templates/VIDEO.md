@@ -1,3 +1,13 @@
+---
+# Project-tier rule overrides — `ripple lint` reads this block. Retune a
+# rule's threshold or waive it project-wide; EVERY entry needs a reason
+# (a waiver without one is ignored and reported as a warn finding).
+# Registry of rule ids: the skill's reference/rules.md. Examples:
+#   DEAD_AIR_TAIL: {maxTail: 2.5, reason: "contemplative piece — long tails are the point"}
+#   NEXT_SPEECH_INSIDE: {waive: true, reason: "single-take monologue, no prompts to leak"}
+rules: {}
+---
+
 # VIDEO.md — standing direction for this project
 
 <!-- Created by /ripple init. The agent reads this before every editing task

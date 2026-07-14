@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { loadAnalysis } from "./analyze.mjs";
 import { assemblyTimeline } from "./cut.mjs";
+import { realWords } from "./timing.mjs";
 import { ensureDir, fail, ffprobeJson, findTool, output, parseArgs, round3, run, writeJsonAtomic } from "./util.mjs";
 import { writeFileSync } from "node:fs";
 
@@ -18,8 +19,17 @@ import { writeFileSync } from "node:fs";
 // audible card audio parts (J-cut heads, L-cut tails). A word maps by its
 // MIDPOINT — exactly one part claims it, so straddlers never double-caption.
 // Words outside every audible span are dropped (and counted): a caption for
-// a cut moment is worse than none.
-export function mapWordsToOutput(timeline, wordsBySource) {
+// a cut moment is worse than none. Suspect words (whisper fabrications over
+// silence/music) are excluded up front — a word nobody spoke must never
+// render as a caption — and counted separately so `dropped` keeps meaning
+// "real words outside the cut".
+export function mapWordsToOutput(timeline, allWordsBySource) {
+  let suspects = 0;
+  const wordsBySource = {};
+  for (const [source, words] of Object.entries(allWordsBySource)) {
+    wordsBySource[source] = realWords(words);
+    suspects += words.length - wordsBySource[source].length;
+  }
   const parts = [];
   for (const seg of timeline) {
     if (seg.kind === "body") {
@@ -51,7 +61,7 @@ export function mapWordsToOutput(timeline, wordsBySource) {
   for (const [source, words] of Object.entries(wordsBySource)) {
     dropped += Math.max(words.length - (usedPerSource[source] ?? 0), 0);
   }
-  return { words: out.sort((a, b) => a.start - b.start), dropped };
+  return { words: out.sort((a, b) => a.start - b.start), dropped, suspects };
 }
 
 const SENTENCE_END = /[.?!…]["')\]]?$/;
@@ -276,7 +286,7 @@ export async function main(argv) {
     fail(`No word timing for any source (${missingWords.join(", ")}) — captions need whisper; run ripple doctor.`, 1);
   }
 
-  const { words, dropped } = mapWordsToOutput(timeline, wordsBySource);
+  const { words, dropped, suspects } = mapWordsToOutput(timeline, wordsBySource);
   if (!words.length) fail("No words landed inside the assembly — check scene bounds/sources.", 1);
   const chunks = chunkCaptions(words, style);
 
@@ -337,6 +347,7 @@ export async function main(argv) {
     events: chunks.length,
     wordsOutsideCut: dropped,
     ...(dropped > 0 ? { note: "wordsOutsideCut counts index words that don't land in the assembled cut — large numbers are EXPECTED for a trimmed edit, not a mapping failure" } : {}),
+    ...(suspects > 0 ? { suspectWordsExcluded: suspects } : {}),
     ...(missingWords.length ? { missingWords } : {}),
     ...(burnedVideo ? { burnedVideo } : {}),
     burnIn: burnable

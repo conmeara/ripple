@@ -1,5 +1,6 @@
 {
   "name": "ripple",
+  "description": "The missing eyes and ears for agents that edit video: editing craft as skills, perception as a CLI, taste as memory.",
   "owner": {
     "name": "Conor O'Meara"
   },

@@ -67,12 +67,114 @@ export function snapWords(words, silences) {
     .sort((a, b) => a.start - b.start || a.end - b.end);
 }
 
+// The words every timing number is allowed to see. Suspect words stay in
+// the index (visible, flagged — perception that silently edits itself is
+// worse), but one hallucinated word reaching lastWordEnd corrupts the
+// endpoint law, so every consumer in this file filters here first.
+export function realWords(words) {
+  return words.filter((w) => !w.suspect);
+}
+
+// Whisper fabricates text over music beds and long silence ("Thanks for
+// watching." written across an outro nobody spoke in). The measured audio
+// can veto the transcript with zero new dependencies. Runs BEFORE snapWords
+// on the raw whisper words (sorted by start): the raw placement IS the
+// evidence — after snapping, a mid-file fabrication sits zero-width at the
+// resume point, indistinguishable from real resumed speech, and the old
+// after-the-snap ordering let "Thanks for watching." over 20s of measured
+// mid-file dead air surface as a timestamped search hit.
+//   in-silence — the word's entire [start,end] sits inside a silence span
+//     at the strictest threshold AND no rms window over it shows energy
+//     above the floor. Full containment on purpose (a quiet real word
+//     OVERLAPS silence, it doesn't live inside it), and the no-energy gate
+//     needs positive evidence — no rms samples, no verdict. Real resumed
+//     speech that whisper smeared backward into the pause is exempted by
+//     the chain test below, not by ordering.
+//   over-music — the word is an island in continuous audible audio: no
+//     reference-threshold silence and no other word within minIsland
+//     seconds on EITHER side. Real speech has neighbors; a real pause has
+//     silence. Known miss, accepted: a multi-word fabrication protects
+//     itself (the words are each other's neighbors) — indistinguishable
+//     from real voice-over without spectral analysis.
+export function markSuspectWords(words, {
+  silences = [], // strictest-threshold spans (the snap map)
+  refSilences = silences, // reference (~-40dB) spans, for the music test
+  rms = [], // [{t, db}] energy track; each sample covers [t, t+rmsWindow)
+  rmsWindow = 0.5,
+  duration = Infinity,
+  floorDb = -45,
+  minIsland = 2,
+  resumeSlack = 0.35, // how close a smear chain must get to the resume point
+} = {}) {
+  const noEnergy = (start, end) => {
+    const e = Math.max(end, start + 0.001);
+    const samples = rms.filter((v) => v.t < e && v.t + rmsWindow > start);
+    return samples.length > 0 && samples.every((v) => v.db <= floorDb);
+  };
+  // Smear exemption: whisper drags resumed speech backward across a pause as
+  // a CONTIGUOUS chain of words that reaches the resume point ("What's your
+  // favorite?" spread over a 6.8s silence, its last word crossing the
+  // silence end). A chain that gets within resumeSlack of the silence end is
+  // mis-timed real speech — snapWords will repair it. A chain stranded
+  // mid-silence ("Thanks for watching." ending 13s before audio resumes) is
+  // whisper writing fiction. Accepted miss: a fabrication that happens to
+  // abut the resume point rides the exemption.
+  const chainReaches = (i, sEnd) => {
+    let end = words[i].end;
+    for (let j = i + 1; j < words.length && end < sEnd - resumeSlack; j++) {
+      if (words[j].start > end + resumeSlack) break;
+      end = Math.max(end, words[j].end);
+    }
+    return end >= sEnd - resumeSlack;
+  };
+  // `w.start >= sEnd` excludes words seated exactly ON the resume point
+  // (already-snapped input) — those carry real text (nextText) and sit on
+  // real audio. But a span that runs to EOF has no resume (some ffmpeg
+  // builds close it at the last sample instead of leaving end null): a word
+  // seated on that boundary is fabrication all the same.
+  const inSilence = (w, i) => silences.some((s) => {
+    const sEnd = s.end ?? duration;
+    const resumes = sEnd < duration - 0.05;
+    if (!(w.start >= s.start && w.end <= sEnd)) return false;
+    if (!resumes) return true;
+    if (w.start >= sEnd) return false;
+    return !chainReaches(i, sEnd);
+  });
+  const touchesRefSilence = (start, end) => refSilences.some((s) => {
+    const sEnd = s.end ?? duration;
+    return s.start < end && sEnd > start;
+  });
+
+  const marked = words.map((w, i) =>
+    inSilence(w, i) && noEnergy(w.start, w.end)
+      ? { ...w, suspect: true, suspectReason: "in-silence" }
+      : w
+  );
+
+  // Speech evidence for the island test: every word not already vetoed by
+  // measured silence. A zero-length flank (file edge) is as isolated as it
+  // gets, so it passes trivially.
+  const speech = marked.filter((w) => !w.suspect);
+  const flankFree = (start, end) =>
+    start >= end ||
+    (!touchesRefSilence(start, end) &&
+      !speech.some((o) => o.start < end && o.end > start));
+
+  return marked.map((w) => {
+    if (w.suspect || w.end <= w.start) return w;
+    if (touchesRefSilence(w.start, w.end)) return w;
+    const before = flankFree(Math.max(0, w.start - minIsland), w.start);
+    const after = flankFree(w.end, Math.min(duration, w.end + minIsland));
+    return before && after ? { ...w, suspect: true, suspectReason: "over-music" } : w;
+  });
+}
+
 // The numbers an editor reads off the timeline before locking a cut range.
 // `words` must be sorted by start and in the same time coordinates as
 // start/end (source seconds); `silences` are [{start, end}] spans
 // (end may be null for silence running to EOF).
 export function cutTiming(words, silences, { start, end }) {
-  const clamped = clampWordEnds(words, silences);
+  const clamped = clampWordEnds(realWords(words), silences);
   const inRange = clamped.filter((w) => w.end > start && w.start < end);
 
   const first = inRange[0] ?? null;
@@ -148,7 +250,9 @@ export function nonSpeechSpans(silences, words, { start, end, minDur = 0.35 }) {
   const window = [{ start, end }];
   const silenceHoles = silences.map((s) => ({ start: s.start, end: s.end ?? end }));
   const audible = subtractSpans(window, silenceHoles);
-  const clamped = clampWordEnds(words, silences);
+  // Suspects must not carve holes: a hallucinated word over a music sting
+  // would otherwise hide the sting from the cut-away finder.
+  const clamped = clampWordEnds(realWords(words), silences);
   const remainder = subtractSpans(audible, clamped);
   return remainder
     .filter((s) => s.end - s.start >= minDur)
@@ -159,7 +263,7 @@ export function nonSpeechSpans(silences, words, { start, end, minDur = 0.35 }) {
 // follows (the acoustic sentence boundary whisper's punctuation missed).
 // These are the legal OUT-point lattice for cuts.
 export function sentenceEnds(words, silences, { minGap = 0.4 } = {}) {
-  const clamped = clampWordEnds(words, silences);
+  const clamped = clampWordEnds(realWords(words), silences);
   const ends = [];
   for (let i = 0; i < clamped.length; i++) {
     const w = clamped[i];
@@ -197,7 +301,7 @@ export function parseMetadataTrack(stdout, key) {
 // the numbers an editor reads: bounds, text, words-per-second. Slow, weighted
 // delivery (low wps) earns a longer tail; rushed delivery cuts tighter.
 export function sentenceSpans(words, silences, { minGap = 0.4 } = {}) {
-  const clamped = clampWordEnds(words, silences);
+  const clamped = clampWordEnds(realWords(words), silences);
   const sentences = [];
   let current = null;
   for (let i = 0; i < clamped.length; i++) {
@@ -230,7 +334,8 @@ const FILLER_RE = /^(um+|uh+|erm+|hmm+|mhm+|ah+|eh+)[,.]?$/i;
 // Filler-word spans: the exact removable ranges for a "tighter" pass, plus
 // immediate word repeats (restarts: "she— she owns"). The only judgment left
 // for the model is whether removal creates a jump cut.
-export function fillerSpans(words, { fillers = FILLER_RE } = {}) {
+export function fillerSpans(allWords, { fillers = FILLER_RE } = {}) {
+  const words = realWords(allWords);
   const out = [];
   const norm = (t) => t.toLowerCase().replace(/[^a-z']/g, "");
   for (let i = 0; i < words.length; i++) {

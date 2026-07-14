@@ -17,7 +17,12 @@ Generate into `qa/` after any render worth showing:
 ## Deterministic QA
 
 `ripple qa <final> --manifest edit.json` — decode, color metadata, clip
-count, silence bounds, leak grep. It snapshots results to `.ripple/qa/` so
+count and per-clip decode, silence bounds, dialogue loudness, leak grep,
+scene endings, plus the looking gates: black frames and frozen picture the
+manifest doesn't explain (cards and dissolve/fadeblack overlaps are
+expected). Every check carries its registry rule id (`reference/rules.md`),
+so a delivery failure joins the same-named finding from `candidates` or
+`lint`. It snapshots results to `.ripple/qa/` so
 quality trends across runs; report the trend when it exists ("3 runs: 8/10 →
 9/10 → 10/10 checks passing").
 

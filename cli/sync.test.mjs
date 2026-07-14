@@ -57,11 +57,17 @@ test("findMedia walks the tree but skips derived dirs and dotfiles", () => {
   mkdirSync(join(dir, "footage"));
   mkdirSync(join(dir, "work"));
   mkdirSync(join(dir, "clips"));
+  // Preset deliveries (cut.mjs: "clips" + `_${preset}`) are derived output
+  // too — counting them as sources misrouted status to "analyze" forever.
+  mkdirSync(join(dir, "clips_vertical"));
+  mkdirSync(join(dir, "clips_square"));
   writeFileSync(join(dir, "a.MOV"), "x");
   writeFileSync(join(dir, "footage", "b.mp4"), "x");
   writeFileSync(join(dir, "footage", "notes.txt"), "x");
   writeFileSync(join(dir, "work", "hidden.mp4"), "x");
   writeFileSync(join(dir, "clips", "01_scene.mp4"), "x");
+  writeFileSync(join(dir, "clips_vertical", "01_scene.mp4"), "x");
+  writeFileSync(join(dir, "clips_square", "01_scene.mp4"), "x");
   writeFileSync(join(dir, ".hidden.mp4"), "x");
   const found = findMedia(dir).map((f) => f.slice(dir.length + 1));
   assert.deepEqual(found, ["a.MOV", "footage/b.mp4"]);

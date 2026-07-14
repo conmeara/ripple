@@ -6,6 +6,12 @@ cheap; keep them cheap.
 
 ## Steps
 
+0. **Cold session? Orient first: `ripple status`.** "Question 5 got cut off"
+   often arrives in a session that didn't make the cut. One call answers
+   where the project stands — sources and their index state, outstanding
+   lint findings, whether renders are stale against edit.json, the last QA
+   verdict — and names the next command. Diagnose from those facts, not from
+   memory of a session you weren't in.
 1. **Map the complaint to scenes — with `ripple locate`, never by counting.**
    "At 1:23 it drags" → `ripple locate 1:23 edit.json` returns the scene and
    the SOURCE time (through cards, J-cuts, dissolves). Users also misremember

@@ -1,14 +1,90 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { clipName, expectedLeadingSilence } from "./cut.mjs";
+import { assemblyTimeline, clipName, expectedLeadingSilence } from "./cut.mjs";
+import { resolveManifestPath } from "./status.mjs";
 import {
-  detectHdr, fail, ffprobeJson, output, parseArgs, parseLoudnorm, parseSilence, requireTool, round3, run, silenceEdges,
+  detectHdr, fail, ffprobeJson, output, parseArgs, parseLoudnorm, parseSilence, readJsonOrNull, requireTool, round3, run, silenceEdges,
 } from "./util.mjs";
 
 const DEFAULT_LEAK_PATTERNS = ["next question", "take [0-9]"];
 
+// Every check id IS a registry rule id (cli/rules.mjs, reference/rules.md);
+// `rule` carries it explicitly so findings join across candidates/lint/qa.
 function check(id, ok, detail) {
-  return { id, ok: Boolean(ok), detail };
+  return { id, rule: id, ok: Boolean(ok), detail };
+}
+
+// Parse ffmpeg blackdetect stderr into [{start, end, duration}].
+export function parseBlackdetect(stderr) {
+  const out = [];
+  for (const line of stderr.split("\n")) {
+    const m = line.match(/black_start:\s*(-?[\d.]+)\s+black_end:\s*(-?[\d.]+)\s+black_duration:\s*([\d.]+)/);
+    if (m) out.push({ start: Number(m[1]), end: Number(m[2]), duration: Number(m[3]) });
+  }
+  return out;
+}
+
+// Parse ffmpeg freezedetect stderr (three metadata lines per event; end may
+// be missing when the freeze runs to EOF) into [{start, end, duration}].
+export function parseFreezedetect(stderr) {
+  const out = [];
+  let current = null;
+  for (const line of stderr.split("\n")) {
+    const start = line.match(/freeze_start:\s*(-?[\d.]+)/);
+    if (start) {
+      current = { start: Number(start[1]), end: null, duration: null };
+      out.push(current);
+      continue;
+    }
+    const dur = line.match(/freeze_duration:\s*([\d.]+)/);
+    if (dur && current) {
+      current.duration = Number(dur[1]);
+      continue;
+    }
+    const end = line.match(/freeze_end:\s*(-?[\d.]+)/);
+    if (end && current) {
+      current.end = Number(end[1]);
+      current = null;
+    }
+  }
+  return out;
+}
+
+// The blacks/freezes a manifest EXPLAINS: card segments (static by design,
+// fading from/to black) and — for blacks — transition overlaps (fadeblack
+// passes through black; a dissolve can graze it on dark footage).
+export function intentionalRegions(scenes, { transitions = true } = {}) {
+  const regions = [];
+  for (const seg of assemblyTimeline(scenes)) {
+    if (seg.kind === "card") regions.push({ start: seg.outStart, end: seg.outEnd, why: `card ${seg.slug}` });
+    if (transitions && seg.transitionIn) {
+      regions.push({
+        start: seg.outStart,
+        end: round3(seg.outStart + seg.transitionIn.duration),
+        why: `${seg.transitionIn.type} into ${seg.slug}`,
+      });
+    }
+  }
+  return regions;
+}
+
+// Detected spans the regions can't explain: a span is explained only when it
+// actually TOUCHES a region and sits fully inside it within ±pad (the pad
+// absorbs detector/timeline rounding). Both halves matter: a span partly
+// inside still counts — a black that starts under a card and bleeds into the
+// scene IS the 2-frame-blink failure mode — and a blink-sized black sitting
+// wholly OUTSIDE a region (an assembly gap right at a card join) must not
+// ride the pad to a pass. Accepted miss: a bleed shorter than the pad that
+// merges with a card's own fade-to-black reads as one span that touches the
+// region — indistinguishable from fade rounding without frame data.
+// `end: null` (ran to EOF) closes at duration.
+export function unexplainedSpans(spans, regions, { pad = 0.25, duration } = {}) {
+  return spans.filter((s) => {
+    const end = s.end ?? duration ?? s.start;
+    return !regions.some((r) =>
+      s.start < r.end && end > r.start &&
+      s.start >= r.start - pad && end <= r.end + pad);
+  });
 }
 
 // Content gates must never silently pass. Decide what to do about the
@@ -39,10 +115,22 @@ export async function main(argv) {
   const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
   const checks = [];
 
+  // --manifest wins; otherwise discover the project manifest the way status
+  // and the context gate do (edit.json, then work/edit.json). The docs say
+  // just "run ripple qa" — a defect-free card-bearing final must not fail
+  // black/freeze-frames because the caller didn't repeat the manifest path
+  // (every card trips both detectors by design; only the manifest explains
+  // them). A discovered-but-unreadable manifest degrades to none; an
+  // explicit path stays a hard usage error.
   let manifest = null;
-  if (args.manifest) {
-    if (!existsSync(args.manifest)) fail(`Manifest not found: ${args.manifest}`, 2);
-    manifest = JSON.parse(readFileSync(args.manifest, "utf8"));
+  let manifestPath = args.manifest ?? null;
+  if (manifestPath) {
+    if (!existsSync(manifestPath)) fail(`Manifest not found: ${manifestPath}`, 2);
+    manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  } else {
+    manifestPath = resolveManifestPath(process.cwd());
+    if (manifestPath) manifest = readJsonOrNull(manifestPath);
+    if (!manifest) manifestPath = null;
   }
   const maxTail = args["max-tail-silence"] ?? manifest?.qa?.maxTailSilence ?? 1.0;
   const maxLeading = args["max-leading-silence"] ?? manifest?.qa?.maxLeadingSilence ?? 0.5;
@@ -79,12 +167,55 @@ export async function main(argv) {
       color.hdr ? "policy is sdr but output carries HDR metadata" : "SDR delivery as specified"));
   }
 
+  // 2b. Black/freeze frames — one extra decode covers both detectors. A
+  // 2-frame black blink at a scene join and a picture frozen while the audio
+  // keeps talking are the two defects every audio gate is deaf to (a real
+  // session shipped the blink; the gates were listening, not looking).
+  // Blacks/freezes the manifest explains — cards, dissolve/fadeblack
+  // overlaps — are expected; everything else fails. Without a manifest only
+  // the file's own edges are excused (a fade-in/out on a bare final is a
+  // style call, not a defect).
+  const bfRes = run(ffmpeg, [
+    "-hide_banner", "-nostats", "-i", file,
+    "-vf", "blackdetect=d=0.05:pix_th=0.10,freezedetect=n=-60dB:d=2",
+    "-an", "-f", "null", "-",
+  ]);
+  if (bfRes.status !== 0) {
+    // An old ffmpeg without the filters must fail visibly, never skip.
+    checks.push(check("black-frames", false, `blackdetect/freezedetect pass failed: ${bfRes.stderr.trim().slice(-300)}`));
+    checks.push(check("freeze-frames", false, "see black-frames — the detection pass itself failed"));
+  } else {
+    const spanText = (spans) => spans.map((s) => `${round3(s.start)}–${round3(s.end ?? duration)}s`).join(", ");
+    const edgeRegions = [
+      { start: 0, end: 1, why: "opening fade" },
+      { start: Math.max(0, duration - 1), end: duration, why: "closing fade" },
+    ];
+    const blacks = parseBlackdetect(bfRes.stderr);
+    const badBlacks = unexplainedSpans(blacks, manifest?.scenes ? intentionalRegions(manifest.scenes) : edgeRegions, { duration });
+    checks.push(check("black-frames", badBlacks.length === 0,
+      badBlacks.length
+        ? `unexplained black at ${spanText(badBlacks)} — a black flash at a join means a gap in the assembly; only cards and dissolve/fade overlaps may go black`
+        : blacks.length ? `${blacks.length} black region(s), all inside cards/transitions` : "no black frames"));
+    const freezes = parseFreezedetect(bfRes.stderr);
+    // A final that is ONE still (a rendered card qa'd standalone) is
+    // intentional by construction — a mid-scene freeze is not.
+    const wholeFileStill = !manifest?.scenes && freezes.length === 1 &&
+      freezes[0].start <= 0.5 && (freezes[0].end ?? duration) >= duration - 0.5;
+    const badFreezes = wholeFileStill
+      ? []
+      : unexplainedSpans(freezes, manifest?.scenes ? intentionalRegions(manifest.scenes, { transitions: false }) : [], { duration });
+    checks.push(check("freeze-frames", badFreezes.length === 0,
+      badFreezes.length
+        ? `picture frozen at ${spanText(badFreezes)} — motion stopped while the timeline ran; only manifest stills/cards are static by design`
+        : freezes.length ? `${freezes.length} static region(s), all intentional` : "no frozen frames"));
+  }
+
   // 3. Clip inventory + decode. The clips dir defaults to the manifest's
   // sibling clips/ (where cut renders them) — the per-scene gates must not
   // silently vanish just because --clips-dir wasn't spelled out.
   const clipsDir = args["clips-dir"] ??
-    (args.manifest && existsSync(join(dirname(resolve(args.manifest)), "clips"))
-      ? join(dirname(resolve(args.manifest)), "clips")
+    (manifestPath && existsSync(join(dirname(resolve(manifestPath)), "clips"))
+      ? join(dirname(resolve(manifestPath)), "clips")
       : undefined);
   const expected = args["expect-clips"] ?? manifest?.scenes?.length;
   if (clipsDir && existsSync(clipsDir)) {
@@ -108,7 +239,7 @@ export async function main(argv) {
       const ffprobe = requireTool(["ffprobe"], "Install ffmpeg (brew install ffmpeg).");
       // Clips older than the manifest measure a PREVIOUS cut — say so, or
       // per-scene numbers (tails, loudness, gainDb advice) mislead.
-      const manifestMtime = args.manifest && existsSync(args.manifest) ? statSync(args.manifest).mtimeMs : 0;
+      const manifestMtime = manifestPath && existsSync(manifestPath) ? statSync(manifestPath).mtimeMs : 0;
       const staleClips = manifest.scenes.filter((s) => {
         const p = join(clipsDir, clipName(s));
         return existsSync(p) && manifestMtime && statSync(p).mtimeMs < manifestMtime;
@@ -234,7 +365,7 @@ export async function main(argv) {
       "manifest defines expected endings/leak patterns but no transcript was provided — " +
         "re-run with --transcribe (or --transcript <path>); a delivery must not pass with unverified content"));
   } else {
-    checks.push({ id: "content-gates", ok: true, skipped: true,
+    checks.push({ id: "content-gates", rule: "content-gates", ok: true, skipped: true,
       detail: "no transcript and no content expectations in the manifest — content gates not run (excluded from totals)" });
   }
 
@@ -263,6 +394,11 @@ export async function main(argv) {
     );
   }
 
-  output({ ok, file, passed: `${passed}/${counted.length}`, checks, trend });
+  output({
+    ok, file,
+    // Which manifest explained the gates — auto-discovery must be visible.
+    ...(manifestPath ? { manifest: manifestPath } : {}),
+    passed: `${passed}/${counted.length}`, checks, trend,
+  });
   if (!ok) process.exit(1);
 }

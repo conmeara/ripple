@@ -4,6 +4,13 @@ import { join } from "node:path";
 import { findTool, output, run } from "./util.mjs";
 import { resolveModel, resolveTdrzModel } from "./transcribe.mjs";
 
+// Optional pieces don't hold readiness hostage: tdrz is an optional tier,
+// yt-dlp only matters for URL references (`ripple study <url>`), and missing
+// drawtext is fully covered when ImageMagick is present.
+export function optionalChecks({ magick }) {
+  return new Set(["tdrz-model", "yt-dlp", ...(magick ? ["drawtext-filter"] : [])]);
+}
+
 // One-shot environment check: everything ripple needs, with the fix for
 // anything missing. Run this before a first edit on a new machine.
 export async function main() {
@@ -65,14 +72,20 @@ export async function main() {
     "curl -L --fail -o ~/.ripple/models/ggml-small.en-tdrz.bin https://huggingface.co/akashmjn/tinydiarize-whisper.cpp/resolve/main/ggml-small.en-tdrz.bin  # 465 MB; detects conversational hand-offs, not quiet off-camera interviewers"
   );
 
+  const ytdlp = findTool(["yt-dlp"]);
+  add(
+    "yt-dlp",
+    Boolean(ytdlp),
+    ytdlp ?? "not installed (optional: `ripple study <url>` fetches reference videos with it)",
+    "brew install yt-dlp"
+  );
+
   const major = Number(process.versions.node.split(".")[0]);
   add("node", major >= 20, `v${process.versions.node}`, "Node 20+ required");
 
   const required = ["ffmpeg", "ffprobe", "node"];
   const ok = checks.filter((c) => required.includes(c.id)).every((c) => c.ok);
-  // Optional pieces don't hold readiness hostage: tdrz is an optional tier,
-  // and missing drawtext is fully covered when ImageMagick is present.
-  const optional = new Set(["tdrz-model", ...(magick ? ["drawtext-filter"] : [])]);
+  const optional = optionalChecks({ magick });
   const ready = checks.filter((c) => !optional.has(c.id)).every((c) => c.ok);
 
   output({

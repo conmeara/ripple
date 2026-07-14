@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { endpointFlags, suggestOut } from "./candidates.mjs";
+import { RULE_INDEX, endpointFlags as registryEndpointFlags } from "./rules.mjs";
+import { fileStamp, findTool } from "./util.mjs";
 
 // Numbers shaped like the real wedding failure: answer's acoustic end at
 // 493.0, next question's clumped words at 499.52.
@@ -61,6 +68,93 @@ test("mid-word and late-start flags", () => {
   assert.ok(names.includes("MID_WORD_OUT"));
   assert.ok(names.includes("MID_WORD_IN"));
   assert.ok(names.includes("LATE_FIRST_WORD"));
+});
+
+test("flags are the registry's lock rules, byte-compatible with the pre-registry envelope", () => {
+  // candidates and lint must judge a range with the SAME implementation.
+  assert.equal(endpointFlags, registryEndpointFlags);
+  // A range broken every way at once produces only {flag, detail} entries —
+  // no decoration; the flag name itself is the registry id.
+  const t = { ...GOOD_TIMING, straddleEnd: "favorite", straddleStart: "owns", leadGap: 1.2, tailGap: 2.45 };
+  const silence = { "-40dB": { leading: 0, tail: 0, spans: 1 } };
+  const flags = endpointFlags(t, silence, { maxTail: 1.0, maxLead: 0.5, end: 501 });
+  assert.equal(flags.length, 6);
+  for (const f of flags) {
+    assert.deepEqual(Object.keys(f), ["flag", "detail"]);
+    assert.equal(RULE_INDEX.get(f.flag)?.phase, "lock", f.flag);
+    assert.equal(RULE_INDEX.get(f.flag)?.severity, "block", f.flag);
+  }
+});
+
+// ---------- end-to-end: project retunes reach the lock gate ----------
+
+const CANDIDATES = pathToFileURL(resolve(dirname(fileURLToPath(import.meta.url)), "candidates.mjs")).href;
+const ffmpeg = findTool(["ffmpeg"]);
+
+// A project on disk: real synthesized audio (candidates runs a fresh
+// silencedetect over the range), a planted perception index (so no whisper),
+// optional VIDEO.md. Words end at 2.0s; the range ends at 5.0s → 3s tail.
+function candidatesProject({ videoMd } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-cand-"));
+  const src = join(dir, "src.wav");
+  const gen = spawnSync(ffmpeg, [
+    "-hide_banner", "-y", "-v", "error",
+    "-f", "lavfi", "-i", "sine=frequency=440:duration=2:sample_rate=16000",
+    "-af", "apad=pad_dur=8", "-t", "10", src,
+  ], { encoding: "utf8" });
+  assert.equal(gen.status, 0, gen.stderr);
+  mkdirSync(join(dir, "work", "analysis"), { recursive: true });
+  writeFileSync(
+    join(dir, "work", "analysis", `src_${fileStamp(src)}.analysis.json`),
+    JSON.stringify({
+      version: 5, file: src, duration: 10, hasAudio: true,
+      words: [
+        { start: 0.3, end: 0.6, text: "We" },
+        { start: 0.7, end: 2.0, text: "met." },
+      ],
+      silences: { "-40dB": [{ start: 2.0, end: null }] },
+      turns: [], // "ran, found none" — keeps a tdrz-capable machine from rebuilding
+    })
+  );
+  if (videoMd) writeFileSync(join(dir, "VIDEO.md"), videoMd);
+  return { dir, src };
+}
+
+function runCandidates(args, cwd) {
+  const res = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-e", `const m = await import(${JSON.stringify(CANDIDATES)}); await m.main(${JSON.stringify(args)});`],
+    { encoding: "utf8", cwd }
+  );
+  let json = null;
+  try { json = JSON.parse(res.stdout); } catch { /* asserted by callers */ }
+  return { status: res.status, json, stderr: res.stderr };
+}
+
+test("candidates honors the VIDEO.md project retune exactly like lint", { skip: !ffmpeg }, () => {
+  // The same range must never flag differently at lock and pre-render:
+  // candidates once ignored VIDEO.md entirely, so a project that retuned
+  // DEAD_AIR_TAIL to 4s blocked at lock while lint passed green.
+  const retune = ["---", "rules:", '  DEAD_AIR_TAIL: {maxTail: 4.0, reason: "contemplative piece"}', "---"].join("\n");
+  const base = ["src.wav", "--start", "0", "--end", "5", "--no-sheet", "--no-transcribe"];
+
+  const bare = candidatesProject({});
+  const flagged = runCandidates(base, bare.dir);
+  assert.ok(flagged.json, flagged.stderr);
+  assert.ok(flagged.json.flags.some((f) => f.flag === "DEAD_AIR_TAIL"), JSON.stringify(flagged.json.flags));
+
+  const tuned = candidatesProject({ videoMd: retune });
+  const clean = runCandidates(base, tuned.dir);
+  assert.deepEqual(clean.json.flags, []);
+  // The retune is echoed, never silent — same shape as lint's envelope.
+  assert.deepEqual(clean.json.overrides, [
+    { rule: "DEAD_AIR_TAIL", tier: "project", maxTail: 4, reason: "contemplative piece" },
+  ]);
+
+  // An explicit flag outranks the retune (and the echo says so).
+  const strict = runCandidates([...base, "--max-tail", "2"], tuned.dir);
+  assert.ok(strict.json.flags.some((f) => f.flag === "DEAD_AIR_TAIL"));
+  assert.equal(strict.json.overrides[0].superseded, true);
 });
 
 test("suggestOut lands a breath after the last word, capped before next speech", () => {

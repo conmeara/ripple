@@ -3,8 +3,8 @@ import { basename, extname, join } from "node:path";
 import { readWav } from "./pcm.mjs";
 import { breathSpans, highpass, sentenceProsody } from "./prosody.mjs";
 import {
-  fillerSpans, nonSpeechSpans, parseMetadataTrack, sceneChangesFromMotion,
-  sentenceEnds, sentenceSpans, snapWords, subtractSpans,
+  fillerSpans, markSuspectWords, nonSpeechSpans, parseMetadataTrack, realWords,
+  sceneChangesFromMotion, sentenceEnds, sentenceSpans, snapWords, subtractSpans,
 } from "./timing.mjs";
 import {
   resolveModel, resolveTdrzModel, transcribeTurns, transcribeWords, whisperWordCapable,
@@ -20,7 +20,7 @@ import {
 // ~1 min for a 13-minute 4K source, then free (cache keys on file stamp).
 
 export const DEFAULT_THRESHOLDS = ["-35", "-40", "-45"];
-const INDEX_VERSION = 4;
+const INDEX_VERSION = 5;
 
 // Snap a fuzzy speaker-turn time (±300ms segment granularity) into the
 // nearest silence span — the cut belongs in the inter-speaker gap. Snap to
@@ -187,6 +187,12 @@ export function loadAnalysis(file, {
       !(cached.words === null && cached.hasAudio !== false && whisperReady) &&
       !(cached.turns == null && cached.hasAudio !== false && tdrzReady)
     ) {
+      // Content-keyed stems survive a move/rename — refresh the recorded
+      // path so consumers (search staleness, sources) see the live file.
+      if (cached.file !== file) {
+        cached.file = file;
+        writeJsonAtomic(indexPath, cached);
+      }
       return { index: cached, path: indexPath, cached: true };
     }
   }
@@ -271,9 +277,26 @@ export function loadAnalysis(file, {
   // sensitive threshold (lowest dB) is the safest snap reference — it only
   // calls truly quiet audio "silence", so soft speech never ejects a word.
   const snapKey = thresholdKeys.slice().sort((a, b) => parseFloat(a) - parseFloat(b))[0];
-  const words = rawWords ? snapWords(rawWords, silences[snapKey] ?? []) : null;
-
   const silenceRef = referenceSilences({ silences });
+
+  // But first let the measured audio veto the transcript: whisper fabricates
+  // words over music beds and long silence, and one fabricated word reaching
+  // lastWordEnd corrupts the endpoint law. Marking runs on the RAW words —
+  // the raw placement inside a silence span is the evidence, and snapping
+  // first would park a mid-file fabrication at the resume point where it
+  // looks exactly like real resumed speech. Suspects stay in the index,
+  // flagged (the snap carries the flag along); every timing consumer skips
+  // them.
+  const words = rawWords
+    ? snapWords(markSuspectWords(rawWords, {
+        silences: silences[snapKey] ?? [],
+        refSilences: silenceRef,
+        rms,
+        rmsWindow: effRmsWindow,
+        duration,
+        floorDb: parseFloat(snapKey),
+      }), silences[snapKey] ?? [])
+    : null;
 
   // Prosody layer: terminal pitch per sentence (falling = thought complete)
   // and breath events, both from one high-passed read of the cached wav.
@@ -294,7 +317,7 @@ export function loadAnalysis(file, {
       }
       const hp = highpass(pcm.samples, pcm.sampleRate);
       sentences = sentences.map((s) => ({ ...s, ...sentenceProsody(hp, pcm.sampleRate, s) }));
-      breaths = breathSpans(hp, pcm.sampleRate, words);
+      breaths = breathSpans(hp, pcm.sampleRate, realWords(words));
     } else {
       prosodyNote = "source over 45 min — terminal-pitch/breath analysis skipped (bounded); analyze a trimmed working copy if the edit needs prosody";
     }
@@ -370,6 +393,8 @@ export async function main(argv) {
     proxy = ensureProxy(file, { outDir: args.out ? args.out : undefined, force: args.force ?? false })?.path ?? null;
   }
 
+  const suspectWords = (index.words ?? []).filter((w) => w.suspect).length;
+
   // The envelope is a summary — the index itself can be thousands of words.
   // Slice it with timeline-sheet/candidates or jq; don't cat the whole file.
   output({
@@ -381,6 +406,7 @@ export async function main(argv) {
     duration: index.duration,
     words: index.words ? index.words.length : null,
     ...(index.wordsNote ? { wordsNote: index.wordsNote } : {}),
+    ...(suspectWords ? { suspectWords } : {}),
     speechSpans: index.speech.length,
     sentences: index.sentences ? index.sentences.length : null,
     fillers: index.fillers ? index.fillers.length : null,
@@ -402,6 +428,9 @@ export async function main(argv) {
       "nonSpeech spans are audible-but-wordless (laughs, claps, music stings): prime reaction cut-aways.",
       "sentences carry wps and terminalPitch — falling = thought complete (safe OUT); rising/level = more coming. Never use it as a question detector.",
       "Trust terminalPitch only when the sentence's voicedRatio ≥ 0.25.",
+      ...(suspectWords
+        ? ["suspect words are whisper fabrications over silence/music — visible in the index, ignored by every timing number. Never anchor a cut to one."]
+        : []),
       "Don't cat the index; slice it (jq) or view it (ripple timeline-sheet).",
     ],
   });
