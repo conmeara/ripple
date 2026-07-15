@@ -2,11 +2,10 @@
 
 **Give agents skills, tools, and taste for video editing.**
 
-Ripple is a video-editing plugin for Claude Code and Codex that makes those
-relationships legible. It translates footage and timelines into time-aligned
-images, structured text, and explicit edit decisions, then gives the agent
-tools and opinionated playbooks to change the cut and an independent QA
-subagent to verify the result.
+Ripple is a video-editing plugin for Claude Code and Codex. It translates
+footage and timelines into time-aligned images, structured text, and explicit
+edit decisions, then gives the agent tools and opinionated playbooks to change
+the cut and an independent QA subagent to verify the result.
 
 **One unified skill · 11 editing playbooks · 25 CLI commands · 26 deterministic rules**
 
