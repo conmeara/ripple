@@ -32,6 +32,10 @@ non-speech events, terminal pitch, breaths, motion, scene changes, and energy.
 waveform, silence, non-speech events, transcript, and edit markers into images
 the model can inspect directly.
 
+![A real Ripple timeline sheet showing source frames, motion, waveform, measured silence, word-aligned transcript, and an OUT marker on one time axis](docs/assets/timeline-sheet.png)
+
+The annotated view shows how those signals are arranged:
+
 ![Anatomy of a Ripple timeline sheet: time ruler, source thumbnails, motion strip, waveform and silence, non-speech events, aligned transcript, and IN and OUT markers](docs/assets/anatomy-of-a-timeline-sheet.png)
 
 ##### Text channel
