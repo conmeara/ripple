@@ -7,15 +7,9 @@ footage and timelines into time-aligned images, structured text, and explicit
 edit decisions, then gives the agent tools and opinionated playbooks to change
 the cut and an independent QA subagent to verify the result.
 
-**One unified skill · 11 editing playbooks · 25 CLI commands · 26 deterministic rules**
-
-![The timeline as an agent sees it: frames, motion, waveform, measured silence, word-aligned transcript, and cut markers on one time axis](docs/assets/timeline-sheet.png)
-
-This is the same timeline an editor reads, translated into one image for the
-model: picture, motion, waveform, measured silence, word-aligned transcript,
-and cut markers on a shared time axis.
-
 ## What's included
+
+![Ripple has three parts: Skills provide 11 opinionated phase playbooks, Tools provide 25 deterministic CLI commands, and Taste persists creative direction in VIDEO.md](docs/assets/skills-tools-taste.png)
 
 ### Tools
 
