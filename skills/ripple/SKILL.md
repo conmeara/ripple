@@ -96,6 +96,7 @@ which stands so one never does.
 | adjectives | Any other direction word the user reaches for | `reference/adjectives.md` |
 | perception | Seeing/hearing footage: the index, timeline sheets, timing numbers | `reference/perception.md` |
 | `ripple status` | "Where does this stand / what changed since I left" — the verdict names the next command | (CLI; no playbook) |
+| `ripple sources` | "What footage do I have" — the bins panel: every media file with duration/codec/HDR and index state | (CLI; no playbook) |
 | `ripple lint` | "Does this cut break any rules" — whole-manifest pre-render check | `reference/rules.md` |
 | `ripple describe` | Read the index as text: sentence table, digests, per-scene verdicts | `reference/perception.md` |
 | `ripple study` | "Make it feel like this video" — measure a reference edit | `reference/init.md` |
@@ -118,7 +119,8 @@ which stands so one never does.
   "add a voiceover / needs music / I don't have b-roll" → `generate`;
   "add captions/subtitles" or "make a vertical version" → `finish`
   (`ripple captions`, `cut --preset vertical`); "find where he says X" →
-  `ripple search`; "sync these two angles" → `ripple sync`; "what changed
+  `ripple search`; "sync these two angles" → `ripple sync`; "what footage do
+  I have" → `ripple sources`; "what changed
   since I left" → `ripple status`; "does this cut break any rules" →
   `ripple lint`; "make it feel like this video" → `ripple study` (the flow
   is in `reference/init.md`); "open this in

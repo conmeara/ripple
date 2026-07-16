@@ -8,9 +8,11 @@ from it: one scene per AV row, same slug, `title` from the visual column,
 
 ## Steps
 
-1. **Inventory sources.** Find video/audio files (don't forget .MOV/.MP4 case
-   variants). `ripple probe` each unique source — note duration, resolution,
-   codec, and especially HDR flags. Record the color policy implication.
+1. **Inventory sources.** `ripple sources` is the bins panel: every media
+   file under the project (any extension case) with duration, codec, HDR
+   flags, and whether the perception index has seen it. `ripple probe`
+   anything that needs a closer look — streams, resolution, exact color
+   metadata. Record the color policy implication.
 2. **Analyze everything.** `ripple analyze <src>` per source builds the
    perception index — word-level timing, silence/speech maps, sentences with
    pace, fillers, non-speech events (laughs/claps), motion, scene changes —
