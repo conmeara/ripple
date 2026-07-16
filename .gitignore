@@ -7,3 +7,6 @@ skills/ripple-workspace/
 
 # Ad-hoc render/debug output at the repo root
 scratch_*
+
+# Eval artifacts (run results stay local; fixture cache lives in ~/.ripple/eval-cache)
+evals/runs/

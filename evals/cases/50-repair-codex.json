@@ -1,0 +1,80 @@
+{
+  "id": "50-repair-codex",
+  "title": "Codex repairs a cut-off ending without rebuilding the edit",
+  "agent": "codex",
+  "timeoutMinutes": 40,
+  "prompt": "The married-life answer in outputs/draft.mp4 got cut off at the end - repair it and re-render.",
+  "fixtures": [
+    {
+      "from": "$CACHE/loose_married.mp4",
+      "to": "media/loose_married.mp4"
+    },
+    {
+      "from": "$FIXTURES/repair-edit.json",
+      "to": "edit.json"
+    },
+    {
+      "from": "$FIXTURES/VIDEO.md",
+      "to": "VIDEO.md"
+    }
+  ],
+  "setup": [
+    "$RIPPLE analyze media/loose_married.mp4",
+    "$RIPPLE cut edit.json --profile draft --out outputs/draft.mp4 > setup-cut.json"
+  ],
+  "checks": [
+    {
+      "id": "used-ripple-cli",
+      "type": "transcript_grep",
+      "pattern": "(cli/index\\.mjs|\\bripple (analyze|candidates|describe|transcribe|cut|qa|frame-sheet|timeline-sheet|probe|lint))"
+    },
+    {
+      "id": "end-extended",
+      "type": "json_path",
+      "file": "edit.json",
+      "path": "scenes.0.end",
+      "op": "gte",
+      "value": 26.6
+    },
+    {
+      "id": "head-untouched-lo",
+      "type": "json_path",
+      "file": "edit.json",
+      "path": "scenes.0.start",
+      "op": "gte",
+      "value": 5
+    },
+    {
+      "id": "head-untouched-hi",
+      "type": "json_path",
+      "file": "edit.json",
+      "path": "scenes.0.start",
+      "op": "lte",
+      "value": 7.2
+    },
+    {
+      "id": "render-duration",
+      "type": "duration_between",
+      "glob": "outputs/*.mp4",
+      "min": 19,
+      "max": 23
+    },
+    {
+      "id": "ending-restored",
+      "type": "render_transcript",
+      "glob": "outputs/*.mp4",
+      "includes": [
+        "bonus"
+      ],
+      "excludes": [
+        "take"
+      ]
+    },
+    {
+      "id": "hdr-preserved",
+      "type": "color_transfer",
+      "glob": "outputs/*.mp4",
+      "expect": "arib-std-b67"
+    }
+  ]
+}

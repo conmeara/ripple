@@ -1,6 +1,6 @@
 ---
 name: ripple
-description: Making and editing video. Use whenever the user wants to make a video (script, shot list, storyboard), edit footage (cut, assemble, pick takes), add title cards or motion graphics, grade color, repair a flagged edit ("question 5 got cut off"), QA/export a finished video, or hand a rough cut to Premiere, Resolve, or another editor — even when they never say "video": trimming an interview recording, picking takes, captions, b-roll, or any footage/MP4 that needs work all qualify.
+description: 'Edit video footage — real recorded video/MP4/MOV files: THE skill for any existing footage that needs cutting, and the default whenever a task touches one. Use for trimming or tightening a recording, assembling clips, picking takes, repairing a flagged edit ("question 5 got cut off"), grading color, adding captions or title cards, QA/exporting a finished video, handing a rough cut to Premiere or Resolve, or planning a shoot (script, shot list, storyboard) — even when the user never says "video". Ripple owns footage; skills that author graphics or compositions from scratch (HyperFrames, Remotion, general-video, motion-graphics) do not — Ripple routes to them when a task needs generated visuals on top of a cut. Read this SKILL.md in full before touching footage and use its CLI, never hand-rolled ffmpeg: editing looks simpler than it is, and the playbooks carry the rules that keep cuts, endings, and color correct.'
 ---
 
 # Ripple — agent video editing
@@ -38,7 +38,7 @@ which stands so one never does.
   `ripple frame-sheet` after every render — and read the images. Editing
   blind is the #1 agent failure in video.
 - **The manifest is the edit.** Every cut lives in `edit.json` with bounds
-  and reasoning; renders are derived artifacts. A plugin hook lints every
+  and reasoning — even a single-clip trim; renders are derived artifacts. A plugin hook lints every
   manifest write and surfaces findings — resolve or waive them; they are the
   same flags `candidates` raises.
 - **Three-signal rule.** No cut point locks on one signal — `ripple
@@ -46,6 +46,11 @@ which stands so one never does.
   locking until resolved or overridden with a written reason. The endpoint
   law: OUT = lastWordEnd + tail preference. Full protocol:
   `reference/edit.md` and `reference/perception.md`.
+- **Trust the instruments.** `analyze` / `candidates` / `describe` output is
+  already fused, measured signal — never re-derive silence, word timing, or
+  levels with raw ffmpeg (`astats`, `silencedetect`, hand-rolled whisper).
+  Raw ffmpeg is for operations the CLI doesn't cover, not for
+  second-guessing it.
 - **Never silently convert color.** HDR in means HDR out unless VIDEO.md or
   the user chose SDR. Accidental conversion is a release blocker.
 - **Repairs are localized.** Patch the flagged scene, re-render only what
@@ -66,7 +71,8 @@ which stands so one never does.
 
 ## Picking the stack
 
-- Footage only (cut/trim/assemble) → FFmpeg via the CLI. No framework.
+- Footage only (cut/trim/assemble) → FFmpeg via the CLI. No framework, and
+  no other media skill — Ripple owns footage editing end-to-end.
 - Motion graphics from scratch → HyperFrames (use its official skills if
   installed).
 - Timed overlays on footage / React components / design handoff → Remotion

@@ -1,0 +1,66 @@
+{
+  "id": "40-assembly-opus",
+  "title": "Claude Opus assembles two answers into one cut and QAs it",
+  "agent": "claude",
+  "model": "opus",
+  "timeoutMinutes": 40,
+  "prompt": "Assemble media/01_howmet.mp4 followed by media/10_married.mp4 into one video with a clean hard cut between them, then QA the result. Render to outputs/. Both clips are already trimmed answers - keep them whole.",
+  "fixtures": [
+    {
+      "from": "$CACHE/howmet.mp4",
+      "to": "media/01_howmet.mp4"
+    },
+    {
+      "from": "$CACHE/married.mp4",
+      "to": "media/10_married.mp4"
+    },
+    {
+      "from": "$FIXTURES/VIDEO.md",
+      "to": "VIDEO.md"
+    }
+  ],
+  "checks": [
+    {
+      "id": "used-ripple-cli",
+      "type": "transcript_grep",
+      "pattern": "(cli/index\\.mjs|\\bripple (analyze|candidates|describe|transcribe|cut|qa|frame-sheet|timeline-sheet|probe|lint))"
+    },
+    {
+      "id": "ran-qa",
+      "type": "transcript_grep",
+      "pattern": "(index\\.mjs[^\\n]{0,80}\\bqa\\b|\\bripple qa\\b)"
+    },
+    {
+      "id": "manifest-written",
+      "type": "file_exists",
+      "glob": "edit.json"
+    },
+    {
+      "id": "render",
+      "type": "file_exists",
+      "glob": "outputs/*.mp4"
+    },
+    {
+      "id": "duration-both-scenes",
+      "type": "duration_between",
+      "glob": "outputs/*.mp4",
+      "min": 40,
+      "max": 50
+    },
+    {
+      "id": "both-answers-present",
+      "type": "render_transcript",
+      "glob": "outputs/*.mp4",
+      "includes": [
+        "bumble",
+        "bonus"
+      ]
+    },
+    {
+      "id": "hdr-preserved",
+      "type": "color_transfer",
+      "glob": "outputs/*.mp4",
+      "expect": "arib-std-b67"
+    }
+  ]
+}

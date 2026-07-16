@@ -1,0 +1,43 @@
+{
+  "id": "20-routing-codex",
+  "title": "Codex routes a plain footage question through the plugin",
+  "agent": "codex",
+  "timeoutMinutes": 10,
+  "prompt": "What footage do I have in this project, and is any of it HDR?",
+  "fixtures": [
+    {
+      "from": "$CACHE/howmet.mp4",
+      "to": "media/01_howmet.mp4"
+    },
+    {
+      "from": "$CACHE/married.mp4",
+      "to": "media/10_married.mp4"
+    },
+    {
+      "from": "$FIXTURES/VIDEO.md",
+      "to": "VIDEO.md"
+    }
+  ],
+  "checks": [
+    {
+      "id": "used-ripple-cli",
+      "type": "transcript_grep",
+      "pattern": "(index\\.mjs[^\\n]{0,60}(sources|probe|status)|\\bripple (sources|probe|status))"
+    },
+    {
+      "id": "names-clip-1",
+      "type": "final_grep",
+      "pattern": "howmet"
+    },
+    {
+      "id": "names-clip-2",
+      "type": "final_grep",
+      "pattern": "married"
+    },
+    {
+      "id": "answers-hdr",
+      "type": "final_grep",
+      "pattern": "HDR|HLG|bt2020|arib"
+    }
+  ]
+}

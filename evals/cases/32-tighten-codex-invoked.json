@@ -1,0 +1,59 @@
+{
+  "id": "32-tighten-codex-invoked",
+  "title": "Codex with explicit $ripple invocation: does the playbook change behavior? (vs case 30)",
+  "agent": "codex",
+  "timeoutMinutes": 40,
+  "prompt": "$ripple edit\n\nmedia/loose_married.mp4 is a raw interview take: there's a slate and dead air at the head, and he holds and clears his throat after finishing. Tighten it into a clean clip: start just before he begins the real answer and end just after his last word with a natural tail. Render the result into outputs/.",
+  "fixtures": [
+    {
+      "from": "$CACHE/loose_married.mp4",
+      "to": "media/loose_married.mp4"
+    },
+    {
+      "from": "$FIXTURES/VIDEO.md",
+      "to": "VIDEO.md"
+    }
+  ],
+  "checks": [
+    {
+      "id": "used-ripple-cli",
+      "type": "transcript_grep",
+      "pattern": "(cli/index\\.mjs|\\bripple (analyze|candidates|describe|transcribe|cut|qa|frame-sheet|timeline-sheet|probe|lint))"
+    },
+    {
+      "id": "manifest-written",
+      "type": "file_exists",
+      "glob": "edit.json"
+    },
+    {
+      "id": "render",
+      "type": "file_exists",
+      "glob": "outputs/*.mp4"
+    },
+    {
+      "id": "duration-tight",
+      "type": "duration_between",
+      "glob": "outputs/*.mp4",
+      "min": 18.5,
+      "max": 22.5
+    },
+    {
+      "id": "ending-kept",
+      "type": "render_transcript",
+      "glob": "outputs/*.mp4",
+      "includes": [
+        "bonus",
+        "coffee"
+      ],
+      "excludes": [
+        "take"
+      ]
+    },
+    {
+      "id": "hdr-preserved",
+      "type": "color_transfer",
+      "glob": "outputs/*.mp4",
+      "expect": "arib-std-b67"
+    }
+  ]
+}

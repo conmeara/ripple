@@ -1,0 +1,20 @@
+{
+  "name": "ripple-local",
+  "interface": {
+    "displayName": "Ripple Local (evals)"
+  },
+  "plugins": [
+    {
+      "name": "ripple",
+      "source": {
+        "source": "local",
+        "path": "./ripple"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Creativity"
+    }
+  ]
+}

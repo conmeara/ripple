@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "title": "Married answer",
+  "color": { "policy": "preserve" },
+  "qa": {
+    "leakPatterns": ["[Tt]ake (one|two|three|[0-9]+)", "[Aa]ll right,? take"],
+    "maxTailSilence": 1.2,
+    "maxLeadingSilence": 0.6
+  },
+  "scenes": [
+    {
+      "id": 1,
+      "slug": "married",
+      "title": "Married life answer",
+      "source": "media/loose_married.mp4",
+      "start": 6.9,
+      "end": 21.3,
+      "status": "locked",
+      "expectEnding": "just a bonus",
+      "reasoning": "Single take. Head trimmed past the slate to 6.9 (speech starts 7.2)."
+    }
+  ]
+}

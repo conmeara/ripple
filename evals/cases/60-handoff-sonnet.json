@@ -1,0 +1,46 @@
+{
+  "id": "60-handoff-sonnet",
+  "title": "Claude Sonnet hands the edit off to an NLE",
+  "agent": "claude",
+  "model": "sonnet",
+  "timeoutMinutes": 10,
+  "prompt": "I'm going to finish this edit in DaVinci Resolve - hand it off.",
+  "fixtures": [
+    {
+      "from": "$CACHE/loose_married.mp4",
+      "to": "media/loose_married.mp4"
+    },
+    {
+      "from": "$FIXTURES/good-edit.json",
+      "to": "edit.json"
+    },
+    {
+      "from": "$FIXTURES/VIDEO.md",
+      "to": "VIDEO.md"
+    }
+  ],
+  "setup": [
+    "$RIPPLE analyze media/loose_married.mp4"
+  ],
+  "checks": [
+    {
+      "id": "used-ripple-cli",
+      "type": "transcript_grep",
+      "pattern": "(index\\.mjs[^\\n]{0,60}handoff|\\bripple handoff)"
+    },
+    {
+      "id": "timeline-file",
+      "type": "file_exists",
+      "globs": [
+        "handoff/*.otio",
+        "handoff/*.xml",
+        "handoff/*.edl"
+      ]
+    },
+    {
+      "id": "told-user-how",
+      "type": "final_grep",
+      "pattern": "Resolve"
+    }
+  ]
+}

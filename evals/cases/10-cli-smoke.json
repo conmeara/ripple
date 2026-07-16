@@ -1,0 +1,29 @@
+{
+  "id": "10-cli-smoke",
+  "title": "CLI pipeline works end-to-end on real footage (no agent)",
+  "agent": "none",
+  "timeoutMinutes": 15,
+  "fixtures": [
+    { "from": "$CACHE/loose_married.mp4", "to": "media/loose_married.mp4" },
+    { "from": "$FIXTURES/good-edit.json", "to": "edit.json" },
+    { "from": "$FIXTURES/VIDEO.md", "to": "VIDEO.md" }
+  ],
+  "setup": [
+    "$RIPPLE analyze media/loose_married.mp4",
+    "$RIPPLE describe media/loose_married.mp4 > describe.json",
+    "$RIPPLE candidates media/loose_married.mp4 --start 6.9 --end 27.3 --label married > candidates.json",
+    "$RIPPLE timeline-sheet media/loose_married.mp4 --manifest edit.json --out tsheet.png",
+    "$RIPPLE cut edit.json --profile draft --out outputs/draft.mp4 > cut.json"
+  ],
+  "checks": [
+    { "id": "describe-json", "type": "json_path", "file": "describe.json", "path": "duration", "op": "gte", "value": 33 },
+    { "id": "candidates-json", "type": "json_path", "file": "candidates.json", "path": "ok", "op": "eq", "value": true },
+    { "id": "timeline-sheet", "type": "file_exists", "glob": "tsheet.png" },
+    { "id": "render", "type": "file_exists", "glob": "outputs/draft.mp4" },
+    { "id": "render-duration", "type": "duration_between", "glob": "outputs/draft.mp4", "min": 20.0, "max": 20.9 },
+    { "id": "hdr-preserved", "type": "color_transfer", "glob": "outputs/draft.mp4", "expect": "arib-std-b67" },
+    { "id": "lint", "type": "cli", "args": ["lint", "edit.json"], "jsonPath": "ok", "op": "eq", "value": true },
+    { "id": "qa-gates", "type": "cli", "args": ["qa", "outputs/draft.mp4", "--manifest", "edit.json", "--transcribe"], "jsonPath": "ok", "op": "eq", "value": true },
+    { "id": "status", "type": "cli", "args": ["status"], "jsonPath": "ok", "op": "eq", "value": true }
+  ]
+}
