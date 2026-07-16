@@ -4,3 +4,6 @@ node_modules/
 
 # Skill-creator eval scratch
 skills/ripple-workspace/
+
+# Ad-hoc render/debug output at the repo root
+scratch_*
