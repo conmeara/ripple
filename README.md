@@ -28,9 +28,9 @@ non-speech events, terminal pitch, breaths, motion, scene changes, and energy.
 
 ##### Image channel
 
-`timeline-sheet`, `frame-sheet`, and cut cards combine frames, motion,
-waveform, silence, non-speech events, transcript, and edit markers into images
-the model can inspect directly.
+`timeline-sheet` combines frames, motion, waveform, silence, non-speech
+events, transcript, and edit markers into a single image the model can
+inspect directly.
 
 ![Anatomy of a real Ripple timeline sheet, with each band labelled: a time ruler, source thumbnails, a motion strip, an audio waveform with measured silence, non-speech events, and a word-aligned transcript on one shared time axis, plus the orange OUT cut marker](docs/assets/anatomy-of-a-timeline-sheet.png)
 
