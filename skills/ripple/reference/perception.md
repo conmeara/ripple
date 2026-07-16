@@ -48,6 +48,13 @@ index; renaming or re-exporting the file rebuilds it. It contains:
 - `sceneChanges` + `motion` — luma-diff curve: cuts, resets, gestures,
   fidgeting vs stillness
 - `rms` — energy envelope (delivery intensity over time)
+- `drift` — the index's self-check on its own word timing. Whisper's
+  utterance-final timestamps stretch past the measured end of speech on
+  long sources (block-aligned, seconds late — the numbers the endpoint law
+  consumes). The envelope warns with `drift.suspected: true`; the warning
+  is advisory — the authoritative per-range arbiter is `candidates`'
+  `driftCheck` below. A drift warning never means "re-derive timing by
+  hand"; it means "no OUT locks from this index without its driftCheck"
 
 For music, `ripple beats <audio>` builds the beat grid: `bpm`, beat times,
 and a confidence gate that auto-reports "no grid" on speech. When
@@ -111,6 +118,7 @@ with shading / word-aligned transcript, plus orange cut markers.
 | `timing.terminalPitch` | melody of the ending sentence: falling = thought complete |
 | `timing.breathAfterLastWord` | a sharp inhale after the last word — the speaker is about to continue |
 | `suggestedOut` | `lastWordEnd + tail preference`, capped before next speech; null when no clean gap exists. Drawn as the dashed "S" anchor on the out card when it differs from your `--end` by >0.15s — no "S" chip means you're already on the suggestion (or there is none; the number tells you which) |
+| `driftCheck` | the index vs an isolated re-transcription of this exact range. Whisper drifts on long files but is accurate on a short window, so `verdict: "drifted"` (Δ > 1.25s) means the index's numbers near this OUT are wrong — `isolatedLastWordEnd` is ground truth, and `isolatedWordsJson` has the corrected words |
 
 **The endpoint law: OUT = lastWordEnd + tail preference (VIDEO.md, default
 ≤1.0s).** Holding longer for a smile or a laugh is a taste call you're
@@ -120,14 +128,20 @@ allowed to make — but it's a decision: write the reason into the scene's
 `flags` are categorical red flags, each one a failure that shipped in a real
 session: `SPEECH_AT_OUT` (tail silence 0 = someone is talking at your cut),
 `NEXT_SPEECH_INSIDE` (the next prompt leaked in), `MID_WORD_OUT`/`MID_WORD_IN`
-(cut lands inside a word), `DEAD_AIR_TAIL`, `LATE_FIRST_WORD`. **A scene does
-not lock while flags stand** — resolve them or override each with a written
-reason. When the OUT is scoped to the wrong sentence, `suggestedOut` is null
-on purpose: re-scope using the index's `sentences`, don't nudge.
+(cut lands inside a word), `DEAD_AIR_TAIL`, `LATE_FIRST_WORD`, `INDEX_DRIFT`
+(the isolated re-transcription disagrees with the index — rebuild the endpoint
+from `driftCheck.isolatedLastWordEnd`, then re-run candidates on the corrected
+range). **A scene does not lock while flags stand** — resolve them or override
+each with a written reason. When the OUT is scoped to the wrong sentence or
+the index drifted, `suggestedOut` is null on purpose: re-scope using the
+index's `sentences` (or the isolated words), don't nudge.
 
 ## When signals disagree
 
 - Word timestamps vs silence edges → **silence edges win** for timing.
+- Index word timing vs `driftCheck`'s isolated re-transcription → **the
+  isolated pass wins**. Short-window whisper doesn't drift; the big-file
+  index can.
 - Transcript text vs silence → **transcript wins** for content ("is the
   phrase there"), silence wins for "when".
 - Frames vs waveform → frames can't hear; the waveform can't read a

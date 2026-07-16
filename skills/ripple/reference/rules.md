@@ -1,4 +1,4 @@
-# The rule registry — 26 deterministic editing rules
+# The rule registry — 28 deterministic editing rules
 
 Every deterministic opinion ripple enforces has ONE name, defined in
 `cli/rules.mjs` and checked at three moments:
@@ -30,6 +30,7 @@ Raised by `ripple candidates` on a range and by `ripple lint` on every scene.
 | `DEAD_AIR_TAIL` | block | More than `maxTail` (default 1.0s) of nothing after the last word | The shipped married cut carried a 2.45s dead tail past every eyeball |
 | `MID_WORD_IN` | block | The range starts inside a word | Same untimed-text failure at the IN — answers opened mid-syllable |
 | `LATE_FIRST_WORD` | block | More than `maxLead` (default 0.5s) before the first word | Ranges opened on the interviewer's silence instead of the answer |
+| `INDEX_DRIFT` | block | The range's isolated re-transcription disagrees with the index's word timing (`driftCheck`, Δ > 1.25s) — the big-file timestamps drifted; the isolated numbers are ground truth | A 13-min source drifted 1–5s late on 8 of 10 answers; every cut placed from the index landed on the speaker's reset, three re-renders deep |
 
 ## Render rules (pre-render findings and render-time advisories)
 
@@ -42,6 +43,7 @@ computes).
 |---|---|---|---|
 | `NO_INDEX` | block | A scene's source has no cached perception index — the cut is unverifiable | Lint must never pass a scene nobody analyzed; unverified green is how leaks ship |
 | `NO_WORD_TIMING` | warn | The index has no word timing — endpoint checks ran on silence alone | The original leaks shipped off untimed transcript text; degraded verification must say so |
+| `DRIFT_SUSPECT` | warn | The scene's source index self-reports word-timing drift — the OUT needs candidates' `driftCheck`; waive per scene with the aligned Δ once it clears | Scenes re-scoped by hand from a drifted index kept passing lint green while every cut landed on the speaker's reset |
 | `jump-cut` | warn | A direct join between mostly-matching frames | Locked-off interview joins spliced two takes of the same framing into a visible skip |
 | `off-beat` | warn | Visual boundaries land off the music bed's beat grid | A montage cut 140ms off the beat felt wrong before anyone could say why |
 | `waiver-missing-reason` | warn | A waiver with no written reason (it is ignored, not honored) | Reasonless waivers rot — a month later nobody can tell an intentional exception from a hack |

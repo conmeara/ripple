@@ -56,6 +56,14 @@ const FIXTURE_CUTS = [
   { name: 'loose_married.mp4', ss: 750, t: 33, note: 'raw take: slate + dead air, full answer, throat-clear tail' },
   { name: 'howmet.mp4', ss: 209, t: 24.3, note: 'trimmed answer: "…she showed up" (Bumble story)' },
   { name: 'married.mp4', ss: 757, t: 22.0, note: 'trimmed answer: "…just a bonus"' },
+  // Whisper drift only shows on LONG sources — audio is copied bit-exact
+  // (drift is an audio/whisper phenomenon), video downscaled to keep the
+  // fixture ~130MB instead of 1.2GB.
+  {
+    name: 'long_qanda.mp4', ss: 56, t: 444,
+    note: 'long source (7.4 min, q1–q7): reproduces whisper timestamp drift',
+    args: ['-vf', 'scale=960:-2', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-pix_fmt', 'yuv420p', '-c:a', 'copy'],
+  },
 ];
 
 function prepFixtures() {
@@ -69,7 +77,7 @@ function prepFixtures() {
   }
   for (const f of missing) {
     console.log(`building fixture: ${f.name} — ${f.note}`);
-    execFileSync('ffmpeg', ['-y', '-v', 'error', '-ss', String(f.ss), '-i', master, '-t', String(f.t), '-c', 'copy', path.join(CACHE, f.name)]);
+    execFileSync('ffmpeg', ['-y', '-v', 'error', '-ss', String(f.ss), '-i', master, '-t', String(f.t), ...(f.args ?? ['-c', 'copy']), path.join(CACHE, f.name)]);
   }
 }
 

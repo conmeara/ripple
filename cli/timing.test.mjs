@@ -3,7 +3,7 @@ import { test } from "node:test";
 import {
   clampWordEnds, cutTiming, dtwPreset, fillerSpans, markSuspectWords, nonSpeechSpans,
   parseMetadataTrack, parseWhisperWords, sceneChangesFromMotion, snapWords, snapWordStarts,
-  sentenceEnds, sentenceSpans, subtractSpans,
+  sentenceEnds, sentenceSpans, stretchedEndings, subtractSpans,
 } from "./timing.mjs";
 
 // Fixture shaped like the real wedding-session failure (scene "chore"):
@@ -414,6 +414,50 @@ test("fillerSpans skips suspects — a fabricated 'um' is not a removable range"
     { start: 1, end: 1.3, text: "hi" },
   ];
   assert.deepEqual(fillerSpans(words), []);
+});
+
+test("stretchedEndings: an utterance end written across measured silence is drift", () => {
+  // The real q3 failure: "…we embraced each other." truly ends at 404.88,
+  // but whisper wrote 'other.' ending at 413.00 while silencedetect measured
+  // silence from 408.34 — a 4.66s stretch. The next take starts right after.
+  const words = [
+    { start: 409.45, end: 410.83, text: "embraced" },
+    { start: 410.83, end: 411.53, text: "each" },
+    { start: 411.53, end: 413.0, text: "other." },
+    { start: 413.0, end: 413.37, text: "Alright," },
+  ];
+  const silences = [{ start: 408.34, end: 413.2 }];
+  const hits = stretchedEndings(words, silences);
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].text, "other.");
+  assert.equal(hits[0].stretch, 4.66);
+  assert.equal(hits[0].silenceStart, 408.34);
+});
+
+test("stretchedEndings: healthy endings and mid-utterance words stay quiet", () => {
+  // A clean ending: the word ends AT the silence onset (normal smear < 0.75s).
+  const clean = [
+    { start: 3.0, end: 3.6, text: "done." },
+    { start: 8.0, end: 8.4, text: "Next" },
+  ];
+  assert.deepEqual(stretchedEndings(clean, [{ start: 3.7, end: 8.0 }]), []);
+  // Smear under the threshold: still quiet.
+  assert.deepEqual(stretchedEndings(clean, [{ start: 3.1, end: 8.0 }]), []);
+  // A mid-utterance word (no gap, no terminal punctuation) never fires even
+  // when a silence span technically covers its end.
+  const mid = [
+    { start: 3.0, end: 4.6, text: "very" },
+    { start: 4.7, end: 5.0, text: "long" },
+  ];
+  assert.deepEqual(stretchedEndings(mid, [{ start: 3.2, end: 4.65 }]), []);
+});
+
+test("stretchedEndings: EOF-open silence and the last word of the file", () => {
+  const words = [{ start: 10.0, end: 14.0, text: "goodbye." }];
+  // Silence runs to EOF (end: null): duration closes it.
+  const hits = stretchedEndings(words, [{ start: 11.0, end: null }], { duration: 20 });
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].stretch, 3);
 });
 
 test("snapWords re-sorts after snapping reorders words", () => {

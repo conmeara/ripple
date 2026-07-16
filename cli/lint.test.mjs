@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -145,6 +145,38 @@ test("an unwaived warn finding surfaces but never gates: exit 0, ok:true", () =>
   assert.deepEqual(json.summary, { block: 0, warn: 1, waived: 0 });
   assert.equal(json.findings[0].rule, "NO_WORD_TIMING");
   assert.equal(json.findings[0].severity, "warn");
+});
+
+test("a drift-suspect index warns per scene, waivable once driftCheck clears it", () => {
+  // The wedding failure's lint gap: scenes re-scoped by hand from a drifted
+  // index kept passing green. The index self-report becomes a warn that
+  // names the arbiter (candidates' driftCheck) without gating.
+  const dir = project({ scenes: [CLEAN] });
+  const src = join(dir, "src.mp4");
+  const planted = JSON.parse(readFileSync(join(dir, "work", "analysis", `src_${fileStamp(src)}.analysis.json`), "utf8"));
+  planted.drift = { stretchedEndings: 50, maxStretch: 13.598, suspected: true, samples: [] };
+  writeFileSync(join(dir, "work", "analysis", `src_${fileStamp(src)}.analysis.json`), JSON.stringify(planted));
+
+  const { status, json } = runLint(["edit.json"], dir);
+  assert.equal(status, 0); // warn, never a gate
+  const f = json.findings.find((x) => x.rule === "DRIFT_SUSPECT");
+  assert.ok(f, JSON.stringify(json.findings));
+  assert.equal(f.severity, "warn");
+  assert.equal(f.scene, "met");
+  assert.match(f.detail, /driftCheck/);
+
+  // Waived per scene with the aligned delta: surfaced, not counted as live.
+  const waived = project({
+    scenes: [{ ...CLEAN, waivers: [{ rule: "DRIFT_SUSPECT", reason: "driftCheck aligned, Δ 0.12s" }] }],
+  });
+  const wsrc = join(waived, "src.mp4");
+  const p2 = JSON.parse(readFileSync(join(waived, "work", "analysis", `src_${fileStamp(wsrc)}.analysis.json`), "utf8"));
+  p2.drift = { stretchedEndings: 50, maxStretch: 13.598, suspected: true, samples: [] };
+  writeFileSync(join(waived, "work", "analysis", `src_${fileStamp(wsrc)}.analysis.json`), JSON.stringify(p2));
+  const w = runLint(["edit.json"], waived);
+  const wf = w.json.findings.find((x) => x.rule === "DRIFT_SUSPECT");
+  assert.equal(wf.waived, true);
+  assert.equal(w.json.summary.waived, 1);
 });
 
 test("an explicit --video-md that doesn't exist is a usage error, not 'no project rules'", () => {

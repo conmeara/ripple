@@ -4,7 +4,8 @@ import { readWav } from "./pcm.mjs";
 import { breathSpans, highpass, sentenceProsody } from "./prosody.mjs";
 import {
   fillerSpans, markSuspectWords, nonSpeechSpans, parseMetadataTrack, realWords,
-  sceneChangesFromMotion, sentenceEnds, sentenceSpans, snapWords, subtractSpans,
+  sceneChangesFromMotion, sentenceEnds, sentenceSpans, snapWords,
+  stretchedEndings, subtractSpans,
 } from "./timing.mjs";
 import {
   resolveModel, resolveTdrzModel, transcribeTurns, transcribeWords, whisperWordCapable,
@@ -20,7 +21,7 @@ import {
 // ~1 min for a 13-minute 4K source, then free (cache keys on file stamp).
 
 export const DEFAULT_THRESHOLDS = ["-35", "-40", "-45"];
-const INDEX_VERSION = 5;
+const INDEX_VERSION = 6; // 6: adds the drift self-check (index.drift)
 
 // Snap a fuzzy speaker-turn time (±300ms segment granularity) into the
 // nearest silence span — the cut belongs in the inter-speaker gap. Snap to
@@ -303,6 +304,26 @@ export function loadAnalysis(file, {
   // Bounded: the whole-file Float32 + high-passed copy is ~8MB/min — past
   // 45 minutes we skip rather than risk memory pressure (analyze a trimmed
   // working copy for prosody on very long sources).
+  // Drift self-check: whisper's utterance-final timestamps stretch past the
+  // measured end of speech on long sources — the exact numbers the endpoint
+  // law consumes. Advisory here (the authoritative per-range arbiter is
+  // candidates' isolated re-transcription); measured on the RAW words
+  // because fusion scatters the evidence.
+  const drift = rawWords
+    ? (() => {
+        const stretched = stretchedEndings(rawWords, silenceRef, { duration });
+        const maxStretch = stretched.reduce((a, s) => Math.max(a, s.stretch), 0);
+        return {
+          stretchedEndings: stretched.length,
+          maxStretch,
+          // One stretched ending near EOF is normal whisper smear; a pattern
+          // (or one big miss) is the long-source drift failure mode.
+          suspected: stretched.length >= 3 || maxStretch >= 2,
+          samples: stretched.sort((a, b) => b.stretch - a.stretch).slice(0, 12),
+        };
+      })()
+    : null;
+
   let sentences = words ? sentenceSpans(words, silenceRef) : null;
   let breaths = null;
   let prosodyNote = null;
@@ -342,6 +363,7 @@ export function loadAnalysis(file, {
     silences,
     speech: hasAudio ? speechSpans(silenceRef, duration) : [],
     sentences,
+    drift,
     ...(prosodyNote ? { prosodyNote } : {}),
     ...(turnsNote ? { turnsNote } : {}),
     sentenceEnds: words ? sentenceEnds(words, silenceRef) : null,
@@ -394,6 +416,7 @@ export async function main(argv) {
   }
 
   const suspectWords = (index.words ?? []).filter((w) => w.suspect).length;
+  const driftSuspected = Boolean(index.drift?.suspected);
 
   // The envelope is a summary — the index itself can be thousands of words.
   // Slice it with timeline-sheet/candidates or jq; don't cat the whole file.
@@ -407,6 +430,9 @@ export async function main(argv) {
     words: index.words ? index.words.length : null,
     ...(index.wordsNote ? { wordsNote: index.wordsNote } : {}),
     ...(suspectWords ? { suspectWords } : {}),
+    ...(index.drift
+      ? { drift: { stretchedEndings: index.drift.stretchedEndings, maxStretch: index.drift.maxStretch, suspected: driftSuspected } }
+      : {}),
     speechSpans: index.speech.length,
     sentences: index.sentences ? index.sentences.length : null,
     fillers: index.fillers ? index.fillers.length : null,
@@ -430,6 +456,9 @@ export async function main(argv) {
       "Trust terminalPitch only when the sentence's voicedRatio ≥ 0.25.",
       ...(suspectWords
         ? ["suspect words are whisper fabrications over silence/music — visible in the index, ignored by every timing number. Never anchor a cut to one."]
+        : []),
+      ...(driftSuspected
+        ? [`DRIFT SUSPECTED: ${index.drift.stretchedEndings} utterance endings sit past the measured end of speech (worst ${index.drift.maxStretch}s) — whisper timestamps drift on long sources. Do not lock any OUT from this index alone: candidates cross-checks each range against an isolated re-transcription (driftCheck) and flags INDEX_DRIFT when the index disagrees.`]
         : []),
       "Don't cat the index; slice it (jq) or view it (ripple timeline-sheet).",
     ],

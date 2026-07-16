@@ -59,7 +59,10 @@ Exit code is 0 only when every non-baseline case passes.
   answer ending "…just a bonus", and a throat-clear tail — real material for the
   slate-leak, endpoint, tail, and HDR-preservation failure modes the plugin
   exists to prevent. `howmet.mp4` / `married.mp4` are pre-trimmed answers for the
-  assembly and routing cases.
+  assembly and routing cases. `long_qanda.mp4` is a 7.4-minute slice (audio
+  copied bit-exact, video downscaled to keep it ~130MB) that reproduces the
+  whisper timestamp drift a real session shipped bad cuts from — the drift
+  case asserts the index warns and candidates blocks.
 - Checks are deterministic: file existence, ffprobe duration/color bounds,
   whisper transcript of the *rendered output* (did the ending survive? did the
   slate leak?), manifest JSON assertions, and greps over the agent transcript
@@ -70,6 +73,7 @@ Exit code is 0 only when every non-baseline case passes.
 | case | agent | what it proves |
 |---|---|---|
 | 10-cli-smoke | none | analyze → describe → candidates → timeline-sheet → cut → lint → qa → status all work on real HDR footage |
+| 12-drift-detection | none | on a 7.4-min source, analyze's drift self-check warns and candidates' isolated re-transcription flags a known-drifted range (INDEX_DRIFT), suppressing suggestedOut |
 | 20-routing-codex | codex | plain "what footage do I have" routes through the plugin; HDR reported |
 | 30-tighten-codex | codex | raw take → clean clip: slate dropped, ending kept, tail tight, HDR preserved |
 | 32-tighten-codex-invoked | codex | same task with explicit `$ripple edit` — isolates skill *triggering* (30 fails, 32 passes ⇒ triggering gap; both fail the same check ⇒ playbook-adherence gap) |

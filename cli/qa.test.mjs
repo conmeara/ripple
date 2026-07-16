@@ -195,6 +195,36 @@ test("bare `ripple qa` discovers the project manifest — a carded final must no
   assert.equal(status, 0, JSON.stringify(json.checks));
 });
 
+test("agent-dialect leak patterns: (?i) is stripped, an invalid pattern fails loudly, never crashes", { skip: !ffmpeg }, () => {
+  // A real session wrote "(?i)question number" (Python inline flag) into
+  // edit.json and `ripple qa --transcribe` died with an unhandled regex
+  // SyntaxError instead of reporting the gate.
+  const dir = mkdtempSync(join(tmpdir(), "ripple-qa-"));
+  const file = synth(dir, "clean.mp4", ["testsrc=s=64x36:r=10:d=2"]);
+  const transcript = join(dir, "final.txt");
+  writeFileSync(transcript, "And that is how we met. Question Number Four. What is her biggest pet peeve?");
+  const manifest = (patterns) => {
+    writeFileSync(join(dir, "edit.json"), JSON.stringify({ version: 1, scenes: [], qa: { leakPatterns: patterns } }));
+    return join(dir, "edit.json");
+  };
+
+  // (?i) prefix: stripped, still matches case-insensitively → a real leak, reported not thrown.
+  const leaked = runQa([file, "--manifest", manifest(["(?i)question number"]), "--transcript", transcript, "--no-snapshot"], dir);
+  assert.equal(leaked.status, 1, leaked.stderr);
+  assert.equal(gate(leaked.json, "prompt-leak").ok, false);
+  assert.match(gate(leaked.json, "prompt-leak").detail, /leaked: \(\?i\)question number/);
+
+  // A pattern JS can't compile at all: the gate fails loudly (unverifiable ≠ pass).
+  const invalid = runQa([file, "--manifest", manifest(["(unclosed"]), "--transcript", transcript, "--no-snapshot"], dir);
+  assert.equal(invalid.status, 1);
+  assert.equal(gate(invalid.json, "prompt-leak").ok, false);
+  assert.match(gate(invalid.json, "prompt-leak").detail, /unusable leak pattern/);
+
+  // Clean patterns over clean text still pass.
+  const clean = runQa([file, "--manifest", manifest(["next question", "take [0-9]"]), "--transcript", transcript, "--no-snapshot"], dir);
+  assert.equal(gate(clean.json, "prompt-leak").ok, true, gate(clean.json, "prompt-leak").detail);
+});
+
 test("manifest-less edge blacks (a normal fade-in from black) pass black-frames", { skip: !ffmpeg }, () => {
   // The bare-file PASS path: without a manifest only the file's own edges
   // excuse blacks. Deleting edgeRegions would fail every final that opens

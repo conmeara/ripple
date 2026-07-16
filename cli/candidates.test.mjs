@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { endpointFlags, suggestOut } from "./candidates.mjs";
+import { driftCheckFrom, endpointFlags, suggestOut } from "./candidates.mjs";
 import { RULE_INDEX, endpointFlags as registryEndpointFlags } from "./rules.mjs";
 import { fileStamp, findTool } from "./util.mjs";
 
@@ -107,7 +107,7 @@ function candidatesProject({ videoMd } = {}) {
   writeFileSync(
     join(dir, "work", "analysis", `src_${fileStamp(src)}.analysis.json`),
     JSON.stringify({
-      version: 5, file: src, duration: 10, hasAudio: true,
+      version: 6, file: src, duration: 10, hasAudio: true,
       words: [
         { start: 0.3, end: 0.6, text: "We" },
         { start: 0.7, end: 2.0, text: "met." },
@@ -155,6 +155,45 @@ test("candidates honors the VIDEO.md project retune exactly like lint", { skip: 
   const strict = runCandidates([...base, "--max-tail", "2"], tuned.dir);
   assert.ok(strict.json.flags.some((f) => f.flag === "DEAD_AIR_TAIL"));
   assert.equal(strict.json.overrides[0].superseded, true);
+});
+
+test("driftCheckFrom: the q3 numbers — index late by seconds is 'drifted'", () => {
+  // Real failure: range 368.6–411.0; the index put lastWordEnd at 411.61
+  // while an isolated re-transcription of the same range ended the final
+  // word at 404.88 (range-local 36.28). Δ = +6.73s of the speaker's reset.
+  const timing = { ...GOOD_TIMING, lastWordEnd: 411.61 };
+  const iso = [
+    { start: 33.2, end: 34.9, text: "embraced" },
+    { start: 35.0, end: 36.28, text: "other." },
+  ];
+  const dc = driftCheckFrom(timing, iso, { start: 368.6 });
+  assert.equal(dc.verdict, "drifted");
+  assert.equal(dc.isolatedLastWordEnd, 404.88);
+  assert.equal(dc.deltaSeconds, 6.73);
+  assert.equal(dc.indexLastWordEnd, 411.61);
+});
+
+test("driftCheckFrom: agreement within threshold is 'aligned'; degraded inputs return null", () => {
+  const timing = { ...GOOD_TIMING, lastWordEnd: 100.0 };
+  const iso = [{ start: 2.0, end: 9.6, text: "done." }];
+  assert.equal(driftCheckFrom(timing, iso, { start: 90 }).verdict, "aligned"); // Δ 0.4
+  // Inter-run whisper jitter (~0.8s observed on a clean 24s clip) must not
+  // trip a blocking flag — the delta is still reported for the editor.
+  const jitter = driftCheckFrom(timing, [{ start: 2.0, end: 9.2, text: "done." }], { start: 90 });
+  assert.equal(jitter.verdict, "aligned");
+  assert.equal(jitter.deltaSeconds, 0.8);
+  // Zero-width clumped words carry no timing evidence.
+  assert.equal(driftCheckFrom(timing, [{ start: 5, end: 5, text: "ghost" }], { start: 90 }), null);
+  assert.equal(driftCheckFrom(timing, [], { start: 90 }), null);
+  assert.equal(driftCheckFrom(null, iso, { start: 90 }), null);
+  assert.equal(driftCheckFrom({ ...timing, lastWordEnd: null }, iso, { start: 90 }), null);
+});
+
+test("INDEX_DRIFT is a registered lock rule that blocks", () => {
+  const rule = RULE_INDEX.get("INDEX_DRIFT");
+  assert.ok(rule, "INDEX_DRIFT missing from the registry");
+  assert.equal(rule.phase, "lock");
+  assert.equal(rule.severity, "block");
 });
 
 test("suggestOut lands a breath after the last word, capped before next speech", () => {

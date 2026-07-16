@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { driftCheckFrom } from "./candidates.mjs";
 import { RULES, RULE_INDEX, endpointFlags, lintManifest, parseFrontMatter } from "./rules.mjs";
 import { fileStamp } from "./util.mjs";
 
@@ -52,6 +53,12 @@ test("every candidates flag id is a lock rule, and every lock rule is producible
   };
   const silence = { "-40dB": { leading: 0, tail: 0, spans: 1 } };
   const flags = endpointFlags(timing, silence, { maxTail: 1.0, maxLead: 0.5, end: 20 });
+  // INDEX_DRIFT needs evidence endpointFlags can't see — an isolated
+  // re-transcription of the range — so candidates raises it from
+  // driftCheckFrom instead.
+  const drifted = driftCheckFrom(timing, [{ start: 2.0, end: 4.5, text: "done." }], { start: 10 });
+  assert.equal(drifted.verdict, "drifted");
+  flags.push({ flag: "INDEX_DRIFT", detail: drifted });
   const lockIds = RULES.filter((r) => r.phase === "lock").map((r) => r.id).sort();
   assert.deepEqual(flags.map((f) => f.flag).sort(), lockIds);
   for (const f of flags) assert.equal(RULE_INDEX.get(f.flag).severity, "block");

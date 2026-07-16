@@ -11,6 +11,11 @@ candidates <src> --start S --end E --label <slug>` (read
 1. **Numbers.** The endpoint law: `OUT = timing.lastWordEnd + tail preference`
    (VIDEO.md, default ≤1.0s) — verify `tailGap` against it, and verify
    `timing.nextText` is the next prompt/take, not more of the answer.
+   Check `driftCheck.verdict` is `aligned`: on long sources the index's word
+   timing can drift seconds late, and `INDEX_DRIFT` means every timing
+   number near this OUT is fiction — rebuild the endpoint from
+   `driftCheck.isolatedLastWordEnd` (the isolated re-transcription is ground
+   truth), then re-run candidates on the corrected range.
    **No scene locks while `flags` is non-empty**: every flag is either
    resolved or overridden with a written reason in the scene's `reasoning`.
    `suggestedOut` is the mechanical answer; taste may hold longer (a smile,
@@ -20,7 +25,11 @@ candidates <src> --start S --end E --label <slug>` (read
 3. **Sight.** READ the head/tail cut-card sheets (`sheets.in`/`sheets.out`)
    and frame strips: the OUT line must sit in shaded silence, not touching
    the next waveform burst, and the frames show no look-down, reset, or
-   glance at notes.
+   glance at notes. **Check past the cut, not up to it**: the frame window
+   must extend several seconds BEYOND the candidate OUT — a look-down that
+   begins 0.2s after your last checked frame ships in the render. A real
+   session verified every tail "up to the cut", called them all safe, and
+   the user sent three of them back.
 
 Start points: just before the first complete word (`firstWordStart`), keeping
 the VIDEO.md pre-roll (default 0.1–0.3s). End points: after the final

@@ -45,6 +45,11 @@ export const RULES = [
     summary: "Too much dead air before the first word (bound: maxLead, default 0.5s).",
     origin: "Ranges opened on the interviewer's silence instead of the answer.",
   },
+  {
+    id: "INDEX_DRIFT", phase: "lock", severity: "block",
+    summary: "The range's isolated re-transcription disagrees with the index's word timing — the big-file timestamps drifted; the isolated numbers are ground truth.",
+    origin: "A 13-min source drifted 1–5s late on 8 of 10 answers; every cut placed from the index landed on the speaker's reset, three re-renders deep.",
+  },
 
   // -- render: pre-render findings (lint) and render-time advisories (cut)
   {
@@ -56,6 +61,11 @@ export const RULES = [
     id: "NO_WORD_TIMING", phase: "render", severity: "warn",
     summary: "The index has no word timing (whisper unavailable when analyzed) — endpoint checks ran on silence alone.",
     origin: "The original leaks shipped off untimed transcript text; silence-only verification must say so.",
+  },
+  {
+    id: "DRIFT_SUSPECT", phase: "render", severity: "warn",
+    summary: "The scene's source index self-reports word-timing drift — endpoint numbers may be seconds late; the OUT needs candidates' driftCheck before it can be trusted.",
+    origin: "Scenes re-scoped by hand from a drifted index kept passing lint green while every cut landed on the speaker's reset.",
   },
   {
     id: "jump-cut", phase: "render", severity: "warn",
@@ -531,6 +541,16 @@ export function lintManifest(manifestPath, {
     if (typeof s.start !== "number" || typeof s.end !== "number" || s.end <= s.start) continue; // cut's validate owns bounds errors
     if (!index.words) {
       push("NO_WORD_TIMING", index.wordsNote ?? "index has no word timing — endpoint checks ran on silence alone");
+    }
+    // The index self-reports drift (analyze's stretched-endings check):
+    // every endpoint number below may be seconds late. Lint can't
+    // re-transcribe (fast and side-effect-free by contract) — candidates'
+    // driftCheck is the arbiter, so the finding names it. Waivable per
+    // scene once its driftCheck comes back aligned.
+    if (index.drift?.suspected) {
+      push("DRIFT_SUSPECT",
+        `${s.source}'s index self-reports word-timing drift (${index.drift.stretchedEndings} stretched endings, worst ${index.drift.maxStretch}s) — ` +
+        `verify this scene's OUT with candidates' driftCheck; waive with the aligned Δ once it clears`);
     }
     const silenceRef = referenceSilences(index).map((sp) => ({ ...sp, end: sp.end ?? index.duration }));
     const timing = index.words ? cutTiming(index.words, silenceRef, { start: s.start, end: s.end }) : null;

@@ -3,9 +3,9 @@ import { join } from "node:path";
 import { loadAnalysis, referenceSilences, resolveProxy } from "./analyze.mjs";
 import { cropFilter } from "./frame-sheet.mjs";
 import { endpointFlags, projectOverrides } from "./rules.mjs";
-import { cutTiming } from "./timing.mjs";
+import { clampWordEnds, cutTiming } from "./timing.mjs";
 import { renderSheet } from "./timeline-sheet.mjs";
-import { resolveModel, transcribeFile } from "./transcribe.mjs";
+import { resolveModel, transcribeFile, transcribeWords } from "./transcribe.mjs";
 import {
   ensureDir, fail, findTool, output, parseArgs, parseSilence, requireTool, round3, run, silenceEdges,
 } from "./util.mjs";
@@ -28,6 +28,30 @@ export function suggestOut(timing, { tailPreference = 0.6 } = {}) {
   );
   if (out > ceiling - 0.15) out = ceiling - 0.15;
   return out > timing.lastWordEnd ? round3(out) : null;
+}
+
+// The index's word timing vs an isolated re-transcription of the same range.
+// Whisper drifts on long sources (utterance-final timestamps land seconds
+// late) but is accurate on a short extracted window — so the isolated pass
+// is ground truth, and a disagreement past `threshold` means every index
+// number near this OUT is suspect. `isolatedWords` are range-local
+// (t=0 at `start`), already silence-clamped by the caller. The threshold
+// sits between benign inter-run whisper jitter (~0.8s observed on a clean
+// 24s clip, EOF-adjacent) and the smallest real drift failure (1.9s): the
+// flag blocks locking, so it must not cry wolf — the raw delta is always
+// reported for the editor to weigh.
+export function driftCheckFrom(timing, isolatedWords, { start, threshold = 1.25 }) {
+  if (!timing || timing.lastWordEnd === null) return null;
+  const words = (isolatedWords ?? []).filter((w) => w.end > w.start);
+  if (!words.length) return null;
+  const isolatedLastWordEnd = round3(start + Math.max(...words.map((w) => w.end)));
+  const deltaSeconds = round3(timing.lastWordEnd - isolatedLastWordEnd);
+  return {
+    indexLastWordEnd: timing.lastWordEnd,
+    isolatedLastWordEnd,
+    deltaSeconds,
+    verdict: Math.abs(deltaSeconds) > threshold ? "drifted" : "aligned",
+  };
 }
 
 // The three-signal endpoint check in one command:
@@ -97,6 +121,7 @@ export async function main(argv) {
 
   // Signal 2: silence at each threshold, across the exact candidate range.
   const silence = {};
+  const spansByDb = {};
   for (const db of thresholds) {
     const res = run(ffmpeg, [
       "-hide_banner", "-nostats",
@@ -106,8 +131,14 @@ export async function main(argv) {
     ]);
     if (res.status !== 0) fail(`silencedetect (${db}dB) failed: ${res.stderr.trim().slice(-500)}`, 1);
     const spans = parseSilence(res.stderr);
+    spansByDb[db] = spans;
     silence[`${db}dB`] = { ...silenceEdges(spans, duration), spans: spans.length };
   }
+  // Range-local reference spans (closest to -40dB): the clamp map for the
+  // isolated word pass below, mirroring the index's own fusion.
+  const refDb = thresholds.reduce((a, b) =>
+    Math.abs(parseFloat(b) - -40) < Math.abs(parseFloat(a) - -40) ? b : a);
+  const refSpans = (spansByDb[refDb] ?? []).map((s) => ({ ...s, end: s.end ?? duration }));
   // Project-tier retunes (VIDEO.md at the cwd project root, same anchor as
   // work/analysis) apply here exactly as at the lint gate — the same range
   // must never flag differently at the two moments. An explicit flag
@@ -121,11 +152,56 @@ export async function main(argv) {
     maxLead: project.maxLead,
     end: args.end,
   });
+
+  // Transcript of the range (the "final phrase present?" check) AND the
+  // drift arbiter: whisper drifts on long sources but is accurate on a
+  // short extracted window, so the isolated word pass is ground truth for
+  // this range's timing. Runs before the suggestion/sheets — a drifted
+  // index must veto the mechanical OUT, not decorate it.
+  let transcript = null;
+  let driftCheck = null;
+  if (!args["no-transcribe"]) {
+    const whisperAvailable = findTool(["whisper-cli", "whisper-cpp", "main"]) && resolveModel(null);
+    if (whisperAvailable) {
+      const wavPath = join(outDir, `${label}.wav`);
+      const extract = run(ffmpeg, [
+        "-hide_banner", "-v", "error", "-y",
+        "-ss", String(args.start), "-t", String(duration), "-i", src,
+        "-vn", "-map", "0:a:0", "-ac", "1", "-ar", "16000", wavPath,
+      ]);
+      if (extract.status === 0) {
+        const t = transcribeFile(wavPath, { outDir, prompt: args.prompt });
+        transcript = {
+          files: t.files,
+          text: existsSync(t.files.txt) ? readFileSync(t.files.txt, "utf8").trim() : null,
+        };
+        if (timing?.lastWordEnd !== null && timing) {
+          try {
+            const iso = transcribeWords(wavPath, { outDir, prompt: args.prompt });
+            driftCheck = driftCheckFrom(timing, clampWordEnds(iso.words, refSpans), { start: args.start });
+            if (driftCheck) driftCheck.isolatedWordsJson = iso.files.wordsJson;
+          } catch (e) {
+            driftCheck = { skipped: `isolated word pass failed: ${e.message}` };
+          }
+          if (driftCheck?.verdict === "drifted") {
+            flags.push({
+              flag: "INDEX_DRIFT",
+              detail: `the index says the last word ends at ${driftCheck.indexLastWordEnd}s but an isolated re-transcription of this exact range ends it at ${driftCheck.isolatedLastWordEnd}s (Δ ${driftCheck.deltaSeconds}s) — the big-file timestamps drifted. Trust the isolated numbers: apply the endpoint law to ${driftCheck.isolatedLastWordEnd}s (words: ${driftCheck.isolatedWordsJson ?? "see transcript"}) and confirm on frames extending well PAST the new OUT.`,
+            });
+          }
+        }
+      }
+    } else {
+      transcript = { skipped: "whisper-cpp or model unavailable — run `ripple doctor` for setup" };
+    }
+  }
+
   // A nudge only helps when the range ends where it means to. Ending
   // mid-speech means the OUT is scoped to the wrong sentence — re-scope
-  // (the index's `sentences` array is the lattice), don't nudge.
+  // (the index's `sentences` array is the lattice), don't nudge. A drifted
+  // index means lastWordEnd itself is fiction — no suggestion can stand on it.
   const brokenScope = flags.some((f) =>
-    ["SPEECH_AT_OUT", "MID_WORD_OUT", "NEXT_SPEECH_INSIDE"].includes(f.flag));
+    ["SPEECH_AT_OUT", "MID_WORD_OUT", "NEXT_SPEECH_INSIDE", "INDEX_DRIFT"].includes(f.flag));
   const suggestedOut = brokenScope
     ? null
     : suggestOut(timing, { tailPreference: args["tail-preference"] ?? 0.6 });
@@ -192,29 +268,6 @@ export async function main(argv) {
     }
   }
 
-  // Transcript text of the range (the "final phrase present?" check).
-  let transcript = null;
-  if (!args["no-transcribe"]) {
-    const whisperAvailable = findTool(["whisper-cli", "whisper-cpp", "main"]) && resolveModel(null);
-    if (whisperAvailable) {
-      const wavPath = join(outDir, `${label}.wav`);
-      const extract = run(ffmpeg, [
-        "-hide_banner", "-v", "error", "-y",
-        "-ss", String(args.start), "-t", String(duration), "-i", src,
-        "-vn", "-map", "0:a:0", "-ac", "1", "-ar", "16000", wavPath,
-      ]);
-      if (extract.status === 0) {
-        const t = transcribeFile(wavPath, { outDir, prompt: args.prompt });
-        transcript = {
-          files: t.files,
-          text: existsSync(t.files.txt) ? readFileSync(t.files.txt, "utf8").trim() : null,
-        };
-      }
-    } else {
-      transcript = { skipped: "whisper-cpp or model unavailable — run `ripple doctor` for setup" };
-    }
-  }
-
   output({
     ok: true,
     src,
@@ -230,9 +283,11 @@ export async function main(argv) {
     strips,
     ...(Object.keys(sheets).length ? { sheets } : {}),
     transcript,
+    driftCheck,
     verdictHints: [
       "The endpoint rule is arithmetic: OUT = timing.lastWordEnd + tail preference (VIDEO.md, default ≤1.0s). Verify tailGap against it.",
       "Any entry in `flags` blocks locking this range until resolved or overridden with a written reason.",
+      "driftCheck compares the index against an isolated re-transcription of this exact range. verdict:'drifted' (INDEX_DRIFT) means the index's word timing is wrong here — the isolated numbers are ground truth.",
       "timing.terminalPitch falling = thought complete (safe OUT); rising/level = may be mid-thought — re-read the transcript before trusting the cut. Never use it as a question detector.",
       "timing.breathAfterLastWord = a sharp inhale after the last word: the speaker is about to continue — check what follows.",
       "READ the cut-card sheets and strips: no look-down, reset, or glance at notes near the cut — and the OUT line must not touch the next waveform burst.",

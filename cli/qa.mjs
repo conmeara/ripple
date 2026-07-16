@@ -349,8 +349,25 @@ export async function main(argv) {
     }
     const text = readFileSync(transcriptPath, "utf8");
     const leakPatterns = manifest?.qa?.leakPatterns ?? DEFAULT_LEAK_PATTERNS;
-    const leaks = leakPatterns.filter((p) => new RegExp(p, "i").test(text));
-    checks.push(check("prompt-leak", leaks.length === 0, leaks.length ? `leaked: ${leaks.join(" | ")}` : "no prompt/take leakage"));
+    // Manifest patterns are agent-written and arrive in other dialects —
+    // "(?i)question number" (Python inline flag) once crashed the whole QA
+    // run. Strip the redundant (?i) (the "i" flag is always applied); a
+    // pattern JS still can't compile fails the gate loudly instead of
+    // killing the process — an unverifiable leak check must never pass.
+    const invalid = [];
+    const leaks = leakPatterns.filter((p) => {
+      const source = String(p).replace(/^\(\?i\)/, "");
+      try {
+        return new RegExp(source, "i").test(text);
+      } catch {
+        invalid.push(String(p));
+        return false;
+      }
+    });
+    checks.push(check("prompt-leak", leaks.length === 0 && invalid.length === 0,
+      invalid.length
+        ? `unusable leak pattern(s): ${invalid.join(" | ")} — fix manifest qa.leakPatterns (JS regex syntax)`
+        : leaks.length ? `leaked: ${leaks.join(" | ")}` : "no prompt/take leakage"));
     const endings = (manifest?.scenes ?? []).filter((s) => s.expectEnding);
     if (endings.length) {
       const missing = endings.filter((s) => !text.toLowerCase().includes(s.expectEnding.toLowerCase()));

@@ -169,6 +169,49 @@ export function markSuspectWords(words, {
   });
 }
 
+// Whisper's word alignment degrades over long files: near a pause it emits
+// utterance-final words in stretched, block-aligned chunks, pushing the
+// claimed end of speech seconds past where the audio measurably stopped
+// (observed: "…we embraced each other." written across 8s of measured
+// silence, 4.7s late — every cut derived from it shipped the speaker's
+// reset). Silencedetect doesn't drift, so the two disagreeing IS the
+// detector: an utterance-final word whose claimed end sits ≥ minStretch
+// past the onset of a silence span that still covers it ended before
+// whisper says it did. Runs on RAW words — fusion (snapWords) scatters the
+// evidence by design.
+export function stretchedEndings(words, silences, {
+  duration = Infinity, minStretch = 0.75, gap = 0.4,
+} = {}) {
+  const out = [];
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    const next = words[i + 1];
+    const utteranceFinal =
+      !next || next.start - w.end >= gap || /[.!?]["')\]]?$/.test(w.text);
+    if (!utteranceFinal) continue;
+    for (const s of silences) {
+      // A span reaching EOF covers everything after it — whisper places
+      // stretched final words PAST the file's last sample (observed: "up."
+      // ending at 24.96 in a 24.3s file), and some ffmpeg builds close the
+      // trailing span at that last sample instead of leaving end null. The
+      // 0.35s slack absorbs the gap between the last audio sample and the
+      // container duration (codec padding).
+      const rawEnd = s.end ?? duration;
+      const sEnd = rawEnd >= duration - 0.35 ? Infinity : rawEnd;
+      if (s.start <= w.end - minStretch && sEnd >= w.end - 0.05) {
+        out.push({
+          end: w.end,
+          text: w.text,
+          stretch: round3(w.end - s.start),
+          silenceStart: s.start,
+        });
+        break;
+      }
+    }
+  }
+  return out;
+}
+
 // The numbers an editor reads off the timeline before locking a cut range.
 // `words` must be sorted by start and in the same time coordinates as
 // start/end (source seconds); `silences` are [{start, end}] spans

@@ -46,11 +46,15 @@ which stands so one never does.
   locking until resolved or overridden with a written reason. The endpoint
   law: OUT = lastWordEnd + tail preference. Full protocol:
   `reference/edit.md` and `reference/perception.md`.
-- **Trust the instruments.** `analyze` / `candidates` / `describe` output is
-  already fused, measured signal — never re-derive silence, word timing, or
-  levels with raw ffmpeg (`astats`, `silencedetect`, hand-rolled whisper).
-  Raw ffmpeg is for operations the CLI doesn't cover, not for
-  second-guessing it.
+- **Trust the instruments — the CLI cross-checks itself.** `analyze` /
+  `candidates` / `describe` output is already fused, measured signal — never
+  re-derive silence, word timing, or levels with raw ffmpeg (`astats`,
+  `silencedetect`, hand-rolled whisper). The one instrument that can lie is
+  whisper word timing on long sources (it drifts seconds late near pauses),
+  and the CLI owns that too: `analyze` warns when it suspects drift, and
+  `candidates` verifies every range against an isolated re-transcription
+  (`driftCheck`), raising `INDEX_DRIFT` when the index disagrees. When it
+  fires, the isolated numbers are ground truth — re-derive nothing by hand.
 - **Never silently convert color.** HDR in means HDR out unless VIDEO.md or
   the user chose SDR. Accidental conversion is a release blocker.
 - **Repairs are localized.** Patch the flagged scene, re-render only what
