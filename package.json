@@ -10,7 +10,7 @@
     "bin/",
     "cli/",
     "!cli/*.test.mjs",
-    "skills/",
+    "skills/ripple/",
     "agents/",
     "hooks/",
     "schemas/"

@@ -14,8 +14,8 @@ first publish claims it.
        npm test
 
 2. **Inspect the tarball.** The `files` whitelist ships `bin/`, `cli/`
-   (tests excluded by the `!cli/*.test.mjs` negation), `skills/`, `agents/`,
-   `hooks/`, and `schemas/` — plus the npm-mandated `package.json`,
+   (tests excluded by the `!cli/*.test.mjs` negation), `skills/ripple/`,
+   `agents/`, `hooks/`, and `schemas/` — plus the npm-mandated `package.json`,
    `README.md`, and `LICENSE`. `docs/` stays out on purpose (README images
    load from GitHub).
 
