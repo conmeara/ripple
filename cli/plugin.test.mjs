@@ -138,10 +138,11 @@ test("hooks.json wires the lint hook to manifest writes on both hosts", () => {
   assert.equal(entries[0].hooks.length, 1);
   const [hook] = entries[0].hooks;
   assert.equal(hook.type, "command");
-  // Shell-form fallback: Claude exports CLAUDE_PLUGIN_ROOT to hook
-  // processes, Codex exports PLUGIN_ROOT — one command serves both.
-  assert.match(hook.command, /\$\{CLAUDE_PLUGIN_ROOT:-\$PLUGIN_ROOT\}/);
-  assert.match(hook.command, /\/hooks\/lint-manifest\.mjs/);
+  // One documented variable serves both hosts: Claude substitutes and
+  // exports CLAUDE_PLUGIN_ROOT; Codex exports it as a compat alias of its
+  // PLUGIN_ROOT. A shell-default fallback (`:-`) would defeat Claude's
+  // literal token substitution, so the plain form is pinned here.
+  assert.match(hook.command, /"\$\{CLAUDE_PLUGIN_ROOT\}\/hooks\/lint-manifest\.mjs"/);
   assert.ok(existsSync(HOOK));
 });
 
@@ -285,4 +286,25 @@ test("Codex apply_patch envelopes reach the same lint", () => {
   );
   assert.equal(status, 0);
   assert.match(JSON.parse(stdout).hookSpecificOutput.additionalContext, /\[DEAD_AIR_TAIL\] vows:/);
+});
+
+// ---------- manifest schema ----------
+
+// schemas/edit.schema.json is documentation (nothing loads it at runtime),
+// so this is the only thing keeping it honest: every manifest field the
+// CLI actually consumes must stay declared in the schema.
+test("edit.schema.json declares every field the CLI consumes", () => {
+  const schema = readJson("schemas", "edit.schema.json");
+  const has = (obj, keys) => {
+    for (const key of keys) assert.ok(key in obj.properties, `schema missing: ${key}`);
+  };
+  // cut/lint/qa/captions/locate read these — grep `manifest.<field>`.
+  has(schema, ["version", "title", "color", "output", "grade", "music", "scenes", "qa"]);
+  // cut/rules read these per scene — grep `scene.<field>`.
+  has(schema.properties.scenes.items, [
+    "id", "slug", "source", "start", "end", "expectEnding", "waivers",
+    "card", "cardFile", "cardDuration", "jcut", "gainDb", "lcut", "transition",
+  ]);
+  // qa's delivery gates.
+  has(schema.properties.qa, ["leakPatterns", "maxTailSilence", "maxLeadingSilence", "maxLoudnessSpread"]);
 });

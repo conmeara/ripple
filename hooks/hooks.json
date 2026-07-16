@@ -1,5 +1,4 @@
 {
-  "description": "Runs ripple lint whenever a manifest (edit.json) is written and surfaces rule findings back to the agent. Fail-open: never blocks a write — flags block locking, not editing.",
   "hooks": {
     "PostToolUse": [
       {
@@ -7,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/lint-manifest.mjs\"",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/lint-manifest.mjs\"",
             "timeout": 30
           }
         ]
