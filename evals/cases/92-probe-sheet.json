@@ -1,0 +1,23 @@
+{
+  "id": "92-probe-sheet",
+  "title": "Perception probe: OUT from the timeline-sheet image alone (no index, no media)",
+  "agent": "claude",
+  "model": "sonnet",
+  "skill": "none",
+  "bareCli": true,
+  "baseline": true,
+  "timeoutMinutes": 10,
+  "prompt": "sheet.png is a timeline sheet of a ~22-second interview answer clip: thumbnails, a motion strip, the audio waveform with silence shading, and a word-aligned transcript on one shared time axis. The media itself is NOT available. Determine where the cut should end: the OUT point lands just after the speaker's final word, with a natural tail of at most ~0.8 seconds - without cutting off any of the ending, even a quiet one. Write your answer to answer.json as {\"out\": <seconds>}. Do not render or fetch anything.",
+  "fixtures": [
+    { "from": "$CACHE/married.mp4", "to": "media/clip.mp4" }
+  ],
+  "setup": [
+    "$RIPPLE analyze media/clip.mp4 > /dev/null",
+    "$RIPPLE timeline-sheet media/clip.mp4 --out sheet.png > /dev/null",
+    "rm -rf media work"
+  ],
+  "checks": [
+    { "id": "kept-quiet-ending", "type": "json_path", "file": "answer.json", "path": "out", "op": "gte", "value": 21.0 },
+    { "id": "within-file", "type": "json_path", "file": "answer.json", "path": "out", "op": "lte", "value": 22.18 }
+  ]
+}

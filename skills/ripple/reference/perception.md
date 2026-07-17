@@ -62,19 +62,18 @@ and a confidence gate that auto-reports "no grid" on speech. When
 offset from the grid (`music.beatCheck`) — cutting on the beat is a style
 choice; knowing you're 140ms off is perception.
 
-Don't `cat` the index (it's thousands of entries). Read it through `ripple
-describe <src>` — the sheet's text twin, the numbers channel beside the
-sheet's picture channel. Pure cache reads: instant, no ffmpeg, no whisper,
-safe to call as often as the reasoning needs. Overview mode is the digest:
-per-sentence rows (duration, wps, terminalPitch, `gapAfter` — the pause the
-speaker left, `breathAfter`), silences, reaction beats sorted longest-first,
-fillers, motion character; long sources collapse into groups plus `notable`
-rows (longest gaps, slowest/fastest delivery). Zoom
-(`--around T --span 12`) gives word-level detail with `fuzzy: true` marking
-post-pause timestamps; `--manifest edit.json` renders per-scene endpoint
-verdicts for the whole cut. Every duration arrives pre-computed — reason
-with the printed numbers, never subtract timestamps yourself. jq stays for
-exotic queries describe doesn't answer.
+Don't `cat` the index (it's thousands of entries). Read it through its two
+channels instead: the sheets for the picture side (`ripple timeline-sheet`,
+Layer 2) and the fused numbers for the timing side — `ripple candidates` for a
+single range, and `ripple lint` for per-scene endpoint verdicts across the whole
+cut (it renders them unconditionally). Both are pure cache reads: instant, no
+ffmpeg, no whisper, safe to call as often as the reasoning needs. The
+timeline-sheet overview collapses the source into sentence ends, silences, and
+reaction beats; zoom (`--around T --span 12`) gives word-level detail with
+`fuzzy: true` marking post-pause timestamps, and `--manifest edit.json` draws
+every scene bound. Every duration arrives pre-computed — reason with the printed
+numbers, never subtract timestamps yourself. jq over the cached JSON stays for
+exotic queries the sheets and gates don't answer.
 
 ## Layer 2 — `ripple timeline-sheet`: look like an editor
 

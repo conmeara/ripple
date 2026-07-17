@@ -10,8 +10,8 @@ rules: {}
 
 # VIDEO.md — standing direction for this project
 
-<!-- Created by /ripple init. The agent reads this before every editing task
-     and writes confirmed steering decisions back here. Keep it short. -->
+<!-- Created by the taste playbook. The agent reads this before every editing
+     task and writes confirmed steering decisions back here. Keep it short. -->
 
 ## Register
 
@@ -42,7 +42,8 @@ Policy: preserve
 
 ## Generated elements
 
-<!-- Standing picks for /ripple generate. Ask once, record, reuse. -->
+<!-- Standing picks for the develop playbook's generation flow. Ask once,
+     record, reuse. See reference/taste.md's production stack. -->
 - Voice: unset (ElevenLabs voice ID + model once chosen)
 - Music direction: unset (e.g. "warm acoustic, no vocals, sparse")
 - Image style: unset (prompt fragment reused across stills/cards)

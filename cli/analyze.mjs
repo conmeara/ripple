@@ -449,6 +449,7 @@ export async function main(argv) {
       : null,
     breaths: index.breaths ? index.breaths.length : null,
     turns: index.turns ? index.turns.length : index.turns,
+    hint: "next: ripple candidates <file> --start S --end E to verify a cut range",
     hints: [
       "The index is the cached perception layer — candidates and timeline-sheet read it automatically.",
       "nonSpeech spans are audible-but-wordless (laughs, claps, music stings): prime reaction cut-aways.",

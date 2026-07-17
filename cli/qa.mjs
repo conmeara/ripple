@@ -106,10 +106,24 @@ export async function main(argv) {
     manifest: "string", "clips-dir": "string", "expect-clips": "number",
     transcript: "string", transcribe: "boolean",
     "max-tail-silence": "number", "max-leading-silence": "number",
-    "no-snapshot": "boolean",
+    "no-snapshot": "boolean", report: "boolean", out: "string", title: "string",
   });
+
+  // --report renders the HTML QA report (cut list, QA trend, evidence
+  // strips) from the manifest and the artifacts already on disk — the page
+  // is a QA artifact, so it lives here.
+  if (args.report) {
+    const { main: renderReport } = await import("./review.mjs");
+    await renderReport([
+      ...(args.manifest ? ["--manifest", args.manifest] : []),
+      ...(args.out ? ["--out", args.out] : []),
+      ...(args.title ? ["--title", args.title] : []),
+    ]);
+    return;
+  }
+
   const file = args._[0];
-  if (!file) fail("Usage: ripple qa <file> [--manifest edit.json] [--clips-dir clips] [--expect-clips N] [--transcript path] [--max-tail-silence 1.0] [--max-leading-silence 0.5]", 2);
+  if (!file) fail("Usage: ripple qa <file> [--manifest edit.json] [--clips-dir clips] [--expect-clips N] [--transcript path] [--max-tail-silence 1.0] [--max-leading-silence 0.5]\n       ripple qa --report [--manifest edit.json] [--out qa/review.html] [--title \"...\"]   (HTML QA report)", 2);
   if (!existsSync(file)) fail(`File not found: ${file}`, 2);
 
   const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
@@ -416,6 +430,7 @@ export async function main(argv) {
     // Which manifest explained the gates — auto-discovery must be visible.
     ...(manifestPath ? { manifest: manifestPath } : {}),
     passed: `${passed}/${counted.length}`, checks, trend,
+    ...(ok ? { hint: "delivery gates passed" } : {}),
   });
   if (!ok) process.exit(1);
 }

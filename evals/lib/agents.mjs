@@ -28,13 +28,18 @@ function shimEnv(shimDir) {
   return shimDir ? { ...process.env, PATH: `${shimDir}:${process.env.PATH}` } : process.env;
 }
 
-export async function invokeClaude({ prompt, model, ws, root, transcriptPath, finalPath, timeoutMs, shimDir }) {
+// skill: 'full' loads the working-tree plugin, 'router' loads a stripped copy
+// (SKILL.md but no reference/ playbooks), 'none' loads no plugin at all —
+// the ablation knob that measures what each layer is worth.
+export async function invokeClaude({ prompt, model, ws, root, transcriptPath, finalPath, timeoutMs, shimDir, skill = 'full', routerDir }) {
   const m = model || 'sonnet';
   if (FORBIDDEN_MODEL.test(m)) throw new Error(`model "${m}" is not allowed for evals`);
+  const pluginDir = skill === 'full' ? root : skill === 'router' ? routerDir : null;
+  if (skill === 'router' && !routerDir) throw new Error('skill "router" requires a routerDir');
   const args = [
     '-p', prompt,
     '--model', m,
-    '--plugin-dir', root,
+    ...(pluginDir ? ['--plugin-dir', pluginDir] : []),
     '--dangerously-skip-permissions',
     '--output-format', 'stream-json',
     '--verbose',

@@ -6,9 +6,17 @@ Lightweight end-to-end evals that check three things before a release:
 2. **Agents understand the plugin** — Codex and Claude, given plain-language editing
    asks that never say "ripple", discover the skill, use the CLI, and follow the
    playbooks (cases 20–70).
-3. **It actually helps** — the same task with the plugin forbidden (case 80,
-   baseline) is scored against the same deterministic bar as case 30, so the
-   summary shows plugin vs. no-plugin side by side.
+3. **It actually helps, layer by layer** — the ablation rungs (cases 90-a…d) run
+   the same tighten task at four levels: bare agent + ffmpeg, + the CLI with no
+   skill, + the SKILL.md router only, + the full plugin. The summary prints them
+   side by side; the deltas are the measured value of each layer. Rung B (CLI,
+   no skill) is the north-star acceptance case: if a bare agent can edit
+   competently from `ripple help` alone, the CLI is the curriculum. Case 80 is
+   the older codex-flavored baseline of the same idea.
+4. **Which channel agents understand** — the perception probes (91–93) give
+   Sonnet only the index JSON, only the timeline sheet, or both, and ask for a
+   known-ground-truth OUT on a clip whose quiet ending traps single-signal
+   reasoning. They measure which perception channel earns its tokens.
 
 Agent policy: mostly **Codex** (`gpt-5.5` by default — override with
 `RIPPLE_EVAL_CODEX_MODEL`), some **Claude Sonnet**, one **Claude Opus** case.
@@ -45,6 +53,11 @@ Exit code is 0 only when every non-baseline case passes.
   deterministic checks.
 - Claude runs load the plugin from the working tree via `--plugin-dir`, so evals
   test HEAD, not the installed marketplace copy.
+- Claude cases can set `"skill": "none" | "router" | "full"` (default full):
+  `none` loads no plugin, `router` loads a stripped copy with SKILL.md but no
+  reference/ playbooks (built per run), `full` is the normal plugin. Add
+  `"bareCli": true` to also remove the `ripple` shim from PATH (ablation rung
+  A). The knob is claude-only — codex installs its plugin globally.
 - Every agent and setup command gets a PATH shim so a bare `ripple` resolves to
   the working-tree CLI (an installed plugin's cached bin can otherwise shadow it
   with a stale version).
@@ -72,7 +85,7 @@ Exit code is 0 only when every non-baseline case passes.
 
 | case | agent | what it proves |
 |---|---|---|
-| 10-cli-smoke | none | analyze → describe → candidates → timeline-sheet → cut → lint → qa → status all work on real HDR footage |
+| 10-cli-smoke | none | analyze → probe → candidates → timeline-sheet → cut → lint (incl. endpoint digest) → qa → history all work on real HDR footage |
 | 12-drift-detection | none | on a 7.4-min source, analyze's drift self-check warns and candidates' isolated re-transcription flags a known-drifted range (INDEX_DRIFT), suppressing suggestedOut |
 | 20-routing-codex | codex | plain "what footage do I have" routes through the plugin; HDR reported |
 | 30-tighten-codex | codex | raw take → clean clip: slate dropped, ending kept, tail tight, HDR preserved |
@@ -83,6 +96,13 @@ Exit code is 0 only when every non-baseline case passes.
 | 60-handoff-sonnet | claude/sonnet | "I'll finish in Resolve" → timeline file exported |
 | 70-qa-honesty-codex | codex | QA on a seeded-broken render reports FAIL, names the defect, changes nothing |
 | 80-baseline-codex | codex (baseline) | same bar as case 30 without the plugin — the "does it help" comparison |
+| 90-ablation-a-bare | claude/sonnet (baseline) | rung A: bare agent + ffmpeg only |
+| 90-ablation-b-cli | claude/sonnet | rung B: + the CLI, no skill — **the north-star case** |
+| 90-ablation-c-router | claude/sonnet (baseline) | rung C: + SKILL.md router, no playbooks |
+| 90-ablation-d-full | claude/sonnet | rung D: full plugin — B−A = CLI value, C−B = router, D−C = playbooks |
+| 91-probe-index | claude/sonnet (baseline) | OUT from index JSON alone on a quiet-ending clip (ground truth 21.0–22.18s) |
+| 92-probe-sheet | claude/sonnet (baseline) | same, from the timeline-sheet image alone |
+| 93-probe-both | claude/sonnet (baseline) | same, from both channels — which perception channel earns its tokens |
 
 ## Reading a run
 

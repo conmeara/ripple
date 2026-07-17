@@ -89,7 +89,7 @@
     },
     "grade": {
       "type": "object",
-      "description": "Chosen color grade, applied only in the final encode (set via ripple grade --choose)",
+      "description": "The chosen grade preset, recorded in the manifest per the deliver playbook (rendered by ripple cut)",
       "properties": {
         "name": {
           "type": "string"

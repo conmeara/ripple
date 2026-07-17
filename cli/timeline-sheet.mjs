@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
-import { basename, extname, join } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { loadAnalysis, referenceSilences, resolveProxy } from "./analyze.mjs";
 import { resolveCardFont } from "./cut.mjs";
+import { locateOutputTime, locateScene, parseTimecode } from "./locate.mjs";
 import { cutTiming } from "./timing.mjs";
 import {
   ensureDir, fail, ffprobeJson, findTool, output, parseArgs, requireTool, round3, run,
@@ -401,14 +402,89 @@ export function renderSheet({
 export async function main(argv) {
   const args = parseArgs(argv, {
     start: "number", end: "number", around: "number", span: "number",
+    at: "string", "source-time": "number",
     manifest: "string", scene: "string", markers: "string", marks: "string",
     out: "string", width: "number", force: "boolean", "no-proxy": "boolean",
   });
-  const file = args._[0];
+
+  // "At 1:23 it drags" — map an OUTPUT moment through the manifest (cards,
+  // J/L-cuts, scene order) to the scene and SOURCE time, then zoom the sheet
+  // there. Users give feedback in output time; every fix happens in source
+  // time — this is the timeline/source-time translator.
+  let file = args._[0];
+  let location = null;
+  if (args.at !== undefined || args["source-time"] !== undefined) {
+    const manifestPath = args.manifest ?? "edit.json";
+    if (!existsSync(manifestPath)) fail(`--at/--source-time map through the manifest — not found: ${manifestPath}`, 2);
+    const m = JSON.parse(readFileSync(manifestPath, "utf8"));
+    const scenes = m.scenes ?? [];
+    if (!scenes.length) fail("Manifest has no scenes", 2);
+    const baseDir = dirname(resolve(manifestPath));
+
+    if (args.at !== undefined) {
+      const t = parseTimecode(args.at);
+      if (t === null) fail(`--at needs a time in seconds or mm:ss (got "${args.at}")`, 2);
+      const res = locateOutputTime(scenes, t);
+      if (!res) fail("Manifest has no timeline to map", 2);
+      if (res.beyond) fail(`${t}s is past the end of the assembly (${res.total}s total)`, 2);
+      const seg = res.segment;
+      location = {
+        outputTime: round3(t),
+        scene: seg.slug,
+        within: seg.kind,
+        ...(seg.kind === "body"
+          ? { source: seg.source, sourceTime: res.sourceTime, sceneSourceRange: { start: seg.sourceStart, end: seg.sourceEnd } }
+          : res.audio
+            ? {
+                note: `this moment is a title card, but the AUDIO here is a ${res.audio.kind === "lcut" ? "trailing L-cut" : "leading J-cut"} — the words come from the source, not the card`,
+                audio: res.audio,
+              }
+            : { note: `this moment is a silent title card belonging to scene "${seg.slug}" — the complaint is about the card's text/duration in the manifest` }),
+        intoSegment: res.into,
+        assemblyDuration: res.total,
+      };
+      const zoomSource = seg.kind === "body" ? seg.source : res.audio?.source ?? null;
+      const zoomTime = seg.kind === "body" ? res.sourceTime : res.audio?.sourceTime ?? null;
+      if (!zoomSource) {
+        // A silent card has no source frames to sheet — the mapping IS the answer.
+        output({
+          ok: true,
+          location,
+          sheet: null,
+          hints: ["A silent card has no source frames — edit the card's text/duration in the manifest, then re-render that scene."],
+        });
+        return;
+      }
+      file = resolve(baseDir, zoomSource);
+      if (args.around === undefined) args.around = zoomTime;
+      if (seg.kind === "body" && !args.scene) args.scene = seg.slug; // gets the timing block below
+    } else {
+      // Reverse: --scene <slug> --source-time T → where that source moment lands in the output.
+      if (!args.scene) fail("--source-time needs --scene", 2);
+      const res = locateScene(scenes, args.scene, args["source-time"]);
+      if (!res) fail(`Scene not found in manifest: ${args.scene}`, 2);
+      location = {
+        scene: args.scene,
+        outputRange: { start: res.segment.outStart, end: res.segment.outEnd },
+        sourceRange: { start: res.segment.sourceStart, end: res.segment.sourceEnd },
+        ...(res.outsideBounds
+          ? { note: `source time ${args["source-time"]} is outside this scene's audible ranges (body + card audio parts)` }
+          : {
+              outputTime: res.outputTime,
+              ...(res.audioKind ? { audioKind: res.audioKind, underCard: res.underCard, note: `audible as a ${res.audioKind} under the "${res.underCard}" card` } : {}),
+            }),
+      };
+      file = resolve(baseDir, res.segment.source);
+      if (args.around === undefined) args.around = args["source-time"];
+    }
+    if (!args.manifest) args.manifest = manifestPath;
+  }
+
   if (!file) {
     fail("Usage: ripple timeline-sheet <file> [--start S --end E | --around T --span 12]\n" +
       "       [--manifest edit.json [--scene slug]] [--markers \"209:IN,233.3:OUT\"]\n" +
-      "       [--out path] [--width 1920]", 2);
+      "       [--out path] [--width 1920]\n" +
+      "       ripple timeline-sheet --at 1:23 [--manifest edit.json]   (\"at 1:23 it drags\" → scene, source time, zoomed sheet)", 2);
   }
   if (!existsSync(file)) fail(`File not found: ${file}`, 2);
 
@@ -492,6 +568,7 @@ export async function main(argv) {
     ok: true,
     file,
     mode,
+    ...(location ? { location } : {}),
     window: { start: round3(start), end: round3(end) },
     sheet: result.sheet,
     ...(result.degraded ? { degraded: result.degraded } : {}),

@@ -1,6 +1,6 @@
 {
   "name": "ripple-video",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "Agent video editing plugin for Claude Code and Codex: skills, taste memory, and a CLI for probing, transcribing, cutting, and QA-ing video.",
   "type": "module",
   "bin": {

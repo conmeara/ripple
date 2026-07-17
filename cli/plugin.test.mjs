@@ -84,23 +84,37 @@ test("the editor-suite commands dispatch through the CLI registry", () => {
   const runCli = (args, cwd = dir) =>
     spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", cwd });
 
-  const status = runCli(["status", dir]);
-  assert.equal(status.status, 0, status.stderr);
-  const env = JSON.parse(status.stdout);
-  assert.equal(env.ok, true);
-  assert.equal(env.next, "init"); // empty project routes to init
+  const history = runCli(["history", "--list"]);
+  assert.equal(history.status, 0, history.stderr);
+  assert.equal(JSON.parse(history.stdout).ok, true);
 
-  const lint = runCli(["lint", "missing.json"]);
-  assert.equal(lint.status, 2);
-  assert.match(JSON.parse(lint.stdout).error.message, /Manifest not found/);
+  const probe = runCli(["probe", dir]);
+  assert.equal(probe.status, 0, probe.stderr);
+  assert.equal(JSON.parse(probe.stdout).ok, true);
 
-  const describe = runCli(["describe"]);
-  assert.equal(describe.status, 2);
-  assert.match(JSON.parse(describe.stdout).error.message, /ripple describe/);
+  const deprecated = {
+    sources: "ripple probe [dir]",
+    describe: "ripple lint",
+    status: "ripple lint",
+    locate: "ripple timeline-sheet <src> --at <output-time> --manifest edit.json",
+    snapshot: "ripple history [edit.json]",
+    compare: "ripple history --diff <a> <b>",
+    grade: "ripple cut",
+    review: "ripple qa <file> --report",
+  };
+  for (const [command, replacement] of Object.entries(deprecated)) {
+    const result = runCli([command]);
+    assert.equal(result.status, 2, `${command}: ${result.stderr}`);
+    const envelope = JSON.parse(result.stdout);
+    assert.equal(envelope.ok, false);
+    assert.ok(envelope.error.message.includes(replacement), `${command}: ${envelope.error.message}`);
+  }
 
-  const study = runCli(["study"]);
-  assert.equal(study.status, 2);
-  assert.match(JSON.parse(study.stdout).error.message, /ripple study/);
+  const unknown = runCli(["definitely-not-a-command"]);
+  assert.equal(unknown.status, 2, unknown.stderr);
+  const envelope = JSON.parse(unknown.stdout);
+  assert.equal(envelope.ok, false);
+  assert.match(envelope.error.message, /Unknown command: definitely-not-a-command/);
 });
 
 test("the npm bin survives the .bin symlink npm installs", () => {

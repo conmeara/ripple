@@ -16,18 +16,8 @@ const COMMANDS = {
   },
   probe: {
     load: () => import("./probe.mjs"),
-    usage: `  probe <file> [--filters]        Inspect media: streams, duration, HDR, ffmpeg capabilities`,
-  },
-  sources: {
-    load: () => import("./sources.mjs"),
-    usage: `  sources [dir]                   The bins panel: every media file with duration/codec/HDR and
-                                  whether the perception index has seen it`,
-  },
-  status: {
-    load: () => import("./status.mjs"),
-    usage: `  status [dir]                    git-status for the edit: sources/index state, manifest findings,
-      [--manifest edit.json]      render freshness, last QA, history — and the next-command verdict
-      [--analysis-dir dir]        (cached facts only: no ffprobe, no whisper, no writes)`,
+    usage: `  probe [file|dir] [--filters]    Inspect one file's streams/HDR/capabilities; no file (or a dir)
+                                  lists the media bin and perception-index state`,
   },
   search: {
     load: () => import("./search.mjs"),
@@ -88,17 +78,11 @@ const COMMANDS = {
       [--start S --end E]         waveform with silence shading + word-aligned transcript + cut
       [--around T --span 12]      markers, on a shared time axis. Overview for discovery; zoom
       [--manifest edit.json [--scene slug]]   (--around/--scene) before locking any cut
+      [--at T]                    map an output time through the manifest, then zoom its source moment
+      [--source-time T --scene slug]  reverse-map a scene's source time into the output timeline
       [--markers "209:IN,233.3:OUT"]  orange cut lines with time chips
       [--marks "A:493.5,B:494.2"]     lettered candidate anchors (image ↔ JSON share IDs)
       [--out path] [--width 1920] [--force] [--no-proxy]`,
-  },
-  describe: {
-    load: () => import("./describe.mjs"),
-    usage: `  describe <file>                 The timeline sheet's text twin: the index/manifest as a compact
-      [--around T --span 12]      digest — sentence table with pace/pitch/gaps, silences, reaction
-      [--start S --end E]         beats, fillers; zoom (--around/--start) = word-level detail
-      [--manifest edit.json [--scene slug]]   per-scene endpoint verdicts for the whole cut
-      [--analysis-dir dir] [--out path]`,
   },
   beats: {
     load: () => import("./beats.mjs"),
@@ -125,26 +109,12 @@ const COMMANDS = {
       [--out dir] [--font name] [--accent &H00XXXXXX] [--width W] [--height H]
       captions edit.json <video> --burn out.mp4    burn in (needs a libass ffmpeg; see RIPPLE_FFMPEG)`,
   },
-  locate: {
-    load: () => import("./locate.mjs"),
-    usage: `  locate <output-time> [edit.json]   "At 1:23 it drags" → which scene, which SOURCE time
-      [--scene slug [--source-time T]]   (reverse: where a source moment lands in the output)`,
-  },
-  snapshot: {
-    load: () => import("./snapshot.mjs"),
-    usage: `  snapshot [edit.json]            The undo stack: save a manifest version to .ripple/history
-      [--label "before tighten"]  (cut auto-snapshots before every render; identical cuts dedup)
-      [--list]                    list saved versions`,
-  },
-  compare: {
-    load: () => import("./compare.mjs"),
-    usage: `  compare <a.json> <b.json>       Cut-list diff: per-scene bounds deltas, added/removed scenes,
-                                  duration change (either side can be a .ripple/history snapshot)`,
-  },
-  grade: {
-    load: () => import("./grade.mjs"),
-    usage: `  grade <file>                    Same-frame grading variants; --choose records the pick
-      [--at s] [--variants warm,cool,...] | --choose <preset> [--manifest edit.json]`,
+  history: {
+    load: () => import("./history.mjs"),
+    usage: `  history [edit.json]             Save a snapshot to .ripple/history (identical versions dedup)
+      [--label "text"]            attach a label to a newly saved snapshot
+      [--list]                    list saved versions
+      --diff <a> <b>              cut-list diff; either side can be a history snapshot`,
   },
   study: {
     load: () => import("./study.mjs"),
@@ -160,12 +130,8 @@ const COMMANDS = {
       [--max-tail-silence 1.0] [--max-leading-silence 0.5] [--no-snapshot]
                                   Deterministic delivery gates + trend snapshots
                                   (--manifest defaults to the project's edit.json /
-                                  work/edit.json so cards stay explained)`,
-  },
-  review: {
-    load: () => import("./review.mjs"),
-    usage: `  review [--manifest edit.json]   Generate the HTML review page (cut list, QA, evidence strips)
-      [--out qa/review.html] [--title "..."]`,
+                                  work/edit.json so cards stay explained)
+      --report [--out path] [--title "..."]  render the HTML QA report from existing artifacts`,
   },
   handoff: {
     load: () => import("./handoff.mjs"),
@@ -175,10 +141,36 @@ const COMMANDS = {
   },
 };
 
+const COMMAND_GROUPS = [
+  {
+    label: "Core loop",
+    commands: ["analyze", "candidates", "frame-sheet", "timeline-sheet", "lint", "cut", "qa"],
+  },
+  {
+    label: "Scale & multicam",
+    commands: ["search", "select", "sync", "beats", "study"],
+  },
+  {
+    label: "Support",
+    commands: ["doctor", "probe", "history", "captions", "handoff", "transcribe"],
+  },
+];
+
+const DEPRECATED = {
+  sources: "ripple sources was merged into probe — run: ripple probe [dir]",
+  describe: "ripple describe was removed — per-scene endpoint verdicts: ripple lint; timeline view: ripple timeline-sheet",
+  status: "ripple status was removed — run: ripple lint (findings + next step) or ripple history --list",
+  locate: "ripple locate was merged into timeline-sheet — run: ripple timeline-sheet <src> --at <output-time> --manifest edit.json",
+  snapshot: "ripple snapshot was merged into history — run: ripple history [edit.json]",
+  compare: "ripple compare was merged into history — run: ripple history --diff <a> <b>",
+  grade: "ripple grade was removed — grading recipes live in the deliver playbook; the manifest grade field still renders via ripple cut",
+  review: "ripple review was merged into qa — run: ripple qa <file> --report",
+};
+
 const HELP = `Usage: ripple <command> [options]
 
 Commands:
-${Object.values(COMMANDS).map((c) => c.usage).join("\n")}
+${COMMAND_GROUPS.map(({ label, commands }) => `${label}:\n${commands.map((name) => COMMANDS[name].usage).join("\n")}`).join("\n\n")}
 
 Global:
   -h, --help                      Show this help (or <command> --help for one command)
@@ -203,6 +195,13 @@ if (command === "--version" || command === "-V" || command === "version") {
 }
 
 const entry = COMMANDS[command];
+if (DEPRECATED[command]) {
+  process.stdout.write(
+    JSON.stringify({ ok: false, error: { message: DEPRECATED[command] } }, null, 2) + "\n"
+  );
+  process.exit(2);
+}
+
 if (!entry) {
   process.stdout.write(
     JSON.stringify({ ok: false, error: { message: `Unknown command: ${command}. Run \`ripple help\`.` } }, null, 2) + "\n"

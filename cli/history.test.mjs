@@ -3,8 +3,7 @@ import { test } from "node:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { diffManifests } from "./compare.mjs";
-import { listSnapshots, manifestHash, saveSnapshot } from "./snapshot.mjs";
+import { diffManifests, listSnapshots, manifestHash, saveSnapshot } from "./history.mjs";
 import { searchWords } from "./search.mjs";
 
 const BASE = {

@@ -1,4 +1,4 @@
 interface:
   display_name: "Ripple"
-  short_description: "Plan, edit, finish, and QA video — read this skill's SKILL.md in full before touching footage"
-  default_prompt: "Use $ripple to plan, edit, verify, and deliver this video project."
+  short_description: "Edit video footage — develop, edit, taste, deliver; read this skill's SKILL.md before cutting"
+  default_prompt: "Use $ripple to develop, edit, refine, and deliver this video project."

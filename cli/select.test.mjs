@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { clusterTakes, endsComplete, fillerDensity, jaccard, scoreTake, tokenize } from "./select.mjs";
-import { PRESETS } from "./grade.mjs";
 
 test("jaccard measures token overlap", () => {
   assert.equal(jaccard(tokenize("we met on bumble"), tokenize("we met on bumble")), 1);
@@ -55,12 +54,3 @@ test("scoreTake prefers later, cleaner, complete takes", () => {
   assert.match(rough.reasoning, /does NOT end cleanly/);
 });
 
-test("grade presets are valid non-empty filter chains (or explicitly neutral)", () => {
-  assert.equal(PRESETS.neutral, null);
-  for (const [name, filter] of Object.entries(PRESETS)) {
-    if (name === "neutral") continue;
-    assert.equal(typeof filter, "string");
-    assert.ok(filter.length > 5, `${name} should be a filter chain`);
-    assert.ok(!filter.includes('"'), `${name} must not need shell quoting`);
-  }
-});

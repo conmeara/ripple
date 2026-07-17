@@ -36,7 +36,7 @@ export async function main(argv) {
   }
   if (args.scene && result.scenes.length === 0) fail(`--scene matched nothing (${args.scene})`, 2);
 
-  const { findings, overrides, scenes } = result;
+  const { findings, overrides, scenes, endpoints } = result;
   const blocked = findings.filter((f) => f.severity === "block" && !f.waived);
   const warns = findings.filter((f) => f.severity === "warn" && !f.waived);
   const waived = findings.filter((f) => f.waived);
@@ -45,6 +45,10 @@ export async function main(argv) {
     ok: blocked.length === 0,
     manifest: manifestPath,
     scenes,
+    // The endpoint law rendered as data, one row per scene: lastWordEnd,
+    // tailGap, verdict. Scan this to pick where to zoom (timeline-sheet
+    // --around) or verify (candidates --start --end).
+    endpoints,
     ...(overrides.length ? { overrides } : {}),
     findings,
     summary: { block: blocked.length, warn: warns.length, waived: waived.length },
@@ -52,7 +56,9 @@ export async function main(argv) {
       ? {
           hint: "Block findings stop the render: re-scope the cut (ripple candidates), or waive with a written reason — scenes[].waivers in edit.json, or VIDEO.md front-matter rules. Registry: reference/rules.md.",
         }
-      : {}),
+      : findings.length === 0
+        ? { hint: "next: ripple cut" }
+        : {}),
   });
   if (blocked.length) process.exit(1);
 }

@@ -92,6 +92,27 @@ function makeShim(runRoot) {
   return dir;
 }
 
+// The ablation knob's "router" rung: the plugin with SKILL.md but no
+// reference/ playbooks, so C−B measures the router and D−C the playbooks.
+function makeRouterPlugin(runRoot) {
+  // Outside the repo: cpSync refuses a destination inside its own source tree.
+  const dest = path.join(os.tmpdir(), `ripple-router-plugin-${path.basename(runRoot)}`);
+  if (fs.existsSync(dest)) return dest;
+  const skipTop = new Set(['evals', 'node_modules', '.git', 'docs', 'runs']);
+  const refDir = path.join('skills', 'ripple', 'reference');
+  fs.cpSync(ROOT, dest, {
+    recursive: true,
+    filter: (src) => {
+      const rel = path.relative(ROOT, src);
+      if (!rel || rel.startsWith('..')) return true;
+      if (skipTop.has(rel.split(path.sep)[0])) return false;
+      if (rel === refDir || rel.startsWith(refDir + path.sep)) return false;
+      return true;
+    },
+  });
+  return dest;
+}
+
 async function runCase(c, runRoot, shimDir) {
   const caseDir = path.join(runRoot, c.id);
   const ws = path.join(caseDir, 'ws');
@@ -114,12 +135,18 @@ async function runCase(c, runRoot, shimDir) {
     });
   }
 
+  // skill: none|router|full (claude only) — the ablation knob.
+  // bareCli: true removes the ripple shim from the agent's PATH (rung A).
+  const skill = c.skill ?? 'full';
+  const agentShim = c.bareCli ? null : shimDir;
   let agentResult = { agent: 'none' };
   const started = Date.now();
   if (c.agent === 'claude') {
-    agentResult = await invokeClaude({ prompt: c.prompt, model: c.model, ws, root: ROOT, transcriptPath, finalPath, timeoutMs, shimDir });
+    const routerDir = skill === 'router' ? makeRouterPlugin(runRoot) : undefined;
+    agentResult = await invokeClaude({ prompt: c.prompt, model: c.model, ws, root: ROOT, transcriptPath, finalPath, timeoutMs, shimDir: agentShim, skill, routerDir });
   } else if (c.agent === 'codex') {
-    agentResult = await invokeCodex({ prompt: c.prompt, model: c.model, ws, transcriptPath, finalPath, timeoutMs, shimDir });
+    if (skill !== 'full') throw new Error(`skill "${skill}" is claude-only — codex loads its plugin globally`);
+    agentResult = await invokeCodex({ prompt: c.prompt, model: c.model, ws, transcriptPath, finalPath, timeoutMs, shimDir: agentShim });
   }
   const agentSeconds = Math.round((Date.now() - started) / 1000);
 
@@ -128,6 +155,7 @@ async function runCase(c, runRoot, shimDir) {
   const pass = checks.every(ch => ch.pass) && !agentResult.timedOut;
   const result = {
     id: c.id, title: c.title, agent: c.agent, model: agentResult.model ?? c.model ?? null,
+    skill: c.agent === 'claude' ? skill : undefined, bareCli: c.bareCli ?? false,
     baseline: c.baseline ?? false, pass, agentSeconds, timedOut: agentResult.timedOut ?? false,
     tokens: extractUsage(transcriptPath, c.agent), checks,
   };
@@ -180,6 +208,17 @@ function summarize(results, runRoot) {
     const ok = r.checks.filter(c => c.pass).length;
     const label = r.baseline ? ' (baseline)' : '';
     lines.push(`| ${r.id}${label} | ${r.agent}${r.model && r.agent !== 'none' ? `/${r.model}` : ''} | ${r.pass ? 'PASS' : 'FAIL'}${r.timedOut ? ' (timeout)' : ''} | ${ok}/${r.checks.length} | ${r.agentSeconds ?? 0}s | ${fmtTokens(r.tokens)} |`);
+  }
+  // Ablation rungs side by side: what is each layer worth?
+  const abl = results.filter(r => /-ablation-/.test(r.id));
+  if (abl.length) {
+    lines.push('', '## Ablation rungs (same task, increasing layers)', '');
+    lines.push('| rung | layer | result | checks | time | tokens (fresh in / out) |');
+    lines.push('|---|---|---|---|---|---|');
+    const layer = r => r.bareCli ? 'bare agent + ffmpeg' : r.skill === 'none' ? 'CLI, no skill' : r.skill === 'router' ? 'CLI + router' : 'full plugin';
+    for (const r of abl) {
+      lines.push(`| ${r.id.replace(/^.*-ablation-/, '')} | ${layer(r)} | ${r.pass ? 'PASS' : 'FAIL'} | ${r.checks.filter(c => c.pass).length}/${r.checks.length} | ${r.agentSeconds ?? 0}s | ${fmtTokens(r.tokens)} |`);
+    }
   }
   lines.push('', '## Failing checks', '');
   let anyFail = false;

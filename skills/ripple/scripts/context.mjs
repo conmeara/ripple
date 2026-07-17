@@ -54,7 +54,7 @@ if (status.videoMd.present) {
 } else {
   console.log(
     "NO_VIDEO_MD: This project has no VIDEO.md yet. Stop the current task, " +
-      "read the Ripple skill's reference/init.md, and interview the user to create VIDEO.md " +
+      "read the Ripple skill's reference/taste.md, and interview the user to create VIDEO.md " +
       "before resuming. If the user explicitly declines, proceed with " +
       "conservative defaults (preserve source color, 0.2s pre-roll, tight " +
       "tails) and note that direction is unset."

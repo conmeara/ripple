@@ -2,8 +2,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { clipName } from "./cut.mjs";
 import { lintManifest, parseFrontMatter } from "./rules.mjs";
-import { listSnapshots } from "./snapshot.mjs";
-import { findMedia } from "./sources.mjs";
+import { listSnapshots } from "./history.mjs";
+import { findMedia } from "./probe.mjs";
 import { fail, fileStamp, output, parseArgs, readJsonOrNull, round3 } from "./util.mjs";
 
 // git-status for the edit: ONE call answers "where am I" — footage and its
@@ -197,11 +197,11 @@ export function computeVerdict({ videoMd, sources, manifestPath, manifestError, 
   if (!videoMd.present) {
     return {
       next: "init",
-      verdict: "No VIDEO.md — interview the user and set standing direction (skill reference/init.md) before editing.",
+      verdict: "No VIDEO.md — interview the user and set standing direction (skill reference/taste.md) before editing.",
     };
   }
   if (sources.count === 0) {
-    return { next: "sources", verdict: "No footage found — add source media, then ripple analyze each file." };
+    return { next: "probe", verdict: "No footage found — add source media, then ripple analyze each file." };
   }
   if (sources.unindexed > 0) {
     return {
@@ -230,7 +230,7 @@ export function computeVerdict({ videoMd, sources, manifestPath, manifestError, 
       verdict: `Last QA failed (${qa.latest.passed}/${qa.latest.total}) — fix the failing gates and re-run ripple qa.`,
     };
   }
-  return { next: "qa", verdict: "Cut is clean and renders are current — ripple qa the final, then ripple review." };
+  return { next: "qa", verdict: "Cut is clean and renders are current — ripple qa the final, then ripple qa --report." };
 }
 
 // Every fact, one pass, no side effects. Never throws on project state and

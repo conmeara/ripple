@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { correlateEnvelopes, energyEnvelope } from "./sync.mjs";
-import { findMedia } from "./sources.mjs";
+import { findMedia } from "./probe.mjs";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

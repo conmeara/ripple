@@ -134,7 +134,7 @@ export function expectedLeadingSilence(scenes) {
 }
 
 // THE timeline model: the ordered assembly segments with output times and
-// (for bodies) the source mapping. locate, captions, segmentBoundaries,
+// (for bodies) the source mapping. timeline-sheet --at, captions, segmentBoundaries,
 // assemblyDuration, and beatCheck all derive from this one function — output
 // time must never be computed twice in two places.
 //
@@ -143,7 +143,7 @@ export function expectedLeadingSilence(scenes) {
 // scene.transition ({type, duration}): a dissolve entering this scene —
 // xfade overlap, so the whole assembly shortens by `duration` at that join.
 // Cards carry an ordered `audio` parts array (lcut tail / silence / jcut
-// head) so captions and locate can map card audio to its source.
+// head) so captions and timeline-sheet --at can map card audio to its source.
 export function assemblyTimeline(scenes) {
   const segments = [];
   let t = 0;
@@ -515,7 +515,7 @@ export async function main(argv) {
   // experimentation must be free.
   let snapshotPath = null;
   try {
-    const { saveSnapshot } = await import("./snapshot.mjs");
+    const { saveSnapshot } = await import("./history.mjs");
     snapshotPath = saveSnapshot(manifest, {
       label: "auto-cut",
       dir: join(baseDir, ".ripple", "history"),
@@ -825,6 +825,7 @@ export async function main(argv) {
     ...(snapshotPath ? { snapshot: snapshotPath } : {}),
     ...(rendered.findings.length ? { findings: rendered.findings } : {}),
     warnings: rendered.warnings,
+    hint: "next: ripple qa <output>",
     next: finalPath
       ? `Run: ripple qa ${finalPath} --manifest ${manifestPath}  — then READ a frame sheet of it.`
       : "Scene subset rendered. Re-run without --scene/--no-full to assemble, then qa the result.",

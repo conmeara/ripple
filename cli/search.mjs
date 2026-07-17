@@ -113,6 +113,6 @@ export async function main(argv) {
     ...(problems.length ? { problems } : {}),
     hints: capped.length
       ? ["Zoom any hit: ripple timeline-sheet <file> --around <start> --span 12 — then candidates before using it."]
-      : ["No matches. Try fewer words (matching is exact word-sequence, punctuation-insensitive), or check `ripple sources` for unindexed footage."],
+      : ["No matches. Try fewer words (matching is exact word-sequence, punctuation-insensitive), or check `ripple probe` for unindexed footage."],
   });
 }

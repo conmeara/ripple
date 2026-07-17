@@ -1,0 +1,24 @@
+{
+  "id": "93-probe-both",
+  "title": "Perception probe: OUT from index JSON + timeline sheet together",
+  "agent": "claude",
+  "model": "sonnet",
+  "skill": "none",
+  "bareCli": true,
+  "baseline": true,
+  "timeoutMinutes": 10,
+  "prompt": "index.json is the perception index (word timings, silences, sentences, energy) and sheet.png the timeline sheet (thumbnails, motion strip, waveform with silence shading, word-aligned transcript) of a ~22-second interview answer clip. The media itself is NOT available. Determine where the cut should end: the OUT point lands just after the speaker's final word, with a natural tail of at most ~0.8 seconds - without cutting off any of the ending, even a quiet one. Cross-check the two sources. Write your answer to answer.json as {\"out\": <seconds>}. Do not render or fetch anything.",
+  "fixtures": [
+    { "from": "$CACHE/married.mp4", "to": "media/clip.mp4" }
+  ],
+  "setup": [
+    "$RIPPLE analyze media/clip.mp4 > /dev/null",
+    "$RIPPLE timeline-sheet media/clip.mp4 --out sheet.png > /dev/null",
+    "cp work/analysis/*.analysis.json index.json",
+    "rm -rf media work"
+  ],
+  "checks": [
+    { "id": "kept-quiet-ending", "type": "json_path", "file": "answer.json", "path": "out", "op": "gte", "value": 21.0 },
+    { "id": "within-file", "type": "json_path", "file": "answer.json", "path": "out", "op": "lte", "value": 22.18 }
+  ]
+}

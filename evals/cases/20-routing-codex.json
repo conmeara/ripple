@@ -22,7 +22,7 @@
     {
       "id": "used-ripple-cli",
       "type": "transcript_grep",
-      "pattern": "(index\\.mjs[^\\n]{0,60}(sources|probe|status)|\\bripple (sources|probe|status))"
+      "pattern": "(index\\.mjs[^\\n]{0,60}probe|\\bripple probe)"
     },
     {
       "id": "names-clip-1",

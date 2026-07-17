@@ -2,132 +2,156 @@
 
 **Give agents skills, tools, and taste for video editing.**
 
-Ripple is a video-editing plugin for Claude Code and Codex. It translates
-footage and timelines into time-aligned images, structured text, and explicit
-edit decisions, then gives the agent tools and opinionated playbooks to change
-the cut and an independent QA subagent to verify the result.
+Ripple is a command-line editor's workbench for AI agents. It turns footage
+and timelines into time-aligned images, structured text, and explicit edit
+decisions, then gives the agent the tools to change the cut and deterministic
+gates to verify the result.
 
-## What's included
+The CLI is the product. Install it and any agent harness can edit competently:
 
-![Ripple has three parts: Skills provide 11 opinionated phase playbooks, Tools provide 25 deterministic CLI commands, and Taste persists creative direction in VIDEO.md](docs/assets/skills-tools-taste.png)
+```bash
+npm install --global ripple-video
+```
 
-### Tools
+This installs the `ripple` command. It works with any agent that can run a
+shell — Claude Code, Codex, or a bare model at a terminal — and runs
+local-first: perception is built with `whisper-cpp` and `ffmpeg` on your
+machine, with no cloud transcription. A bare agent with no skill installed can
+run `ripple help` and edit; every command prints guidance and names its
+natural next command, so the CLI teaches its own use.
 
-Models experience video as text and image tokens, not as a continuous
-timeline. A frame sheet can show the picture, but not whether a speaker has
-finished, how long a silence lasts, where a breath lands, or whether the next
-take has started leaking into the cut. Editing depends on the relationships
-between those signals over time.
+The optional plugin adds skills — opinionated playbooks that carry editorial
+craft on top of the same CLI. See [Enhanced install](#enhanced-install-the-plugin).
 
-The Ripple CLI gives the agent the senses and hands of an editor. `ripple
-analyze` builds a cached perception index for each source: word timings fused
-with measured silence, sentence boundaries and pace, fillers, audible
-non-speech events, terminal pitch, breaths, motion, scene changes, and energy.
+## Where Ripple sits
 
-#### Two channels for the timeline
+**ffmpeg is hands. HyperFrames is imagination. The NLE is the finishing
+suite. Ripple is the eyes, ears, and editorial judgment loop.** It never
+competes with the other three — it routes to them and owns the timeline
+decisions. A model experiences video as text and image tokens, not as a
+continuous timeline: a frame sheet shows the picture but not whether a speaker
+has finished, how long a silence lasts, where a breath lands, or whether the
+next take has leaked into the cut. Editing depends on the relationships
+between those signals over time, and that is what Ripple measures.
 
-##### Image channel
+Nobody else combines all four of these: local-first perception, verified cut
+endpoints, deterministic QA gates, and NLE handoff.
 
-`timeline-sheet` combines frames, motion, waveform, silence, non-speech
-events, transcript, and edit markers into a single image the model can
-inspect directly.
+## Tools
+
+`ripple analyze` builds a cached perception index for each source: word
+timings fused with measured silence, sentence boundaries and pace, fillers,
+audible non-speech events, terminal pitch, breaths, motion, scene changes, and
+energy. Perceive once, cache forever; every later question is a cheap query.
+
+The flagship artifact is the timeline sheet — the editor's timeline as one
+image the model can inspect directly.
 
 ![Anatomy of a real Ripple timeline sheet, with each band labelled: a time ruler, source thumbnails, a motion strip, an audio waveform with measured silence, non-speech events, and a word-aligned transcript on one shared time axis, plus the orange OUT cut marker](docs/assets/anatomy-of-a-timeline-sheet.png)
 
-##### Text channel
+`timeline-sheet` combines frames, motion, waveform, measured silence,
+non-speech events, transcript, and edit markers into a single image on a
+shared time axis. The agent can reason in tokens, confirm the situation
+visually, and make an edit without guessing how one view maps to the other.
 
-`describe` renders the same perception index as structured JSON: sources,
-sentences, words, silences, pace, pitch, breaths, scene changes, cut-point
-flags, and exact timestamps.
+Commands return structured JSON to stdout and write inspectable artifacts, so
+decisions stay traceable and renders stay reproducible. Run `ripple help` or
+`ripple <command> --help` for details.
 
-```bash
-ripple describe interview.mov
-```
+![Ripple has three parts: skills provide optional editing playbooks, tools provide the deterministic CLI commands, and taste persists creative direction in VIDEO.md](docs/assets/skills-tools-taste.png)
 
-An abridged response looks like:
+### Core loop
 
-```jsonc
-{
-  "mode": "overview",
-  "duration": 30,
-  "speech": {
-    "seconds": 10.8,
-    "ratio": 0.36,
-    "silenceSeconds": 19.2
-  },
-  "sentences": [
-    {
-      "start": 0.5,
-      "end": 2.8,
-      "duration": 2.3,
-      "text": "We met at the coffee shop.",
-      "wps": 2.609,
-      "terminalPitch": "falling",
-      "gapAfter": 2.2
-    }
-  ],
-  "silences": [
-    { "start": 2.8, "end": 5.0, "duration": 2.2 }
-  ],
-  "nonSpeech": [
-    { "start": 9.0, "end": 10.2, "duration": 1.2 }
-  ]
-}
-```
+The path from raw clips to a verified, rendered cut.
 
-Both channels come from the same perception index and use the same source
-timecodes. The agent can reason in tokens, confirm the situation visually, and
-make an edit without guessing how one view maps to the other.
-
-#### The rest of the workbench
-
-The CLI also handles source inspection, transcription, timeline navigation,
-phrase search, take selection, multicam sync, cut history and comparison,
-captions, grading, rendering, deterministic QA, and NLE handoff. Commands
-return structured JSON and write inspectable artifacts, so decisions remain
-traceable and renders remain reproducible.
-
-Run `ripple help` or `ripple <command> --help` for details.
-
-| | Commands |
+| Command | What it does |
 |---|---|
-| **Perceive** | `analyze` · `timeline-sheet` · `describe` · `frame-sheet` · `candidates` · `transcribe` · `probe` · `sources` · `search` · `beats` · `sync` |
-| **Decide** | `status` · `select` · `locate` · `snapshot` · `compare` |
-| **Render** | `cut` · `captions` · `grade` |
-| **Verify** | `lint` · `qa` · `review` · `doctor` |
-| **Taste** | `study` |
-| **Ship** | `handoff` |
+| `analyze` | Build the perception index — word timings, silence/speech maps, sentences with pace, fillers, non-speech events, scene changes, motion and energy — cached, run once per source |
+| `candidates` | Verify a cut range: word timing, red flags, suggested OUT, silence, transcript, edge frames, head/tail cut-card sheets |
+| `frame-sheet` | Tiled frame sheet so you can see the video; `--scenes` samples where the picture changes — the discovery mode for takes and resets |
+| `timeline-sheet` | The editor's timeline as one image: thumbnails, motion strip, waveform with silence shading, word-aligned transcript, and cut markers |
+| `lint` | Pre-render rule check from cached perception: every scene's endpoint flags plus waiver accounting; exit 1 on an unwaived block |
+| `cut` | Render the manifest: clips, cards, J/L-cuts, dissolves, music bed, full assembly |
+| `qa` | Deterministic delivery gates and trend snapshots; `--report` renders the HTML QA report |
+
+### Scale & multicam
+
+For hours of footage, repeated takes, and synced recordings.
+
+| Command | What it does |
+|---|---|
+| `search` | Find where anyone says a phrase, word-accurate, across all indexed sources |
+| `select` | Group takes across files by transcript and recommend the best per group |
+| `sync` | Multicam: audio cross-correlation offsets between recordings |
+| `beats` | Beat grid for a music bed: bpm, beat times, confidence |
+| `study` | Taste extraction from a reference edit → proposed `VIDEO.md` values with the measurement behind each |
+
+### Support
+
+Inspection, transcripts, history, captions, and handoff.
+
+| Command | What it does |
+|---|---|
+| `doctor` | Check ffmpeg, whisper, and encoders and print fixes |
+| `probe` | Inspect one file's streams, HDR, and capabilities; no file lists the media bin and perception-index state |
+| `history` | Save, list, and diff cut snapshots (identical versions dedup) |
+| `captions` | Word-accurate captions in output time: `.srt` plus styled `.ass`; optional burn-in |
+| `handoff` | Hand the cut to an NLE — OTIO (Resolve), xmeml (Premiere), EDL (universal) |
+| `transcribe` | Transcript: existing subtitles first, whisper-cpp fallback, cached; `--words` for word-level timing |
 
 All commands print JSON to stdout, including error envelopes. Exit codes are
 `0` for success, `1` for a failed gate or runtime failure, and `2` for invalid
 usage or a missing dependency. State lives in `~/.ripple/`.
 
-### Skills
+## Independent QA
 
-One Ripple skill routes to 11 editing playbooks covering development,
-planning, generation, take selection, editing, grading, finishing, repair,
-review, and NLE handoff. It also turns directions such as `/ripple tighter`,
-`punchier`, `breathe`, and `quieter` into defined inspect, change, render, and
-verify loops.
+After every render or repair, Ripple can hand the output to a bundled,
+read-only [`qa-reviewer`](agents/qa-reviewer.md) subagent. The editor does not
+get to be the only judge of its own work.
 
-Ask in plain language or invoke a phase directly with `/ripple <phase>` in
+The reviewer receives a narrow checklist of the failure modes that matter for
+that change — such as a complete sentence ending, no leaked prompt audio,
+unchanged neighboring scenes, preserved color metadata, and a clean decode. It
+gathers direct evidence with the Ripple CLI, transcripts, timeline sheets, and
+media probes, then reports `PASS` or `FAIL` for each item. It cannot edit or
+re-render the video.
+
+Deterministic QA (`lint`, `qa`) catches known technical failures; the fresh
+context checks the specific editorial promise the editing agent just made. When
+the host cannot run subagents, Ripple applies the same checklist in the current
+context and discloses that the review was not independent.
+
+## Taste
+
+[`VIDEO.md`](skills/ripple/templates/VIDEO.md) stores the project's standing
+creative direction: pacing, register, color policy, brand, anti-references, and
+confirmed steering. [`edit.json`](schemas/edit.schema.json) stores the
+decisions for the current cut — a machine-checkable paper edit. Direction
+becomes project state instead of a prompt that must be reconstructed every
+session.
+
+`ripple study` measures a reference edit's cutting rhythm, delivery pace, tail
+preference, silence usage, energy, and grade lean, then proposes matching
+`VIDEO.md` values with the evidence behind each. Ripple never changes the
+project's taste without user approval.
+
+## Enhanced install: the plugin
+
+The plugin adds one Ripple skill: a [`SKILL.md`](skills/ripple/SKILL.md) router
+plus four optional playbooks. They are opinions about the craft, not CLI docs —
+each one names the editorial rule and the instrument that applies it.
+
+| Playbook | The opinion it carries |
+|---|---|
+| **develop** | Turn an idea into a script, AV script, shot list, or storyboard — and generate the missing elements (voice-over, music, stills, b-roll) when the footage isn't there yet |
+| **edit** | The verified-endpoint cut loop: calculate endpoints instead of eyeballing them, select takes on evidence, repair one scene instead of rebuilding the edit |
+| **taste** | Capture and defend `VIDEO.md`, extract taste from references with `study`, and hold the production-stack opinions |
+| **deliver** | Finish and assemble safely, apply color recipes, run the QA report, and hand a clean structure off to an NLE |
+
+Ask in plain language, or invoke a phase directly with `/ripple <phase>` in
 Claude Code and `$ripple <phase>` in Codex.
 
-| Command | What it does |
-|---|---|
-| `init` | Capture the project's taste and write `VIDEO.md` |
-| `develop` | Create a script, AV script, shot list, or storyboard |
-| `plan` | Inspect sources and draft the first `edit.json` |
-| `generate` | Create missing voice-over, music, stills, or b-roll |
-| `select` | Compare takes and record why the best ones were chosen |
-| `edit` | Execute and iterate the cut with verified endpoints |
-| `grade` | Compare color variants and record the choice |
-| `finish` | Assemble safely and run delivery QA |
-| `repair` | Fix a flagged scene without rebuilding the edit |
-| `review` | Generate a review page and run an independent QA pass |
-| `handoff` | Export OTIO, FCP7 XML, or EDL for Premiere or Resolve |
-
-#### Opinionated defaults
+### Opinionated defaults
 
 The playbooks are concrete: inspect the timeline before locking a cut,
 calculate endpoints instead of eyeballing them, use multiple signals, repair
@@ -149,38 +173,31 @@ They also choose a production stack:
 | Alternative video generation | fal.ai before a direct Kling integration for ordinary Kling shots; Kling directly for avatar or lip-sync work; Runway when one hero shot matters more than cost |
 | Specialized formats | HeyGen for avatar-led video; Suno only when the project needs a song rather than a music bed |
 
-#### Independent QA
+## What Ripple is for
 
-After every render or repair, Ripple hands the output to a bundled, read-only
-[`qa-reviewer`](agents/qa-reviewer.md) subagent. The editor does not get to be
-the only judge of its own work.
-
-The reviewer receives a narrow checklist of the failure modes that matter for
-that change—such as a complete sentence ending, no leaked prompt audio,
-unchanged neighboring scenes, preserved color metadata, and a clean decode.
-It gathers direct evidence with the Ripple CLI, transcripts, timeline sheets,
-and media probes, then reports `PASS` or `FAIL` for each item. It cannot edit
-or re-render the video.
-
-Deterministic QA catches known technical failures; the fresh context checks
-the specific editorial promise the editing agent just made. When the host
-cannot run subagents, Ripple applies the same checklist in the current context
-and discloses that the review was not independent.
-
-### Taste
-
-[`VIDEO.md`](skills/ripple/templates/VIDEO.md) stores the project's standing
-creative direction: pacing, register, color policy, brand, anti-references,
-and confirmed steering. [`edit.json`](schemas/edit.schema.json) stores the
-decisions for the current cut. Direction becomes project state instead of a
-prompt that must be reconstructed every session.
-
-`ripple study` can measure a reference edit's rhythm, delivery pace, tail
-preference, silence usage, energy, and grade lean, then propose matching
-`VIDEO.md` values with the evidence behind them. Ripple never changes the
-project's taste without user approval.
+Every capability serves one of four scenarios: raw clips → finished cut (the
+flagship), demo/product video, interview + b-roll at scale, and fiction /
+scripted. All four share one spine — perceive → decide-with-user → assemble →
+verify → deliver. See [docs/scenarios.md](docs/scenarios.md) for the full
+frame, and [docs/prior-art.md](docs/prior-art.md) for what Ripple adopts,
+learns from, and ignores.
 
 ## Quick start
+
+Analyze a source, look at its timeline, and go:
+
+```bash
+ripple analyze interview.mov
+ripple timeline-sheet interview.mov
+```
+
+Or describe the edit to your agent:
+
+```text
+Cut a 30-second promo from these clips, synced to the track.
+```
+
+## Installing the plugin
 
 Claude Code:
 
@@ -196,25 +213,18 @@ codex plugin marketplace add conmeara/ripple
 codex plugin add ripple@ripple
 ```
 
-Run `/ripple init` in Claude Code or `$ripple init` in Codex—or simply describe
-the edit:
+Then run `/ripple taste` in Claude Code or `$ripple taste` in Codex to capture
+the project's taste in `VIDEO.md` — or just describe the edit; the skill
+creates `VIDEO.md` with you on first touch.
 
-```text
-Cut a 30-second promo from these clips, synced to the track.
-```
+## Requirements
 
-Requires Node.js 20+ and `ffmpeg`/`ffprobe` on `PATH` (`brew install ffmpeg`).
-For word-accurate editing, install `whisper-cpp` and place a model in
-`~/.ripple/models/`. The plugin guides you through setup.
+- Node.js 20+
+- `ffmpeg` and `ffprobe` on `PATH` (`brew install ffmpeg`)
+- For word-accurate editing: `whisper-cpp` with a model in
+  `~/.ripple/models/` (optional; Ripple falls back to existing subtitles)
 
-For the standalone CLI without the agent skill:
-
-```bash
-npm install --global ripple-video
-```
-
-The npm package installs the `ripple` command. Use the plugin installation
-above when you also want the Claude Code or Codex skill and its playbooks.
+Run `ripple doctor` to check tools and print fixes.
 
 ## License
 

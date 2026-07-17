@@ -348,10 +348,10 @@ export function parseFrontMatter(text) {
   return root;
 }
 
-// ---------- waiver accounting (shared by lint and describe) ----------
+// ---------- waiver accounting (lint only) ----------
 // ONE reading of the two waiver tiers, because a waiver honored by lint but
-// invisible to describe reopened accepted exceptions: describe rendered a
-// waived DEAD_AIR_TAIL as a bare flag and sessions re-litigated it.
+// omitted from its output reopens accepted exceptions: a waived
+// DEAD_AIR_TAIL must stay visibly waived so sessions do not re-litigate it.
 
 // A retune value must end up numeric. Quoted numbers coerce ("5.0" — YAML
 // users quote by habit and real YAML would still read a number); anything
@@ -442,7 +442,7 @@ export function waiverFor(id, sceneWaive, projectWaive) {
 // Where analyze cached the indexes for a given manifest. Analyze writes to
 // <root>/work/analysis and a manifest lives at <root>/edit.json or
 // <root>/work/edit.json (status.resolveManifestPath's two layouts) — derive
-// the root from the manifest itself so lint, describe and the write hook
+// the root from the manifest itself so lint and the write hook
 // agree with analyze REGARDLESS of the caller's cwd. Anchoring on
 // dirname(manifest) alone sent lint to <root>/work/work/analysis for the
 // work/edit.json layout: false NO_INDEX blocks while status said clean.
@@ -505,6 +505,12 @@ export function lintManifest(manifestPath, {
   const { overrides, maxTail: effMaxTail, maxLead: effMaxLead } = project;
 
   const scenes = (manifest.scenes ?? []).filter((s) => !scene || s.slug === scene);
+  // The endpoint law rendered as data, one row per scene — the compact
+  // digest a session scans before deciding where to zoom. Verdicts derive
+  // from the SAME findings pushed below (never a second implementation of
+  // the law): flagged = any unwaived endpoint finding, waived = every
+  // endpoint finding carries its written reason.
+  const endpoints = [];
   for (const s of scenes) {
     const sceneTier = sceneWaivers(s);
     for (const rule of sceneTier.reasonless) {
@@ -527,6 +533,7 @@ export function lintManifest(manifestPath, {
     const src = s.source ? resolve(baseDir, s.source) : null;
     if (!src || !existsSync(src)) {
       push("NO_INDEX", `source not found: ${s.source ?? "(missing)"} — nothing to verify, nothing to render`);
+      endpoints.push({ scene: s.slug, verdict: "no-index" });
       continue;
     }
     // Same cache stem as analyze builds — read-only; a missing or stale
@@ -535,6 +542,7 @@ export function lintManifest(manifestPath, {
     const index = readJsonOrNull(join(indexDir, `${stem}.analysis.json`));
     if (!index) {
       push("NO_INDEX", `no cached perception index for ${s.source} — run: ripple analyze "${s.source}"`);
+      endpoints.push({ scene: s.slug, verdict: "no-index" });
       continue;
     }
     if (index.hasAudio === false) continue; // silent b-roll: no endpoints to verify
@@ -555,10 +563,26 @@ export function lintManifest(manifestPath, {
     const silenceRef = referenceSilences(index).map((sp) => ({ ...sp, end: sp.end ?? index.duration }));
     const timing = index.words ? cutTiming(index.words, silenceRef, { start: s.start, end: s.end }) : null;
     const silence = rangeSilence(index, s.start, s.end);
+    const before = findings.length;
     for (const f of endpointFlags(timing, silence, { maxTail: effMaxTail, maxLead: effMaxLead, end: s.end })) {
       push(f.flag, f.detail);
     }
+    const sceneFindings = findings.slice(before).filter((f) => f.rule !== "waiver-missing-reason");
+    const unwaived = sceneFindings.filter((f) => !f.waived);
+    endpoints.push({
+      scene: s.slug,
+      in: s.start,
+      out: s.end,
+      duration: round3(s.end - s.start),
+      lastWordEnd: timing?.lastWordEnd ?? null,
+      tailGap: timing?.tailGap ?? null,
+      ...(timing?.nextText ? { nextText: timing.nextText } : {}),
+      verdict: unwaived.length ? "flagged"
+        : sceneFindings.length ? "waived"
+          : !timing || timing.lastWordEnd === null ? "no-words-in-range"
+            : "within-law",
+    });
   }
 
-  return { findings, overrides, scenes: scenes.map((s) => s.slug) };
+  return { findings, overrides, scenes: scenes.map((s) => s.slug), endpoints };
 }

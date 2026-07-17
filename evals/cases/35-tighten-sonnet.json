@@ -19,7 +19,7 @@
     {
       "id": "used-ripple-cli",
       "type": "transcript_grep",
-      "pattern": "(cli/index\\.mjs|\\bripple (analyze|candidates|describe|transcribe|cut|qa|frame-sheet|timeline-sheet|probe|lint))"
+      "pattern": "(cli/index\\.mjs|\\bripple (analyze|candidates|transcribe|cut|qa|frame-sheet|timeline-sheet|probe|lint|history))"
     },
     {
       "id": "manifest-written",
