@@ -17,7 +17,8 @@
   ],
   "scripts": {
     "test": "node --test 'cli/*.test.mjs'",
-    "gen:rules": "node scripts/generate-rules-md.mjs"
+    "gen:rules": "node scripts/generate-rules-md.mjs",
+    "gen:wiki": "node scripts/build-wiki.mjs"
   },
   "engines": {
     "node": ">=20"

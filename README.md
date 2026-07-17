@@ -182,6 +182,12 @@ verify → deliver. See [docs/scenarios.md](docs/scenarios.md) for the full
 frame, and [docs/prior-art.md](docs/prior-art.md) for what Ripple adopts,
 learns from, and ignores.
 
+**The wiki** — an interactive map of the whole plugin (the spine, every
+command's internals, the skill playbooks verbatim, and how Ripple compares to
+the rest of the landscape) — lives at
+[conmeara.github.io/ripple](https://conmeara.github.io/ripple/). It is
+generated from the tree by `npm run gen:wiki` into `docs/index.html`.
+
 ## Quick start
 
 Analyze a source, look at its timeline, and go:
