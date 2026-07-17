@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  assemblyDuration, assemblyTimeline, buildAssemblyFilter, buildConcatFilter, buildEncodeArgs, buildMusicFilter, buildSceneVf, clipName, directJoins, geometryChain, jumpCutFinding, jumpCutReading, offBeatFinding, segmentBoundaries,
+  assemblyDuration, assemblyTimeline, buildAssemblyFilter, buildConcatFilter, buildEncodeArgs, buildMusicFilter, buildSceneVf, clipName, directJoins, geometryChain, jumpCutFinding, jumpCutReading, microFadeChain, MICRO_FADE, offBeatFinding, segmentBoundaries,
   expectedLeadingSilence, setparamsFilter, validateManifest,
 } from "./cut.mjs";
 import { RULE_INDEX } from "./rules.mjs";
@@ -268,6 +268,30 @@ test("buildAssemblyFilter: xfade offsets, planar chain, terminal format restore"
   assert.match(f, /acrossfade=d=1\[ax2\]/);
   assert.match(f, /format=p010le,setparams=[^[]*arib-std-b67[^[]*\[v\]/); // terminal restore
   assert.match(f, /anull\[a\]$/);
+});
+
+test("microFadeChain: 30ms fades both ends by default, appended to the audio chain", () => {
+  assert.equal(MICRO_FADE, 0.03);
+  // A comfortably long segment: full 30ms in and out, fade-out anchored at end−d.
+  assert.equal(microFadeChain(4), ",afade=t=in:d=0.03,afade=t=out:st=3.97:d=0.03");
+  // The chain drops onto the tail of an existing filter without its own comma trouble.
+  assert.ok(`aresample=48000${microFadeChain(4)}`.startsWith("aresample=48000,afade=t=in"));
+});
+
+test("microFadeChain: J/L-cut sides suppress the touching fade to protect continuous audio", () => {
+  // jcut>0 → body head continues the card's J-cut audio: fade OUT only.
+  assert.equal(microFadeChain(6, { in: false }), ",afade=t=out:st=5.97:d=0.03");
+  // lcut>0 → body tail continues under the next card: fade IN only.
+  assert.equal(microFadeChain(6, { out: false }), ",afade=t=in:d=0.03");
+  // Both suppressed (jcut>0 and lcut>0): no fade at all.
+  assert.equal(microFadeChain(6, { in: false, out: false }), "");
+});
+
+test("microFadeChain: clamps to duration/4 for sub-120ms clips, off when disabled or zero", () => {
+  // 80ms clip: 30ms won't fit twice, clamp to 20ms each side.
+  assert.equal(microFadeChain(0.08), ",afade=t=in:d=0.02,afade=t=out:st=0.06:d=0.02");
+  assert.equal(microFadeChain(4, { enabled: false }), "");
+  assert.equal(microFadeChain(0), "");
 });
 
 test("geometryChain: pad default, crop reframe, source-pixel rect first", () => {

@@ -21,7 +21,7 @@ import {
 // ~1 min for a 13-minute 4K source, then free (cache keys on file stamp).
 
 export const DEFAULT_THRESHOLDS = ["-35", "-40", "-45"];
-const INDEX_VERSION = 6; // 6: adds the drift self-check (index.drift)
+const INDEX_VERSION = 7; // 7: VAD-chunked whisper timing; drift self-check remains verification
 
 // Snap a fuzzy speaker-turn time (±300ms segment granularity) into the
 // nearest silence span — the cut belongs in the inter-speaker gap. Snap to
@@ -59,6 +59,40 @@ export function speechSpans(silences, duration) {
   return subtractSpans([{ start: 0, end: duration }], holes)
     .filter((s) => s.end - s.start > 0.05)
     .map((s) => ({ start: round3(s.start), end: round3(s.end) }));
+}
+
+// Version-7 drift verification keeps the stretched-ending instrument, but
+// interprets it in light of VAD chunking. Short-window whisper commonly smears
+// punctuation 1–3s across a pause; cumulative long-source drift is the severe
+// stretch that persists late in the source. A word beginning where a finite
+// EOF-adjacent silence resumes is a new utterance, not a prior word stretched
+// across the whole silence (the old EOF slack conflated those cases).
+export function driftSummary(rawWords, silences, { duration, timingMode } = {}) {
+  let stretched = stretchedEndings(rawWords, silences, { duration });
+  if (timingMode === "chunked") {
+    stretched = stretched.filter((sample) => {
+      if (sample.end < duration - 0.35) return true;
+      const word = rawWords.find((w) => w.end === sample.end && w.text === sample.text);
+      const silence = silences.find((s) => s.start === sample.silenceStart);
+      return !(word && silence?.end != null && word.start >= silence.end - 0.5);
+    });
+  }
+  const maxStretch = stretched.reduce((a, sample) => Math.max(a, sample.stretch), 0);
+  const lateSevere = timingMode === "chunked"
+    ? stretched.filter((sample) => sample.end >= duration / 2 && sample.stretch >= 3)
+    : [];
+  return {
+    stretchedEndings: stretched.length,
+    maxStretch,
+    // Whole-file mode retains the version-6 detector. Once timestamps are
+    // independently anchored every <=30s, verify the targeted failure mode:
+    // severe stretch that survives in the latter half despite those resets.
+    suspected: timingMode === "chunked"
+      ? lateSevere.length > 0
+      : stretched.length >= 3 || maxStretch >= 2,
+    ...(timingMode === "chunked" ? { lateSevereEndings: lateSevere.length } : {}),
+    samples: stretched.sort((a, b) => b.stretch - a.stretch).slice(0, 12),
+  };
 }
 
 function detectSilences(ffmpeg, wav, thresholdKeys) {
@@ -211,6 +245,8 @@ export function loadAnalysis(file, {
   // Audio layer (soft: a video-only source still gets motion/scenes).
   const wav = join(outDir, `${stem}.16k.wav`);
   let rawWords = null;
+  let transcriptionMode = null;
+  let transcriptionChunks = null;
   let wordsNote = null;
   let silences = {};
   let rms = [];
@@ -224,7 +260,10 @@ export function loadAnalysis(file, {
     extractWav16k(file, wav, { force });
 
     if (whisperReady) {
-      rawWords = transcribeWords(file, { outDir, model, prompt, lang, force }).words;
+      const transcription = transcribeWords(file, { outDir, model, prompt, lang, force });
+      rawWords = transcription.words;
+      transcriptionMode = transcription.timingMode;
+      transcriptionChunks = transcription.chunks;
     } else {
       wordsNote = "whisper-cpp (with --split-on-word) or model unavailable — no word timing; run `ripple doctor`";
     }
@@ -310,18 +349,7 @@ export function loadAnalysis(file, {
   // candidates' isolated re-transcription); measured on the RAW words
   // because fusion scatters the evidence.
   const drift = rawWords
-    ? (() => {
-        const stretched = stretchedEndings(rawWords, silenceRef, { duration });
-        const maxStretch = stretched.reduce((a, s) => Math.max(a, s.stretch), 0);
-        return {
-          stretchedEndings: stretched.length,
-          maxStretch,
-          // One stretched ending near EOF is normal whisper smear; a pattern
-          // (or one big miss) is the long-source drift failure mode.
-          suspected: stretched.length >= 3 || maxStretch >= 2,
-          samples: stretched.sort((a, b) => b.stretch - a.stretch).slice(0, 12),
-        };
-      })()
+    ? driftSummary(rawWords, silenceRef, { duration, timingMode: transcriptionMode })
     : null;
 
   let sentences = words ? sentenceSpans(words, silenceRef) : null;
@@ -358,6 +386,9 @@ export function loadAnalysis(file, {
     },
     snapKey,
     model: rawWords ? basename(resolveModel(model ?? null)) : null,
+    transcription: rawWords
+      ? { mode: transcriptionMode, chunks: transcriptionChunks }
+      : null,
     words,
     ...(wordsNote ? { wordsNote } : {}),
     silences,
@@ -431,7 +462,12 @@ export async function main(argv) {
     ...(index.wordsNote ? { wordsNote: index.wordsNote } : {}),
     ...(suspectWords ? { suspectWords } : {}),
     ...(index.drift
-      ? { drift: { stretchedEndings: index.drift.stretchedEndings, maxStretch: index.drift.maxStretch, suspected: driftSuspected } }
+      ? { drift: {
+          stretchedEndings: index.drift.stretchedEndings,
+          maxStretch: index.drift.maxStretch,
+          ...(index.drift.lateSevereEndings !== undefined ? { lateSevereEndings: index.drift.lateSevereEndings } : {}),
+          suspected: driftSuspected,
+        } }
       : {}),
     speechSpans: index.speech.length,
     sentences: index.sentences ? index.sentences.length : null,
@@ -459,7 +495,7 @@ export async function main(argv) {
         ? ["suspect words are whisper fabrications over silence/music — visible in the index, ignored by every timing number. Never anchor a cut to one."]
         : []),
       ...(driftSuspected
-        ? [`DRIFT SUSPECTED: ${index.drift.stretchedEndings} utterance endings sit past the measured end of speech (worst ${index.drift.maxStretch}s) — whisper timestamps drift on long sources. Do not lock any OUT from this index alone: candidates cross-checks each range against an isolated re-transcription (driftCheck) and flags INDEX_DRIFT when the index disagrees.`]
+        ? [`DRIFT VERIFICATION FAILED: VAD pre-chunking normally prevents long-source timestamp drift, but the retained self-check still found ${index.drift.stretchedEndings} utterance endings past measured speech (worst ${index.drift.maxStretch}s). Do not lock any OUT from this index alone: candidates cross-checks each range against an isolated re-transcription (driftCheck) and flags INDEX_DRIFT when the index disagrees.`]
         : []),
       "Don't cat the index; slice it (jq) or view it (ripple timeline-sheet).",
     ],

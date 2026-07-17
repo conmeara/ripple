@@ -39,10 +39,12 @@ entirely and forced-aligns the text with a wav2vec2 phoneme model (word
 boundaries to tens of ms). Install weight is real (~2GB PyTorch + per-language
 alignment model), so:
 
-- **Do now (LEARN)**: port VAD-style pre-chunking into the whisper-cpp
-  pipeline — pre-segment with measured silence, transcribe windows,
-  offset-add. Converts our drift *detection* (INDEX_DRIFT, driftCheck) into
-  drift *prevention*. The detection stays as the verification layer.
+- **Shipped in v0.11**: VAD-style pre-chunking in the whisper-cpp pipeline —
+  pre-segment with measured silence into ≤30s windows, transcribe, offset-add.
+  On the 7.4-min drift fixture: suspected true→false, worst stretch
+  7.0s→3.5s (residual is local smear, not cumulative), spot-checked endpoints
+  within 2–142ms of isolated ground truth. Detection (INDEX_DRIFT, driftCheck)
+  stays as the verification layer, reframed as a disagreement detector.
 - **Offer (ADOPT)**: `--aligner whisperx` via `uvx whisperx` as an optional
   detected precision backend (same pattern as whisper-cpp itself), or
   auto-suggest when drift is detected.
@@ -53,7 +55,9 @@ alignment model), so:
 
 **auto-editor** (4.6k★, very active, now written in Nim — shell-out or
 recipe-book only). Still fundamentally "cut at silence edges," but with three
-guards `candidates` should replicate:
+guards `candidates` should replicate (1 and 2 shipped in v0.11: `suggestIn`
+with a 0.3s lead margin, `STUTTER_CUT`/`MICRO_CLIP` flags with
+`--min-cut`/`--min-clip`/`--lead`; 3 remains open):
 
 1. **Margin as hysteresis** — `--margin 0.2s` relabels quiet spans near
    speech as speech rather than padding clips; asymmetric `0.3s,1.5s`
@@ -131,7 +135,8 @@ bridge). `otiotool` is useful for debugging handoffs.
   cloud transcription call packed into ~12KB markdown + on-demand
   filmstrip/waveform composites only at decision points. Three ideas to
   absorb: **30ms audio fades at every cut** as an always-on default in
-  `cut`; per-boundary preview self-review before showing the user; named
+  `cut` (shipped in v0.11: `audioMicroFades`, clamped for sub-120ms clips,
+  J/L-cut-aware); per-boundary preview self-review before showing the user; named
   ffmpeg looks per segment (validates killing the grade command for taught
   recipes). Its structural weakness: cloud-only transcription (ElevenLabs).
   **Ripple's differentiation: local-first perception + verified endpoints +

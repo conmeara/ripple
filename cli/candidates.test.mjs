@@ -5,8 +5,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { driftCheckFrom, endpointFlags, suggestOut } from "./candidates.mjs";
+import {
+  driftCheckFrom, endpointFlags, microClipFlag, stutterCutFlags, suggestIn, suggestOut,
+} from "./candidates.mjs";
 import { RULE_INDEX, endpointFlags as registryEndpointFlags } from "./rules.mjs";
+import { cutTiming } from "./timing.mjs";
 import { fileStamp, findTool } from "./util.mjs";
 
 // Numbers shaped like the real wedding failure: answer's acoustic end at
@@ -107,7 +110,7 @@ function candidatesProject({ videoMd } = {}) {
   writeFileSync(
     join(dir, "work", "analysis", `src_${fileStamp(src)}.analysis.json`),
     JSON.stringify({
-      version: 6, file: src, duration: 10, hasAudio: true,
+      version: 7, file: src, duration: 10, hasAudio: true,
       words: [
         { start: 0.3, end: 0.6, text: "We" },
         { start: 0.7, end: 2.0, text: "met." },
@@ -155,6 +158,75 @@ test("candidates honors the VIDEO.md project retune exactly like lint", { skip: 
   const strict = runCandidates([...base, "--max-tail", "2"], tuned.dir);
   assert.ok(strict.json.flags.some((f) => f.flag === "DEAD_AIR_TAIL"));
   assert.equal(strict.json.overrides[0].superseded, true);
+});
+
+// ---------- manifest batch verify ----------
+
+// A manifest project: real synthesized audio (fresh silencedetect per scene),
+// a planted index (no whisper). Words end at 2.0s; silence runs to EOF.
+function manifestProject(scenes) {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-cand-mf-"));
+  const src = join(dir, "src.wav");
+  const gen = spawnSync(ffmpeg, [
+    "-hide_banner", "-y", "-v", "error",
+    "-f", "lavfi", "-i", "sine=frequency=440:duration=2:sample_rate=16000",
+    "-af", "apad=pad_dur=8", "-t", "10", src,
+  ], { encoding: "utf8" });
+  assert.equal(gen.status, 0, gen.stderr);
+  mkdirSync(join(dir, "work", "analysis"), { recursive: true });
+  writeFileSync(
+    join(dir, "work", "analysis", `src_${fileStamp(src)}.analysis.json`),
+    JSON.stringify({
+      version: 7, file: src, duration: 10, hasAudio: true,
+      words: [
+        { start: 0.3, end: 0.6, text: "We" },
+        { start: 0.7, end: 2.0, text: "met." },
+      ],
+      silences: { "-40dB": [{ start: 2.0, end: null }] },
+      turns: [],
+    })
+  );
+  writeFileSync(join(dir, "edit.json"), JSON.stringify({ version: 1, scenes }));
+  return dir;
+}
+
+test("candidates --manifest batch-verifies every source-backed scene; informs, never gates", { skip: !ffmpeg }, () => {
+  const dir = manifestProject([
+    { id: 1, slug: "clean", source: "src.wav", start: 0, end: 2.8, status: "locked" },
+    { id: 2, slug: "deadtail", source: "src.wav", start: 0, end: 6, status: "locked" },
+    { id: 3, slug: "micro", source: "src.wav", start: 2.0, end: 2.7, status: "proposed" },
+    { id: 4, slug: "card", source: "missing.mp4", start: 0, end: 3, status: "proposed" },
+  ]);
+  const res = runCandidates(["--manifest", "edit.json", "--no-transcribe"], dir);
+  assert.ok(res.json, res.stderr);
+  assert.equal(res.status, 0); // exit 0 even with flags — candidates informs, lint gates
+  assert.equal(res.json.ok, true);
+
+  const byslug = Object.fromEntries(res.json.scenes.map((s) => [s.slug, s]));
+  assert.deepEqual(byslug.clean.redFlags, []); // within the endpoint law
+  assert.ok(byslug.deadtail.redFlags.some((f) => f.flag === "DEAD_AIR_TAIL"));
+  assert.ok(byslug.micro.redFlags.some((f) => f.flag === "MICRO_CLIP"));
+
+  // The generated/card scene (source not on disk) is skipped, not verified.
+  assert.ok(!byslug.card);
+  assert.ok(res.json.skipped.some((s) => s.slug === "card"));
+
+  assert.deepEqual(res.json.summary, {
+    scenesChecked: 3, scenesWithFlags: 2, scenesDrifted: 0, scenesSkipped: 1,
+  });
+  // The stdout teaching channel names the next command and the flagged scenes.
+  assert.ok(/deadtail/.test(res.json.hint) && /micro/.test(res.json.hint));
+  assert.ok(/ripple lint/.test(res.json.hint));
+});
+
+test("candidates --manifest, all clean: hint routes straight to lint", { skip: !ffmpeg }, () => {
+  const dir = manifestProject([
+    { id: 1, slug: "clean", source: "src.wav", start: 0, end: 2.8, status: "locked" },
+  ]);
+  const res = runCandidates(["--manifest", "edit.json", "--no-transcribe"], dir);
+  assert.ok(res.json, res.stderr);
+  assert.equal(res.json.summary.scenesWithFlags, 0);
+  assert.match(res.json.hint, /next: ripple lint/);
 });
 
 test("driftCheckFrom: the q3 numbers — index late by seconds is 'drifted'", () => {
@@ -207,4 +279,66 @@ test("suggestOut lands a breath after the last word, capped before next speech",
   assert.equal(suggestOut(wall), null);
   assert.equal(suggestOut(null), null);
   assert.equal(suggestOut({ ...GOOD_TIMING, lastWordEnd: null }), null);
+});
+
+// ---------- auto-editor guards (LEARN, docs/prior-art.md) ----------
+
+test("suggestIn: asymmetric lead margin, floored on prior speech/audio", () => {
+  // Clean air before the phrase: 0.3s lead margin, above the prior-audio floor.
+  const clean = { ...GOOD_TIMING, prevWordEnd: 460.0, prevAudioEnd: 462.0 };
+  assert.equal(suggestIn(clean), 465.1); // 465.4 - 0.3
+  // Custom lead margin.
+  assert.equal(suggestIn(clean, { leadPreference: 0.5 }), 464.9);
+  // No clean air: prior audio butts right up against the first word → null.
+  const wall = { ...GOOD_TIMING, prevWordEnd: 465.35, prevAudioEnd: 465.35 };
+  assert.equal(suggestIn(wall), null);
+  // First sound in the file (no prior word/audio): floor is 0, not -Infinity.
+  const opener = { firstWordStart: 0.5, prevWordEnd: null, prevAudioEnd: null };
+  assert.equal(suggestIn(opener), 0.2);
+  // Degraded inputs.
+  assert.equal(suggestIn(null), null);
+  assert.equal(suggestIn({ ...GOOD_TIMING, firstWordStart: null }), null);
+});
+
+test("stutterCutFlags: a cut inside a sub-minCut silence is a stutter-cut risk", () => {
+  // A 0.15s micro-pause between words — too short to cut in.
+  const shortSil = [{ start: 5.0, end: 5.15 }];
+  const flags = stutterCutFlags([{ at: 5.07, label: "OUT" }], shortSil);
+  assert.equal(flags.length, 1);
+  assert.equal(flags[0].flag, "STUTTER_CUT");
+  assert.ok(flags[0].detail.includes("min-cut"));
+  // A real pause (1s) is a fine cut opportunity.
+  assert.deepEqual(stutterCutFlags([{ at: 5.5, label: "OUT" }], [{ start: 5.0, end: 6.0 }]), []);
+  // A boundary cut (exactly on the silence edge) is the clean case, not flagged.
+  assert.deepEqual(stutterCutFlags([{ at: 5.0, label: "OUT" }], shortSil), []);
+  // A cut in open speech (no silence) is not this rule's business.
+  assert.deepEqual(stutterCutFlags([{ at: 9.0, label: "OUT" }], shortSil), []);
+  // An EOF-open silence is unbounded — never too short.
+  assert.deepEqual(stutterCutFlags([{ at: 8.0, label: "OUT" }], [{ start: 5.0, end: null }]), []);
+  // Custom minCut widens the net.
+  assert.equal(stutterCutFlags([{ at: 5.4, label: "OUT" }], [{ start: 5.0, end: 6.0 }], { minCut: 1.5 }).length, 1);
+});
+
+test("microClipFlag: a kept range shorter than minClip is a micro-clip risk", () => {
+  const flag = microClipFlag(0.8);
+  assert.equal(flag.flag, "MICRO_CLIP");
+  assert.ok(flag.detail.includes("min-clip"));
+  assert.equal(microClipFlag(1.5), null);
+  assert.equal(microClipFlag(1.0), null); // exactly minClip is fine
+  assert.equal(microClipFlag(2.0, { minClip: 2.5 }).flag, "MICRO_CLIP");
+});
+
+test("cutTiming exposes prevWordEnd/prevAudioEnd for the IN suggestion", () => {
+  const words = [
+    { start: 1.0, end: 1.5, text: "okay." },
+    { start: 3.0, end: 3.4, text: "So" },
+    { start: 3.5, end: 3.9, text: "anyway." },
+  ];
+  const silences = [{ start: 1.5, end: 3.0 }];
+  const timing = cutTiming(words, silences, { start: 2.5, end: 5.0 });
+  assert.equal(timing.firstWordStart, 3.0);
+  assert.equal(timing.prevWordEnd, 1.5);
+  assert.equal(timing.prevAudioEnd, 1.5); // audio stopped where the silence began
+  // The suggestion sits a lead margin before the phrase, inside the clean air.
+  assert.equal(suggestIn(timing), 2.7);
 });

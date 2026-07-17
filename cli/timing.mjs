@@ -224,6 +224,19 @@ export function cutTiming(words, silences, { start, end }) {
   const straddleStart = first && first.start < start - 0.05 ? first.text : null;
   const leadGap = first ? round3(Math.max(0, first.start - start)) : null;
 
+  // What precedes the first word — the IN mirror of nextWordStart/
+  // nextAudioStart: the previous word's end and the moment audio stopped
+  // before the pause that leads into the phrase. A suggested lead-in margin
+  // is floored on these so it can never cross back into prior speech/audio.
+  let prevWordEnd = null;
+  let prevAudioEnd = null;
+  if (first) {
+    const fidx = clamped.indexOf(first);
+    if (fidx > 0) prevWordEnd = clamped[fidx - 1].end;
+    const pre = silences.find((s) => s.start < first.start && (s.end ?? Infinity) >= first.start - 0.3);
+    if (pre) prevAudioEnd = round3(pre.start);
+  }
+
   // Last word that finishes inside the range; a word running past the end
   // means the cut lands mid-word.
   const ending = inRange.filter((w) => w.end <= end + 0.05);
@@ -256,6 +269,8 @@ export function cutTiming(words, silences, { start, end }) {
     wordsInRange: inRange.length,
     firstWordStart: first ? first.start : null,
     leadGap,
+    prevWordEnd,
+    prevAudioEnd,
     straddleStart,
     lastWordEnd,
     tailGap,

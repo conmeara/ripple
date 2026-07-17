@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { driftCheckFrom } from "./candidates.mjs";
 import { RULES, RULE_INDEX, endpointFlags, lintManifest, parseFrontMatter } from "./rules.mjs";
+import { generateRulesMd } from "../scripts/generate-rules-md.mjs";
 import { fileStamp } from "./util.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -20,6 +21,9 @@ test("registry: unique ids, valid phases/severities, every field filled", () => 
     assert.ok(["block", "warn"].includes(r.severity), `${r.id}: severity`);
     assert.ok(r.summary?.length > 10, `${r.id}: summary`);
     assert.ok(r.origin?.length > 10, `${r.id}: origin — a rule nobody can explain gets deleted`);
+    // doc/why are the markdown cells the generator renders into rules.md.
+    assert.ok(r.doc?.length > 10, `${r.id}: doc`);
+    assert.ok(r.why?.length > 10, `${r.id}: why`);
   }
   assert.equal(RULE_INDEX.size, RULES.length);
 });
@@ -41,6 +45,13 @@ test("every rule is documented in reference/rules.md, and the opening count is h
   const count = doc.match(/(\d+) deterministic editing rules/);
   assert.ok(count, "rules.md must open with the rule count");
   assert.equal(Number(count[1]), RULES.length, "rules.md count drifted from the registry");
+});
+
+test("reference/rules.md is generated from the registry — committed file equals the generator output", () => {
+  // The registry is the single source of truth; the doc can never lie about
+  // the rules. If this fails, run: npm run gen:rules
+  const committed = readFileSync(join(ROOT, "skills", "ripple", "reference", "rules.md"), "utf8");
+  assert.equal(committed, generateRulesMd(), "rules.md is stale — run: npm run gen:rules");
 });
 
 test("every candidates flag id is a lock rule, and every lock rule is producible", () => {

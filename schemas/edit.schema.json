@@ -103,6 +103,11 @@
         }
       }
     },
+    "audioMicroFades": {
+      "type": "boolean",
+      "default": true,
+      "description": "30ms audio fade at every cut boundary so cut-point pops are impossible by construction (from video-use). Default on; set false only when a downstream mix owns the de-pop."
+    },
     "music": {
       "type": "object",
       "description": "Optional music bed, mixed under dialogue in the full assembly only \u2014 per-scene clips stay clean (applied by ripple cut)",

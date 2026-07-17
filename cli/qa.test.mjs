@@ -5,7 +5,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { intentionalRegions, parseBlackdetect, parseFreezedetect, unexplainedSpans } from "./qa.mjs";
+import { intentionalRegions, missingEndings, parseBlackdetect, parseFreezedetect, unexplainedSpans } from "./qa.mjs";
 import { RULE_INDEX } from "./rules.mjs";
 import { findTool } from "./util.mjs";
 
@@ -23,6 +23,16 @@ test("every qa gate id is a registered delivery rule", () => {
     assert.ok(rule, `${id} missing from the registry`);
     assert.equal(rule.phase, "delivery", id);
   }
+});
+
+test("missingEndings matches across whisper's hard line wraps", () => {
+  const text = "everything in between is just a\n bonus.\n";
+  assert.deepEqual(missingEndings(text, [{ slug: "married", expectEnding: "just a bonus" }]), []);
+  assert.deepEqual(
+    missingEndings(text, [{ slug: "married", expectEnding: "take two" }]).map((s) => s.slug),
+    ["married"]
+  );
+  assert.deepEqual(missingEndings("JUST  A   BONUS", [{ slug: "m", expectEnding: "just a bonus" }]), []);
 });
 
 test("parseBlackdetect extracts spans from ffmpeg stderr", () => {

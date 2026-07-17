@@ -17,6 +17,12 @@ Lightweight end-to-end evals that check three things before a release:
    Sonnet only the index JSON, only the timeline sheet, or both, and ask for a
    known-ground-truth OUT on a clip whose quiet ending traps single-signal
    reasoning. They measure which perception channel earns its tokens.
+5. **Every scenario is served** — the scenario cases (94–98) put one
+   representative task from each of `docs/scenarios.md`'s four scenarios in
+   front of an agent: demo (motion, no speech), interview at scale (search),
+   fiction-lite (J-cut), multicam (sync), and animation (routing). A capability
+   that moves none of these scores is dead weight — this is the kill rule's
+   measuring stick.
 
 Agent policy: mostly **Codex** (`gpt-5.5` by default — override with
 `RIPPLE_EVAL_CODEX_MODEL`), some **Claude Sonnet**, one **Claude Opus** case.
@@ -86,7 +92,7 @@ Exit code is 0 only when every non-baseline case passes.
 | case | agent | what it proves |
 |---|---|---|
 | 10-cli-smoke | none | analyze → probe → candidates → timeline-sheet → cut → lint (incl. endpoint digest) → qa → history all work on real HDR footage |
-| 12-drift-detection | none | on a 7.4-min source, analyze's drift self-check warns and candidates' isolated re-transcription flags a known-drifted range (INDEX_DRIFT), suppressing suggestedOut |
+| 12-drift-detection | none | on a 7.4-min source, chunked analysis prevents cumulative drift (suspected=false, no severe late endings) while candidates' isolated cross-check still flags an endpoint disagreement (INDEX_DRIFT), suppressing suggestedOut |
 | 20-routing-codex | codex | plain "what footage do I have" routes through the plugin; HDR reported |
 | 30-tighten-codex | codex | raw take → clean clip: slate dropped, ending kept, tail tight, HDR preserved |
 | 32-tighten-codex-invoked | codex | same task with explicit `$ripple edit` — isolates skill *triggering* (30 fails, 32 passes ⇒ triggering gap; both fail the same check ⇒ playbook-adherence gap) |
@@ -103,6 +109,11 @@ Exit code is 0 only when every non-baseline case passes.
 | 91-probe-index | claude/sonnet (baseline) | OUT from index JSON alone on a quiet-ending clip (ground truth 21.0–22.18s) |
 | 92-probe-sheet | claude/sonnet (baseline) | same, from the timeline-sheet image alone |
 | 93-probe-both | claude/sonnet (baseline) | same, from both channels — which perception channel earns its tokens |
+| 94-scenario-demo-settle | claude/sonnet | demo scenario: "when did the UI settle" answered from motion/scene curves on a synthetic screen recording (ground truth 6.0s) |
+| 95-scenario-interview-search | claude/sonnet | interview-at-scale scenario: find one answer inside 7.4 minutes by phrase and cut it clean |
+| 96-scenario-fiction-jcut | claude/sonnet | fiction-lite scenario: clip → card → clip with a J-cut audio lead under the card |
+| 97-scenario-multicam-sync | claude/sonnet | multicam scenario: recover the true two-camera offset (ground truth 3.7s, built by construction) |
+| 98-scenario-animation-routing | claude/sonnet | animation scenario: motion graphics route to HyperFrames/Remotion instead of ffmpeg fakery |
 
 ## Reading a run
 

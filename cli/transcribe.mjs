@@ -1,11 +1,21 @@
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { basename, dirname, extname, join } from "node:path";
 import { dtwPreset, parseWhisperWords } from "./timing.mjs";
 import {
   ensureDir, extractWav16k, fail, ffprobeJson, fileStamp, findTool, output, parseArgs,
-  readJsonOrNull, requireTool, round3, run, writeJsonAtomic,
+  parseSilence, readJsonOrNull, requireTool, round3, run, writeJsonAtomic,
 } from "./util.mjs";
+
+// Bump whenever transcription inputs, chunk planning, or merge semantics
+// change. The source stamp alone cannot distinguish an old whole-file pass
+// from the drift-resistant chunked pipeline.
+export const TRANSCRIPTION_CACHE_VERSION = 2;
+export const VAD_CHUNK_THRESHOLD_SEC = 60;
+export const VAD_CHUNK_MAX_SEC = 30;
+const VAD_MIN_FINAL_CHUNK_SEC = 10;
+const VAD_SILENCE_DB = -40;
+const VAD_SILENCE_MIN_SEC = 0.25;
 
 const WHISPER_HINT = [
   "whisper-cpp is not installed. Guided install:",
@@ -77,6 +87,191 @@ export function findSubtitles(file) {
   return null;
 }
 
+// Plan contiguous, non-overlapping ownership windows. For every full window,
+// use the latest available point inside measured silence; if the window has no
+// silence, hard-split at 30s. Since a sample belongs to exactly one window,
+// chunk-edge output cannot be duplicated. Silence boundaries keep speech from
+// being cut in the common case.
+export function planVadChunks(duration, silences, {
+  thresholdSec = VAD_CHUNK_THRESHOLD_SEC,
+  maxSec = VAD_CHUNK_MAX_SEC,
+} = {}) {
+  if (duration < thresholdSec) {
+    return { mode: "single", chunks: [{ start: 0, end: round3(duration), boundary: "eof" }] };
+  }
+
+  const chunks = [];
+  let start = 0;
+  while (duration - start > 0.001) {
+    const hardEnd = Math.min(duration, start + maxSec);
+    if (hardEnd >= duration - 0.001) {
+      chunks.push({ start: round3(start), end: round3(duration), boundary: "eof" });
+      break;
+    }
+
+    let silenceEnd = null;
+    // A greedy boundary near EOF can leave a tiny final chunk made almost
+    // entirely of trailing silence. Whisper then hallucinates across that
+    // silence without the preceding speech context. When possible, choose an
+    // earlier silence so the final chunk owns at least 10s.
+    const silenceWindowEnd = duration - hardEnd < VAD_MIN_FINAL_CHUNK_SEC
+      ? Math.max(start, duration - VAD_MIN_FINAL_CHUNK_SEC)
+      : hardEnd;
+    for (const silence of silences) {
+      const spanStart = Math.max(start, silence.start);
+      const spanEnd = Math.min(silenceWindowEnd, silence.end ?? duration);
+      const width = spanEnd - spanStart;
+      if (width <= 0.02) continue;
+      const pad = Math.min(0.05, width / 4);
+      // Cut just inside silence onset. The outgoing chunk keeps the word
+      // before the pause; the incoming chunk keeps almost all of the pause as
+      // context before speech resumes. A midpoint cut can starve that next
+      // chunk and drop its first small word (observed: "in" after "hand").
+      const candidate = spanStart + pad;
+      if (candidate <= start + 0.25) continue;
+      if (silenceEnd === null || candidate > silenceEnd) silenceEnd = candidate;
+    }
+
+    const end = round3(silenceEnd ?? hardEnd);
+    // Rounding must never stall the planner or create a >maxSec chunk.
+    const safeEnd = end > start ? Math.min(end, round3(hardEnd)) : round3(hardEnd);
+    chunks.push({ start: round3(start), end: safeEnd, boundary: silenceEnd === null ? "hard" : "silence" });
+    start = safeEnd;
+  }
+  return { mode: "chunked", chunks };
+}
+
+function mediaDuration(file) {
+  const duration = Number(ffprobeJson(file).format?.duration ?? 0);
+  if (!duration) fail(`Could not read duration of ${file}`, 1);
+  return round3(duration);
+}
+
+function detectChunkSilences(ffmpeg, wav) {
+  const res = run(ffmpeg, [
+    "-hide_banner", "-nostats", "-i", wav,
+    "-af", `silencedetect=noise=${VAD_SILENCE_DB}dB:d=${VAD_SILENCE_MIN_SEC}`,
+    "-f", "null", "-",
+  ]);
+  if (res.status !== 0) fail(`silencedetect for transcription chunks failed: ${res.stderr.trim().slice(-500)}`, 1);
+  return parseSilence(res.stderr).map((span) => ({
+    start: round3(Math.max(0, span.start)),
+    end: span.end === null ? null : round3(span.end),
+  }));
+}
+
+function cacheDescriptor({ mode, chunks, model, prompt, lang }) {
+  return {
+    transcriptionCacheVersion: TRANSCRIPTION_CACHE_VERSION,
+    mode,
+    chunkMaxSec: mode === "chunked" ? VAD_CHUNK_MAX_SEC : null,
+    chunks: chunks.map(({ start, end, boundary }) => ({ start, end, boundary })),
+    model: basename(model),
+    prompt: prompt ?? null,
+    lang,
+  };
+}
+
+export function transcriptionCacheMatches(raw, { mode, model, prompt, lang }) {
+  const cached = raw?.ripple;
+  return Boolean(
+    cached?.transcriptionCacheVersion === TRANSCRIPTION_CACHE_VERSION &&
+    cached.mode === mode &&
+    cached.model === basename(model) &&
+    cached.prompt === (prompt ?? null) &&
+    cached.lang === lang
+  );
+}
+
+const whisperTimestamp = (ms) => {
+  const whole = Math.max(0, Math.round(ms));
+  const hours = Math.floor(whole / 3_600_000);
+  const minutes = Math.floor((whole % 3_600_000) / 60_000);
+  const seconds = Math.floor((whole % 60_000) / 1000);
+  const millis = whole % 1000;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")},${String(millis).padStart(3, "0")}`;
+};
+
+// Add each chunk's absolute anchor to whisper-cpp's local millisecond
+// offsets. Clamp model padding to the owned window so one chunk can never
+// spill timestamps into its neighbor.
+export function mergeChunkJson(parts) {
+  const first = parts[0]?.raw ?? {};
+  const transcription = [];
+  for (const { chunk, raw } of parts) {
+    const chunkMs = Math.round((chunk.end - chunk.start) * 1000);
+    const offsetMs = Math.round(chunk.start * 1000);
+    for (const segment of raw?.transcription ?? []) {
+      const rawFrom = Math.max(0, Number(segment.offsets?.from ?? 0));
+      // whisper pads short inputs internally and can emit tokens starting at
+      // 30s+ even when the owned audio ends sooner. The next chunk owns that
+      // boundary (or EOF owns nothing), so retaining those tokens creates
+      // duplicates/hallucinations at the merge seam.
+      if (rawFrom >= chunkMs) continue;
+      const localFrom = Math.min(chunkMs, rawFrom);
+      const localTo = Math.min(chunkMs, Math.max(localFrom, Number(segment.offsets?.to ?? localFrom)));
+      const from = offsetMs + localFrom;
+      const to = offsetMs + localTo;
+      transcription.push({
+        ...segment,
+        timestamps: { from: whisperTimestamp(from), to: whisperTimestamp(to) },
+        offsets: { from, to },
+      });
+    }
+  }
+  return { ...first, transcription };
+}
+
+function extractChunk(ffmpeg, wav, chunk, path) {
+  return run(ffmpeg, [
+    "-hide_banner", "-y", "-v", "error",
+    "-ss", String(chunk.start), "-i", wav,
+    "-t", String(round3(chunk.end - chunk.start)),
+    "-map", "0:a:0", "-ac", "1", "-ar", "16000", "-vn", path,
+  ]);
+}
+
+function runChunkedWhisper({ ffmpeg, whisper, wav, chunks, whisperArgs }) {
+  const tempDir = mkdtempSync(join(tmpdir(), "ripple-whisper-chunks-"));
+  const parts = [];
+  let error = null;
+  try {
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const chunkWav = join(tempDir, `chunk-${String(i).padStart(3, "0")}.wav`);
+      const extracted = extractChunk(ffmpeg, wav, chunk, chunkWav);
+      if (extracted.status !== 0) {
+        error = `audio chunk extraction failed at ${chunk.start}s: ${extracted.stderr.trim().slice(-1000)}`;
+        break;
+      }
+      const rawPrefix = join(tempDir, `chunk-${String(i).padStart(3, "0")}`);
+      const res = whisperArgs(chunkWav, rawPrefix);
+      if (res.status !== 0) {
+        error = `whisper failed on chunk ${i + 1}/${chunks.length} (${chunk.start}-${chunk.end}s): ${(res.stderr || res.stdout).trim().slice(-2000)}`;
+        break;
+      }
+      const raw = readJsonOrNull(`${rawPrefix}.json`);
+      if (!raw) {
+        error = `whisper produced unreadable chunk JSON at ${rawPrefix}.json`;
+        break;
+      }
+      parts.push({ chunk, raw });
+    }
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+  return { raw: error ? null : mergeChunkJson(parts), error };
+}
+
+function readableTranscriptArtifacts(raw, files) {
+  const segments = (raw.transcription ?? []).filter((segment) => (segment.text ?? "").trim());
+  writeJsonAtomic(files.json, raw);
+  writeFileSync(files.txt, segments.map((segment) => segment.text).join("\n") + (segments.length ? "\n" : ""));
+  writeFileSync(files.srt, segments.map((segment, i) =>
+    `${i + 1}\n${segment.timestamps.from} --> ${segment.timestamps.to}\n${segment.text}\n`
+  ).join("\n"));
+}
+
 // Extract 16kHz mono wav and run whisper-cli. Returns file map. Reused by candidates.
 export function transcribeFile(file, { outDir, model, prompt, lang = "en", force = false }) {
   const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
@@ -91,11 +286,33 @@ export function transcribeFile(file, { outDir, model, prompt, lang = "en", force
   const prefix = join(outDir, stem);
   const files = { wav, json: `${prefix}.json`, srt: `${prefix}.srt`, txt: `${prefix}.txt` };
 
-  if (!force && existsSync(files.json) && existsSync(files.txt)) {
-    return { files, cached: true, model: resolvedModel };
+  const duration = mediaDuration(file);
+  const mode = duration < VAD_CHUNK_THRESHOLD_SEC ? "single" : "chunked";
+
+  if (!force && existsSync(files.json) && existsSync(files.srt) && existsSync(files.txt)) {
+    const cached = readJsonOrNull(files.json);
+    if (transcriptionCacheMatches(cached, { mode, model: resolvedModel, prompt, lang })) {
+      return { files, cached: true, model: resolvedModel };
+    }
   }
 
-  extractWav16k(file, wav);
+  extractWav16k(file, wav, { force });
+
+  if (mode === "chunked") {
+    const plan = planVadChunks(duration, detectChunkSilences(ffmpeg, wav));
+    const result = runChunkedWhisper({
+      ffmpeg, whisper, wav, chunks: plan.chunks,
+      whisperArgs: (chunkWav, rawPrefix) => {
+        const args = ["-m", resolvedModel, "-f", chunkWav, "-l", lang, "-oj", "-of", rawPrefix];
+        if (prompt) args.push("--prompt", prompt);
+        return run(whisper, args);
+      },
+    });
+    if (result.error) fail(result.error, 1);
+    result.raw.ripple = cacheDescriptor({ ...plan, model: resolvedModel, prompt, lang });
+    readableTranscriptArtifacts(result.raw, files);
+    return { files, cached: false, model: resolvedModel };
+  }
 
   const whisperArgs = [
     "-m", resolvedModel, "-f", wav, "-l", lang,
@@ -104,6 +321,12 @@ export function transcribeFile(file, { outDir, model, prompt, lang = "en", force
   if (prompt) whisperArgs.push("--prompt", prompt);
   const res = run(whisper, whisperArgs);
   if (res.status !== 0) fail(`whisper failed: ${(res.stderr || res.stdout).trim().slice(-2000)}`, 1);
+
+  const raw = readJsonOrNull(files.json);
+  if (!raw) fail(`whisper produced unreadable JSON at ${files.json}`, 1);
+  const plan = planVadChunks(duration, []);
+  raw.ripple = cacheDescriptor({ ...plan, model: resolvedModel, prompt, lang });
+  writeJsonAtomic(files.json, raw);
 
   return { files, cached: false, model: resolvedModel };
 }
@@ -186,30 +409,65 @@ export function transcribeWords(file, { outDir, model, prompt, lang = "en", forc
   const wav = join(outDir, `${stem}.16k.wav`);
   const wordsJson = join(outDir, `${stem}.words.json`);
 
+  const duration = mediaDuration(file);
+  const mode = duration < VAD_CHUNK_THRESHOLD_SEC ? "single" : "chunked";
+
   if (!force) {
     const cached = readJsonOrNull(wordsJson);
-    if (cached?.words && (prompt === undefined || cached.prompt === prompt)) {
-      return { files: { wordsJson, wav }, cached: true, model: resolvedModel, words: cached.words };
+    if (cached?.words && transcriptionCacheMatches(cached, { mode, model: resolvedModel, prompt, lang })) {
+      return {
+        files: { wordsJson, wav }, cached: true, model: resolvedModel,
+        words: cached.words, timingMode: cached.ripple.mode, chunks: cached.ripple.chunks,
+      };
     }
   }
 
-  extractWav16k(file, wav);
+  extractWav16k(file, wav, { force });
 
   const rawPrefix = join(outDir, `${stem}.words-raw`);
-  const baseArgs = ["-m", resolvedModel, "-f", wav, "-l", lang, "-ml", "1", "-sow", "-oj", "-of", rawPrefix];
-  if (prompt) baseArgs.push("--prompt", prompt);
   // Token-level DTW alignment when this build and model support it; a build
   // that chokes on it falls back to plain -ml 1 -sow rather than failing.
   const preset = whisperWordCapable().dtw ? dtwPreset(resolvedModel) : null;
-  let res = run(whisper, preset ? [...baseArgs, "--dtw", preset] : baseArgs);
-  if (res.status !== 0 && preset) res = run(whisper, baseArgs);
-  if (res.status !== 0) fail(`whisper (word pass) failed: ${(res.stderr || res.stdout).trim().slice(-2000)}`, 1);
+  const runWordPass = (chunkWav, prefix) => {
+    const baseArgs = ["-m", resolvedModel, "-f", chunkWav, "-l", lang, "-ml", "1", "-sow", "-oj", "-of", prefix];
+    if (prompt) baseArgs.push("--prompt", prompt);
+    let res = run(whisper, preset ? [...baseArgs, "--dtw", preset] : baseArgs);
+    if (res.status !== 0 && preset) res = run(whisper, baseArgs);
+    return res;
+  };
 
-  const raw = readJsonOrNull(`${rawPrefix}.json`);
+  let raw;
+  let plan;
+  if (mode === "chunked") {
+    plan = planVadChunks(duration, detectChunkSilences(ffmpeg, wav));
+    const result = runChunkedWhisper({
+      ffmpeg, whisper, wav, chunks: plan.chunks,
+      whisperArgs: runWordPass,
+    });
+    if (result.error) fail(result.error.replace("whisper failed", "whisper (word pass) failed"), 1);
+    raw = result.raw;
+    raw.ripple = cacheDescriptor({ ...plan, model: resolvedModel, prompt, lang });
+    writeJsonAtomic(`${rawPrefix}.json`, raw);
+  } else {
+    plan = planVadChunks(duration, []);
+    const res = runWordPass(wav, rawPrefix);
+    if (res.status !== 0) fail(`whisper (word pass) failed: ${(res.stderr || res.stdout).trim().slice(-2000)}`, 1);
+    raw = readJsonOrNull(`${rawPrefix}.json`);
+  }
   if (!raw) fail(`whisper produced unreadable word JSON at ${rawPrefix}.json`, 1);
   const words = parseWhisperWords(raw);
-  writeJsonAtomic(wordsJson, { file, model: basename(resolvedModel), prompt: prompt ?? null, words });
-  return { files: { wordsJson, wav }, cached: false, model: resolvedModel, words };
+  writeJsonAtomic(wordsJson, {
+    file,
+    model: basename(resolvedModel),
+    prompt: prompt ?? null,
+    lang,
+    ripple: cacheDescriptor({ ...plan, model: resolvedModel, prompt, lang }),
+    words,
+  });
+  return {
+    files: { wordsJson, wav }, cached: false, model: resolvedModel,
+    words, timingMode: plan.mode, chunks: plan.chunks,
+  };
 }
 
 // Pull existing subtitles into the standard transcript file layout.

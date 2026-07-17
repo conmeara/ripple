@@ -101,6 +101,15 @@ export function contentGatePlan({ hasTranscript, transcribeRequested, whisperRea
   return "skip";
 }
 
+// Whisper txt hard-wraps lines, so an expected ending can straddle a newline
+// ("just a\n bonus") — match whitespace-normalized or a real ending fails on
+// wherever the wrap happened to land this run.
+export function missingEndings(text, scenes) {
+  const norm = (s) => s.toLowerCase().replace(/\s+/g, " ");
+  const hay = norm(text);
+  return scenes.filter((s) => !hay.includes(norm(s.expectEnding)));
+}
+
 export async function main(argv) {
   const args = parseArgs(argv, {
     manifest: "string", "clips-dir": "string", "expect-clips": "number",
@@ -384,7 +393,7 @@ export async function main(argv) {
         : leaks.length ? `leaked: ${leaks.join(" | ")}` : "no prompt/take leakage"));
     const endings = (manifest?.scenes ?? []).filter((s) => s.expectEnding);
     if (endings.length) {
-      const missing = endings.filter((s) => !text.toLowerCase().includes(s.expectEnding.toLowerCase()));
+      const missing = missingEndings(text, endings);
       checks.push(check("scene-endings", missing.length === 0,
         missing.length ? `missing endings: ${missing.map((s) => s.slug).join(", ")}` : `all ${endings.length} expected endings present`));
     }

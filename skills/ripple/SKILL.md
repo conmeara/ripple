@@ -53,11 +53,13 @@ stands so one never does.
   `candidates` / `lint` output is already fused, measured signal — never
   re-derive silence, word timing, or levels with raw ffmpeg (`astats`,
   `silencedetect`, hand-rolled whisper). The one instrument that can lie is
-  whisper word timing on long sources (it drifts seconds late near pauses), and
-  the CLI owns that too: `analyze` warns when it suspects drift, and `candidates`
-  verifies every range against an isolated re-transcription (`driftCheck`),
-  raising `INDEX_DRIFT` when the index disagrees. When it fires, the isolated
-  numbers are ground truth — re-derive nothing by hand.
+  whisper word timing, and the CLI owns that too: `analyze` transcribes long
+  sources in silence-anchored chunks so timestamps cannot drift cumulatively,
+  and `candidates` still verifies every range against an isolated
+  re-transcription (`driftCheck`), raising `INDEX_DRIFT` when the two disagree.
+  When it fires, neither number is automatically right (the isolated pass
+  smears on ranges ending in near-silence) — re-run candidates on a tighter
+  window and confirm on frames; re-derive nothing by hand.
 - **Never silently convert color.** HDR in means HDR out unless VIDEO.md or the
   user chose SDR. Accidental conversion is a release blocker (`reference/deliver.md`).
 - **Repairs are localized.** Patch the flagged scene, re-render only what changed,

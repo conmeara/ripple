@@ -1,0 +1,12 @@
+{
+  "id": "98-scenario-animation-routing",
+  "title": "Animation scenario: routes motion graphics to the right tool instead of faking it",
+  "agent": "claude",
+  "model": "sonnet",
+  "timeoutMinutes": 10,
+  "prompt": "We're building a 5-second animated logo intro: the word RIPPLE types on letter by letter, then a wave ripples through the letters, over a transparent background for later compositing. Plan how you'd produce it with the best tool for the job - don't render or generate anything yet. Write the plan to plan.md and summarize your recommendation in your final message.",
+  "checks": [
+    { "id": "plan-written", "type": "file_exists", "glob": "plan.md" },
+    { "id": "routes-to-motion-tool", "type": "final_grep", "pattern": "(hyperframes|remotion)" }
+  ]
+}

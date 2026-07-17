@@ -14,11 +14,11 @@ guide):
 1. **Numbers.** The endpoint law: `OUT = timing.lastWordEnd + tail preference`
    (VIDEO.md, default ≤1.0s) — verify `tailGap` against it, and verify
    `timing.nextText` is the next prompt/take, not more of the answer. Check
-   `driftCheck.verdict` is `aligned`: on long sources the index's word timing can
-   drift seconds late, and `INDEX_DRIFT` means every timing number near this OUT
-   is fiction — rebuild the endpoint from `driftCheck.isolatedLastWordEnd` (the
-   isolated re-transcription is ground truth), then re-run candidates on the
-   corrected range. **No scene locks while `flags` is non-empty**: every flag is
+   `driftCheck.verdict` is `aligned`: `INDEX_DRIFT` means the index and an
+   isolated re-transcription disagree about this OUT — neither is automatically
+   right (the isolated pass smears when the range ends in near-silence). Re-run
+   candidates on a tighter window ending just past the earlier of the two
+   endings, and let the frame check arbitrate. **No scene locks while `flags` is non-empty**: every flag is
    either resolved or overridden with a written reason in the scene's
    `reasoning`. `suggestedOut` is the mechanical answer; taste may hold longer (a
    smile, a laugh) — as a recorded decision, never a shrug.

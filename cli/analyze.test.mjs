@@ -3,8 +3,8 @@ import { test } from "node:test";
 import { mkdirSync, mkdtempSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
-import { loadAnalysis, optionsCompatible, referenceSilences, speechSpans } from "./analyze.mjs";
-import { resolveModel, whisperWordCapable } from "./transcribe.mjs";
+import { driftSummary, loadAnalysis, optionsCompatible, referenceSilences, speechSpans } from "./analyze.mjs";
+import { TRANSCRIPTION_CACHE_VERSION, resolveModel, whisperWordCapable } from "./transcribe.mjs";
 import { fileStamp, findTool, readJsonOrNull, run, writeJsonAtomic } from "./util.mjs";
 
 // Missing ffmpeg must SKIP the fixture-driven tests, never abort the whole
@@ -29,6 +29,32 @@ test("speechSpans complements silences and handles EOF-open spans", () => {
   assert.deepEqual(speechSpans([], 5), [{ start: 0, end: 5 }]);
 });
 
+test("driftSummary keeps chunked verification focused on severe late stretch", () => {
+  const words = [
+    { start: 28, end: 31.2, text: "early?" },
+    { start: 70, end: 72.5, text: "normal." },
+    // New speech resumes at EOF after a long finite pause: not an 8s stretch.
+    { start: 99.7, end: 100, text: "next" },
+  ];
+  const silences = [
+    { start: 29, end: 31.2 },
+    { start: 70.4, end: 72.5 },
+    { start: 92, end: 99.8 },
+  ];
+  const clean = driftSummary(words, silences, { duration: 100, timingMode: "chunked" });
+  assert.equal(clean.suspected, false);
+  assert.equal(clean.lateSevereEndings, 0);
+  assert.ok(clean.samples.every((sample) => sample.text !== "next"));
+
+  const failed = driftSummary(
+    [...words, { start: 80, end: 85, text: "late." }],
+    [...silences, { start: 81, end: 85 }],
+    { duration: 100, timingMode: "chunked" }
+  );
+  assert.equal(failed.suspected, true);
+  assert.equal(failed.lateSevereEndings, 1);
+});
+
 test("loadAnalysis cache: survives a move (content-keyed), rebuilds on a version bump", { skip: !ffmpeg }, () => {
   const dir = mkdtempSync(join(tmpdir(), "ripple-analyze-"));
   const outDir = join(dir, "analysis");
@@ -43,8 +69,32 @@ test("loadAnalysis cache: survives a move (content-keyed), rebuilds on a version
   ]);
   assert.equal(gen.status, 0, gen.stderr);
 
+  // This test covers index caching, not whisper. Plant a versioned empty
+  // transcript so machines with Metal-enabled whisper do not allocate a
+  // model (and occasionally exhaust its buffer) just to analyze a tone.
+  const modelPath = resolveModel(null);
+  if (modelPath && whisperWordCapable().ok) {
+    const stem = `${basename(src, extname(src))}_${fileStamp(src)}`;
+    writeJsonAtomic(join(outDir, `${stem}.words.json`), {
+      file: src,
+      model: basename(modelPath),
+      prompt: null,
+      lang: "en",
+      ripple: {
+        transcriptionCacheVersion: TRANSCRIPTION_CACHE_VERSION,
+        mode: "single",
+        model: basename(modelPath),
+        prompt: null,
+        lang: "en",
+      },
+      words: [],
+    });
+    writeJsonAtomic(join(outDir, `${stem}.turns.json`), { file: src, model: "planted", turns: [] });
+  }
+
   const first = loadAnalysis(src, { outDir });
   assert.equal(first.cached, false);
+  assert.equal(first.index.version, 7);
   assert.ok(first.index.duration > 2.9 && first.index.duration < 3.1);
   assert.ok(Object.keys(first.index.silences).length);
 
@@ -94,7 +144,14 @@ test("loadAnalysis marks whisper fabrications suspect in the emerged index", { s
   // Plant the whisper word cache: one real word per tone, plus a fabricated
   // "Thanks for watching." stranded in the measured silence.
   writeJsonAtomic(join(outDir, `${stem}.words.json`), {
-    file: src, model: "planted", prompt: null,
+    file: src, model: basename(resolveModel(null)), prompt: null, lang: "en",
+    ripple: {
+      transcriptionCacheVersion: TRANSCRIPTION_CACHE_VERSION,
+      mode: "single",
+      model: basename(resolveModel(null)),
+      prompt: null,
+      lang: "en",
+    },
     words: [
       { start: 0.2, end: 0.8, text: "Testing." },
       { start: 3.0, end: 3.4, text: "Thanks" },

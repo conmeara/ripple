@@ -54,12 +54,16 @@ const COMMANDS = {
     usage: `  candidates <file> --start S --end E [--label slug]
       [--out dir] [--prompt "hints"] [--thresholds -35,-40,-45]
       [--max-tail 1.0] [--max-lead 0.5] [--tail-preference 0.6]
+      [--min-cut 0.25] [--min-clip 1.0] [--lead 0.3]   auto-editor guards: stutter-cut /
+                                  micro-clip red flags + a lead-in margin for suggestedIn
       [--crop x,y,w,h]            zoom strips to a source region (eyes) — set once per locked-off shot
       [--no-proxy]                read the original source, not the 960px proxy, for strips/sheets
       [--no-sheet]                skip the cut-card sheets
       [--no-transcribe]           skip the range transcript (word timing still
                                   comes from the cached index)
-                                  Verify a cut range: word timing + red flags + suggested OUT,
+      --manifest edit.json        batch-verify every source-backed scene (incl. the isolated
+                                  driftCheck lint skips); informs, never gates (exit 0 with flags)
+                                  Verify a cut range: word timing + red flags + suggested IN/OUT,
                                   silence, transcript, edge frames, head/tail cut-card sheets`,
   },
   "frame-sheet": {

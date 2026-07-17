@@ -229,6 +229,25 @@ export function sceneGain(scene) {
   return typeof scene.gainDb === "number" && scene.gainDb !== 0 ? `,volume=${scene.gainDb}dB` : "";
 }
 
+// A 30ms audio fade at each footage cut boundary — always-on (video-use's
+// default) so a segment join can never pop. Baked into every clip/body
+// segment file, so the pop is impossible by construction regardless of how the
+// assembly later concats or acrossfades the segment (30ms inside a 0.5s
+// acrossfade is inaudible — no need to make the per-segment render
+// transition-aware). J-cut/L-cut joins are the exception: there the body audio
+// is CONTINUOUS with its card's bridging audio (same take, contiguous source),
+// so the touching side skips its fade to avoid dipping mid-phrase — the caller
+// passes in:false / out:false there. anullsrc cards carry no footage, so they
+// never call this. Clips shorter than 4×30ms clamp the fade to duration/4.
+export const MICRO_FADE = 0.03;
+export function microFadeChain(duration, { in: fadeIn = true, out: fadeOut = true, enabled = true } = {}) {
+  if (!enabled) return "";
+  const d = round3(Math.min(MICRO_FADE, duration / 4));
+  if (!(d > 0)) return "";
+  return (fadeIn ? `,afade=t=in:d=${d}` : "") +
+    (fadeOut ? `,afade=t=out:st=${round3(duration - d)}:d=${d}` : "");
+}
+
 // A direct join (no card between scenes) from the same locked-off setup
 // produces a JUMP CUT when the frames mostly match but visibly mismatch —
 // the uncanny band between "continuous" (invisible splice) and "clean
@@ -557,6 +576,10 @@ export async function main(argv) {
     ? "grade filter skipped: SDR grade presets on HDR footage would break color — grade HDR explicitly or deliver SDR"
     : null;
 
+  // 30ms audio fades at every footage cut boundary, on by default; the manifest
+  // opts out globally with audioMicroFades: false (rare — you'd need pops).
+  const microFades = manifest.audioMicroFades !== false;
+
   const sceneFilter = args.scene ? new Set(args.scene.split(",").map((s) => s.trim())) : null;
   const scenes = manifest.scenes.filter((s) => !sceneFilter || sceneFilter.has(s.slug));
   if (!scenes.length) fail(`--scene matched nothing (${args.scene})`, 2);
@@ -593,7 +616,7 @@ export async function main(argv) {
           "-ss", String(scene.start), "-t", String(duration), "-i", src,
           "-map", "0:v:0", "-map", "0:a:0",
           "-vf", buildSceneVf(geo),
-          "-af", `asetpts=PTS-STARTPTS,aresample=48000${sceneGain(scene)}`,
+          "-af", `asetpts=PTS-STARTPTS,aresample=48000${sceneGain(scene)}${microFadeChain(duration, { enabled: microFades })}`,
           ...enc.video, ...enc.audio, "-movflags", "+faststart", clipPath,
         ],
         `clip ${scene.slug}`
@@ -693,7 +716,10 @@ export async function main(argv) {
           "-ss", String(round3(scene.start + jcut)), "-t", String(bodyDur), "-i", src,
           "-map", "0:v:0", "-map", "0:a:0",
           "-vf", buildSceneVf(geo),
-          "-af", `asetpts=PTS-STARTPTS,aresample=48000${sceneGain(scene)}`,
+          // jcut>0: head continues the card's J-cut audio (same take) — no fade
+          // in. lcut>0: tail continues under the NEXT card's L-cut audio — no
+          // fade out. Fading either would dip mid-phrase.
+          "-af", `asetpts=PTS-STARTPTS,aresample=48000${sceneGain(scene)}${microFadeChain(bodyDur, { in: jcut === 0, out: lcut === 0, enabled: microFades })}`,
           ...enc.video, ...enc.audio, "-movflags", "+faststart", bodyPath,
         ],
         `body ${scene.slug}`
@@ -817,6 +843,7 @@ export async function main(argv) {
     profile,
     color: { policy, mode: color.mode, transfer: color.mode === "hdr" ? color.transfer : null },
     geometry: { width, height, fps },
+    audioMicroFades: microFades ? MICRO_FADE : false,
     scenes: scenes.map((s) => s.slug),
     clips: rendered.clips,
     segments: args["no-full"] || sceneFilter ? rendered.segments : undefined,

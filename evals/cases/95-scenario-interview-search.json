@@ -1,0 +1,18 @@
+{
+  "id": "95-scenario-interview-search",
+  "title": "Interview-at-scale scenario: find one answer inside 7.4 minutes and cut it clean",
+  "agent": "claude",
+  "model": "sonnet",
+  "skill": "none",
+  "timeoutMinutes": 30,
+  "prompt": "media/interview.mp4 is 7.4 minutes of a wedding Q&A. Somewhere in it the speaker answers a question about her least favorite chore. Find that answer and cut it as a standalone clip: the complete answer from its first word to its last, clean endpoints, no dead air - and start at the answer itself, not the question asked before it. Render to outputs/. A `ripple` CLI is available on PATH - run `ripple help` first.",
+  "fixtures": [
+    { "from": "$CACHE/long_qanda.mp4", "to": "media/interview.mp4" }
+  ],
+  "checks": [
+    { "id": "render", "type": "file_exists", "glob": "outputs/*.mp4" },
+    { "id": "duration-complete-answer", "type": "duration_between", "glob": "outputs/*.mp4", "min": 25, "max": 33 },
+    { "id": "answer-present", "type": "render_transcript", "glob": "outputs/*.mp4", "includes": ["stove", "toilet"], "excludes": ["coffee", "sure"] },
+    { "id": "hdr-preserved", "type": "color_transfer", "glob": "outputs/*.mp4", "expect": "arib-std-b67" }
+  ]
+}

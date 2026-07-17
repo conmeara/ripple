@@ -1,0 +1,17 @@
+{
+  "id": "94-scenario-demo-settle",
+  "title": "Demo scenario: find where the UI settles from motion alone (no speech)",
+  "agent": "claude",
+  "model": "sonnet",
+  "skill": "none",
+  "timeoutMinutes": 10,
+  "prompt": "media/demo.mp4 is a screen recording of an app demo (no narration). For the hero shot we need the moment the intro animation finishes and the UI first settles - motion stops and the frame holds still. Find that time in seconds and write answer.json as {\"settle\": <seconds>}. Do not render anything. A `ripple` CLI is available on PATH - run `ripple help` first.",
+  "setup": [
+    "mkdir -p media",
+    "ffmpeg -y -v error -f lavfi -i \"color=c=0x303030:s=1280x720:d=18:r=30\" -f lavfi -i \"color=c=white:s=160x160:d=18:r=30\" -f lavfi -i \"anullsrc=r=48000:cl=stereo\" -filter_complex \"[0][1]overlay=x='if(lt(t,6),60+(t/6)*1000,1060)':y='if(lt(t,9),280,if(lt(t,14.5),280+((t-9)/5.5)*160,440))'[v]\" -map \"[v]\" -map 2:a -t 18 -c:v libx264 -preset veryfast -pix_fmt yuv420p -c:a aac media/demo.mp4"
+  ],
+  "checks": [
+    { "id": "settle-not-early", "type": "json_path", "file": "answer.json", "path": "settle", "op": "gte", "value": 5.4 },
+    { "id": "settle-not-late", "type": "json_path", "file": "answer.json", "path": "settle", "op": "lte", "value": 7.6 }
+  ]
+}

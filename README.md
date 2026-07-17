@@ -66,12 +66,12 @@ The path from raw clips to a verified, rendered cut.
 
 | Command | What it does |
 |---|---|
-| `analyze` | Build the perception index — word timings, silence/speech maps, sentences with pace, fillers, non-speech events, scene changes, motion and energy — cached, run once per source |
-| `candidates` | Verify a cut range: word timing, red flags, suggested OUT, silence, transcript, edge frames, head/tail cut-card sheets |
+| `analyze` | Build the perception index — word timings, silence/speech maps, sentences with pace, fillers, non-speech events, scene changes, motion and energy — cached, run once per source; long sources transcribe in silence-anchored chunks so timestamps cannot drift |
+| `candidates` | Verify a cut range: word timing, red flags, suggested IN/OUT, silence, transcript, edge frames, head/tail cut-card sheets; `--manifest` batch-verifies every scene of a cut |
 | `frame-sheet` | Tiled frame sheet so you can see the video; `--scenes` samples where the picture changes — the discovery mode for takes and resets |
 | `timeline-sheet` | The editor's timeline as one image: thumbnails, motion strip, waveform with silence shading, word-aligned transcript, and cut markers |
 | `lint` | Pre-render rule check from cached perception: every scene's endpoint flags plus waiver accounting; exit 1 on an unwaived block |
-| `cut` | Render the manifest: clips, cards, J/L-cuts, dissolves, music bed, full assembly |
+| `cut` | Render the manifest: clips, cards, J/L-cuts, dissolves, music bed, full assembly — with 30ms de-pop fades at every cut boundary by default |
 | `qa` | Deterministic delivery gates and trend snapshots; `--report` renders the HTML QA report |
 
 ### Scale & multicam

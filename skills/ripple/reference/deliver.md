@@ -182,7 +182,8 @@ gates.
 Some projects finish as a watchable file; some finish as a timeline the user
 opens in their own tool. For raw-clips-to-cut and demo/promo work the render is
 the terminal. **For interview + b-roll and the complex end of scripted work, the
-NLE handoff is a peer terminal, not a tail feature** (see `docs/scenarios.md`):
+NLE handoff is a peer terminal, not a tail feature** (see `docs/scenarios.md`
+in the ripple repo):
 cut the structure right — takes, endpoints, order — and hand the taste-heavy 20%
 to the editor. Both is normal: a draft render to check the cut, plus a handoff.
 

@@ -9,7 +9,7 @@ Decide with the numbers; confirm with your eyes on the sheet.
 
 ## Layer 1 — `ripple analyze <src>`: the index
 
-Run once per source (plan does this); everything downstream slices its cached
+Run once per source (the develop playbook does this); everything downstream slices its cached
 JSON. ~1 min for a 13-min 4K source, then free. The cache is keyed on the
 file's CONTENT, not its path — footage moved to another folder keeps its
 index; renaming or re-exporting the file rebuilds it. It contains:
@@ -117,7 +117,7 @@ with shading / word-aligned transcript, plus orange cut markers.
 | `timing.terminalPitch` | melody of the ending sentence: falling = thought complete |
 | `timing.breathAfterLastWord` | a sharp inhale after the last word — the speaker is about to continue |
 | `suggestedOut` | `lastWordEnd + tail preference`, capped before next speech; null when no clean gap exists. Drawn as the dashed "S" anchor on the out card when it differs from your `--end` by >0.15s — no "S" chip means you're already on the suggestion (or there is none; the number tells you which) |
-| `driftCheck` | the index vs an isolated re-transcription of this exact range. Whisper drifts on long files but is accurate on a short window, so `verdict: "drifted"` (Δ > 1.25s) means the index's numbers near this OUT are wrong — `isolatedLastWordEnd` is ground truth, and `isolatedWordsJson` has the corrected words |
+| `driftCheck` | the index vs an isolated re-transcription of this exact range. The chunked index prevents cumulative drift, so `verdict: "drifted"` (Δ > 1.25s) means two measurements disagree — usually the isolated pass smearing into a near-silent tail, occasionally a real index miss. Don't lock from either number alone: re-run candidates with `--end` just past the earlier of the two endings and confirm on frames (`isolatedWordsJson` has the isolated words) |
 
 **The endpoint law: OUT = lastWordEnd + tail preference (VIDEO.md, default
 ≤1.0s).** Holding longer for a smile or a laugh is a taste call you're

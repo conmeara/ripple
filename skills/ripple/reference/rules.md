@@ -30,7 +30,7 @@ Raised by `ripple candidates` on a range and by `ripple lint` on every scene.
 | `DEAD_AIR_TAIL` | block | More than `maxTail` (default 1.0s) of nothing after the last word | The shipped married cut carried a 2.45s dead tail past every eyeball |
 | `MID_WORD_IN` | block | The range starts inside a word | Same untimed-text failure at the IN — answers opened mid-syllable |
 | `LATE_FIRST_WORD` | block | More than `maxLead` (default 0.5s) before the first word | Ranges opened on the interviewer's silence instead of the answer |
-| `INDEX_DRIFT` | block | The range's isolated re-transcription disagrees with the index's word timing (`driftCheck`, Δ > 1.25s) — the big-file timestamps drifted; the isolated numbers are ground truth | A 13-min source drifted 1–5s late on 8 of 10 answers; every cut placed from the index landed on the speaker's reset, three re-renders deep |
+| `INDEX_DRIFT` | block | The range's isolated re-transcription disagrees with the index's word timing (`driftCheck`, Δ > 1.25s) — chunked analysis prevents cumulative drift, so disagreement means at least one measurement is wrong (often the isolated pass smearing into a near-silent tail); re-verify on a tighter window | A 13-min source drifted 1–5s late on 8 of 10 answers; every cut placed from the index landed on the speaker's reset, three re-renders deep |
 
 ## Render rules (pre-render findings and render-time advisories)
 

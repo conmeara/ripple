@@ -13,42 +13,64 @@ import { fileStamp, readJsonOrNull, round3, silenceEdges } from "./util.mjs";
 // SCREAMING_SNAKE for cut-point flags, kebab-case for delivery gates, every
 // pre-existing ID preserved verbatim. Each rule's `origin` names the real
 // session failure that created it — a rule nobody can explain gets deleted.
+//
+// `summary`/`origin` are the plain-text registry canon (no markdown — safe for
+// any CLI surface). `doc`/`why` are the markdown cells that render into
+// reference/rules.md — they carry the richer prose (tunable bounds in
+// backticks, the driftCheck Δ) the doc needs. reference/rules.md is GENERATED
+// from this array by scripts/generate-rules-md.mjs (npm run gen:rules); a test
+// pins the committed file to the generator output, so the doc can never lie
+// about the rules. Edit the doc columns HERE, never the .md.
 export const RULES = [
   // -- lock: cut-point flags (candidates at lock time, lint across the manifest)
   {
     id: "SPEECH_AT_OUT", phase: "lock", severity: "block",
     summary: "Tail silence is 0 at every threshold — someone is speaking at the cut point.",
     origin: "A session read \"tail silence: 0\" as a pass and shipped two next-question leaks.",
+    doc: "Tail silence 0 at every threshold — someone is speaking at the cut point",
+    why: "A session read \"tail silence: 0\" as a pass and shipped two next-question leaks",
   },
   {
     id: "MID_WORD_OUT", phase: "lock", severity: "block",
     summary: "The OUT lands inside a word.",
     origin: "The \"question 5 got cut off\" repair class: OUTs placed from untimed text, not word timing.",
+    doc: "The OUT lands inside a word",
+    why: "The \"question 5 got cut off\" repair class: OUTs placed from untimed text",
   },
   {
     id: "NEXT_SPEECH_INSIDE", phase: "lock", severity: "block",
     summary: "The next speech starts INSIDE the range — the following prompt/take rides along.",
     origin: "The shipped chore cut: the next question began at 499.5s inside a range ending at 501s.",
+    doc: "The next speech starts INSIDE the range",
+    why: "The shipped chore cut: the next question began at 499.5s inside a range ending 501s",
   },
   {
     id: "DEAD_AIR_TAIL", phase: "lock", severity: "block",
     summary: "Too much nothing after the last word (bound: maxTail, default 1.0s).",
     origin: "The shipped married cut carried a 2.45s dead tail past every eyeball.",
+    doc: "More than `maxTail` (default 1.0s) of nothing after the last word",
+    why: "The shipped married cut carried a 2.45s dead tail past every eyeball",
   },
   {
     id: "MID_WORD_IN", phase: "lock", severity: "block",
     summary: "The range starts inside a word.",
     origin: "Same untimed-text failure as MID_WORD_OUT, at the IN — answers opened mid-syllable.",
+    doc: "The range starts inside a word",
+    why: "Same untimed-text failure at the IN — answers opened mid-syllable",
   },
   {
     id: "LATE_FIRST_WORD", phase: "lock", severity: "block",
     summary: "Too much dead air before the first word (bound: maxLead, default 0.5s).",
     origin: "Ranges opened on the interviewer's silence instead of the answer.",
+    doc: "More than `maxLead` (default 0.5s) before the first word",
+    why: "Ranges opened on the interviewer's silence instead of the answer",
   },
   {
     id: "INDEX_DRIFT", phase: "lock", severity: "block",
-    summary: "The range's isolated re-transcription disagrees with the index's word timing — the big-file timestamps drifted; the isolated numbers are ground truth.",
+    summary: "The range's isolated re-transcription disagrees with the index's word timing — two measurements, at least one wrong; verify on a tighter window before locking.",
     origin: "A 13-min source drifted 1–5s late on 8 of 10 answers; every cut placed from the index landed on the speaker's reset, three re-renders deep.",
+    doc: "The range's isolated re-transcription disagrees with the index's word timing (`driftCheck`, Δ > 1.25s) — chunked analysis prevents cumulative drift, so disagreement means at least one measurement is wrong (often the isolated pass smearing into a near-silent tail); re-verify on a tighter window",
+    why: "A 13-min source drifted 1–5s late on 8 of 10 answers; every cut placed from the index landed on the speaker's reset, three re-renders deep",
   },
 
   // -- render: pre-render findings (lint) and render-time advisories (cut)
@@ -56,31 +78,43 @@ export const RULES = [
     id: "NO_INDEX", phase: "render", severity: "block",
     summary: "A scene's source has no cached perception index — the cut is unverifiable.",
     origin: "Lint must never pass a scene nobody has analyzed; unverified green is how leaks ship.",
+    doc: "A scene's source has no cached perception index — the cut is unverifiable",
+    why: "Lint must never pass a scene nobody analyzed; unverified green is how leaks ship",
   },
   {
     id: "NO_WORD_TIMING", phase: "render", severity: "warn",
     summary: "The index has no word timing (whisper unavailable when analyzed) — endpoint checks ran on silence alone.",
     origin: "The original leaks shipped off untimed transcript text; silence-only verification must say so.",
+    doc: "The index has no word timing — endpoint checks ran on silence alone",
+    why: "The original leaks shipped off untimed transcript text; degraded verification must say so",
   },
   {
     id: "DRIFT_SUSPECT", phase: "render", severity: "warn",
     summary: "The scene's source index self-reports word-timing drift — endpoint numbers may be seconds late; the OUT needs candidates' driftCheck before it can be trusted.",
     origin: "Scenes re-scoped by hand from a drifted index kept passing lint green while every cut landed on the speaker's reset.",
+    doc: "The scene's source index self-reports word-timing drift — the OUT needs candidates' `driftCheck`; waive per scene with the aligned Δ once it clears",
+    why: "Scenes re-scoped by hand from a drifted index kept passing lint green while every cut landed on the speaker's reset",
   },
   {
     id: "jump-cut", phase: "render", severity: "warn",
     summary: "A direct join between mostly-matching frames — the uncanny band between continuous and a clean change.",
     origin: "Locked-off interview joins spliced two takes of the same framing into a visible skip.",
+    doc: "A direct join between mostly-matching frames",
+    why: "Locked-off interview joins spliced two takes of the same framing into a visible skip",
   },
   {
     id: "off-beat", phase: "render", severity: "warn",
     summary: "Visual boundaries land off the music bed's beat grid.",
     origin: "A montage cut 140ms off the beat felt wrong before anyone could say why.",
+    doc: "Visual boundaries land off the music bed's beat grid",
+    why: "A montage cut 140ms off the beat felt wrong before anyone could say why",
   },
   {
     id: "waiver-missing-reason", phase: "render", severity: "warn",
     summary: "A waiver with no written reason — ignored, and reported.",
     origin: "Reasonless waivers rot: a month later nobody can tell an intentional exception from a forgotten hack.",
+    doc: "A waiver with no written reason (it is ignored, not honored)",
+    why: "Reasonless waivers rot — a month later nobody can tell an intentional exception from a hack",
   },
 
   // -- delivery: qa gates on the rendered artifacts
@@ -88,76 +122,106 @@ export const RULES = [
     id: "decode", phase: "delivery", severity: "block",
     summary: "The final must decode cleanly end to end.",
     origin: "A corrupt final looks fine in a player seek — only a full decode proves the file.",
+    doc: "The final must decode cleanly end to end",
+    why: "A corrupt final looks fine in a player seek — only a full decode proves the file",
   },
   {
     id: "probe", phase: "delivery", severity: "block",
     summary: "The final has a video stream and a real duration.",
     origin: "A bad -map once delivered an audio-only \"video\" that every downstream tool accepted.",
+    doc: "A video stream and a real duration exist",
+    why: "A bad -map once delivered an audio-only \"video\" every downstream tool accepted",
   },
   {
     id: "color-policy", phase: "delivery", severity: "block",
     summary: "Delivered color matches the policy — HDR stays HDR, declared SDR stays SDR.",
     origin: "An HLG master silently became washed-out SDR; the release blocker that created the color policy.",
+    doc: "Delivered color matches the policy — HDR stays HDR",
+    why: "An HLG master silently became washed-out SDR; the release blocker that created the policy",
   },
   {
     id: "clip-count", phase: "delivery", severity: "block",
     summary: "One rendered clip per manifest scene.",
     origin: "A partial --scene render left stale clips that QA'd as the whole edit.",
+    doc: "One rendered clip per manifest scene",
+    why: "A partial --scene render left stale clips that QA'd as the whole edit",
   },
   {
     id: "clip-decode", phase: "delivery", severity: "block",
     summary: "Every per-scene clip decodes cleanly.",
     origin: "One truncated clip poisoned the assembly while the other nine looked fine.",
+    doc: "Every per-scene clip decodes cleanly",
+    why: "One truncated clip poisoned the assembly while the other nine looked fine",
   },
   {
     id: "scene-tails", phase: "delivery", severity: "block",
     summary: "Per-scene tail silence within maxTailSilence.",
     origin: "Two >2s interior tails passed the global edge gates — the final's edges can't see inside scene 6.",
+    doc: "Per-scene tail silence within `qa.maxTailSilence`",
+    why: "Two >2s interior tails passed the global edge gates — the final's edges can't see inside scene 6",
   },
   {
     id: "dialogue-loudness", phase: "delivery", severity: "block",
     summary: "Per-scene dialogue loudness spread within maxLoudnessSpread (fix with scene.gainDb).",
     origin: "One scene sat 6dB quieter than its neighbor — the defect a mixing panel exists to prevent.",
+    doc: "Per-scene loudness spread within `qa.maxLoudnessSpread`",
+    why: "One scene sat 6dB quieter than its neighbor — the defect a mixing panel exists to prevent",
   },
   {
     id: "leading-silence", phase: "delivery", severity: "block",
     summary: "Opening silence within bounds, allowing an intentional opening card's quiet.",
     origin: "Failing red on every card-led cut taught everyone to ignore red QA.",
+    doc: "Opening silence within bounds, allowing an opening card's quiet",
+    why: "Failing red on every card-led cut taught everyone to ignore red QA",
   },
   {
     id: "tail-silence", phase: "delivery", severity: "block",
     summary: "Final tail silence within maxTailSilence.",
     origin: "The married-cut dead tail again, caught at delivery when lock and lint were skipped.",
+    doc: "Final tail silence within `qa.maxTailSilence`",
+    why: "The married-cut dead tail again, caught at delivery when lock and lint were skipped",
   },
   {
     id: "loudness", phase: "delivery", severity: "block",
     summary: "Integrated loudness within ±1 LU of music.loudnessTarget.",
     origin: "A bed mixed hot masked every silence gate; integrated loudness was the only number that caught it.",
+    doc: "Integrated loudness within ±1 LU of `music.loudnessTarget`",
+    why: "A hot bed masked every silence gate; integrated loudness was the only number that caught it",
   },
   {
     id: "prompt-leak", phase: "delivery", severity: "block",
     summary: "No interviewer prompts or take slates in the final transcript.",
     origin: "\"Next question\" shipped in a final. Twice.",
+    doc: "No interviewer prompts or take slates in the final transcript",
+    why: "\"Next question\" shipped in a final. Twice",
   },
   {
     id: "scene-endings", phase: "delivery", severity: "block",
     summary: "Every scene.expectEnding phrase is present in the final transcript.",
     origin: "\"Question 5 got cut off\" — the repair loop's acceptance test, promoted to a standing gate.",
+    doc: "Every `scene.expectEnding` phrase present in the transcript",
+    why: "\"Question 5 got cut off\" — the repair loop's acceptance test, promoted to a standing gate",
   },
   {
     id: "content-gates", phase: "delivery", severity: "block",
     summary: "Content checks must run when the manifest expects them — a missing transcript fails loudly.",
     origin: "Content gates once skipped silently and a leak passed QA green.",
+    doc: "Content checks must run when expected — a missing transcript fails loudly",
+    why: "Content gates once skipped silently and a leak passed QA green",
   },
   {
     id: "black-frames", phase: "delivery", severity: "block",
     summary: "No black frames the manifest doesn't explain (cards, dissolve/fadeblack overlaps).",
     origin: "A 2-frame black blink at a scene join shipped — every gate was listening, none were looking.",
+    doc: "Black frames the manifest doesn't explain (cards, dissolve/fadeblack overlaps are expected)",
+    why: "A 2-frame black blink at a scene join shipped — every gate was listening, none were looking",
   },
   {
     id: "freeze-frames", phase: "delivery", severity: "block",
     summary: "No frozen picture outside the manifest's intentional stills/cards.",
     origin: "A mis-seeked segment froze mid-scene while the audio kept talking.",
+    doc: "Frozen picture outside the manifest's intentional stills/cards",
+    why: "A mis-seeked segment froze mid-scene while the audio kept talking",
   },
 ];
 

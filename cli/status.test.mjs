@@ -42,7 +42,7 @@ function indexFixture(src, { suspects = 0 } = {}) {
     words.push({ start: 28 + i, end: 28.4 + i, text: "ghost", suspect: true, suspectReason: "in-silence" });
   }
   return {
-    version: 6, file: src, duration: 30, hasAudio: true, words,
+    version: 7, file: src, duration: 30, hasAudio: true, words,
     silences: { "-40dB": [{ start: 9.2, end: 15.2 }, { start: 22.0, end: 26.5 }, { start: 27.5, end: null }] },
   };
 }

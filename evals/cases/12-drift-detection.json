@@ -1,6 +1,6 @@
 {
   "id": "12-drift-detection",
-  "title": "Long-source whisper drift is detected and blocks the bad cut (no agent)",
+  "title": "Long-source drift is prevented at the source; endpoint disagreement still blocks the cut (no agent)",
   "agent": "none",
   "timeoutMinutes": 25,
   "fixtures": [
@@ -12,9 +12,10 @@
   ],
   "checks": [
     { "id": "index-self-check-runs", "type": "json_path", "file": "analyze.json", "path": "drift.stretchedEndings", "op": "gte", "value": 0 },
-    { "id": "drift-suspected", "type": "json_path", "file": "analyze.json", "path": "drift.suspected", "op": "eq", "value": true },
+    { "id": "drift-prevented", "type": "json_path", "file": "analyze.json", "path": "drift.suspected", "op": "eq", "value": false },
+    { "id": "no-severe-late-endings", "type": "json_path", "file": "analyze.json", "path": "drift.lateSevereEndings", "op": "eq", "value": 0 },
     { "id": "drift-check-runs", "type": "json_path", "file": "candidates.json", "path": "driftCheck.deltaSeconds", "op": "exists" },
-    { "id": "drifted-range-flagged", "type": "json_path", "file": "candidates.json", "path": "driftCheck.verdict", "op": "eq", "value": "drifted" },
-    { "id": "no-suggestion-on-fiction", "type": "json_path", "file": "candidates.json", "path": "suggestedOut", "op": "eq", "value": null }
+    { "id": "disagreement-still-flagged", "type": "json_path", "file": "candidates.json", "path": "driftCheck.verdict", "op": "eq", "value": "drifted" },
+    { "id": "no-suggestion-on-disagreement", "type": "json_path", "file": "candidates.json", "path": "suggestedOut", "op": "eq", "value": null }
   ]
 }

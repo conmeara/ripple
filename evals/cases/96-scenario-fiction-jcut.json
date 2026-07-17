@@ -1,0 +1,21 @@
+{
+  "id": "96-scenario-fiction-jcut",
+  "title": "Fiction-lite scenario: card between two clips with a J-cut audio lead",
+  "agent": "claude",
+  "model": "sonnet",
+  "timeoutMinutes": 30,
+  "prompt": "Assemble media/01_howmet.mp4, then a title card reading AND THEN, then media/10_married.mp4. Make the second clip's audio lead in under the card by about 1 second - a J-cut, so the voice pulls us through the card into the picture. Save the manifest as edit.json. Render to outputs/. Both clips are already trimmed answers - keep them whole.",
+  "fixtures": [
+    { "from": "$CACHE/howmet.mp4", "to": "media/01_howmet.mp4" },
+    { "from": "$CACHE/married.mp4", "to": "media/10_married.mp4" },
+    { "from": "$FIXTURES/VIDEO.md", "to": "VIDEO.md" }
+  ],
+  "checks": [
+    { "id": "manifest-written", "type": "file_exists", "glob": "edit.json" },
+    { "id": "jcut-under-card", "type": "json_path", "file": "edit.json", "path": "scenes.1.jcut", "op": "gte", "value": 0.5 },
+    { "id": "render", "type": "file_exists", "glob": "outputs/*.mp4" },
+    { "id": "duration-all-three-scenes", "type": "duration_between", "glob": "outputs/*.mp4", "min": 44, "max": 53 },
+    { "id": "both-answers-present", "type": "render_transcript", "glob": "outputs/*.mp4", "includes": ["bumble", "bonus"] },
+    { "id": "hdr-preserved", "type": "color_transfer", "glob": "outputs/*.mp4", "expect": "arib-std-b67" }
+  ]
+}
