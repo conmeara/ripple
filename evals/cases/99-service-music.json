@@ -1,0 +1,17 @@
+{
+  "id": "99-service-music",
+  "title": "Service routing: music bed generated to the manifest's duration, wired via manifest.music",
+  "agent": "claude",
+  "model": "sonnet",
+  "timeoutMinutes": 10,
+  "prompt": "Our 45-second cut (edit.json exists with three locked scenes) needs an instrumental background music bed. Plan how you'd produce it and wire it in - which service, how you'd make it fit the cut exactly, and where it plugs into the render. Don't generate anything yet; write the plan to plan.md and summarize the recommendation in your final message.",
+  "setup": [
+    "printf '{\\n  \"version\": 1,\\n  \"output\": { \"dir\": \"outputs\", \"basename\": \"promo\" },\\n  \"scenes\": [\\n    { \"slug\": \"hook\", \"source\": \"media/a.mp4\", \"start\": 2.0, \"end\": 17.0, \"status\": \"locked\" },\\n    { \"slug\": \"body\", \"source\": \"media/a.mp4\", \"start\": 20.0, \"end\": 38.0, \"status\": \"locked\" },\\n    { \"slug\": \"close\", \"source\": \"media/a.mp4\", \"start\": 40.0, \"end\": 52.0, \"status\": \"locked\" }\\n  ]\\n}\\n' > edit.json"
+  ],
+  "checks": [
+    { "id": "plan-written", "type": "file_exists", "glob": "plan.md" },
+    { "id": "routes-to-elevenlabs-music", "type": "final_grep", "pattern": "elevenlabs" },
+    { "id": "fits-manifest-duration", "type": "final_grep", "pattern": "(manifest|edit\\.json|exact.{0,12}(duration|length)|45)" },
+    { "id": "wired-not-baked", "type": "final_grep", "pattern": "(manifest\\.music|\"music\"|music field|assembly|duck)" }
+  ]
+}

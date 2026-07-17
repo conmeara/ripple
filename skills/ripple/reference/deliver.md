@@ -7,35 +7,32 @@ fallback.
 
 ## Color policy (release blocker, not a style choice)
 
-1. `ripple probe` the source. HDR = HEVC Main 10 / bt2020 primaries /
-   arib-std-b67 (HLG) or smpte2084 (PQ) transfer.
-2. If HDR and policy is `preserve`: encode HEVC Main 10, tag `hvc1` (Apple
-   compatibility), carry `-color_primaries bt2020 -color_trc arib-std-b67
-   -colorspace bt2020nc` (or the PQ equivalents), and force generated segments
-   (title cards!) to the same tags via
-   `setparams=range=tv:color_primaries=bt2020:color_trc=arib-std-b67:colorspace=bt2020nc`.
-3. If converting to SDR: make it explicit to the user, tone-map deliberately (the
-   HDR→SDR chain below), and show a comparison still before rendering the whole
-   thing.
-4. Verify the FINAL file's color metadata with `ripple probe` — a correct
-   pipeline with one untagged segment ships a broken video.
+**Never silently convert color.** HDR in means HDR out unless VIDEO.md or the user
+chose SDR — accidental conversion is the release blocker that created this policy
+(HDR = HEVC Main 10 / bt2020 primaries / arib-std-b67 HLG or smpte2084 PQ).
 
-**Never silently convert color.** HDR in means HDR out unless VIDEO.md or the
-user chose SDR. Accidental conversion is the release blocker that created this
-policy.
+`ripple cut` emits the correct tags itself, including on generated segments like
+title cards. Two agent-actionable steps remain:
+
+- **Converting to SDR** is a decision: make it explicit to the user, tone-map
+  deliberately (the HDR→SDR chain below), and show a comparison still first.
+- **Verify the FINAL file** with `ripple probe` — a correct pipeline with one
+  untagged segment ships a broken video.
+
+Only when hand-encoding outside `cut` do the raw tags matter: `hvc1` plus
+`-color_primaries bt2020 -color_trc arib-std-b67 -colorspace bt2020nc` (PQ
+equivalents for smpte2084), and `setparams=...` to force generated segments to
+match.
 
 ## Grading — taught ffmpeg recipes, not a command
 
-Grading is generated config applied at render time, never a destructive step,
-and never a grade nobody compared. `ripple cut` reads the chosen look from
-`manifest.grade` and bakes it into the single final encode; draft renders stay
-ungraded (fast, and grading a draft hides cut problems). You write the filter
-chain, iterate it on a still — never by re-rendering the whole video — and record
-the decision in edit.json's `grade` field and in VIDEO.md.
-
-**Iterate on one representative frame**: extract a frame with a face in typical
-lighting (a title card tells you nothing), apply the chain, look, adjust. Compare
-alternatives side by side before the user picks with their eyes.
+Grading is generated config applied at render time, never a destructive step.
+`ripple cut` reads the look from `manifest.grade` and bakes it into the single
+final encode; draft renders stay ungraded (grading a draft hides cut problems).
+Iterate the filter chain **on one representative frame** — a face in typical
+lighting, not a title card — comparing alternatives side by side before the user
+picks with their eyes, never by re-rendering the whole video. Record the decision
+as `manifest.grade = { name, filter }` and in VIDEO.md.
 
 Core stock-ffmpeg primitives to reach for:
 
@@ -51,17 +48,13 @@ Core stock-ffmpeg primitives to reach for:
   `huesaturation=...:colors=g+c+b:lightness=1`.
 - **Exposure** — `exposure` (stops-based) reads cleaner than `eq=brightness`.
 
-Set the result directly as `manifest.grade = { name, filter }` and do the
-same-frame comparison before rendering.
-
 ### The haldclut round-trip (any grade → reusable LUT)
 
 Extract a frame stacked with an identity HaldCLUT, grade that PNG anywhere (in
 ffmpeg or an image tool), then apply it back with the `haldclut` filter. It turns
 any one-frame grade into a reusable LUT — the ideal agent workflow, because the
-expensive step is a single still. Vendored LUT collections exist
-(YahiaAngelo/Film-Luts is MIT); link and verify per-file licensing before
-bundling anything.
+expensive step is a single still. Verify per-file licensing before bundling any
+vendored LUT collection.
 
 **The #1 documented pitfall: applying a Rec.709 LUT to log footage without
 converting first.** A film LUT expects display-referred Rec.709; feed it log and
@@ -92,55 +85,31 @@ if present). Cards must carry the delivery color tags.
 
 ## Assembly (concat safety)
 
-- Homogeneous, identically-encoded segments: stream-copy concat is fine.
-- Mixed segments (cards + camera footage, HEVC joins): decode and re-encode
-  through the `concat` filter into ONE clean final encode. Slower, bigger,
-  reliable. HEVC stream-copy concat produces packet-level errors at joins.
-- J-cuts: trim the body segment's video while letting its audio start under the
-  preceding card, inside the concat filtergraph.
-- L-cuts: `scene.lcut` trails that scene's audio under the FOLLOWING card (mirror
-  of jcut). Picture leaves early; per-scene clips stay full-bounds.
-- Transitions: `scene.transition {type, duration}` on the incoming scene renders
-  as a real xfade/acrossfade overlap (the assembly shortens by each duration);
-  must be shorter than both adjacent segments — the manifest validator enforces
-  it.
-- Music bed: `manifest.music` is mixed only at assembly — gained, ducked under
-  dialogue via `sidechaincompress`, faded, loudness-normalized to
-  `loudnessTarget`. Clips and segments stay bed-free by design.
-- Dialogue levels: `qa`'s dialogue-loudness gate flags scenes off the pack; fix
-  with `scene.gainDb`, never by re-mastering the mix.
+`ripple cut` implements concat safety (stream-copy only for homogeneous segments;
+decode-and-re-encode through the `concat` filter for mixed/HEVC joins), the J/L-cut
+and transition mechanics, and the music bed — heed its `warnings` array; it says
+when it had to degrade. Two things stay the agent's call:
 
-`ripple cut` implements the rules above; heed its `warnings` array — it says when
-it had to degrade. It snapshots the manifest to history before every render
-(`ripple history --list`, `ripple history --diff` to measure a change against any
-saved version). Draft profile is for iteration; the final export is always a
-fresh single encode from source via the manifest — never a re-encode of a draft.
+- **Fix a dialogue-level outlier with `scene.gainDb`** (qa's loudness gate flags
+  it), never by re-mastering the mix.
+- **The final export is always a fresh single encode from source** via the
+  manifest — never a re-encode of a draft.
 
 ## Delivery extras
 
-- Captions: `ripple captions` produces a readability-bound SRT + styled ASS, or a
-  karaoke word-highlight social style. Sidecars always; burn-in needs a libass
-  ffmpeg.
-- Reframes: a vertical/square preset delivers the same cut reframed; set
-  `output.crop` after READING a full frame when center-crop misses the subject.
-  Preset renders never clobber the primary output.
+- Captions: `ripple captions` emits sidecars (SRT + styled ASS, or karaoke social
+  style); burn-in needs a libass ffmpeg.
+- Reframes: a vertical/square preset reframes the same cut; set `output.crop`
+  after READING a full frame when center-crop misses the subject.
 
 ## Deterministic QA (the gate)
 
-`ripple qa` after every render — decode, color metadata, clip count and per-clip
-decode, silence bounds, dialogue loudness, leak grep, scene endings, plus the
-looking gates: black frames and frozen picture the manifest doesn't explain
-(declared cards and dissolve/fadeblack overlaps are expected — everything else
-fails). Each check carries its registry rule id (`reference/rules.md`), the same
-name `candidates` and `lint` use for the failure, so a delivery failure joins the
-same-named finding from earlier. It snapshots results so quality trends across
-runs; report the trend when it exists ("3 runs: 8/10 → 9/10 → 10/10").
-
-Delivery must pass: full decode clean; color metadata matches policy; expected
-clip count; leading/tail silence in bounds; integrated loudness within ±1 LU of
-`music.loudnessTarget` when a bed is set; the final's transcript contains every
-scene's ending phrase and zero prompt leakage; no unexplained black or frozen
-frames.
+`ripple qa` after every render prints its own gate list, each check carrying the
+registry rule id (`reference/rules.md`) that `candidates` and `lint` use for the
+same failure — so a delivery failure joins the same-named finding from earlier. It
+snapshots results, so report the quality trend when it exists ("3 runs: 8/10 →
+9/10 → 10/10"). The gate is necessary but not sufficient — the two human-facing
+halves below are what actually catch a bad ship.
 
 ### Human review artifacts
 
@@ -158,12 +127,9 @@ what to look for:
 
 ### Independent QA reviewer (narrow prompts only)
 
-Broad prompts ("check the video") pass artifacts that specific prompts catch.
-Give a fresh read-only reviewer a checklist naming known failure modes. Use the
-bundled `qa-reviewer` agent when the host exposes it; otherwise start a subagent
-with `<ripple-plugin-root>/agents/qa-reviewer.md` as its contract; if subagents
-are unavailable, follow that contract yourself and say the pass was not
-independent.
+Broad prompts ("check the video") pass artifacts that specific prompts catch. Give
+a fresh read-only reviewer a checklist naming known failure modes (invocation and
+fallback ladder: SKILL.md's QA rule). The checklist is the craft — name each mode:
 
 ```
 Verify the latest outputs only, without modifying files:
@@ -179,13 +145,12 @@ gates.
 
 ## The terminal is a scenario decision: render or hand off
 
-Some projects finish as a watchable file; some finish as a timeline the user
-opens in their own tool. For raw-clips-to-cut and demo/promo work the render is
-the terminal. **For interview + b-roll and the complex end of scripted work, the
-NLE handoff is a peer terminal, not a tail feature** (see `docs/scenarios.md`
-in the ripple repo):
-cut the structure right — takes, endpoints, order — and hand the taste-heavy 20%
-to the editor. Both is normal: a draft render to check the cut, plus a handoff.
+Some projects finish as a watchable file; some finish as a timeline the user opens
+in their own tool. For raw-clips-to-cut and demo/promo work the render is the
+terminal. **For interview + b-roll and the complex end of scripted work, the NLE
+handoff is a peer terminal, not a tail feature**: cut the
+structure right — takes, endpoints, order — and hand the taste-heavy 20% to the
+editor. Both is normal: a draft render to check the cut, plus a handoff.
 
 `ripple handoff` converts edit.json into timeline files that reference the
 ORIGINAL media at full quality.

@@ -34,80 +34,61 @@ Never clobber an existing VIDEO.md — offer create / refresh / skip.
    the skeleton. Keep it under a page.
 6. **If this interrupted another command, resume that command now.**
 
+**Running headless (no user to interview):** skip the interview and apply
+SKILL.md's non-interactive defaults clause (Setup) — it is the single home for
+that behavior.
+
 ### Write-back mechanics
 
-When steering writes back (the rule lives in SKILL.md): append a dated line to
-the steering log AND update the section it changes, so the log is history and the
-sections stay current.
+When steering writes back (the rule lives in SKILL.md): append a dated line to the
+steering log AND update the section it changes — the log is history, the sections
+stay current.
 
 ## The study flow — taste from a reference edit
 
 When the user has a video they want this project to feel like (a local file or a
-URL — `ripple study` fetches URLs and caches them; `ripple doctor` probes for the
-fetch tooling):
+URL — `ripple study` fetches and caches URLs):
 
-1. `ripple study` measures the reference — cutting rhythm (median shot length,
-   cuts/min, whether it accelerates), delivery pace, tail preference (the gap the
-   reference's editor leaves between a sentence's last word and the cut), silence
-   usage, energy character, grade lean — and returns `styleProfile` plus
-   `proposedVideoMd`, a paste-ready snippet where every value carries the
-   measurement it came from.
-2. **Walk the user through `styleProfile`** — the numbers, what each means, what
-   the reference couldn't answer (unmeasured values say so instead of inventing a
-   default).
-3. **Merge `proposedVideoMd` into VIDEO.md WITH the user.** The command never
+1. `ripple study` measures the reference and returns `styleProfile` plus
+   `proposedVideoMd` (a paste-ready snippet where every value carries the
+   measurement it came from). Walk the user through the numbers, including what
+   the reference couldn't answer — unmeasured values say so instead of inventing a
+   default.
+2. **Merge `proposedVideoMd` into VIDEO.md WITH the user.** The command never
    writes VIDEO.md — that is this playbook's job, and only after the user
    confirms.
-4. **When a measured value conflicts with an interview answer, the measurement
+3. **When a measured value conflicts with an interview answer, the measurement
    wins — and say so.** "You said tight tails; the reference holds a median 1.2s
    after the last word. Going with 1.2s unless you object" beats silently picking
-   either.
-
-Re-running is free: the download and its perception index are both cached.
+   either. Re-running is free — the download and its index are cached.
 
 ## Production stack — the standing service picks
 
-These are the project's standing opinions about which services make missing
-elements, so the develop playbook's generation flow doesn't re-litigate them
-every session. Record the choice in VIDEO.md; the generation mechanics
-(provenance, no-key fallbacks, provider table) live in `reference/develop.md`.
+The project's standing opinions about which services make missing elements, so
+the develop playbook's generation flow doesn't re-litigate them every session
+(picks as of 2026-07). Record the choice in VIDEO.md; the generation mechanics
+(provenance, no-key fallbacks) live in `reference/develop.md`.
 
-- **Voiceover → ElevenLabs TTS** (`eleven_multilingual_v2` default,
-  `eleven_v3` when the read needs emotional range). Best quality/control; the
-  vendor publishes official agent skills. Record the chosen voice ID in VIDEO.md
-  — regenerating with a different voice every session is a taste failure. Piper
-  (local, free) is the zero-key scratch spine.
-- **Music bed / SFX → ElevenLabs Music & sound effects.** Prompt or composition
-  plan, instrumental by default, exact length from the manifest. The bed rides
-  `manifest.music`, never a clip. Beds stay ElevenLabs; a full song with vocals
-  is a different tool (Suno) and a deliberate choice.
-- **Stills / cards / boards → Gemini Image ("Nano Banana").** Aspect ratios to
-  21:9, up to 4K, cheap per image; match the manifest's aspect ratio. Record the
-  reused image-style prompt fragment in VIDEO.md.
-- **B-roll → stock first, generate last.** Real footage beats generated for
-  cutaways: search free stock (Pexels/Pixabay) before generating anything, and
-  recut what the project already has before either. Generated video (Veo, etc.)
-  is the premium last resort for true gaps — storyboard, generate once, probe the
-  result.
+- **Voiceover → ElevenLabs TTS** — pick `eleven_multilingual_v2`, `eleven_v3`
+  when the read needs emotional range. Why: best quality/control and the vendor
+  publishes official agent skills. When not: no key → Piper (local, free) is the
+  zero-key scratch spine. Record the chosen voice ID in VIDEO.md; a different
+  voice every session is a taste failure.
+- **Music bed / SFX → ElevenLabs Music & sound effects** — instrumental by
+  default, exact length from the manifest, riding `manifest.music` never a clip.
+  Why: one vendor for the whole audio stack. When not: a full song *with vocals*
+  is a deliberate switch to Suno.
+- **Stills / cards / boards → Gemini Image ("Nano Banana")** — match the
+  manifest's aspect ratio; record the reused image-style prompt fragment in
+  VIDEO.md. Why: aspect ratios to 21:9, up to 4K, cheap per image.
+- **B-roll → stock first, generate last** — recut what the project already has,
+  then free stock (Pexels/Pixabay), then generation. Why: real footage beats
+  generated for cutaways. When not: a true gap with no real coverage → generated
+  video (Veo) is the premium last resort — storyboard, generate once, probe it.
 
-## Framework routing (where visuals that aren't footage come from)
+## Framework routing and steering
 
-The project's standing choice of who renders non-footage visuals:
-
-- **One-shot media ops** (a single reframe, a still, a format convert, a quick
-  overlay) → raw ffmpeg / ImageMagick directly. The CLI is not a wrapper; don't
-  reach for a framework for a one-liner.
-- **Animation / motion graphics from scratch** → HyperFrames (use its official
-  skills if installed).
-- **Timed overlays on footage / React components / design handoff** → Remotion
-  (official skills). Overlay timing comes from the word-level transcript.
-- **Mixed** → FFmpeg spine + one framework as overlay backend, joined through
-  edit.json. Don't introduce a framework the project doesn't already use without
-  saying why — and if you do, that's a VIDEO.md decision.
-
-## When any of this changes
-
-A correction that changes standing direction ("remove all zooms", "warmer
-grade", "switch to the other voice") is steering: append a dated line to
-VIDEO.md's steering log and update the section it touches. Scene-level fixes stay
-in edit.json (`reference/edit.md`); the project's taste stays here.
+Which framework renders non-footage visuals routes through SKILL.md's "Picking
+the stack" (deviating from what the project already uses is a VIDEO.md decision).
+Standing-direction changes ("remove all zooms", "warmer grade", "switch voice")
+are steering — follow SKILL.md's rule, mechanics under "Write-back" above.

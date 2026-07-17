@@ -82,8 +82,10 @@ with shading / word-aligned transcript, plus orange cut markers.
 
 - **Red shading** = silence. **Amber** = audible but wordless (a laugh, a
   clap — check it before cutting through it). **Green ticks** (overview) =
-  sentence ends, the legal OUT lattice. **White blips** in the motion strip =
-  movement; black = stillness. **Dim-gray `?`-prefixed words** in the
+  sentence ends, the legal OUT lattice. **Orange** in the motion strip =
+  movement; black = stillness (a black→orange heat ramp; the strip needs
+  ImageMagick and is simply absent without it — absence is a missing tool,
+  not measured stillness). **Dim-gray `?`-prefixed words** in the
   transcript lane = suspect (whisper fabrications over silence/music; the
   envelope lists them as `suspectWords`) — kept visible so the lane never
   silently edits itself, ignored by every timing number.
@@ -105,17 +107,13 @@ with shading / word-aligned transcript, plus orange cut markers.
 
 ## Layer 3 — the numbers: cut placement is arithmetic
 
-`ripple candidates --start S --end E` fuses everything and returns:
+`ripple candidates --start S --end E` fuses everything and returns a
+self-describing `timing` block (`lastWordEnd`, `tailGap`, `nextText`,
+`nextAudioStart`, head-side `leadGap`/`firstWordStart`, `terminalPitch`,
+`breathAfterLastWord`). Two fields carry meaning the label alone doesn't:
 
-| Field | Meaning |
+| Field | What the label doesn't say |
 |---|---|
-| `timing.lastWordEnd` | acoustic end of the last word inside the range |
-| `timing.tailGap` | dead air you'd ship: `end − lastWordEnd` |
-| `timing.nextWordStart` / `timing.nextText` | what starts after the content — verify it's the next prompt, not more answer |
-| `timing.nextAudioStart` | when sound actually resumes (breath, laugh, speech) |
-| `timing.leadGap` / `timing.firstWordStart` | head-side equivalents |
-| `timing.terminalPitch` | melody of the ending sentence: falling = thought complete |
-| `timing.breathAfterLastWord` | a sharp inhale after the last word — the speaker is about to continue |
 | `suggestedOut` | `lastWordEnd + tail preference`, capped before next speech; null when no clean gap exists. Drawn as the dashed "S" anchor on the out card when it differs from your `--end` by >0.15s — no "S" chip means you're already on the suggestion (or there is none; the number tells you which) |
 | `driftCheck` | the index vs an isolated re-transcription of this exact range. The chunked index prevents cumulative drift, so `verdict: "drifted"` (Δ > 1.25s) means two measurements disagree — usually the isolated pass smearing into a near-silent tail, occasionally a real index miss. Don't lock from either number alone: re-run candidates with `--end` just past the earlier of the two endings and confirm on frames (`isolatedWordsJson` has the isolated words) |
 

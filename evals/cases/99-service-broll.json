@@ -1,0 +1,16 @@
+{
+  "id": "99-service-broll",
+  "title": "Service routing: b-roll tries recut-existing and stock before generation",
+  "agent": "claude",
+  "model": "sonnet",
+  "timeoutMinutes": 10,
+  "prompt": "The interview cut needs a ~3-second b-roll shot of a coffee pour to cover a jump cut. We have the full interview source footage in media/ (already analyzed). How would you get that shot? Rank the options you'd actually try, in order. Don't produce anything yet; write the plan to plan.md and summarize the recommendation in your final message.",
+  "fixtures": [
+    { "from": "$CACHE/married.mp4", "to": "media/interview.mp4" }
+  ],
+  "checks": [
+    { "id": "plan-written", "type": "file_exists", "glob": "plan.md" },
+    { "id": "recut-or-stock-first", "type": "final_grep", "pattern": "(recut|existing footage|frame.?sheet|pexels|pixabay|stock)" },
+    { "id": "generation-not-default", "type": "final_grep", "pattern": "(last resort|only if|fallback|if (neither|nothing|no stock))" }
+  ]
+}

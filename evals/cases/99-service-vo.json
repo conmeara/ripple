@@ -1,0 +1,16 @@
+{
+  "id": "99-service-vo",
+  "title": "Service routing: voiceover lands on ElevenLabs with a standing voice ID",
+  "agent": "claude",
+  "model": "sonnet",
+  "timeoutMinutes": 10,
+  "prompt": "script.md is a 30-second product script and we have no recorded narration. Plan exactly how you'd produce the voiceover for this project - which service, which model, and how you'd keep it consistent across future sessions. Don't generate anything yet; write the plan to plan.md and summarize the recommendation in your final message.",
+  "setup": [
+    "printf '# Product script\\n\\nSection 1 (~12s): Every edit you make is a decision. Ripple remembers why.\\n\\nSection 2 (~10s): Verified endpoints, deterministic QA, and taste that persists.\\n\\nSection 3 (~8s): Ripple. Give your agent eyes, ears, and judgment.\\n' > script.md"
+  ],
+  "checks": [
+    { "id": "plan-written", "type": "file_exists", "glob": "plan.md" },
+    { "id": "routes-to-elevenlabs", "type": "final_grep", "pattern": "elevenlabs" },
+    { "id": "standing-voice-consistency", "type": "final_grep", "pattern": "(voice.{0,3}id|VIDEO\\.md)" }
+  ]
+}

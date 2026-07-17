@@ -23,6 +23,18 @@ Lightweight end-to-end evals that check three things before a release:
    fiction-lite (J-cut), multicam (sync), and animation (routing). A capability
    that moves none of these scores is dead weight — this is the kill rule's
    measuring stick.
+6. **The opinions route correctly** — the service cases (99-*) check the
+   production-stack opinions fire when generation enters a task: VO → ElevenLabs
+   with a standing voice ID, music → generated to the manifest's duration, b-roll
+   → recut/stock before generation. Plan-only, no renders — cheap.
+7. **The skill triggers right** — `trigger-set.json` holds 20 realistic queries
+   (10 should-trigger phrased without ever saying "ripple", 10 near-miss
+   should-nots). Run with skill-creator's `run_eval.py` against the SKILL.md
+   description to measure trigger accuracy before shipping description changes.
+   Baseline (2026-07-17, Sonnet, 3 runs/query, ~20 competing video skills
+   installed): **19/20** — see `trigger-baseline-2026-07-17.json`. Two harness
+   lessons encoded in the set's note: queries must reference files that exist,
+   and detection must count the real installed skill, not just a synthetic clone.
 
 Agent policy: mostly **Codex** (`gpt-5.5` by default — override with
 `RIPPLE_EVAL_CODEX_MODEL`), some **Claude Sonnet**, one **Claude Opus** case.
@@ -114,6 +126,9 @@ Exit code is 0 only when every non-baseline case passes.
 | 96-scenario-fiction-jcut | claude/sonnet | fiction-lite scenario: clip → card → clip with a J-cut audio lead under the card |
 | 97-scenario-multicam-sync | claude/sonnet | multicam scenario: recover the true two-camera offset (ground truth 3.7s, built by construction) |
 | 98-scenario-animation-routing | claude/sonnet | animation scenario: motion graphics route to HyperFrames/Remotion instead of ffmpeg fakery |
+| 99-service-vo | claude/sonnet | service routing: voiceover lands on ElevenLabs with a standing voice ID recorded for consistency |
+| 99-service-music | claude/sonnet | service routing: music bed generated to the manifest's exact duration, wired via manifest.music not baked into clips |
+| 99-service-broll | claude/sonnet | service routing: b-roll tries recut-existing and stock before generation |
 
 ## Reading a run
 

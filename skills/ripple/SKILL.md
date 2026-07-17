@@ -7,9 +7,9 @@ description: 'Edit video footage — real recorded video/MP4/MOV files: THE skil
 
 Work like a professional editor: decisions live in files, changes are verified
 by looking, and the project's standing direction is honored. The CLI is the
-product and teaches itself through stdout; these playbooks are the craft opinion
-on top of it — they teach decisions, not flag syntax. For any command's syntax,
-run `ripple <command> --help`.
+product and teaches itself through stdout (and `ripple <command> --help`); these
+playbooks are the craft opinion on top of it — they teach decisions, not flag
+syntax.
 
 ## Setup (ALWAYS, before anything else)
 
@@ -32,6 +32,12 @@ run `ripple <command> --help`.
    The playbooks use `ripple ...` as shorthand for this resolved command; a bare
    `ripple` is equivalent when the host adds it to PATH.
 
+**Running headless (no user to interview).** In a one-shot/automated run with no
+one to answer questions, do not stall on the VIDEO.md interview or `NO_VIDEO_MD`.
+Proceed with conservative defaults — preserve source color, tight tails, standard
+pre-roll — and disclose the defaults used in the final report so a human can
+correct them.
+
 ## Absolute rules
 
 Each exists because a real session failed without it — except the last, which
@@ -44,28 +50,22 @@ stands so one never does.
   reasoning — even a single-clip trim; renders are derived artifacts. A plugin
   hook lints every manifest write and surfaces findings — resolve or waive them;
   they are the same flags `candidates` raises.
-- **Three-signal rule.** No cut point locks on one signal — `ripple candidates`
-  fuses word timing, silence, and sight, and its `flags` block locking until
-  resolved or overridden with a written reason. The endpoint law: OUT =
-  lastWordEnd + tail preference. Full protocol: `reference/edit.md` and
+- **Three-signal rule.** No cut point locks on one signal: `ripple candidates`
+  fuses word timing, silence, and sight, and its `flags` block the lock until
+  each is resolved or overridden with a written reason. Its stdout carries the
+  endpoint law and the mechanics; the craft is in `reference/edit.md` and
   `reference/perception.md`.
 - **Trust the instruments — the CLI cross-checks itself.** `analyze` /
-  `candidates` / `lint` output is already fused, measured signal — never
-  re-derive silence, word timing, or levels with raw ffmpeg (`astats`,
-  `silencedetect`, hand-rolled whisper). The one instrument that can lie is
-  whisper word timing, and the CLI owns that too: `analyze` transcribes long
-  sources in silence-anchored chunks so timestamps cannot drift cumulatively,
-  and `candidates` still verifies every range against an isolated
-  re-transcription (`driftCheck`), raising `INDEX_DRIFT` when the two disagree.
-  When it fires, neither number is automatically right (the isolated pass
-  smears on ranges ending in near-silence) — re-run candidates on a tighter
-  window and confirm on frames; re-derive nothing by hand.
+  `candidates` / `lint` output is already fused, measured signal; re-deriving
+  silence, word timing, or levels with raw ffmpeg (`astats`, `silencedetect`,
+  hand-rolled whisper) throws away the cross-checks. Whisper word timing is the
+  one instrument that can lie, and the CLI owns that too — chunked analysis plus
+  the `candidates` `driftCheck`/`INDEX_DRIFT` guard, whose stdout says what to do.
 - **Never silently convert color.** HDR in means HDR out unless VIDEO.md or the
   user chose SDR. Accidental conversion is a release blocker (`reference/deliver.md`).
 - **Repairs are localized.** Patch the flagged scene, re-render only what changed,
-  run focused QA. Never rebuild the edit. Orient a cold session with `ripple lint`
-  and `ripple history --list`, and map a complaint to its scene with `ripple
-  timeline-sheet --at <time>`.
+  run focused QA. Never rebuild the edit — the manifest makes a fix cheap; keep it
+  cheap (`reference/edit.md`).
 - **QA is narrow and deterministic.** `ripple qa` after every render. An
   independent reviewer gets a checklist of named failure modes, never "check the
   video". Use the bundled `qa-reviewer` agent when the host exposes it; otherwise
@@ -96,7 +96,7 @@ stands so one never does.
 ## Playbooks (the router)
 
 Four playbooks carry the craft; two references carry the perception model and
-the rule registry. Load the one the task lands in and follow it.
+the rule registry. Load the one the task lands in.
 
 | Playbook | When | File |
 |---|---|---|
@@ -113,19 +113,17 @@ the rule registry. Load the one the task lands in and follow it.
   useful command — key the recommendation off it.
 - **"Make me a video" with no footage or script** → **develop** first. Align on
   words before producing anything expensive.
-- **Playbook match** → load its reference file and follow it.
 - **Adjective invocation** (`/ripple tighter q3`, `/ripple breathe`) → run that
-  named move from `reference/edit.md` on the target scene; no target means the
+  named move from `reference/edit.md`; scoped to a scene when given, else the
   whole cut. Any other adjective routes there too, through its generic protocol.
-- **Intent match** → "cut this down" → **edit**; "it looks washed out" /
-  "grade the color" → **deliver**; "the ending is cut off" → **edit** (repair);
-  "at 1:23 it drags" → `ripple timeline-sheet --at 1:23` then **edit** (repair);
-  "make a title card" → stack routing above; "add a voiceover / needs music / I
-  don't have b-roll" → **develop** (generate); "add captions/subtitles" or "make a
-  vertical version" → **deliver**; "find where he says X" → `ripple search`;
-  "sync these two angles" → `ripple sync`; "what footage do I have" → `ripple
-  probe`; "what changed since I left" → `ripple history --list`; "does this cut
-  break any rules" → `ripple lint` (`reference/rules.md`); "make it feel like this
-  video" → **taste** (study); "open this in Premiere / I'll finish it in Resolve"
-  → **deliver** (handoff).
+- **Intent match** (the non-obvious routes; a bare verb like "find where he says
+  X", "what footage do I have", or "what changed" is just its own command, and
+  that command's stdout names the next step) → "cut this down" → **edit**; "it
+  looks washed out" / "grade the color" → **deliver**; "the ending is cut off" →
+  **edit** (repair); "at 1:23 it drags" → `ripple timeline-sheet --at 1:23` then
+  **edit** (repair); "make a title card" → stack routing above; "add a voiceover /
+  needs music / I don't have b-roll" → **develop** (generate); "add
+  captions/subtitles" or "make a vertical version" → **deliver**; "make it feel
+  like this video" → **taste** (study); "open this in Premiere / I'll finish it in
+  Resolve" → **deliver** (handoff).
 - **General video question** → answer with the absolute rules in force.

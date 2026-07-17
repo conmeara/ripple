@@ -1,0 +1,26 @@
+{
+  "skill": "ripple",
+  "note": "Trigger eval set (skill-creator method): realistic queries, 10 should-trigger phrased without ever saying 'ripple', 10 near-miss should-nots that share keywords but need something else. IMPORTANT: run from a workspace where every referenced file EXISTS (stub media is fine) - sessions given nonexistent paths spend their turns on file discovery and never reach the decision where a skill triggers. Measured 2026-07-17 with skill-creator's run_eval.py (patched to scan the full run, --max-turns 4).",
+  "evals": [
+    { "query": "cut the dead air out of standup_recording.mov and tighten it up, it drags in the middle", "should_trigger": true },
+    { "query": "i have 4 clips from my sister's graduation in ./footage - can you make me a 60 second video with some music", "should_trigger": true },
+    { "query": "the ending of question 5 got cut off in outputs/final_render.mp4, fix it", "should_trigger": true },
+    { "query": "assemble intro.mp4 then demo.mp4 with a title card between them that says CHAPTER TWO", "should_trigger": true },
+    { "query": "this interview is almost 2 hours across 6 files in ./interview - find everywhere she talks about the merger and pull the best takes into a rough cut", "should_trigger": true },
+    { "query": "can you make promo_v2.mp4 feel more like masterclass_intro.mp4? thats the vibe the client wants", "should_trigger": true },
+    { "query": "add subtitles to final_v3.mp4 and burn them in", "should_trigger": true },
+    { "query": "I'll finish the edit myself in resolve, just get me a timeline file I can import with the cuts in place", "should_trigger": true },
+    { "query": "we filmed the best man's toast, like 5 attempts in one long file toast_full.mov - pick the best take and give me a clean clip", "should_trigger": true },
+    { "query": "my zoom recording zoom_0424.mp4 plays video but theres no sound?? can you figure out whats wrong with it", "should_trigger": true },
+    { "query": "compress vacation.mp4 so it fits in a 25MB email attachment", "should_trigger": false },
+    { "query": "make me an animated logo intro where the word NORTHWIND types on letter by letter over a transparent background", "should_trigger": false },
+    { "query": "extract the audio from lecture.mp4 as an mp3", "should_trigger": false },
+    { "query": "why does my ffmpeg build say 'unknown filter zscale' when I run this command", "should_trigger": false },
+    { "query": "build me a react video player component with custom playback controls and a scrubber", "should_trigger": false },
+    { "query": "generate a 10 second video of a sunset over the ocean, cinematic drone shot", "should_trigger": false },
+    { "query": "whats a J-cut? my editor friend keeps mentioning them", "should_trigger": false },
+    { "query": "resize the product photos in ./shots to 1080x1080 for instagram", "should_trigger": false },
+    { "query": "download this youtube video for me: https://youtube.com/watch?v=dQw4w9WgXcQ", "should_trigger": false },
+    { "query": "write up a shot list template in Word I can hand out to my film class as an assignment", "should_trigger": false }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "name": "ripple",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Agent video editing: transcription-driven cuts, frame-sheet eyes, HDR-safe finishing, deterministic QA, and a persistent taste memory (VIDEO.md). Routes motion graphics to HyperFrames or Remotion. Read skills/ripple/SKILL.md in full before touching footage — its playbooks and absolute rules are what make the edit correct.",
   "author": {
     "name": "Conor O'Meara"

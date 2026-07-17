@@ -34,10 +34,10 @@ Raised by `ripple candidates` on a range and by `ripple lint` on every scene.
 
 ## Render rules (pre-render findings and render-time advisories)
 
-`NO_INDEX`, `NO_WORD_TIMING`, and `waiver-missing-reason` are raised by
-`ripple lint`; `jump-cut` and `off-beat` by `ripple cut` (they need frames
-and a beat grid, which lint — fast and side-effect-free by contract — never
-computes).
+`NO_INDEX`, `NO_WORD_TIMING`, `DRIFT_SUSPECT`, and `waiver-missing-reason`
+are raised by `ripple lint`; `jump-cut` and `off-beat` by `ripple cut` (they
+need frames and a beat grid, which lint — fast and side-effect-free by
+contract — never computes).
 
 | Rule | Severity | Catches | Origin |
 |---|---|---|---|

@@ -1,10 +1,9 @@
 # develop — from nothing to a first edit.json
 
-When someone wants a video that doesn't exist yet, the cheapest place to align
-is words on a page, not renders. This playbook covers the pre-production arc:
-develop the right paper artifact, get agreement on it, seed the paper edit from
-it, and generate any missing elements — all before a single expensive render.
-Renders are expensive to argue about; scripts are cheap.
+When someone wants a video that doesn't exist yet, the cheapest place to align is
+words on a page, not renders. This playbook covers the pre-production arc: develop
+the right paper artifact, get agreement on it, seed the paper edit from it, and
+generate any missing elements — all before a single expensive render.
 
 ## 1 — Diagnose before writing anything
 
@@ -111,16 +110,11 @@ bounds exactly like shot footage.
 ### Music bed
 
 Duration comes from the manifest (sum of scenes + cards), padded ~2s. Wire the
-bed into the manifest, never into clips:
-
-```json
-"music": { "source": "sources/generated/bed.mp3", "gainDb": -18, "loudnessTarget": -14 }
-```
-
-`ripple cut` mixes it into the **full assembly only** — sidechain-ducked under
-dialogue, faded, loudness-normalized — so per-scene clips stay clean and the bed
-can change without touching a cut. `-14` LUFS for social, `-23` for broadcast;
-`ripple qa` verifies integrated loudness against `loudnessTarget`.
+bed into `manifest.music`, never into clips (fields: see
+`<ripple-plugin-root>/schemas/edit.schema.json`). `ripple cut` mixes it into the **full assembly
+only** — sidechain-ducked under dialogue, faded, loudness-normalized — so
+per-scene clips stay clean and the bed can change without touching a cut.
+Loudness targets and QA live in `reference/deliver.md`.
 
 ### Stills and b-roll
 
@@ -151,34 +145,22 @@ Structured edit data before any rendering. Do not cut anything yet. If
 row, same slug, `title` from the visual column, `reasoning` = "from av-script
 row N" until real bounds replace estimates.
 
-1. **Inventory sources.** `ripple probe` with no argument lists the bin — every
-   media file under the project with duration, codec, HDR flags, and whether the
-   perception index has seen it. Probe a specific file for a closer look at
-   streams, resolution, exact color metadata. Record the color-policy
-   implication (`reference/deliver.md`).
-2. **Analyze everything.** `ripple analyze` per source builds the perception
-   index — cached, so candidates and the sheets are instant afterwards. Pass the
-   proper nouns you expect (names, places, product terms) — it materially
-   improves whisper accuracy. `ripple transcribe` still gives the readable
-   transcript. Read `reference/perception.md` for how to use the index.
-3. **Group takes.** Multiple takes of the same content cluster by transcript
-   similarity. Heuristics, verify don't assume: later takes are usually better;
-   fewer fillers is better; a complete final sentence beats a trailing reset.
-   Record candidate takes per scene (the full craft is in `reference/edit.md`).
-4. **Draft edit.json** (schema: `schemas/edit.schema.json`). For each scene: id,
-   slug, source, proposed start/end from transcript timestamps, chosen take, and
-   **reasoning** — one line on why this take and these bounds. Mark every scene
-   `status: "proposed"`. edit.json is a paper edit: proposed bounds are
-   estimates the edit loop will confirm, not locked cuts.
-5. **Lint the draft.** `ripple lint` re-judges every scene from the cached index
-   — the same rules `candidates` flags one range at a time (registry:
-   `reference/rules.md`). On proposed bounds its findings are the worklist the
-   edit loop will clear, not blockers; a plugin hook re-runs the check on every
-   manifest write, so they stay visible as the draft evolves.
-6. **Look at what you plan to use.** `ripple timeline-sheet` shows the whole
-   source on one time axis — waveform bursts are the take structure, sentence
-   ends the legal OUT lattice, the motion strip the resets. `ripple frame-sheet`
-   samples picture change and confirms the person is mid-take, not resetting.
+1. **Inventory sources.** `ripple probe`, and record the color-policy implication
+   (`reference/deliver.md`).
+2. **Analyze everything.** `ripple analyze` per source builds the cached
+   perception index (`reference/perception.md`). Pass the proper nouns you expect
+   (names, places, product terms) — it materially improves whisper accuracy.
+3. **Group takes.** Cluster same-content takes; verify don't assume (later takes
+   usually better, fewer fillers better, a complete final sentence beats a
+   trailing reset). Record candidate takes per scene (craft: `reference/edit.md`).
+4. **Draft edit.json** (schema: `<ripple-plugin-root>/schemas/edit.schema.json`). Per scene: id, slug,
+   source, proposed start/end from transcript timestamps, chosen take, and a
+   one-line **reasoning**. Mark every scene `status: "proposed"` — a paper edit's
+   bounds are estimates the edit loop will confirm, not locked cuts.
+5. **Lint the draft** (`ripple lint`). On proposed bounds its findings are the
+   worklist the edit loop will clear, not blockers.
+6. **Look at what you plan to use** — `ripple timeline-sheet` and `ripple
+   frame-sheet` before committing to any range.
 7. **Present the plan.** Scene table (slug, take, in/out, duration, reasoning)
    plus the color policy and any risks (HDR, noisy audio). Get confirmation
    before moving to the edit loop.
@@ -196,10 +178,7 @@ edit.json      the manifest (project root)
 
 ## Handoff onward
 
-- Shoot → shot list travels to the shoot; footage comes back → step 4.
-- Generated/authored visuals → produce per row (HyperFrames/Remotion via their
-  official skills, gen APIs if the user has them), land files in `sources/`, then
-  step 4.
-- Script-only projects (VO over existing footage) → generate the VO first; it
-  becomes the timing spine picture gets cut against.
-- edit.json drafted → the core loop takes over (`reference/edit.md`).
+Every path lands files in `sources/` and rejoins at step 4: a shoot's footage
+comes back, generated/authored visuals produce per row, script-only projects
+generate the VO first (the timing spine picture gets cut against). Once edit.json
+is drafted, the core loop takes over (`reference/edit.md`).
