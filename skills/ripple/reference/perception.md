@@ -128,9 +128,9 @@ allowed to make — but it's a decision: write the reason into the scene's
 session: `SPEECH_AT_OUT` (tail silence 0 = someone is talking at your cut),
 `NEXT_SPEECH_INSIDE` (the next prompt leaked in), `MID_WORD_OUT`/`MID_WORD_IN`
 (cut lands inside a word), `DEAD_AIR_TAIL`, `LATE_FIRST_WORD`, `INDEX_DRIFT`
-(the isolated re-transcription disagrees with the index — rebuild the endpoint
-from `driftCheck.isolatedLastWordEnd`, then re-run candidates on the corrected
-range). **A scene does not lock while flags stand** — resolve them or override
+(the isolated re-transcription disagrees with the index — re-run candidates on
+a tighter window ending just past the earlier of the two endings, and confirm
+on frames). **A scene does not lock while flags stand** — resolve them or override
 each with a written reason. When the OUT is scoped to the wrong sentence or
 the index drifted, `suggestedOut` is null on purpose: re-scope using the
 index's `sentences` (or the isolated words), don't nudge.
@@ -138,9 +138,10 @@ index's `sentences` (or the isolated words), don't nudge.
 ## When signals disagree
 
 - Word timestamps vs silence edges → **silence edges win** for timing.
-- Index word timing vs `driftCheck`'s isolated re-transcription → **the
-  isolated pass wins**. Short-window whisper doesn't drift; the big-file
-  index can.
+- Index word timing vs `driftCheck`'s isolated re-transcription → **neither
+  wins automatically**. The chunked index can't drift cumulatively, and the
+  isolated pass smears on near-silent tails — re-run candidates on a tighter
+  window and let the frame check arbitrate.
 - Transcript text vs silence → **transcript wins** for content ("is the
   phrase there"), silence wins for "when".
 - Frames vs waveform → frames can't hear; the waveform can't read a
