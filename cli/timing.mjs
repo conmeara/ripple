@@ -70,7 +70,7 @@ export function snapWords(words, silences) {
 // The words every timing number is allowed to see. Suspect words stay in
 // the index (visible, flagged — perception that silently edits itself is
 // worse), but one hallucinated word reaching lastWordEnd corrupts the
-// endpoint law, so every consumer in this file filters here first.
+// endpoint checks, so every consumer in this file filters here first.
 export function realWords(words) {
   return words.filter((w) => !w.suspect);
 }

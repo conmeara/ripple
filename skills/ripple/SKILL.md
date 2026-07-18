@@ -137,12 +137,13 @@ edit.json.
 Run `ripple candidates --start S --end E` on every range before it locks:
 
 - **IN** just before the first word (0.1–0.3s pre-roll); **OUT** = last word
-  end + tail (VIDEO.md preference, default ≤1.0s). Holding longer for a smile
-  or a laugh is taste you are allowed — as a written reason in the scene, not
-  a shrug.
+  end + tail (default ≤1.0s). If VIDEO.md asks for a different rhythm, pass
+  matching `--max-tail` / `--tail-preference` values. Holding longer for a
+  smile or a laugh is taste you are allowed — record the intent in the
+  scene's reasoning.
 - Its `flags` are measured red flags; a scene does not lock while one stands.
-  Resolve it or waive it with a written reason — the stdout says how, and
-  `ripple lint` re-judges the whole manifest the same way before any render.
+  Resolve it before locking; `ripple lint` re-checks the whole manifest the
+  same way before any render.
 - Confirm with eyes **past** the cut: check frames several seconds beyond the
   OUT — the reset that ruins a tail begins after the last word.
 
@@ -207,8 +208,8 @@ have looked at it, and it ships in the right color.
 `ripple qa <final> --manifest edit.json` runs the deterministic gates — clean
 decode, color policy, tail and leading silence, loudness, prompt leaks,
 expected endings, unexplained black or frozen frames. Exit 1 means fix, not
-argue; thresholds tune in the manifest's `qa` block, and taste exceptions are
-written waivers, never deleted gates.
+argue; tune delivery thresholds in the manifest's `qa` block when the output
+specification changes.
 
 Then look and show: frame-sheet the result, give the user a scene table
 (slug, bounds, ending, tail) and point at exactly what changed — "Q8 has a

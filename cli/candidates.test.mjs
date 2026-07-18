@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   driftCheckFrom, endpointFlags, microClipFlag, stutterCutFlags, suggestIn, suggestOut,
 } from "./candidates.mjs";
-import { RULE_INDEX, endpointFlags as registryEndpointFlags } from "./rules.mjs";
+import { endpointFlags as safetyEndpointFlags } from "./cut-safety.mjs";
 import { cutTiming } from "./timing.mjs";
 import { fileStamp, findTool } from "./util.mjs";
 
@@ -73,31 +73,28 @@ test("mid-word and late-start flags", () => {
   assert.ok(names.includes("LATE_FIRST_WORD"));
 });
 
-test("flags are the registry's lock rules, byte-compatible with the pre-registry envelope", () => {
+test("candidates and lint share the same endpoint implementation and flag shape", () => {
   // candidates and lint must judge a range with the SAME implementation.
-  assert.equal(endpointFlags, registryEndpointFlags);
-  // A range broken every way at once produces only {flag, detail} entries —
-  // no decoration; the flag name itself is the registry id.
+  assert.equal(endpointFlags, safetyEndpointFlags);
+  // A range broken every way at once produces only {flag, detail} entries.
   const t = { ...GOOD_TIMING, straddleEnd: "favorite", straddleStart: "owns", leadGap: 1.2, tailGap: 2.45 };
   const silence = { "-40dB": { leading: 0, tail: 0, spans: 1 } };
   const flags = endpointFlags(t, silence, { maxTail: 1.0, maxLead: 0.5, end: 501 });
   assert.equal(flags.length, 6);
   for (const f of flags) {
     assert.deepEqual(Object.keys(f), ["flag", "detail"]);
-    assert.equal(RULE_INDEX.get(f.flag)?.phase, "lock", f.flag);
-    assert.equal(RULE_INDEX.get(f.flag)?.severity, "block", f.flag);
   }
 });
 
-// ---------- end-to-end: project retunes reach the lock gate ----------
+// ---------- end-to-end: explicit bounds reach the lock gate ----------
 
 const CANDIDATES = pathToFileURL(resolve(dirname(fileURLToPath(import.meta.url)), "candidates.mjs")).href;
 const ffmpeg = findTool(["ffmpeg"]);
 
 // A project on disk: real synthesized audio (candidates runs a fresh
 // silencedetect over the range), a planted perception index (so no whisper),
-// optional VIDEO.md. Words end at 2.0s; the range ends at 5.0s → 3s tail.
-function candidatesProject({ videoMd } = {}) {
+// Words end at 2.0s; the range ends at 5.0s → 3s tail.
+function candidatesProject() {
   const dir = mkdtempSync(join(tmpdir(), "ripple-cand-"));
   const src = join(dir, "src.wav");
   const gen = spawnSync(ffmpeg, [
@@ -119,7 +116,6 @@ function candidatesProject({ videoMd } = {}) {
       turns: [], // "ran, found none" — keeps a tdrz-capable machine from rebuilding
     })
   );
-  if (videoMd) writeFileSync(join(dir, "VIDEO.md"), videoMd);
   return { dir, src };
 }
 
@@ -134,30 +130,17 @@ function runCandidates(args, cwd) {
   return { status: res.status, json, stderr: res.stderr };
 }
 
-test("candidates honors the VIDEO.md project retune exactly like lint", { skip: !ffmpeg }, () => {
-  // The same range must never flag differently at lock and pre-render:
-  // candidates once ignored VIDEO.md entirely, so a project that retuned
-  // DEAD_AIR_TAIL to 4s blocked at lock while lint passed green.
-  const retune = ["---", "rules:", '  DEAD_AIR_TAIL: {maxTail: 4.0, reason: "contemplative piece"}', "---"].join("\n");
+test("candidates uses the default safety bound and honors an explicit override", { skip: !ffmpeg }, () => {
   const base = ["src.wav", "--start", "0", "--end", "5", "--no-sheet", "--no-transcribe"];
 
-  const bare = candidatesProject({});
+  const bare = candidatesProject();
   const flagged = runCandidates(base, bare.dir);
   assert.ok(flagged.json, flagged.stderr);
   assert.ok(flagged.json.flags.some((f) => f.flag === "DEAD_AIR_TAIL"), JSON.stringify(flagged.json.flags));
 
-  const tuned = candidatesProject({ videoMd: retune });
-  const clean = runCandidates(base, tuned.dir);
+  const clean = runCandidates([...base, "--max-tail", "4"], bare.dir);
   assert.deepEqual(clean.json.flags, []);
-  // The retune is echoed, never silent — same shape as lint's envelope.
-  assert.deepEqual(clean.json.overrides, [
-    { rule: "DEAD_AIR_TAIL", tier: "project", maxTail: 4, reason: "contemplative piece" },
-  ]);
-
-  // An explicit flag outranks the retune (and the echo says so).
-  const strict = runCandidates([...base, "--max-tail", "2"], tuned.dir);
-  assert.ok(strict.json.flags.some((f) => f.flag === "DEAD_AIR_TAIL"));
-  assert.equal(strict.json.overrides[0].superseded, true);
+  assert.equal("overrides" in clean.json, false);
 });
 
 // ---------- manifest batch verify ----------
@@ -203,7 +186,7 @@ test("candidates --manifest batch-verifies every source-backed scene; informs, n
   assert.equal(res.json.ok, true);
 
   const byslug = Object.fromEntries(res.json.scenes.map((s) => [s.slug, s]));
-  assert.deepEqual(byslug.clean.redFlags, []); // within the endpoint law
+  assert.deepEqual(byslug.clean.redFlags, []); // endpoint checks clear
   assert.ok(byslug.deadtail.redFlags.some((f) => f.flag === "DEAD_AIR_TAIL"));
   assert.ok(byslug.micro.redFlags.some((f) => f.flag === "MICRO_CLIP"));
 
@@ -261,13 +244,6 @@ test("driftCheckFrom: agreement within threshold is 'aligned'; degraded inputs r
   assert.equal(driftCheckFrom({ ...timing, lastWordEnd: null }, iso, { start: 90 }), null);
 });
 
-test("INDEX_DRIFT is a registered lock rule that blocks", () => {
-  const rule = RULE_INDEX.get("INDEX_DRIFT");
-  assert.ok(rule, "INDEX_DRIFT missing from the registry");
-  assert.equal(rule.phase, "lock");
-  assert.equal(rule.severity, "block");
-});
-
 test("suggestOut lands a breath after the last word, capped before next speech", () => {
   assert.equal(suggestOut(GOOD_TIMING), 493.6);
   // Next speech close behind: suggestion backs off.
@@ -311,7 +287,7 @@ test("stutterCutFlags: a cut inside a sub-minCut silence is a stutter-cut risk",
   assert.deepEqual(stutterCutFlags([{ at: 5.5, label: "OUT" }], [{ start: 5.0, end: 6.0 }]), []);
   // A boundary cut (exactly on the silence edge) is the clean case, not flagged.
   assert.deepEqual(stutterCutFlags([{ at: 5.0, label: "OUT" }], shortSil), []);
-  // A cut in open speech (no silence) is not this rule's business.
+  // A cut in open speech (no silence) is not this check's business.
   assert.deepEqual(stutterCutFlags([{ at: 9.0, label: "OUT" }], shortSil), []);
   // An EOF-open silence is unbounded — never too short.
   assert.deepEqual(stutterCutFlags([{ at: 8.0, label: "OUT" }], [{ start: 5.0, end: null }]), []);

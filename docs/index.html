@@ -262,9 +262,9 @@
 
     <div class="layers">
       <div class="layer l-skills">
-        <span class="tag">Optional · opinion</span>
-        <h3>Skills</h3>
-        <p>A router (<code>SKILL.md</code>) plus four playbooks — develop, edit, taste, deliver — and two references. They carry craft rules and service choices, never CLI documentation. A bare agent edits fine without them; they make it edit <em>well</em>.</p>
+        <span class="tag">Workflow · judgment</span>
+        <h3>Skill</h3>
+        <p>One flexible workflow carries the agent from taste and development through production, editing, and delivery. It supplies editorial judgment and service choices; the CLI supplies deterministic tools.</p>
       </div>
       <div class="layer l-tools">
         <span class="tag">The product · instrument</span>
@@ -274,7 +274,7 @@
       <div class="layer l-taste">
         <span class="tag">Project state · memory</span>
         <h3>Taste</h3>
-        <p><code>VIDEO.md</code> holds the standing creative direction; <code>edit.json</code> holds the current cut's decisions with reasons and waivers. Direction becomes project state instead of a prompt reconstructed every session.</p>
+        <p><code>VIDEO.md</code> holds the standing creative direction; <code>edit.json</code> holds the current cut's decisions, rationale, and delivery settings. Direction becomes project state instead of a prompt reconstructed every session.</p>
       </div>
     </div>
   </section>
@@ -283,8 +283,8 @@
   <section id="tools">
     <h2>Tools</h2>
     <p class="sec-title">What each command does, and how it works</p>
-    <p class="sec-lede">The unit of value is the <strong>(instrument, opinion)</strong> pair: a measurement plus the
-    craft rule it enables. Each entry says what the instrument measures and how — expand any command.</p>
+    <p class="sec-lede">The unit of value is the <strong>(instrument, judgment)</strong> pair: a measurement plus the
+    editorial decision it enables. Each entry says what the instrument measures and how — expand any command.</p>
 
     <div class="tier-head t-core"><span class="dot"></span><h3>Core loop</h3><small>raw clips → verified render · 7 commands</small></div>
     <details class="cmd"><summary><code>analyze</code><span class="oneline">build the perception index — run once per source</span></summary>
@@ -295,7 +295,7 @@
   </div></details>
     <details class="cmd"><summary><code>candidates</code><span class="oneline">verify a cut range with three signals before you trust it</span></summary>
   <div class="body">
-    <p><b class="k">What it does</b>The endpoint instrument for "cut after the completed thought." For a proposed IN/OUT it returns word timing (lastWordEnd, tailGap, what starts next), red flags from the rules registry, a mechanical suggestedOut and suggestedIn, silence at multiple thresholds, the range transcript, edge frames, and head/tail cut-card sheets.</p>
+    <p><b class="k">What it does</b>The endpoint instrument for "cut after the completed thought." For a proposed IN/OUT it returns word timing (lastWordEnd, tailGap, what starts next), measured cut-safety flags, a mechanical suggestedOut and suggestedIn, silence at multiple thresholds, the range transcript, edge frames, and head/tail cut-card sheets.</p>
     <p><b class="k">How it works</b>Reads the cached index; computes timing via cutTiming; flags DEAD_AIR_TAIL, LATE_FIRST_WORD, STUTTER_CUT (cut inside a &lt;0.25s silence), MICRO_CLIP (&lt;1s kept range) and more; suggestedOut = lastWordEnd + tail preference, capped before next speech; suggestedIn = firstWordStart − 0.3s lead margin, floored on prior audio. Every range is cross-checked against an isolated re-transcription (driftCheck) — disagreement raises INDEX_DRIFT and suppresses the suggestion. --manifest batch-verifies every scene of an edit.json, the expensive pass lint skips.</p>
     <p><b class="k">Reads → writes</b>Reads index + media → writes strips/cut-card sheets under work/candidates/; JSON verdict to stdout.</p>
   </div></details>
@@ -311,11 +311,11 @@
     <p><b class="k">How it works</b>Renders bands from the cached index onto a canvas: frame thumbnails on the ruler, motion curve, waveform with measured-silence shading, event and word lanes, and cut markers (the orange OUT). All bands share one time axis, so vertical alignment is meaning.</p>
     <p><b class="k">Reads → writes</b>Reads index + media → writes the sheet PNG; JSON with band legend to stdout.</p>
   </div></details>
-    <details class="cmd"><summary><code>lint</code><span class="oneline">pre-render rule check for the whole manifest</span></summary>
+    <details class="cmd"><summary><code>lint</code><span class="oneline">pre-render cut-safety check for the whole manifest</span></summary>
   <div class="body">
-    <p><b class="k">What it does</b>The cheap gate before rendering: every scene’s endpoint flags from cached perception, plus waiver accounting — a flagged scene passes only with a written waiver naming the rule and reason. Exit 1 on an unwaived block.</p>
-    <p><b class="k">How it works</b>Walks edit.json scenes, resolves each source’s cached index, runs the same endpointFlags code candidates uses (one registry, two callers), applies VIDEO.md project overrides (maxTail/maxLead), checks schema validity, J/L-cut fit, and waiver integrity.</p>
-    <p><b class="k">Reads → writes</b>Reads edit.json + cached indexes → JSON verdict with per-scene flags; exit code is the contract.</p>
+    <p><b class="k">What it does</b>The cheap gate before rendering: every scene’s endpoints are checked from cached perception. Exit 1 when a blocking finding remains.</p>
+    <p><b class="k">How it works</b>Walks edit.json scenes, resolves each source’s cached index, runs the same endpoint checks as candidates, and reports missing or degraded perception evidence. It never analyzes or writes.</p>
+    <p><b class="k">Reads → writes</b>Reads edit.json + cached indexes → JSON verdict with per-scene findings; exit code is the contract.</p>
   </div></details>
     <details class="cmd"><summary><code>cut</code><span class="oneline">render the manifest — clips, cards, J/L cuts, music, assembly</span></summary>
   <div class="body">
@@ -403,10 +403,10 @@
 
   <!-- ================= SKILLS ================= -->
   <section id="skills">
-    <h2>Skills</h2>
-    <p class="sec-title">The playbooks, verbatim</p>
-    <p class="sec-lede">These are the exact shipped files — the router, the four playbooks, the two references,
-    the VIDEO.md template, and the independent QA reviewer's charter. Click a file to read it.</p>
+    <h2>Skill</h2>
+    <p class="sec-title">The workflow, verbatim</p>
+    <p class="sec-lede">These are the exact shipped files — the Ripple skill, the VIDEO.md template,
+    and the independent QA reviewer's charter. Click a file to read it.</p>
     <div class="reader">
       <div class="list" role="tablist" aria-label="Skill files">
         
@@ -439,7 +439,7 @@
           <tr><td>Agent-readable timeline artifact (one image)</td><td class="us full">●</td><td class="part">◐ composites</td><td class="none">—</td><td class="none">—</td><td class="none">—</td></tr>
           <tr><td>Verified cut endpoints (multi-signal + cross-check)</td><td class="us full">●</td><td class="none">—</td><td class="none">—</td><td class="none">—</td><td class="none">—</td></tr>
           <tr><td>Deterministic QA gates on the render</td><td class="us full">●</td><td class="part">◐ self-review</td><td class="part">◐ scoring</td><td class="none">—</td><td class="none">—</td></tr>
-          <tr><td>Machine-checkable paper edit (manifest + waivers)</td><td class="us full">●</td><td class="none">—</td><td class="part">◐ plan</td><td class="none">—</td><td class="none">—</td></tr>
+          <tr><td>Machine-checkable paper edit (manifest + rationale)</td><td class="us full">●</td><td class="none">—</td><td class="part">◐ plan</td><td class="none">—</td><td class="none">—</td></tr>
           <tr><td>NLE handoff (OTIO / FCP7 XML / EDL)</td><td class="us full">●</td><td class="none">—</td><td class="none">—</td><td class="part">◐</td><td class="none">—</td></tr>
           <tr><td>Music bed, ducking, J/L cuts, cards</td><td class="us full">●</td><td class="part">◐</td><td class="full">●</td><td class="none">—</td><td class="none">—</td></tr>
           <tr><td>Generation (footage, VO, music) built in</td><td class="us none">— routed out</td><td class="none">—</td><td class="full">●</td><td class="none">—</td><td class="none">—</td></tr>
@@ -455,7 +455,7 @@
 </div>
 <div class="proj">
   <div class="head"><b>OpenMontage</b><span class="meta">~39.5k★ · AGPL</span><span class="verdict v-ignore">DIFFERENT PRODUCT</span></div>
-  <p><b>Generation-first</b>: a provider menu (Runway, Kling, Veo…) that composes generated shots into montages. Ripple is the opposite bet — editing-first and opinionated: it cuts footage you already have and routes generation out to a deliberately chosen stack. Its named-failure-mode QA scoring is a kindred idea to Ripple's rule registry. AGPL vs Ripple's Apache-2.0.</p>
+  <p><b>Generation-first</b>: a provider menu (Runway, Kling, Veo…) that composes generated shots into montages. Ripple is the opposite bet — editing-first and opinionated: it cuts footage you already have and routes generation out to a deliberately chosen stack. Its named-failure-mode QA scoring is a kindred idea to Ripple's deterministic checks. AGPL vs Ripple's Apache-2.0.</p>
 </div>
 <div class="proj">
   <div class="head"><b>auto-editor</b><span class="meta">4.6k★ · very active · Nim</span><span class="verdict v-adopt">TECHNIQUE CREDIT</span></div>
@@ -572,8 +572,8 @@ outputs/          finals                    qa/        sheets, reports</code></p
 <h3>Place the cut</h3>
 <p>Run <code>ripple candidates --start S --end E</code> on every range before it locks:</p>
 <ul>
-<li><strong>IN</strong> just before the first word (0.1–0.3s pre-roll); <strong>OUT</strong> = last word end + tail (VIDEO.md preference, default ≤1.0s). Holding longer for a smile or a laugh is taste you are allowed — as a written reason in the scene, not a shrug.</li>
-<li>Its <code>flags</code> are measured red flags; a scene does not lock while one stands. Resolve it or waive it with a written reason — the stdout says how, and <code>ripple lint</code> re-judges the whole manifest the same way before any render.</li>
+<li><strong>IN</strong> just before the first word (0.1–0.3s pre-roll); <strong>OUT</strong> = last word end + tail (default ≤1.0s). If VIDEO.md asks for a different rhythm, pass matching <code>--max-tail</code> / <code>--tail-preference</code> values. Holding longer for a smile or a laugh is taste you are allowed — record the intent in the scene's reasoning.</li>
+<li>Its <code>flags</code> are measured red flags; a scene does not lock while one stands. Resolve it before locking; <code>ripple lint</code> re-checks the whole manifest the same way before any render.</li>
 <li>Confirm with eyes <strong>past</strong> the cut: check frames several seconds beyond the OUT — the reset that ruins a tail begins after the last word.</li>
 </ul>
 <p>Then <code>ripple lint</code> before rendering, <code>ripple cut</code> to render (read its <code>warnings</code>), <code>ripple history</code> to snapshot before risky changes. Effects and styling are render-time layers, never baked into bounds.</p>
@@ -601,7 +601,7 @@ outputs/          finals                    qa/        sheets, reports</code></p
 <h2>Finish — gate, grade, deliver</h2>
 <p>A cut is not done because it rendered. It is done when the gates pass, you have looked at it, and it ships in the right color.</p>
 <h3>QA every render</h3>
-<p><code>ripple qa &lt;final&gt; --manifest edit.json</code> runs the deterministic gates — clean decode, color policy, tail and leading silence, loudness, prompt leaks, expected endings, unexplained black or frozen frames. Exit 1 means fix, not argue; thresholds tune in the manifest's <code>qa</code> block, and taste exceptions are written waivers, never deleted gates.</p>
+<p><code>ripple qa &lt;final&gt; --manifest edit.json</code> runs the deterministic gates — clean decode, color policy, tail and leading silence, loudness, prompt leaks, expected endings, unexplained black or frozen frames. Exit 1 means fix, not argue; tune delivery thresholds in the manifest's <code>qa</code> block when the output specification changes.</p>
 <p>Then look and show: frame-sheet the result, give the user a scene table (slug, bounds, ending, tail) and point at exactly what changed — "Q8 has a new ending, check ~3:40" beats "here's the video". <code>ripple qa --report</code> renders a shareable page. For user-flagged fixes, run an independent reviewer (the bundled <code>qa-reviewer</code> agent, or any fresh read-only subagent) with a checklist naming specific failure modes — "clip 05 ends on 'coffee in the morning'", "no next-question leak" — never a broad "check the video".</p>
 <h3>HDR — the release blocker</h3>
 <p>Never silently convert color: HDR in means HDR out unless the user or VIDEO.md chose SDR. <code>ripple cut</code> emits correct tags, including on generated cards — your two jobs are to make any SDR conversion an explicit, shown decision (comparison still first) and to <code>ripple probe</code> the <strong>final</strong> file, because one untagged segment ships a broken video.</p>
@@ -633,88 +633,7 @@ outputs/          finals                    qa/        sheets, reports</code></p
 <tr><td>Anything else</td><td><code>.edl</code> — the always-works fallback</td></tr>
 </tbody></table>
 <p>QA the draft render before handing off; J-cuts flatten to straight cuts with the intent in a marker (editors rebuild them natively in seconds); cards are the editor's to rebuild; timelines carry absolute media paths — moving machines means relinking.</p></template>
-<template id="md-rules"><h1>The rule registry — 28 deterministic editing rules</h1>
-<p>Every deterministic opinion ripple enforces has ONE name, defined in <code>cli/rules.mjs</code> and checked at three moments:</p>
-<ul>
-<li><strong>lock</strong> — <code>ripple candidates</code> flags a single cut range before it locks</li>
-<li><strong>render</strong> — <code>ripple lint</code> re-judges every scene of edit.json from cached perception before anything renders (plus <code>ripple cut</code>'s advisories)</li>
-<li><strong>delivery</strong> — <code>ripple qa</code> gates the rendered artifacts</li>
-</ul>
-<p>The same rule ID means the same failure at every moment. The registry exists because the same defect kept changing names between surfaces: a tail judged and accepted at lock time came back as an anonymous red at delivery and got re-litigated from scratch. Each rule's origin below names the real session failure that created it — a rule nobody can explain gets deleted.</p>
-<p>Severity: <strong>block</strong> stops the phase (candidates flags block locking, unwaived lint blocks exit 1, failed qa gates exit 1); <strong>warn</strong> is surfaced and never blocks.</p>
-<h2>Lock rules (SCREAMING_SNAKE — cut-point flags)</h2>
-<p>Raised by <code>ripple candidates</code> on a range and by <code>ripple lint</code> on every scene.</p>
-<table><thead><tr><th>Rule</th><th>Severity</th><th>Catches</th><th>Origin</th></tr></thead><tbody>
-<tr><td><code>SPEECH_AT_OUT</code></td><td>block</td><td>Tail silence 0 at every threshold — someone is speaking at the cut point</td><td>A session read "tail silence: 0" as a pass and shipped two next-question leaks</td></tr>
-<tr><td><code>MID_WORD_OUT</code></td><td>block</td><td>The OUT lands inside a word</td><td>The "question 5 got cut off" repair class: OUTs placed from untimed text</td></tr>
-<tr><td><code>NEXT_SPEECH_INSIDE</code></td><td>block</td><td>The next speech starts INSIDE the range</td><td>The shipped chore cut: the next question began at 499.5s inside a range ending 501s</td></tr>
-<tr><td><code>DEAD_AIR_TAIL</code></td><td>block</td><td>More than <code>maxTail</code> (default 1.0s) of nothing after the last word</td><td>The shipped married cut carried a 2.45s dead tail past every eyeball</td></tr>
-<tr><td><code>MID_WORD_IN</code></td><td>block</td><td>The range starts inside a word</td><td>Same untimed-text failure at the IN — answers opened mid-syllable</td></tr>
-<tr><td><code>LATE_FIRST_WORD</code></td><td>block</td><td>More than <code>maxLead</code> (default 0.5s) before the first word</td><td>Ranges opened on the interviewer's silence instead of the answer</td></tr>
-<tr><td><code>INDEX_DRIFT</code></td><td>block</td><td>The range's isolated re-transcription disagrees with the index's word timing (<code>driftCheck</code>, Δ &gt; 1.25s) — chunked analysis prevents cumulative drift, so disagreement means at least one measurement is wrong (often the isolated pass smearing into a near-silent tail); re-verify on a tighter window</td><td>A 13-min source drifted 1–5s late on 8 of 10 answers; every cut placed from the index landed on the speaker's reset, three re-renders deep</td></tr>
-</tbody></table>
-<h2>Render rules (pre-render findings and render-time advisories)</h2>
-<p><code>NO_INDEX</code>, <code>NO_WORD_TIMING</code>, <code>DRIFT_SUSPECT</code>, and <code>waiver-missing-reason</code> are raised by <code>ripple lint</code>; <code>jump-cut</code> and <code>off-beat</code> by <code>ripple cut</code> (they need frames and a beat grid, which lint — fast and side-effect-free by contract — never computes).</p>
-<table><thead><tr><th>Rule</th><th>Severity</th><th>Catches</th><th>Origin</th></tr></thead><tbody>
-<tr><td><code>NO_INDEX</code></td><td>block</td><td>A scene's source has no cached perception index — the cut is unverifiable</td><td>Lint must never pass a scene nobody analyzed; unverified green is how leaks ship</td></tr>
-<tr><td><code>NO_WORD_TIMING</code></td><td>warn</td><td>The index has no word timing — endpoint checks ran on silence alone</td><td>The original leaks shipped off untimed transcript text; degraded verification must say so</td></tr>
-<tr><td><code>DRIFT_SUSPECT</code></td><td>warn</td><td>The scene's source index self-reports word-timing drift — the OUT needs candidates' <code>driftCheck</code>; waive per scene with the aligned Δ once it clears</td><td>Scenes re-scoped by hand from a drifted index kept passing lint green while every cut landed on the speaker's reset</td></tr>
-<tr><td><code>jump-cut</code></td><td>warn</td><td>A direct join between mostly-matching frames</td><td>Locked-off interview joins spliced two takes of the same framing into a visible skip</td></tr>
-<tr><td><code>off-beat</code></td><td>warn</td><td>Visual boundaries land off the music bed's beat grid</td><td>A montage cut 140ms off the beat felt wrong before anyone could say why</td></tr>
-<tr><td><code>waiver-missing-reason</code></td><td>warn</td><td>A waiver with no written reason (it is ignored, not honored)</td><td>Reasonless waivers rot — a month later nobody can tell an intentional exception from a hack</td></tr>
-</tbody></table>
-<h2>Delivery gates (kebab-case — <code>ripple qa</code>)</h2>
-<table><thead><tr><th>Rule</th><th>Severity</th><th>Catches</th><th>Origin</th></tr></thead><tbody>
-<tr><td><code>decode</code></td><td>block</td><td>The final must decode cleanly end to end</td><td>A corrupt final looks fine in a player seek — only a full decode proves the file</td></tr>
-<tr><td><code>probe</code></td><td>block</td><td>A video stream and a real duration exist</td><td>A bad -map once delivered an audio-only "video" every downstream tool accepted</td></tr>
-<tr><td><code>color-policy</code></td><td>block</td><td>Delivered color matches the policy — HDR stays HDR</td><td>An HLG master silently became washed-out SDR; the release blocker that created the policy</td></tr>
-<tr><td><code>clip-count</code></td><td>block</td><td>One rendered clip per manifest scene</td><td>A partial --scene render left stale clips that QA'd as the whole edit</td></tr>
-<tr><td><code>clip-decode</code></td><td>block</td><td>Every per-scene clip decodes cleanly</td><td>One truncated clip poisoned the assembly while the other nine looked fine</td></tr>
-<tr><td><code>scene-tails</code></td><td>block</td><td>Per-scene tail silence within <code>qa.maxTailSilence</code></td><td>Two &gt;2s interior tails passed the global edge gates — the final's edges can't see inside scene 6</td></tr>
-<tr><td><code>dialogue-loudness</code></td><td>block</td><td>Per-scene loudness spread within <code>qa.maxLoudnessSpread</code></td><td>One scene sat 6dB quieter than its neighbor — the defect a mixing panel exists to prevent</td></tr>
-<tr><td><code>leading-silence</code></td><td>block</td><td>Opening silence within bounds, allowing an opening card's quiet</td><td>Failing red on every card-led cut taught everyone to ignore red QA</td></tr>
-<tr><td><code>tail-silence</code></td><td>block</td><td>Final tail silence within <code>qa.maxTailSilence</code></td><td>The married-cut dead tail again, caught at delivery when lock and lint were skipped</td></tr>
-<tr><td><code>loudness</code></td><td>block</td><td>Integrated loudness within ±1 LU of <code>music.loudnessTarget</code></td><td>A hot bed masked every silence gate; integrated loudness was the only number that caught it</td></tr>
-<tr><td><code>prompt-leak</code></td><td>block</td><td>No interviewer prompts or take slates in the final transcript</td><td>"Next question" shipped in a final. Twice</td></tr>
-<tr><td><code>scene-endings</code></td><td>block</td><td>Every <code>scene.expectEnding</code> phrase present in the transcript</td><td>"Question 5 got cut off" — the repair loop's acceptance test, promoted to a standing gate</td></tr>
-<tr><td><code>content-gates</code></td><td>block</td><td>Content checks must run when expected — a missing transcript fails loudly</td><td>Content gates once skipped silently and a leak passed QA green</td></tr>
-<tr><td><code>black-frames</code></td><td>block</td><td>Black frames the manifest doesn't explain (cards, dissolve/fadeblack overlaps are expected)</td><td>A 2-frame black blink at a scene join shipped — every gate was listening, none were looking</td></tr>
-<tr><td><code>freeze-frames</code></td><td>block</td><td>Frozen picture outside the manifest's intentional stills/cards</td><td>A mis-seeked segment froze mid-scene while the audio kept talking</td></tr>
-</tbody></table>
-<h2>Waiving a rule</h2>
-<p>Waivers exist because a rule that cannot bend gets deleted instead of obeyed. Every waiver is surfaced as waived-with-reason in the lint report — never silently dropped — and a waiver without a reason is ignored and reported (<code>waiver-missing-reason</code>).</p>
-<h3>Scene tier — edit.json</h3>
-<p>One scene is intentionally an exception. Sits next to the bounds it excuses:</p>
-<pre><code>{
-  "slug": "long_goodbye",
-  "start": 771.2, "end": 779.0,
-  "waivers": [
-    { "rule": "DEAD_AIR_TAIL", "reason": "she looks at the photo for 2s — the silence is the scene" }
-  ]
-}</code></pre>
-<h3>Project tier — VIDEO.md front-matter</h3>
-<p>The whole project's style bends a rule: retune its threshold or waive it everywhere. Lives in the YAML block at the top of VIDEO.md:</p>
-<pre><code>---
-rules:
-  DEAD_AIR_TAIL: {maxTail: 2.5, reason: "contemplative piece — long tails are the point"}
-  NEXT_SPEECH_INSIDE: {waive: true, reason: "single-take monologue, no prompts to leak"}
----</code></pre>
-<p><code>maxTail</code> retunes <code>DEAD_AIR_TAIL</code>; <code>maxLead</code> retunes <code>LATE_FIRST_WORD</code>; <code>waive: true</code> waives the rule project-wide. Retunes are echoed in lint's and candidates' <code>overrides</code> block so they are visible on every run, and both commands read the same VIDEO.md — a range judges identically at lock and pre-render. Precedence: an explicit CLI flag (<code>--max-tail</code>/<code>--max-lead</code>) outranks the project retune (the echoed entry is marked <code>superseded: true</code>), and the retune outranks the built-in default. A retune value that isn't a number (quoted numbers like <code>"2.5"</code> are fine — they coerce) is not applied and not echoed.</p>
-<h3>Delivery thresholds — the manifest's qa block</h3>
-<p>Delivery gates were already tunable from edit.json and stay that way: <code>qa.maxTailSilence</code>, <code>qa.maxLeadingSilence</code>, <code>qa.maxLoudnessSpread</code>, <code>qa.leakPatterns</code>. The gates that compare against the manifest (<code>black-frames</code>, <code>freeze-frames</code>, <code>leading-silence</code>) self-adjust to cards and transitions — a declared opening card is quiet and black on purpose.</p>
-<h2>Reading a lint report</h2>
-<p><code>ripple lint edit.json</code> prints every finding:</p>
-<pre><code>{ "rule": "DEAD_AIR_TAIL", "scene": "long_goodbye", "severity": "block",
-  "waived": true, "waiverReason": "she looks at the photo for 2s — the silence is the scene" }</code></pre>
-<p>Exit 1 means at least one <strong>unwaived block</strong> finding stands: re-scope the cut (<code>ripple candidates</code> — the index's <code>sentences</code> array is the lattice) or waive it with a written reason. Exit 0 with warn findings means render, but read them first.</p></template>
-<template id="md-videomd"><div class="fm"># Project-tier rule overrides — `ripple lint` reads this block. Retune a
-# rule's threshold or waive it project-wide; EVERY entry needs a reason
-# (a waiver without one is ignored and reported as a warn finding).
-# Registry of rule ids: docs/rules.md in the plugin (or `ripple lint` output). Examples:
-#   DEAD_AIR_TAIL: {maxTail: 2.5, reason: "contemplative piece — long tails are the point"}
-#   NEXT_SPEECH_INSIDE: {waive: true, reason: "single-take monologue, no prompts to leak"}
-rules: {}</div>
-<h1>VIDEO.md — standing direction for this project</h1>
+<template id="md-videomd"><h1>VIDEO.md — standing direction for this project</h1>
 <p>&lt;!-- Created with the user (the ripple skill's Taste section). The agent reads      this before every video task and writes confirmed steering back here.      Keep it short. --&gt;</p>
 <h2>Register</h2>
 <p>&lt;!-- cinematic | social | product | documentary — retunes pacing and graphics defaults --&gt; Register: social</p>
@@ -757,7 +676,7 @@ model: inherit
 color: yellow
 tools: Bash, Read, Grep, Glob</div>
 <p>You are an independent video QA reviewer. You verify; you never edit. Do not modify, move, or re-render any file.</p>
-<p>Rules:</p>
+<p>Review contract:</p>
 <ul>
 <li>Work ONLY through the checklist you were given. For each item, gather direct evidence: <code>ripple qa</code> (its per-scene <code>scene-tails</code> gate and card-aware leading-silence are authoritative for edge silence), <code>ripple probe</code>, <code>ripple frame-sheet</code>, <code>ripple timeline-sheet</code> (waveform + words on one axis — the fastest way to SEE a mistimed cut), <code>ripple candidates</code> (its <code>timing</code> numbers and <code>flags</code> are the endpoint verdict), ffprobe/ffmpeg decode checks, transcript grep. If a checklist item can't be verified mechanically, say so — don't eyeball-guess.</li>
 <li>Transcribe rendered output when checking spoken content (extract audio, run whisper if available, or use an existing qa/ transcript) rather than trusting the edit manifest.</li>
@@ -767,7 +686,7 @@ tools: Bash, Read, Grep, Glob</div>
 <li>Your final message is the findings report.</li>
 </ul></template>
 <script>
-window.__RIPPLE_FILES__ = [{"id":"skill","group":"Skills","name":"ripple","blurb":"make a video: taste → develop → produce → edit → finish","path":"skills/ripple/SKILL.md","lines":291},{"id":"rules","group":"References","name":"rules.md","blurb":"28 rules, generated from code","path":"docs/rules.md","lines":136},{"id":"videomd","group":"Taste & agents","name":"VIDEO.md (template)","blurb":"standing creative direction","path":"skills/ripple/templates/VIDEO.md","lines":60},{"id":"qareviewer","group":"Taste & agents","name":"qa-reviewer.md","blurb":"independent read-only reviewer","path":"agents/qa-reviewer.md","lines":35}];
+window.__RIPPLE_FILES__ = [{"id":"skill","group":"Skills","name":"ripple","blurb":"make a video: taste → develop → produce → edit → finish","path":"skills/ripple/SKILL.md","lines":292},{"id":"videomd","group":"Taste & agents","name":"VIDEO.md (template)","blurb":"standing creative direction","path":"skills/ripple/templates/VIDEO.md","lines":50},{"id":"qareviewer","group":"Taste & agents","name":"qa-reviewer.md","blurb":"independent read-only reviewer","path":"agents/qa-reviewer.md","lines":35}];
 
   const FILES = window.__RIPPLE_FILES__ || [];
   const list = document.querySelector('.reader .list');

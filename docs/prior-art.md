@@ -144,8 +144,8 @@ bridge). `otiotool` is useful for debugging handoffs.
 - **OpenMontage** (~39.5k★, AGPL) — generation-first provider menu; the
   opposite product. But LEARN its QA shape: named-failure-mode scoring
   ("slideshow risk"), pre-compose blocking gates, post-render frame checks,
-  and a decision audit trail. Ripple's rules registry is the same idea; the
-  audit trail is worth considering for edit.json.
+  and a decision audit trail. Ripple's deterministic checks follow the same
+  principle; the audit trail is worth considering for edit.json.
 - **FunClip** (Alibaba): clip-by-selecting-transcript-text as the primitive.
   **ClipsAI**: speaker-tracking auto-reframe to 9:16. **ButterCut**
   (PolyForm-NC): same "agent edits, NLE finishes" thesis as handoff.

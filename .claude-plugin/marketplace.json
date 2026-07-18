@@ -1,6 +1,6 @@
 {
   "name": "ripple",
-  "description": "The missing eyes and ears for agents that edit video: editing craft as skills, perception as a CLI, taste as memory.",
+  "description": "Give agents the tools, skill, and taste to make video with you.",
   "owner": {
     "name": "Conor O'Meara"
   },
@@ -8,7 +8,7 @@
     {
       "name": "ripple",
       "source": "./",
-      "description": "Agent video editing: transcription-driven cuts, frame-sheet eyes, HDR-safe finishing, deterministic QA, and a persistent taste memory (VIDEO.md).",
+      "description": "Video making for agents: local perception, a complete workflow, persistent taste, verifiable edits, and professional handoff.",
       "category": "creative",
       "tags": ["video", "editing", "ffmpeg", "motion-graphics"]
     }

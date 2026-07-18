@@ -233,15 +233,6 @@ test("a clean manifest write stays silent", () => {
   assert.equal(stdout, "");
 });
 
-test("fully waived findings stay quiet — the waiver already spoke", () => {
-  const dir = project({
-    scenes: [{ ...DEAD_TAIL, waivers: [{ rule: "DEAD_AIR_TAIL", reason: "the silence is the scene" }] }],
-  });
-  const { status, stdout } = runHook(writeEvent(dir, "edit.json"), dir);
-  assert.equal(status, 0);
-  assert.equal(stdout, "");
-});
-
 test("non-manifest writes are ignored in total silence", () => {
   const dir = project({ scenes: [CLEAN, DEAD_TAIL] });
   writeFileSync(join(dir, "notes.txt"), "version scenes edit.json");
@@ -313,9 +304,9 @@ test("edit.schema.json declares every field the CLI consumes", () => {
   };
   // cut/lint/qa/captions/locate read these — grep `manifest.<field>`.
   has(schema, ["version", "title", "color", "output", "grade", "music", "scenes", "qa"]);
-  // cut/rules read these per scene — grep `scene.<field>`.
+  // cut and the safety checks read these per scene — grep `scene.<field>`.
   has(schema.properties.scenes.items, [
-    "id", "slug", "source", "start", "end", "expectEnding", "waivers",
+    "id", "slug", "source", "start", "end", "expectEnding",
     "card", "cardFile", "cardDuration", "jcut", "gainDb", "lcut", "transition",
   ]);
   // qa's delivery gates.

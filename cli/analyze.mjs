@@ -321,7 +321,7 @@ export function loadAnalysis(file, {
 
   // But first let the measured audio veto the transcript: whisper fabricates
   // words over music beds and long silence, and one fabricated word reaching
-  // lastWordEnd corrupts the endpoint law. Marking runs on the RAW words —
+  // lastWordEnd corrupts endpoint checks. Marking runs on the RAW words —
   // the raw placement inside a silence span is the evidence, and snapping
   // first would park a mid-file fabrication at the resume point where it
   // looks exactly like real resumed speech. Suspects stay in the index,

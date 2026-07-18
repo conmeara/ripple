@@ -1,7 +1,7 @@
 {
   "name": "ripple",
   "version": "0.13.0",
-  "description": "Agent video making: taste captured in VIDEO.md, script-first development, an opinionated production stack (HyperFrames, Remotion, ElevenLabs), transcription-driven cuts with frame-sheet eyes, HDR-safe finishing, and deterministic QA.",
+  "description": "Open-source video-making toolkit for agents: local perception, a complete creative workflow, persistent taste, verifiable edits, and professional handoff.",
   "author": {
     "name": "Conor O'Meara"
   },
@@ -21,8 +21,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Ripple",
-    "shortDescription": "Give agents eyes and ears for video editing",
-    "longDescription": "Ripple gives Codex an evidence-driven workflow for editing real footage. It pairs professional editing playbooks with a local CLI for transcription, perception indexes, cut-point analysis, timeline and frame sheets, rendering, localized repair, deterministic QA, and NLE handoff. VIDEO.md preserves standing creative direction and edit.json records every cut decision with its reasoning.",
+    "shortDescription": "Give agents the tools, skill, and taste to make video",
+    "longDescription": "Ripple helps Codex make video from a brief, existing footage, or both. Its local CLI turns media into agent-readable evidence, its skill carries the workflow from creative direction through delivery, and VIDEO.md preserves the user's taste. Ripple can plan, produce, edit, verify, repair, render, and hand off structured timelines to an NLE.",
     "developerName": "Conor O'Meara",
     "category": "Creativity",
     "capabilities": [
@@ -31,7 +31,7 @@
     ],
     "websiteURL": "https://github.com/conmeara/ripple",
     "defaultPrompt": [
-      "Edit this footage into a concise video and verify every cut.",
+      "Make a concise video from this brief and available footage, then verify it.",
       "Repair this mistimed scene without rebuilding the rest of the edit.",
       "Inspect this render for cut, color, and audio problems."
     ]

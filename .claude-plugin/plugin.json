@@ -2,7 +2,7 @@
   "name": "ripple",
   "displayName": "Ripple",
   "version": "0.13.0",
-  "description": "Agent video making: taste captured in VIDEO.md, script-first development, an opinionated production stack (HyperFrames, Remotion, ElevenLabs), transcription-driven cuts with frame-sheet eyes, HDR-safe finishing, and deterministic QA.",
+  "description": "Open-source video-making toolkit for agents: local perception, a complete creative workflow, persistent taste, verifiable edits, and professional handoff.",
   "author": {
     "name": "Conor O'Meara"
   },

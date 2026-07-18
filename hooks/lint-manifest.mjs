@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// PostToolUse hook: the rule engine runs the moment the agent writes an edit
+// PostToolUse hook: cut-safety checks run the moment the agent writes an edit
 // manifest, so findings surface into the loop without the agent choosing to
 // look. Two laws bound every path through this file:
-//   - Fail-open. Broken stdin, an unreadable manifest, a missing rule engine
+//   - Fail-open. Broken stdin, an unreadable manifest, or missing checks
 //     — nothing here may cost the agent its write. Every exit is 0; failure
 //     is a one-line stdout note (the host's debug log), never a hook error.
 //   - Never block. Ripple's flags block LOCKING, not editing — findings
@@ -68,23 +68,21 @@ function isManifest(path) {
   }
 }
 
-// Compact by contract: counts, the first few findings with registry rule
-// IDs, and the pointer to the full report — enough to act on, cheap enough
+// Compact by contract: counts, the first few finding codes, and the pointer
+// to the full report — enough to act on, cheap enough
 // to inject on every save.
 function summarize(manifestPath, findings) {
-  const active = findings.filter((f) => !f.waived);
-  const waived = findings.length - active.length;
-  const block = active.filter((f) => f.severity === "block").length;
+  const block = findings.filter((f) => f.severity === "block").length;
   const lines = [
-    `ripple lint — ${manifestPath}: ${block} block, ${active.length - block} warn${waived ? `, ${waived} waived` : ""}`,
+    `ripple lint — ${manifestPath}: ${block} block, ${findings.length - block} warn`,
   ];
-  for (const f of active.slice(0, MAX_SHOWN)) {
+  for (const f of findings.slice(0, MAX_SHOWN)) {
     const detail = f.detail.length > 200 ? `${f.detail.slice(0, 197)}...` : f.detail;
-    lines.push(`  [${f.rule}] ${f.scene ?? "project"}: ${detail}`);
+    lines.push(`  [${f.code}] ${f.scene}: ${detail}`);
   }
-  if (active.length > MAX_SHOWN) lines.push(`  ...and ${active.length - MAX_SHOWN} more`);
+  if (findings.length > MAX_SHOWN) lines.push(`  ...and ${findings.length - MAX_SHOWN} more`);
   lines.push(
-    "Flags block locking, not editing — run `ripple lint` for the full report; waive with a written reason where a finding is intentional."
+    "Flags block locking, not editing — run `ripple lint` for the full report, then inspect and re-scope the affected cut."
   );
   return lines.join("\n");
 }
@@ -105,9 +103,9 @@ async function main() {
 
   let lintManifest;
   try {
-    ({ lintManifest } = await import(pathToFileURL(join(PLUGIN_ROOT, "cli", "rules.mjs")).href));
+    ({ lintManifest } = await import(pathToFileURL(join(PLUGIN_ROOT, "cli", "cut-safety.mjs")).href));
   } catch (e) {
-    return note(`rule engine unavailable (${e.message}) — skipped`);
+    return note(`cut-safety checks unavailable (${e.message}) — skipped`);
   }
 
   const contexts = [];
@@ -115,8 +113,7 @@ async function main() {
   for (const manifest of manifests) {
     try {
       const { findings } = lintManifest(manifest);
-      // Fully waived findings stay quiet — the waiver already spoke.
-      if (findings.some((f) => !f.waived)) contexts.push(summarize(manifest, findings));
+      if (findings.length) contexts.push(summarize(manifest, findings));
     } catch (e) {
       notes.push(`lint failed for ${manifest} (${e.message}) — skipped`);
     }

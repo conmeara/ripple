@@ -95,9 +95,9 @@ const COMMANDS = {
   },
   lint: {
     load: () => import("./lint.mjs"),
-    usage: `  lint [edit.json]                Pre-render rule check from cached perception only: every scene's
-      [--scene slug]              endpoint flags + waiver accounting — exit 1 on unwaived block
-      [--analysis-dir dir] [--video-md path] [--max-tail 1.0] [--max-lead 0.5]  findings`,
+    usage: `  lint [edit.json]                Pre-render cut-safety check from cached perception only: every
+      [--scene slug]              scene's endpoint findings — exit 1 on blocking findings
+      [--analysis-dir dir] [--max-tail 1.0] [--max-lead 0.5]`,
   },
   cut: {
     load: () => import("./cut.mjs"),

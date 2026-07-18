@@ -8,10 +8,8 @@ import {
 
 const DEFAULT_LEAK_PATTERNS = ["next question", "take [0-9]"];
 
-// Every check id IS a registry rule id (cli/rules.mjs, reference/rules.md);
-// `rule` carries it explicitly so findings join across candidates/lint/qa.
 function check(id, ok, detail) {
-  return { id, rule: id, ok: Boolean(ok), detail };
+  return { id, ok: Boolean(ok), detail };
 }
 
 // Parse ffmpeg blackdetect stderr into [{start, end, duration}].
@@ -405,7 +403,7 @@ export async function main(argv) {
       "manifest defines expected endings/leak patterns but no transcript was provided — " +
         "re-run with --transcribe (or --transcript <path>); a delivery must not pass with unverified content"));
   } else {
-    checks.push({ id: "content-gates", rule: "content-gates", ok: true, skipped: true,
+    checks.push({ id: "content-gates", ok: true, skipped: true,
       detail: "no transcript and no content expectations in the manifest — content gates not run (excluded from totals)" });
   }
 

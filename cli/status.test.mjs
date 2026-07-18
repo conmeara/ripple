@@ -122,7 +122,7 @@ test("block findings surface with lint's summary shape and route to lint", () =>
   const dir = project({ scenes: [CLEAN, DEAD_TAIL] });
   const { status, json } = runStatus([dir]);
   assert.equal(status, 0); // status reports, it never gates
-  assert.deepEqual(json.findings, { block: 1, warn: 0, waived: 0 });
+  assert.deepEqual(json.findings, { block: 1, warn: 0 });
   assert.deepEqual(json.manifest.statuses, { locked: 1, proposed: 1 });
   assert.deepEqual(json.manifest.scenes[1], { slug: "vows", source: "src.mp4", duration: 10, status: "proposed" });
   assert.equal(json.next, "lint");
@@ -142,7 +142,7 @@ test("preset clip dirs from ripple cut are never counted as sources", () => {
 test("clean manifest with missing renders routes to cut; stale renders too", () => {
   const dir = project({ scenes: [CLEAN] });
   const missing = runStatus([dir]);
-  assert.deepEqual(missing.json.findings, { block: 0, warn: 0, waived: 0 });
+  assert.deepEqual(missing.json.findings, { block: 0, warn: 0 });
   assert.deepEqual(missing.json.renders, {
     clipsDir: join(dir, "clips"), expected: 1, rendered: 0, missing: 1, stale: 0, final: null,
   });
@@ -192,15 +192,10 @@ test("history: snapshot count and latest label from .ripple/history", () => {
   assert.deepEqual(json.history, { count: 1, latest: { label: "before tighten", savedAt: "2026-07-01T00:00:00Z" } });
 });
 
-test("VIDEO.md front-matter rules block is detected", () => {
-  const plain = runStatus([project({})]);
-  assert.deepEqual(plain.json.videoMd.rulesBlock, false);
-  const dir = project({
-    videoMd: ["---", "rules:", '  DEAD_AIR_TAIL: {maxTail: 3.5, reason: "contemplative"}', "---", "# VIDEO.md"].join("\n"),
-  });
+test("VIDEO.md presence is reported without parsing its contents", () => {
+  const dir = project({ videoMd: "# VIDEO.md\n\nMeasured pacing and color direction." });
   const { json } = runStatus([dir]);
-  assert.equal(json.videoMd.present, true);
-  assert.equal(json.videoMd.rulesBlock, true);
+  assert.deepEqual(json.videoMd, { present: true, path: join(dir, "VIDEO.md") });
 });
 
 test("unreadable manifest degrades to a fact, never a crash", () => {
@@ -244,7 +239,6 @@ test("permission errors degrade to facts: unreadable VIDEO.md/qa/history never c
     assert.equal(status, 0);
     assert.equal(json.ok, true);
     assert.equal(json.videoMd.present, true); // it exists — just unreadable
-    assert.equal(json.videoMd.rulesBlock, false);
     assert.deepEqual(json.qa, { runs: 0, latest: null });
     assert.deepEqual(json.history, { count: 0, latest: null });
   } finally {

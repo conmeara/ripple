@@ -92,7 +92,7 @@ function bestBreak(words) {
 }
 
 // Two lines wrapped at the best priority point near the midpoint —
-// bottom-heavy preferred (a penalty, not a hard rule: sometimes only a
+// bottom-heavy preferred (a penalty, not a hard constraint: sometimes only a
 // top-heavy split keeps both lines under the cap).
 export function wrapLines(words, maxLineChars) {
   const text = joinText(words);

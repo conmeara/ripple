@@ -1,7 +1,7 @@
 {
   "name": "ripple-video",
   "version": "0.13.0",
-  "description": "Agent video editing plugin for Claude Code and Codex: skills, taste memory, and a CLI for probing, transcribing, cutting, and QA-ing video.",
+  "description": "Open-source video-making toolkit for coding agents: local perception, creative workflow, persistent taste, verifiable edits, and NLE handoff.",
   "type": "module",
   "bin": {
     "ripple": "bin/ripple"
@@ -17,7 +17,6 @@
   ],
   "scripts": {
     "test": "node --test 'cli/*.test.mjs'",
-    "gen:rules": "node scripts/generate-rules-md.mjs",
     "gen:wiki": "node scripts/build-wiki.mjs"
   },
   "engines": {

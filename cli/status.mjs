@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { clipName } from "./cut.mjs";
-import { lintManifest, parseFrontMatter } from "./rules.mjs";
+import { lintManifest } from "./cut-safety.mjs";
 import { listSnapshots } from "./history.mjs";
 import { findMedia } from "./probe.mjs";
 import { fail, fileStamp, output, parseArgs, readJsonOrNull, round3 } from "./util.mjs";
@@ -53,15 +53,7 @@ export function summarizeManifest(manifestPath) {
 
 export function videoMdStatus(root) {
   const path = join(root, "VIDEO.md");
-  if (!existsSync(path)) return { present: false, path: null, rulesBlock: false };
-  // An unreadable VIDEO.md (a misperm'd checkout) is a degraded fact —
-  // gatherStatus runs before every command and must never crash on it.
-  try {
-    const fm = parseFrontMatter(readFileSync(path, "utf8"));
-    return { present: true, path, rulesBlock: Boolean(fm.rules && typeof fm.rules === "object") };
-  } catch {
-    return { present: true, path, rulesBlock: false };
-  }
+  return existsSync(path) ? { present: true, path } : { present: false, path: null };
 }
 
 // Cached facts only: duration/word/suspect counts come from the perception
@@ -217,7 +209,7 @@ export function computeVerdict({ videoMd, sources, manifestPath, manifestError, 
   if (findings && findings.block > 0) {
     return {
       next: "lint",
-      verdict: `${findings.block} block finding(s) outstanding — ripple lint, then re-scope (ripple candidates) or waive with a written reason.`,
+      verdict: `${findings.block} block finding(s) outstanding — inspect and re-scope with ripple candidates, then run ripple lint again.`,
     };
   }
   if (renders && (renders.missing > 0 || renders.stale > 0 || !renders.final || renders.final.stale)) {
@@ -256,12 +248,10 @@ export function gatherStatus(root, { manifestPath = resolveManifestPath(root), a
     try {
       const lint = lintManifest(manifestPath, {
         analysisDir: effAnalysisDir,
-        ...(videoMd.path ? { videoMd: videoMd.path } : {}),
       });
       findings = {
-        block: lint.findings.filter((f) => f.severity === "block" && !f.waived).length,
-        warn: lint.findings.filter((f) => f.severity === "warn" && !f.waived).length,
-        waived: lint.findings.filter((f) => f.waived).length,
+        block: lint.findings.filter((f) => f.severity === "block").length,
+        warn: lint.findings.filter((f) => f.severity === "warn").length,
       };
     } catch {
       // Lint facts degrade to null; status itself must never fail on them.

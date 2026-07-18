@@ -7,7 +7,6 @@ import {
   assemblyDuration, assemblyTimeline, buildAssemblyFilter, buildConcatFilter, buildEncodeArgs, buildMusicFilter, buildSceneVf, clipName, directJoins, geometryChain, jumpCutFinding, jumpCutReading, microFadeChain, MICRO_FADE, offBeatFinding, segmentBoundaries,
   expectedLeadingSilence, setparamsFilter, validateManifest,
 } from "./cut.mjs";
-import { RULE_INDEX } from "./rules.mjs";
 
 function sceneFixture(overrides = {}) {
   return { id: 1, slug: "intro", source: "src.mp4", start: 1, end: 5, status: "locked", ...overrides };
@@ -176,9 +175,9 @@ test("jumpCutReading bands: continuous / risk / clean change", () => {
   assert.equal(jumpCutReading(30), "clean change");
 });
 
-test("jump-cut and off-beat findings carry registered render-rule ids", () => {
+test("jump-cut and off-beat findings carry stable codes", () => {
   const f = jumpCutFinding({ slug: "a" }, { slug: "b" }, 7.5);
-  assert.equal(f.rule, "jump-cut");
+  assert.equal(f.code, "jump-cut");
   assert.equal(f.join, "a→b");
   assert.match(f.detail, /possible jump cut at a→b \(frame diff 7.5/);
   // Continuous and clean-change joins produce nothing.
@@ -186,15 +185,11 @@ test("jump-cut and off-beat findings carry registered render-rule ids", () => {
   assert.equal(jumpCutFinding({ slug: "a" }, { slug: "b" }, 30), null);
 
   const ob = offBeatFinding({ bpm: 120, offGrid: 3 });
-  assert.equal(ob.rule, "off-beat");
+  assert.equal(ob.code, "off-beat");
   assert.match(ob.detail, /3 visual boundaries land off the music grid/);
   assert.equal(offBeatFinding({ bpm: 120, offGrid: 0 }), null);
   assert.equal(offBeatFinding(undefined), null);
 
-  for (const id of ["jump-cut", "off-beat"]) {
-    assert.equal(RULE_INDEX.get(id)?.phase, "render", id);
-    assert.equal(RULE_INDEX.get(id)?.severity, "warn", id);
-  }
 });
 
 test("directJoins skips joins hidden by a card or bridged by a transition", () => {
@@ -310,7 +305,7 @@ test("geometryChain: pad default, crop reframe, source-pixel rect first", () => 
   assert.equal(geometryChain({}), "");
 });
 
-test("validateManifest: lcut and transition rules", () => {
+test("validateManifest: lcut and transition constraints", () => {
   const dir = mkdtempSync(join(tmpdir(), "ripple-test-"));
   writeFileSync(join(dir, "src.mp4"), "stub");
   const errs = (scenes) => validateManifest({ version: 1, scenes }, dir);
@@ -341,7 +336,7 @@ test("validateManifest: lcut and transition rules", () => {
   assert.deepEqual(errs([sceneFixture(), sceneFixture({ id: 2, slug: "b", transition: { type: "dissolve", duration: 1 } })]), []);
 });
 
-test("validateManifest: output fit and crop rules", () => {
+test("validateManifest: output fit and crop constraints", () => {
   const dir = mkdtempSync(join(tmpdir(), "ripple-test-"));
   writeFileSync(join(dir, "src.mp4"), "stub");
   const base = { version: 1, scenes: [sceneFixture()] };

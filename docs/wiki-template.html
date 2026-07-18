@@ -262,9 +262,9 @@
 
     <div class="layers">
       <div class="layer l-skills">
-        <span class="tag">Optional · opinion</span>
-        <h3>Skills</h3>
-        <p>A router (<code>SKILL.md</code>) plus four playbooks — develop, edit, taste, deliver — and two references. They carry craft rules and service choices, never CLI documentation. A bare agent edits fine without them; they make it edit <em>well</em>.</p>
+        <span class="tag">Workflow · judgment</span>
+        <h3>Skill</h3>
+        <p>One flexible workflow carries the agent from taste and development through production, editing, and delivery. It supplies editorial judgment and service choices; the CLI supplies deterministic tools.</p>
       </div>
       <div class="layer l-tools">
         <span class="tag">The product · instrument</span>
@@ -274,7 +274,7 @@
       <div class="layer l-taste">
         <span class="tag">Project state · memory</span>
         <h3>Taste</h3>
-        <p><code>VIDEO.md</code> holds the standing creative direction; <code>edit.json</code> holds the current cut's decisions with reasons and waivers. Direction becomes project state instead of a prompt reconstructed every session.</p>
+        <p><code>VIDEO.md</code> holds the standing creative direction; <code>edit.json</code> holds the current cut's decisions, rationale, and delivery settings. Direction becomes project state instead of a prompt reconstructed every session.</p>
       </div>
     </div>
   </section>
@@ -283,8 +283,8 @@
   <section id="tools">
     <h2>Tools</h2>
     <p class="sec-title">What each command does, and how it works</p>
-    <p class="sec-lede">The unit of value is the <strong>(instrument, opinion)</strong> pair: a measurement plus the
-    craft rule it enables. Each entry says what the instrument measures and how — expand any command.</p>
+    <p class="sec-lede">The unit of value is the <strong>(instrument, judgment)</strong> pair: a measurement plus the
+    editorial decision it enables. Each entry says what the instrument measures and how — expand any command.</p>
 
     <div class="tier-head t-core"><span class="dot"></span><h3>Core loop</h3><small>raw clips → verified render · 7 commands</small></div>
     <!--CMD:analyze-->
@@ -313,10 +313,10 @@
 
   <!-- ================= SKILLS ================= -->
   <section id="skills">
-    <h2>Skills</h2>
-    <p class="sec-title">The playbooks, verbatim</p>
-    <p class="sec-lede">These are the exact shipped files — the router, the four playbooks, the two references,
-    the VIDEO.md template, and the independent QA reviewer's charter. Click a file to read it.</p>
+    <h2>Skill</h2>
+    <p class="sec-title">The workflow, verbatim</p>
+    <p class="sec-lede">These are the exact shipped files — the Ripple skill, the VIDEO.md template,
+    and the independent QA reviewer's charter. Click a file to read it.</p>
     <div class="reader">
       <div class="list" role="tablist" aria-label="Skill files">
         <!--FILE_LIST-->
@@ -349,7 +349,7 @@
           <tr><td>Agent-readable timeline artifact (one image)</td><td class="us full">●</td><td class="part">◐ composites</td><td class="none">—</td><td class="none">—</td><td class="none">—</td></tr>
           <tr><td>Verified cut endpoints (multi-signal + cross-check)</td><td class="us full">●</td><td class="none">—</td><td class="none">—</td><td class="none">—</td><td class="none">—</td></tr>
           <tr><td>Deterministic QA gates on the render</td><td class="us full">●</td><td class="part">◐ self-review</td><td class="part">◐ scoring</td><td class="none">—</td><td class="none">—</td></tr>
-          <tr><td>Machine-checkable paper edit (manifest + waivers)</td><td class="us full">●</td><td class="none">—</td><td class="part">◐ plan</td><td class="none">—</td><td class="none">—</td></tr>
+          <tr><td>Machine-checkable paper edit (manifest + rationale)</td><td class="us full">●</td><td class="none">—</td><td class="part">◐ plan</td><td class="none">—</td><td class="none">—</td></tr>
           <tr><td>NLE handoff (OTIO / FCP7 XML / EDL)</td><td class="us full">●</td><td class="none">—</td><td class="none">—</td><td class="part">◐</td><td class="none">—</td></tr>
           <tr><td>Music bed, ducking, J/L cuts, cards</td><td class="us full">●</td><td class="part">◐</td><td class="full">●</td><td class="none">—</td><td class="none">—</td></tr>
           <tr><td>Generation (footage, VO, music) built in</td><td class="us none">— routed out</td><td class="none">—</td><td class="full">●</td><td class="none">—</td><td class="none">—</td></tr>

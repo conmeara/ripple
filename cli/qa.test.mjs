@@ -6,24 +6,10 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { intentionalRegions, missingEndings, parseBlackdetect, parseFreezedetect, unexplainedSpans } from "./qa.mjs";
-import { RULE_INDEX } from "./rules.mjs";
 import { findTool } from "./util.mjs";
 
 const QA = pathToFileURL(resolve(dirname(fileURLToPath(import.meta.url)), "qa.mjs")).href;
 const ffmpeg = findTool(["ffmpeg"]);
-
-test("every qa gate id is a registered delivery rule", () => {
-  const gates = [
-    "decode", "probe", "color-policy", "clip-count", "clip-decode", "scene-tails",
-    "dialogue-loudness", "leading-silence", "tail-silence", "loudness",
-    "prompt-leak", "scene-endings", "content-gates", "black-frames", "freeze-frames",
-  ];
-  for (const id of gates) {
-    const rule = RULE_INDEX.get(id);
-    assert.ok(rule, `${id} missing from the registry`);
-    assert.equal(rule.phase, "delivery", id);
-  }
-});
 
 test("missingEndings matches across whisper's hard line wraps", () => {
   const text = "everything in between is just a\n bonus.\n";
@@ -129,7 +115,7 @@ const gate = (json, id) => json.checks.find((c) => c.id === id);
 // disagree and concat refuses mixed formats.
 const norm3 = "[0]format=yuv420p[a];[1]format=yuv420p[b];[2]format=yuv420p[c];[a][b][c]concat=n=3:v=1:a=0";
 
-test("a black flash at a join fails black-frames (checks carry the rule id)", { skip: !ffmpeg }, () => {
+test("a black flash at a join fails black-frames with a stable check id", { skip: !ffmpeg }, () => {
   const dir = mkdtempSync(join(tmpdir(), "ripple-qa-"));
   const file = synth(dir, "flash.mp4",
     ["testsrc=s=64x36:r=10:d=2", "color=c=black:s=64x36:r=10:d=0.4", "testsrc2=s=64x36:r=10:d=2"],
@@ -138,7 +124,7 @@ test("a black flash at a join fails black-frames (checks carry the rule id)", { 
   assert.equal(status, 1);
   const black = gate(json, "black-frames");
   assert.equal(black.ok, false);
-  assert.equal(black.rule, "black-frames");
+  assert.equal(black.id, "black-frames");
   assert.match(black.detail, /unexplained black/);
   assert.equal(gate(json, "freeze-frames").ok, true);
 });

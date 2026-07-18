@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { loadAnalysis, referenceSilences, resolveProxy } from "./analyze.mjs";
+import { endpointFlags } from "./cut-safety.mjs";
 import { cropFilter } from "./frame-sheet.mjs";
-import { endpointFlags, projectOverrides } from "./rules.mjs";
 import { clampWordEnds, cutTiming } from "./timing.mjs";
 import { renderSheet } from "./timeline-sheet.mjs";
 import { resolveModel, transcribeFile, transcribeWords } from "./transcribe.mjs";
@@ -10,16 +10,15 @@ import {
   ensureDir, fail, findTool, output, parseArgs, parseSilence, requireTool, round3, run, silenceEdges,
 } from "./util.mjs";
 
-// The red-flag implementation lives in rules.mjs (the rule registry) so
-// candidates and lint judge a range with the SAME code — re-exported here
-// because this is where editing sessions historically imported it from.
+// candidates and lint judge a range with the SAME cut-safety implementation.
+// Re-exported here because this is where editing sessions historically
+// imported it from.
 export { endpointFlags };
 
 // The auto-editor guard defaults (docs/prior-art.md, "Silence/word-driven
 // cutting"). Two LEARN items ported as (instrument, opinion) pairs. These
-// guard flags are candidates-LOCAL, not registry rules: they inform the lock
-// decision but lint doesn't gate on them (a micro-clip may be intentional B),
-// so they never earn a blocking registry id.
+// guard flags are candidates-local: they inform the lock decision but lint
+// doesn't gate on them (a micro-clip may be intentional B).
 const MIN_CUT = 0.25; // shortest silence a cut may land in
 const MIN_CLIP = 1.0; // shortest kept range that still reads as a shot
 const LEAD_MARGIN = 0.3; // air BEFORE the first word (less than the tail)
@@ -142,7 +141,7 @@ function enrichTiming(timing, index) {
 
 // One cut range, the full three-signal verification (minus the human-facing
 // strips/sheets, which the single-range CLI adds on top). Returns everything
-// both callers share: timing, red flags (endpoint law + auto-editor guards +
+// both callers share: timing, red flags (endpoint checks + auto-editor guards +
 // drift), fresh per-range silence, and the mechanical IN/OUT suggestions.
 // `wantTranscript` gates the range-text pass (single mode reads it; the
 // manifest batch only needs driftCheck). Transcription is serial by
@@ -187,7 +186,7 @@ async function verifyRange({
     maxLead: project.maxLead,
     end,
   });
-  // auto-editor guards, alongside the endpoint-law flags. Cut points are the
+  // auto-editor guards, alongside the endpoint flags. Cut points are the
   // range edges; the whole-file silenceRef gives their absolute-time context.
   flags.push(...stutterCutFlags(
     [{ at: start, label: "IN" }, { at: end, label: "OUT" }],
@@ -274,10 +273,7 @@ async function verifyManifest(manifestPath, { prompt, thresholds, guards, noTran
   } catch (e) {
     fail(`Manifest unreadable: ${e.message}`, 2);
   }
-  // Project-tier retunes from the manifest's own VIDEO.md, exactly as lint
-  // resolves them — the same anchor, so a scene never flags differently at
-  // the batch check than at the pre-render gate.
-  const project = projectOverrides(join(baseDir, "VIDEO.md"), {});
+  const project = { maxTail: 1.0, maxLead: 0.5, tailPreference: 0.6 };
 
   const results = [];
   const skipped = [];
@@ -322,7 +318,6 @@ async function verifyManifest(manifestPath, { prompt, thresholds, guards, noTran
   output({
     ok: true,
     manifest: manifestPath,
-    ...(project.overrides.length ? { overrides: project.overrides } : {}),
     scenes: results,
     ...(skipped.length ? { skipped } : {}),
     summary: {
@@ -333,7 +328,7 @@ async function verifyManifest(manifestPath, { prompt, thresholds, guards, noTran
     },
     hint: flagged.length
       ? `Flags on: ${flagged.map((r) => r.slug).join(", ")}. Re-scope each with ripple candidates "<src>" --start S --end E (apply its suggestedOut/suggestedIn), then run ripple lint. candidates informs; lint gates.`
-      : "Every checked scene is within the endpoint law. next: ripple lint",
+      : "Every checked scene cleared the endpoint checks. next: ripple lint",
   });
 }
 
@@ -392,15 +387,11 @@ export async function main(argv) {
   if (args.start >= fileEnd) fail(`--start ${args.start} is past the end of the file (${fileEnd}s)`, 2);
   if (args.end > fileEnd + 0.05) fail(`--end ${args.end} is past the end of the file (${fileEnd}s)`, 2);
 
-  // Project-tier retunes (VIDEO.md at the cwd project root, same anchor as
-  // work/analysis) apply here exactly as at the lint gate — the same range
-  // must never flag differently at the two moments. An explicit flag
-  // outranks the retune (rules.mjs projectOverrides precedence).
-  const project = projectOverrides(join(process.cwd(), "VIDEO.md"), {
-    maxTail: args["max-tail"],
-    maxLead: args["max-lead"],
-  });
-  project.tailPreference = args["tail-preference"] ?? 0.6;
+  const project = {
+    maxTail: args["max-tail"] ?? 1.0,
+    maxLead: args["max-lead"] ?? 0.5,
+    tailPreference: args["tail-preference"] ?? 0.6,
+  };
 
   const v = await verifyRange({
     src, index, fileEnd, start: args.start, end: args.end, label,
@@ -480,8 +471,6 @@ export async function main(argv) {
     timing: v.timing,
     ...(v.timing === null && index.wordsNote ? { timingNote: index.wordsNote } : {}),
     flags: v.flags,
-    // Retunes are never silent: echo them exactly as lint does.
-    ...(project.overrides.length ? { overrides: project.overrides } : {}),
     suggestedOut: v.suggestedOut,
     suggestedIn: v.suggestedIn,
     silence: v.silence,
@@ -490,9 +479,9 @@ export async function main(argv) {
     transcript: v.transcript,
     driftCheck: v.driftCheck,
     verdictHints: [
-      "The endpoint rule is arithmetic: OUT = timing.lastWordEnd + tail preference (VIDEO.md, default ≤1.0s). Verify tailGap against it.",
+      "The endpoint check is arithmetic: OUT = timing.lastWordEnd + tail preference (default 0.6s). Verify tailGap against the default 1.0s maximum or the explicit --max-tail value.",
       "suggestedIn/suggestedOut are the mechanical nudges: less air before the phrase (lead ≤0.3s), more after (tail ≤0.6s) — auto-editor's asymmetric margin. null means no clean air; re-scope by hand.",
-      "Any entry in `flags` blocks locking this range until resolved or overridden with a written reason.",
+      "Any entry in `flags` blocks locking this range until it is resolved.",
       "STUTTER_CUT: the cut lands in a silence too short to be a real pause (min-cut 0.25s) — move it to a longer gap. MICRO_CLIP: the kept range is shorter than min-clip (1.0s) — widen or merge it.",
       "driftCheck compares the index against an isolated re-transcription of this exact range. verdict:'drifted' (INDEX_DRIFT) means the index's word timing is wrong here — the isolated numbers are ground truth.",
       "timing.terminalPitch falling = thought complete (safe OUT); rising/level = may be mid-thought — re-read the transcript before trusting the cut. Never use it as a question detector.",
