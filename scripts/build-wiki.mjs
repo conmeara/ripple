@@ -90,13 +90,8 @@ function mdToHtml(src) {
 
 // ---------- skill files ----------
 const FILES = [
-  { id: 'skill', group: 'Router', name: 'SKILL.md', blurb: 'entry point + absolute rules', rel: 'skills/ripple/SKILL.md' },
-  { id: 'develop', group: 'Playbooks', name: 'develop.md', blurb: 'idea → script, shot list, generation', rel: 'skills/ripple/reference/develop.md' },
-  { id: 'edit', group: 'Playbooks', name: 'edit.md', blurb: 'the verified-endpoint cut loop', rel: 'skills/ripple/reference/edit.md' },
-  { id: 'taste', group: 'Playbooks', name: 'taste.md', blurb: 'VIDEO.md, study, stack opinions', rel: 'skills/ripple/reference/taste.md' },
-  { id: 'deliver', group: 'Playbooks', name: 'deliver.md', blurb: 'color, assembly, QA, NLE handoff', rel: 'skills/ripple/reference/deliver.md' },
-  { id: 'perception', group: 'References', name: 'perception.md', blurb: 'reading the index + sheets', rel: 'skills/ripple/reference/perception.md' },
-  { id: 'rules', group: 'References', name: 'rules.md', blurb: '28 rules, generated from code', rel: 'skills/ripple/reference/rules.md' },
+  { id: 'skill', group: 'Skills', name: 'ripple', blurb: 'make a video: taste → develop → produce → edit → finish', rel: 'skills/ripple/SKILL.md' },
+  { id: 'rules', group: 'References', name: 'rules.md', blurb: '28 rules, generated from code', rel: 'docs/rules.md' },
   { id: 'videomd', group: 'Taste & agents', name: 'VIDEO.md (template)', blurb: 'standing creative direction', rel: 'skills/ripple/templates/VIDEO.md' },
   { id: 'qareviewer', group: 'Taste & agents', name: 'qa-reviewer.md', blurb: 'independent read-only reviewer', rel: 'agents/qa-reviewer.md' },
 ];
@@ -127,7 +122,7 @@ const CMDS = {
   probe: { one: 'inspect a file’s streams — or the whole media bin', what: 'Per-file: streams, resolution, fps, HDR/color metadata, audio layout, capability warnings. With no file: the media bin listing plus each source’s perception-index state — the orientation command for a cold session.', how: 'ffprobe JSON parsed into a normalized envelope; HDR detection from color_transfer/primaries; index state from the analysis cache.', io: 'Reads media/cache → JSON description.' },
   history: { one: 'save, list, and diff cut snapshots', what: 'The edit’s memory: every cut auto-snapshots the manifest; history lists versions, diffs two of them scene-by-scene, and dedups identical states.', how: 'Content-hashes the manifest; stores under .ripple/history; --diff compares manifests structurally (scenes added/removed/retimed) rather than as text.', io: 'Reads/writes .ripple/history → JSON list/diff.' },
   captions: { one: 'word-accurate captions in output time', what: 'SRT plus styled ASS captions whose times are in the rendered output’s timeline (not source time), with optional burn-in.', how: 'Maps source-time word timings through the manifest’s scene arithmetic into output time, then emits caption files; burn-in re-renders with the subtitles filter.', io: 'Reads edit.json + index → writes .srt/.ass (and optionally a burned render).' },
-  handoff: { one: 'hand the cut to an NLE', what: 'Exports the cut as OTIO (Resolve-native since 18.5), FCP7 XML (the Premiere path — its OTIO import is still beta), or EDL (universal). For interview-scale work the NLE is a peer terminal: cut the structure right, hand over the taste-heavy 20%.', how: 'Translates edit.json scene arithmetic into each format’s timeline model directly — no OTIO library dependency; ripple’s render path is its own ffmpeg bridge.', io: 'Reads edit.json → writes .otio/.xml/.edl.' },
+  handoff: { one: 'hand the cut to an NLE', what: 'Exports the cut as OTIO (Resolve-native since 18.5), FCP7 XML (the Premiere path — its OTIO import is still beta), FCPXML (Final Cut Pro), or EDL (universal). For interview-scale work the NLE is a peer terminal: cut the structure right, hand over the taste-heavy 20%.', how: 'Translates edit.json scene arithmetic into each format’s timeline model directly — no OTIO library dependency; ripple’s render path is its own ffmpeg bridge.', io: 'Reads edit.json → writes .otio/.xml/.edl.' },
   transcribe: { one: 'transcript for any file — subtitles first, whisper fallback', what: 'The plain transcript utility: existing subtitle tracks win (free and exact), whisper-cpp otherwise, cached; --words adds word-level timing.', how: 'Same chunked whisper pipeline as analyze (shared cache with version/mode/model metadata so stale entries can’t be reused); subtitle extraction via ffmpeg when a track exists.', io: 'Reads media → writes .txt/.srt/word JSON under work/transcripts/; JSON with file paths.' },
 };
 

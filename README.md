@@ -1,6 +1,6 @@
 # Ripple
 
-**Give agents skills, tools, and taste for video editing.**
+**Give agents skills, tools, and taste for making video.**
 
 Ripple is a command-line editor's workbench for AI agents. It turns footage
 and timelines into time-aligned images, structured text, and explicit edit
@@ -20,8 +20,9 @@ machine, with no cloud transcription. A bare agent with no skill installed can
 run `ripple help` and edit; every command prints guidance and names its
 natural next command, so the CLI teaches its own use.
 
-The optional plugin adds skills — opinionated playbooks that carry editorial
-craft on top of the same CLI. See [Enhanced install](#enhanced-install-the-plugin).
+The optional plugin adds one small skill that carries the craft of making
+videos with a user on top of the same CLI. See
+[Enhanced install](#enhanced-install-the-plugin).
 
 ## Where Ripple sits
 
@@ -96,7 +97,7 @@ Inspection, transcripts, history, captions, and handoff.
 | `probe` | Inspect one file's streams, HDR, and capabilities; no file lists the media bin and perception-index state |
 | `history` | Save, list, and diff cut snapshots (identical versions dedup) |
 | `captions` | Word-accurate captions in output time: `.srt` plus styled `.ass`; optional burn-in |
-| `handoff` | Hand the cut to an NLE — OTIO (Resolve), xmeml (Premiere), EDL (universal) |
+| `handoff` | Hand the cut to an NLE — OTIO (Resolve), xmeml (Premiere), FCPXML (Final Cut), EDL (universal) |
 | `transcribe` | Transcript: existing subtitles first, whisper-cpp fallback, cached; `--words` for word-level timing |
 
 All commands print JSON to stdout, including error envelopes. Exit codes are
@@ -137,19 +138,20 @@ project's taste without user approval.
 
 ## Enhanced install: the plugin
 
-The plugin adds one Ripple skill: a [`SKILL.md`](skills/ripple/SKILL.md) router
-plus four optional playbooks. They are opinions about the craft, not CLI docs —
-each one names the editorial rule and the instrument that applies it.
+The plugin adds one small skill: [`ripple`](skills/ripple/SKILL.md). It
+carries the craft of making a video with a user — not CLI documentation — and
+treats the CLI as the agent's eyes and ears on any video, wherever it was
+authored. The arc it walks:
 
-| Playbook | The opinion it carries |
+| Phase | The job it carries |
 |---|---|
-| **develop** | Turn an idea into a script, AV script, shot list, or storyboard — and generate the missing elements (voice-over, music, stills, b-roll) when the footage isn't there yet |
-| **edit** | The verified-endpoint cut loop: calculate endpoints instead of eyeballing them, select takes on evidence, repair one scene instead of rebuilding the edit |
-| **taste** | Capture and defend `VIDEO.md`, extract taste from references with `study`, and hold the production-stack opinions |
-| **deliver** | Finish and assemble safely, apply color recipes, run the QA report, and hand a clean structure off to an NLE |
+| **Taste** | Capture direction in `VIDEO.md`, including studying a reference edit the user likes |
+| **Develop** | Align on a script, AV script, or shot list before anything expensive |
+| **Produce** | Pick the production stack (HyperFrames, Remotion, ElevenLabs, stock) and generate with provenance |
+| **Edit** | See and hear through the index and sheets, place verified endpoints, select takes on evidence, repair one scene instead of rebuilding |
+| **Finish** | Deterministic QA, color policy and grading recipes, captions, reframes, and NLE handoff |
 
-Ask in plain language, or invoke a phase directly with `/ripple <phase>` in
-Claude Code and `$ripple <phase>` in Codex.
+Ask in plain language — the skill enters the arc wherever the task enters.
 
 ### Opinionated defaults
 
@@ -165,13 +167,11 @@ They also choose a production stack:
 | Motion graphics from scratch | Official [HyperFrames](https://github.com/heygen-com/hyperframes) skills |
 | Timed overlays, React components, or design handoff | Official [Remotion](https://www.remotion.dev/docs/ai/skills) skills, timed from the word-level transcript |
 | Voice-over | [ElevenLabs](https://github.com/elevenlabs/skills) TTS: `eleven_multilingual_v2` by default, `eleven_v3` for a more expressive read |
-| Music bed and sound effects | ElevenLabs Music and SFX; instrumental beds generated to the manifest's exact duration |
-| Stills, cards, and storyboards | Gemini Image (“Nano Banana”); Flash by default, Pro for complex composition |
-| B-roll | Recut existing footage first, then Pexels/Pixabay stock; use Veo only for a storyboarded gap shot |
+| Music bed and sound effects | Lyria 3 (Gemini API) or ElevenLabs Music for beds, generated to the manifest's exact duration; ElevenLabs for SFX |
+| Stills, cards, and storyboards | Nano Banana (the Gemini image models; Pro for 4K or text-heavy frames) or OpenAI image generation |
+| Video generation | Runway, or Veo 3 through the Gemini API — storyboard first, generate once, probe the result |
 | Scratch or offline voice-over | Piper TTS, then swap the final voice and re-check the endpoints |
-| Alternative image generation | Imagen when Gemini misses on photorealism; OpenAI only when the project already uses OpenAI; fal.ai when one key needs to cover broader models |
-| Alternative video generation | fal.ai before a direct Kling integration for ordinary Kling shots; Kling directly for avatar or lip-sync work; Runway when one hero shot matters more than cost |
-| Specialized formats | HeyGen for avatar-led video; Suno only when the project needs a song rather than a music bed |
+| Specialized formats | HeyGen for avatar-led video; Suno when the project needs a song rather than a music bed |
 
 ## What Ripple is for
 
@@ -219,9 +219,8 @@ codex plugin marketplace add conmeara/ripple
 codex plugin add ripple@ripple
 ```
 
-Then run `/ripple taste` in Claude Code or `$ripple taste` in Codex to capture
-the project's taste in `VIDEO.md` — or just describe the edit; the skill
-creates `VIDEO.md` with you on first touch.
+Then just describe the video you want — the ripple skill captures the
+project's taste in `VIDEO.md` with you on first touch.
 
 ## Requirements
 

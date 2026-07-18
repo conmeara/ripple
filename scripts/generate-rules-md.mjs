@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generate skills/ripple/reference/rules.md from the RULES registry in
+// Generate docs/rules.md from the RULES registry in
 // cli/rules.mjs — the registry is the single source of truth, so the doc can
 // never lie about the rules. Deterministic: stable ordering (registry order,
 // filtered by phase), count derived from RULES.length. A test pins the
@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { RULES } from "../cli/rules.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const DOC_PATH = join(ROOT, "skills", "ripple", "reference", "rules.md");
+const DOC_PATH = join(ROOT, "docs", "rules.md");
 
 // One row per rule: id in code font, severity, the doc `Catches` cell, the doc
 // `Origin` cell. Registry order within a phase is the doc order.

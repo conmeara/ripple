@@ -92,24 +92,28 @@ function makeShim(runRoot) {
   return dir;
 }
 
-// The ablation knob's "router" rung: the plugin with SKILL.md but no
-// reference/ playbooks, so C−B measures the router and D−C the playbooks.
+// The ablation knob's "router" rung: the plugin with SKILL.md truncated to its
+// header — frontmatter, the three ideas, setup, the arc — with every craft
+// section (## Taste onward) stripped, so C−B measures the header and D−C the
+// craft sections.
 function makeRouterPlugin(runRoot) {
   // Outside the repo: cpSync refuses a destination inside its own source tree.
   const dest = path.join(os.tmpdir(), `ripple-router-plugin-${path.basename(runRoot)}`);
   if (fs.existsSync(dest)) return dest;
   const skipTop = new Set(['evals', 'node_modules', '.git', 'docs', 'runs']);
-  const refDir = path.join('skills', 'ripple', 'reference');
   fs.cpSync(ROOT, dest, {
     recursive: true,
     filter: (src) => {
       const rel = path.relative(ROOT, src);
       if (!rel || rel.startsWith('..')) return true;
       if (skipTop.has(rel.split(path.sep)[0])) return false;
-      if (rel === refDir || rel.startsWith(refDir + path.sep)) return false;
       return true;
     },
   });
+  const skillPath = path.join(dest, 'skills', 'ripple', 'SKILL.md');
+  const full = fs.readFileSync(skillPath, 'utf8');
+  const firstSection = full.indexOf('\n## ');
+  if (firstSection !== -1) fs.writeFileSync(skillPath, full.slice(0, firstSection + 1));
   return dest;
 }
 

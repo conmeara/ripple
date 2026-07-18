@@ -29,7 +29,7 @@ function shimEnv(shimDir) {
 }
 
 // skill: 'full' loads the working-tree plugin, 'router' loads a stripped copy
-// (SKILL.md but no reference/ playbooks), 'none' loads no plugin at all —
+// (SKILL.md truncated to its header, craft sections stripped), 'none' loads no plugin at all —
 // the ablation knob that measures what each layer is worth.
 export async function invokeClaude({ prompt, model, ws, root, transcriptPath, finalPath, timeoutMs, shimDir, skill = 'full', routerDir }) {
   const m = model || 'sonnet';

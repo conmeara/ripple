@@ -1,14 +1,23 @@
 {
   "name": "ripple",
   "displayName": "Ripple",
-  "version": "0.12.0",
-  "description": "Agent video editing: transcription-driven cuts, frame-sheet eyes, HDR-safe finishing, deterministic QA, and a persistent taste memory (VIDEO.md). Routes motion graphics to HyperFrames or Remotion.",
+  "version": "0.13.0",
+  "description": "Agent video making: taste captured in VIDEO.md, script-first development, an opinionated production stack (HyperFrames, Remotion, ElevenLabs), transcription-driven cuts with frame-sheet eyes, HDR-safe finishing, and deterministic QA.",
   "author": {
     "name": "Conor O'Meara"
   },
   "homepage": "https://github.com/conmeara/ripple",
   "repository": "https://github.com/conmeara/ripple",
   "license": "Apache-2.0",
-  "keywords": ["video", "editing", "ffmpeg", "whisper", "transcription", "motion-graphics", "hyperframes", "remotion"],
+  "keywords": [
+    "video",
+    "editing",
+    "ffmpeg",
+    "whisper",
+    "transcription",
+    "motion-graphics",
+    "hyperframes",
+    "remotion"
+  ],
   "hooks": "./hooks/hooks.json"
 }

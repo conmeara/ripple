@@ -2,7 +2,7 @@
 # Project-tier rule overrides — `ripple lint` reads this block. Retune a
 # rule's threshold or waive it project-wide; EVERY entry needs a reason
 # (a waiver without one is ignored and reported as a warn finding).
-# Registry of rule ids: the skill's reference/rules.md. Examples:
+# Registry of rule ids: docs/rules.md in the plugin (or `ripple lint` output). Examples:
 #   DEAD_AIR_TAIL: {maxTail: 2.5, reason: "contemplative piece — long tails are the point"}
 #   NEXT_SPEECH_INSIDE: {waive: true, reason: "single-take monologue, no prompts to leak"}
 rules: {}
@@ -10,8 +10,9 @@ rules: {}
 
 # VIDEO.md — standing direction for this project
 
-<!-- Created by the taste playbook. The agent reads this before every editing
-     task and writes confirmed steering decisions back here. Keep it short. -->
+<!-- Created with the user (the ripple skill's Taste section). The agent reads
+     this before every video task and writes confirmed steering back here.
+     Keep it short. -->
 
 ## Register
 
@@ -42,8 +43,8 @@ Policy: preserve
 
 ## Generated elements
 
-<!-- Standing picks for the develop playbook's generation flow. Ask once,
-     record, reuse. See reference/taste.md's production stack. -->
+<!-- Standing picks for generated elements (the ripple skill's Produce table).
+     Ask once, record, reuse. -->
 - Voice: unset (ElevenLabs voice ID + model once chosen)
 - Music direction: unset (e.g. "warm acoustic, no vocals, sparse")
 - Image style: unset (prompt fragment reused across stills/cards)

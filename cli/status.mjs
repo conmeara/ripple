@@ -10,11 +10,11 @@ import { fail, fileStamp, output, parseArgs, readJsonOrNull, round3 } from "./ut
 // perception state, the manifest and its outstanding findings, render
 // freshness, the last QA verdict, the undo stack — and names the next most
 // useful command. Reads cached facts only: no ffprobe, no whisper, no
-// renders, no writes. The skill's context gate (skills/ripple/scripts/
-// context.mjs) sources its facts from gatherStatus, so a probe must never
-// exist in two versions.
+// renders, no writes. Anything that needs a project overview (probe with no
+// args, plan verdicts) sources its facts from gatherStatus, so a probe must
+// never exist in two versions.
 
-// Manifest resolution mirrors the skill's context gate: edit.json at the
+// Manifest resolution: edit.json at the
 // project root, then the work/ variant. Null when neither exists — the
 // caller decides whether that degrades (status) or directs (plan).
 export function resolveManifestPath(root) {
@@ -25,8 +25,7 @@ export function resolveManifestPath(root) {
 }
 
 // Parse errors propagate: an unreadable manifest is a degraded fact for
-// status but a MANIFEST_UNREADABLE directive for the context gate, and both
-// need the parser's own message.
+// status, and the caller needs the parser's own message.
 export function summarizeManifest(manifestPath) {
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   const scenes = Array.isArray(manifest.scenes) ? manifest.scenes : [];
@@ -145,7 +144,7 @@ export function rendersStatus(manifestPath, scenes) {
   // Never trust an existence check to hold through the stat: a dangling
   // symlink in outputs/ (render moved, target cleaned up) or a concurrent
   // delete must degrade to "not a render", not crash the never-throws
-  // gatherStatus contract every command's context gate depends on.
+  // gatherStatus contract its callers depend on.
   const mtimeOf = (p) => {
     try {
       return statSync(p).mtimeMs;
@@ -234,8 +233,7 @@ export function computeVerdict({ videoMd, sources, manifestPath, manifestError, 
 }
 
 // Every fact, one pass, no side effects. Never throws on project state and
-// never exits — the context gate runs this at the start of every command,
-// so a broken manifest or missing index must degrade into facts.
+// never exits — a broken manifest or missing index must degrade into facts.
 export function gatherStatus(root, { manifestPath = resolveManifestPath(root), analysisDir } = {}) {
   const effAnalysisDir = analysisDir ?? join(root, "work", "analysis");
   const videoMd = videoMdStatus(root);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  buildEdl, buildEvents, buildOtio, buildXmeml, parseFps, timecode, toFrames, xmlEscape,
+  buildEdl, buildEvents, buildFcpxml, buildOtio, buildXmeml, parseFps, timecode, toFrames, xmlEscape,
 } from "./handoff.mjs";
 
 const FPS24 = parseFps("24");
@@ -105,6 +105,29 @@ test("otio: clip markers sit in the clip's source_range space, not 0-based", () 
   assert.equal(scene2.name, "favorite_memory");
   assert.equal(scene2.source_range.start_time.value, 24);
   assert.deepEqual(scene2.markers[0].marked_range.start_time, scene2.source_range.start_time);
+});
+
+test("fcpxml: frame-aligned rational times, asset dedup, clip-marker notes", () => {
+  const xml = buildFcpxml(eventsFixture(), { title: "T & Co", ...FPS24, width: 1920, height: 1080 });
+  assert.match(xml, /<fcpxml version="1\.9">/);
+  assert.match(xml, /frameDuration="1\/24s"/);
+  // 4 events (2 cards + 2 scenes) → 4 asset-clips, 4 distinct assets.
+  assert.equal(xml.match(/<asset-clip /g).length, 4);
+  assert.equal(xml.match(/<asset id=/g).length, 4);
+  // Scene 1: recIn 2.5s → offset 60/24s, srcIn 0 → start "0s", 6.5s → 156/24s.
+  assert.match(xml, /offset="60\/24s" start="0s" duration="156\/24s"/);
+  // Reasoning travels as the clip marker's note, escaped.
+  assert.match(xml, /value="how_we_met" note="clean take · ends: &quot;it was perfect&quot;"/);
+  assert.match(xml, /<project name="T &amp; Co">/);
+});
+
+test("fcpxml: NTSC rates use the 1001 frameDuration and stay frame-aligned", () => {
+  const xml = buildFcpxml(eventsFixture(), { title: "T", ...NTSC, width: 1920, height: 1080 });
+  assert.match(xml, /frameDuration="1001\/24000s"/);
+  // Every non-zero time is N*1001/24000s — no decimal seconds anywhere.
+  for (const m of xml.matchAll(/(?:offset|start|duration)="([^"]+)"/g)) {
+    assert.match(m[1], /^(0s|\d+\/24000s)$/, m[1]);
+  }
 });
 
 test("xmlEscape covers the five", () => {

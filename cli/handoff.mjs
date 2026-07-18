@@ -6,7 +6,7 @@ import { ensureDir, fail, ffprobeJson, output, parseArgs, round3 } from "./util.
 
 // Hand a rough cut off to an NLE: edit.json → timeline files that reference
 // the ORIGINAL media. xmeml → Premiere (stable path), otio → Resolve (native)
-// and modern pipelines, edl → universal fallback.
+// and modern pipelines, fcpxml → Final Cut Pro, edl → universal fallback.
 
 // ---------- pure helpers (unit-tested) ----------
 
@@ -225,9 +225,63 @@ export function buildOtio(events, { title, rate, manifestPath }) {
   );
 }
 
+// FCPXML (Apple's own interchange, the ONLY format Final Cut imports). Version
+// 1.9 on purpose: a single plain .fcpxml file, importable by FCP 10.4.9
+// through 11+ — the .fcpxmld bundle exists only for ≥1.10 features this
+// timeline doesn't use. Every time is expressed in whole frames as a rational
+// ("N/Ds"): FCP rejects times that don't land on an edit frame boundary.
+export function buildFcpxml(events, { title, rate, timebase, ntsc, width, height }) {
+  // frameDuration: NTSC 29.97 → 1001/30000s; integer rates → 1/timebase s.
+  const [fdNum, fdDen] = ntsc ? [1001, timebase * 1000] : [1, timebase];
+  const t = (seconds) => {
+    const frames = toFrames(seconds, rate);
+    return frames === 0 ? "0s" : `${frames * fdNum}/${fdDen}s`;
+  };
+  const assetIds = new Map();
+  const assets = [];
+  for (const e of events) {
+    if (assetIds.has(e.path)) continue;
+    const id = `r${assetIds.size + 2}`;
+    assetIds.set(e.path, id);
+    assets.push(
+      `<asset id="${id}" name="${xmlEscape(basename(e.path))}" start="0s" hasVideo="1" hasAudio="1" format="r1">` +
+        `<media-rep kind="original-media" src="${xmlEscape(pathToFileURL(e.path).href)}"/></asset>`
+    );
+  }
+  const clips = events.map((e) => {
+    const marker = e.marker
+      ? `<marker start="${t(e.srcIn)}" duration="${fdNum}/${fdDen}s" value="${xmlEscape(e.marker.name)}"${e.marker.comment ? ` note="${xmlEscape(e.marker.comment)}"` : ""}/>`
+      : "";
+    return (
+      `<asset-clip ref="${assetIds.get(e.path)}" name="${xmlEscape(e.name)}" ` +
+      `offset="${t(e.recIn)}" start="${t(e.srcIn)}" duration="${t(e.srcOut - e.srcIn)}" format="r1" tcFormat="NDF">${marker}</asset-clip>`
+    );
+  });
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.9">
+  <resources>
+    <format id="r1" frameDuration="${fdNum}/${fdDen}s" width="${width}" height="${height}"/>
+    ${assets.join("\n    ")}
+  </resources>
+  <library>
+    <event name="ripple handoff">
+      <project name="${xmlEscape(title)}">
+        <sequence format="r1" tcStart="0s" tcFormat="NDF">
+          <spine>
+            ${clips.join("\n            ")}
+          </spine>
+        </sequence>
+      </project>
+    </event>
+  </library>
+</fcpxml>
+`;
+}
+
 // ---------- impl ----------
 
-const FORMATS = ["otio", "xmeml", "edl"];
+const FORMATS = ["otio", "xmeml", "fcpxml", "edl"];
 
 export async function main(argv) {
   const args = parseArgs(argv, { format: "string", out: "string", "no-cards": "boolean" });
@@ -277,6 +331,10 @@ export async function main(argv) {
     files.xmeml = join(outDir, `${slug}.xml`);
     writeFileSync(files.xmeml, buildXmeml(events, { title, ...fps, width, height }));
   }
+  if (formats.includes("fcpxml")) {
+    files.fcpxml = join(outDir, `${slug}.fcpxml`);
+    writeFileSync(files.fcpxml, buildFcpxml(events, { title, ...fps, width, height }));
+  }
   if (formats.includes("edl")) {
     files.edl = join(outDir, `${slug}.edl`);
     writeFileSync(files.edl, buildEdl(events, { title, ...fps }));
@@ -290,6 +348,7 @@ export async function main(argv) {
     importInto: {
       ...(files.xmeml ? { premiere: `File > Import: ${files.xmeml} (scene reasoning arrives as sequence markers)` } : {}),
       ...(files.otio ? { resolve: `File > Import Timeline: ${files.otio} (native since 18.5; also imports the .xml)` } : {}),
+      ...(files.fcpxml ? { finalcut: `File > Import > XML: ${files.fcpxml} (scene reasoning arrives as clip-marker notes)` } : {}),
       ...(files.edl ? { universal: `${files.edl} — single video track, no markers; the always-works fallback` } : {}),
     },
     notes: [

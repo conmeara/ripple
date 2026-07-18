@@ -51,18 +51,17 @@ test("Codex marketplace exposes Ripple with explicit install policy", () => {
   assert.equal(plugin.category, "Creativity");
 });
 
-test("Ripple skill metadata and setup support Codex invocation", () => {
+test("the skill resolves the bundled CLI and carries Codex metadata", () => {
   const skill = readFileSync(join(ROOT, "skills", "ripple", "SKILL.md"), "utf8");
   const metadata = readFileSync(
     join(ROOT, "skills", "ripple", "agents", "openai.yaml"),
     "utf8"
   );
 
-  assert.match(skill, /<ripple-skill-dir>/);
-  assert.match(skill, /<ripple-plugin-root>\/cli\/index\.mjs/);
-  assert.match(skill, /\$ripple <phase>/);
-  assert.match(metadata, /display_name: "Ripple"/);
-  assert.match(metadata, /default_prompt: "Use \$ripple/);
+  assert.match(skill, /^name: ripple$/m, "frontmatter name");
+  assert.match(skill, /<plugin-root>\/cli\/index\.mjs/, "CLI resolution line");
+  assert.match(metadata, /display_name: "Ripple"/, "display_name");
+  assert.match(metadata, /default_prompt: "Use \$ripple/, "default_prompt");
 });
 
 test("the plugin-relative CLI path used by Codex is runnable", () => {

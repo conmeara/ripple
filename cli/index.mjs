@@ -140,7 +140,7 @@ const COMMANDS = {
   handoff: {
     load: () => import("./handoff.mjs"),
     usage: `  handoff [edit.json]             Hand the cut to an NLE: timeline files referencing original media
-      [--format otio,xmeml,edl]       otio → Resolve (native) · xmeml → Premiere · edl → universal
+      [--format otio,xmeml,fcpxml,edl]  otio → Resolve (native) · xmeml → Premiere · fcpxml → Final Cut · edl → universal
       [--out handoff/] [--no-cards]   scene reasoning travels as timeline markers`,
   },
 };

@@ -37,8 +37,8 @@ test("id conventions: SCREAMING_SNAKE for cut-point flags, kebab-case for delive
   }
 });
 
-test("every rule is documented in reference/rules.md, and the opening count is honest", () => {
-  const doc = readFileSync(join(ROOT, "skills", "ripple", "reference", "rules.md"), "utf8");
+test("every rule is documented in docs/rules.md, and the opening count is honest", () => {
+  const doc = readFileSync(join(ROOT, "docs", "rules.md"), "utf8");
   for (const r of RULES) {
     assert.ok(doc.includes(`\`${r.id}\``), `${r.id} missing from rules.md`);
   }
@@ -47,10 +47,10 @@ test("every rule is documented in reference/rules.md, and the opening count is h
   assert.equal(Number(count[1]), RULES.length, "rules.md count drifted from the registry");
 });
 
-test("reference/rules.md is generated from the registry — committed file equals the generator output", () => {
+test("docs/rules.md is generated from the registry — committed file equals the generator output", () => {
   // The registry is the single source of truth; the doc can never lie about
   // the rules. If this fails, run: npm run gen:rules
-  const committed = readFileSync(join(ROOT, "skills", "ripple", "reference", "rules.md"), "utf8");
+  const committed = readFileSync(join(ROOT, "docs", "rules.md"), "utf8");
   assert.equal(committed, generateRulesMd(), "rules.md is stale — run: npm run gen:rules");
 });
 
