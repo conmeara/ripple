@@ -124,8 +124,8 @@ codex plugin add ripple@ripple
 
 ### Standalone CLI
 
-> npm currently serves v0.9.1. Use the plugin for the current v0.13.0 CLI until
-> the next npm release is published.
+> The plugin installs the current repository version. The standalone CLI
+> installs the latest published npm release.
 
 ```bash
 npm install --global ripple-video
