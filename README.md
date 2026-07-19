@@ -32,13 +32,15 @@ project state.
 | Layer | Included | Role |
 |---|---|---|
 | **Tools** | The [`ripple`](#tools-ripple-cli) CLI | Understand media, inspect timelines, make edits, and export results |
-| **Skill** | One [video-making workflow](skills/ripple/SKILL.md) | Carry the craft from creative direction through delivery |
+| **Skill** | An [opinionated video-making guide](skills/ripple/SKILL.md) | Strong defaults for planning, editing craft, and choosing production tools and services |
 | **Taste** | [`VIDEO.md`](skills/ripple/templates/VIDEO.md) and [`edit.json`](schemas/edit.schema.json) | Preserve user direction and every decision in the current cut |
 
 ## Tools: Ripple CLI
 
-Core analysis and editing run locally with FFmpeg and whisper-cpp. Every command
-prints structured JSON; run `ripple help` or `ripple <command> --help` for usage.
+The CLI is a local Node.js application. Ripple provides the analysis, timeline,
+editing, and QA logic; it uses FFmpeg and ffprobe for media processing, plus
+whisper-cpp for transcription when needed. Every command prints structured
+JSON; run `ripple help` or `ripple <command> --help` for usage.
 
 | Command | What it does |
 |---|---|
@@ -68,8 +70,10 @@ ripple timeline-sheet interview.mov
 
 ## Skill
 
-The full [`ripple` skill](skills/ripple/SKILL.md) teaches one flexible workflow.
-It enters wherever the task begins and skips phases the job does not need.
+The full [`ripple` skill](skills/ripple/SKILL.md) is an opinionated guide to
+making video with an agent. It encodes strong defaults for planning, editing,
+finishing, and choosing specialist services for generated video, voice, music,
+images, and motion graphics. Use only the phases the job needs.
 
 | Phase | What the agent does with you |
 |---|---|
