@@ -163,7 +163,7 @@ test("current renders on a clean cut route to qa; last QA snapshot is picked up"
   mkdirSync(join(dir, "clips"));
   writeFileSync(join(dir, "clips", "01_met.mp4"), "clip");
   mkdirSync(join(dir, "outputs"));
-  writeFileSync(join(dir, "outputs", "wedding_final.mp4"), "final");
+  writeFileSync(join(dir, "outputs", "interview_final.mp4"), "final");
   const clean = runStatus([dir]);
   assert.equal(clean.json.renders.stale, 0);
   assert.equal(clean.json.renders.final.stale, false);

@@ -18,6 +18,5 @@
     "motion-graphics",
     "hyperframes",
     "remotion"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }

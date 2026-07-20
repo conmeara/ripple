@@ -101,10 +101,10 @@ test("the skill resolves the bundled CLI and carries Codex metadata", () => {
 
   assert.match(skill, /^name: ripple$/m, "frontmatter name");
   assert.match(skill, /<plugin-root>\/cli\/index\.mjs/, "CLI resolution line");
-  assert.match(skill, /Do not assume Codex put\s+`ripple` on `PATH`/, "Codex PATH fallback");
+  assert.match(skill, /Do\s+not assume the host put\s+`ripple` on `PATH`/, "host PATH fallback");
   assert.match(skill, /open every returned sheet PNG with `view_image`/, "Codex visual review");
   assert.match(metadata, /display_name: "Ripple"/, "display_name");
-  assert.match(metadata, /icon_small: "\.\/assets\/ripple-icon\.png"/, "small icon");
+  assert.match(metadata, /icon_small: "\.\/assets\/ripple-icon\.svg"/, "small icon");
   assert.match(metadata, /icon_large: "\.\/assets\/ripple-icon\.png"/, "large icon");
   assert.match(metadata, /default_prompt: "Use \$ripple/, "default_prompt");
   assert.deepEqual(
@@ -193,10 +193,10 @@ test("the npm bin survives the .bin symlink npm installs", () => {
 const HOOK = join(ROOT, "hooks", "lint-manifest.mjs");
 
 test("hooks.json wires the lint hook to manifest writes on both hosts", () => {
-  // Claude registers the config explicitly; Codex discovers the same file at
-  // its default hooks/hooks.json path (its manifest validation rejects a
-  // `hooks` field, which the codex-manifest test above pins).
-  assert.equal(readJson(".claude-plugin", "plugin.json").hooks, "./hooks/hooks.json");
+  // Both hosts auto-discover the file at its default hooks/hooks.json path;
+  // neither manifest may also reference it (Codex validation rejects a
+  // `hooks` field, and a Claude manifest entry would register the hook twice).
+  assert.equal("hooks" in readJson(".claude-plugin", "plugin.json"), false);
   const entries = readJson("hooks", "hooks.json").hooks.PostToolUse;
   assert.equal(entries.length, 1);
   assert.equal(entries[0].matcher, "Write|Edit");
@@ -298,8 +298,8 @@ test("non-manifest writes are ignored in total silence", () => {
 
 test("a manifest under another name is sniffed by its schema markers", () => {
   const dir = project({ scenes: [CLEAN, DEAD_TAIL] });
-  writeFileSync(join(dir, "wedding-cut.json"), readFileSync(join(dir, "edit.json")));
-  const { status, stdout } = runHook(writeEvent(dir, "wedding-cut.json"), dir);
+  writeFileSync(join(dir, "alt-cut.json"), readFileSync(join(dir, "edit.json")));
+  const { status, stdout } = runHook(writeEvent(dir, "alt-cut.json"), dir);
   assert.equal(status, 0);
   assert.match(JSON.parse(stdout).hookSpecificOutput.additionalContext, /DEAD_AIR_TAIL/);
 });

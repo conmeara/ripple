@@ -100,8 +100,8 @@ test("meanAbsDiff is 0 for identical and large for different frames", () => {
 });
 
 test("subtitleToText strips srt and vtt scaffolding", () => {
-  const srt = "1\n00:00:01,000 --> 00:00:03,000\nWe met on <i>Bumble</i>.\n\n2\n00:00:04,000 --> 00:00:06,000\nIt was perfect.\n";
-  assert.equal(subtitleToText(srt), "We met on Bumble.\nIt was perfect.");
+  const srt = "1\n00:00:01,000 --> 00:00:03,000\nWe met on <i>campus</i>.\n\n2\n00:00:04,000 --> 00:00:06,000\nIt was perfect.\n";
+  assert.equal(subtitleToText(srt), "We met on campus.\nIt was perfect.");
   const vtt = "WEBVTT\n\nNOTE internal\n\n00:01.000 --> 00:03.000\nHello there.\n";
   assert.equal(subtitleToText(vtt), "Hello there.");
 });

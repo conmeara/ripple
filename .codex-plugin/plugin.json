@@ -31,12 +31,17 @@
       "Write"
     ],
     "websiteURL": "https://github.com/conmeara/ripple",
+    "privacyPolicyURL": "https://github.com/conmeara/ripple/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/conmeara/ripple/blob/main/TERMS.md",
     "brandColor": "#C9520C",
     "composerIcon": "./assets/ripple-icon.png",
     "logo": "./assets/ripple-icon-light.png",
     "logoDark": "./assets/ripple-icon-dark.png",
+    "screenshots": [
+      "./assets/screenshot-timeline-sheet.png"
+    ],
     "defaultPrompt": [
-      "Make a concise video from this brief and available footage, then verify it.",
+      "Make a short video from this brief, then verify it.",
       "Repair this mistimed scene without rebuilding the rest of the edit.",
       "Inspect this render for cut, color, and audio problems."
     ]

@@ -6,7 +6,7 @@ import {
   sentenceEnds, sentenceSpans, stretchedEndings, subtractSpans,
 } from "./timing.mjs";
 
-// Fixture shaped like the real wedding-session failure (scene "chore"):
+// Fixture shaped like the real interview-session failure (scene "chore"):
 // answer ends, ~6s look-down silence, then the next question is quietly
 // read — whisper stretches the last word across the silence and clumps the
 // resumed words at one timestamp.

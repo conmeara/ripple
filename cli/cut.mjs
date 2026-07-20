@@ -469,7 +469,7 @@ function ffmpegOrFail(args, what) {
 }
 
 // ImageMagick caption rendering fails without an explicit font on many
-// systems (the groom-session trap, again). Resolve a real font file first.
+// systems (the interview-session trap, again). Resolve a real font file first.
 const FONT_CANDIDATES = [
   "/System/Library/Fonts/Helvetica.ttc",
   "/System/Library/Fonts/HelveticaNeue.ttc",

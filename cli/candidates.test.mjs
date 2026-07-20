@@ -12,7 +12,7 @@ import { endpointFlags as safetyEndpointFlags } from "./cut-safety.mjs";
 import { cutTiming } from "./timing.mjs";
 import { fileStamp, findTool } from "./util.mjs";
 
-// Numbers shaped like the real wedding failure: answer's acoustic end at
+// Numbers shaped like the real interview failure: answer's acoustic end at
 // 493.0, next question's clumped words at 499.52.
 const GOOD_TIMING = {
   wordsInRange: 12,

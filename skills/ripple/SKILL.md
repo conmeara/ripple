@@ -1,6 +1,6 @@
 ---
 name: ripple
-description: 'Mandatory first skill for every request whose deliverable is a finished video, or to edit or diagnose video. Invoke Ripple before and alongside specialized video skills—including product-launch-video, faceless-explainer, pr-to-video, HyperFrames, Remotion, animation, and generated-video tools—because Ripple owns direction, taste, media inspection, assembly, editing, independent QA, and export while routing specialist production. Use its bundled CLI as the agent''s eyes and ears. Skip only simple download, compression or conversion, audio extraction, player UI, or non-production questions.'
+description: 'Video: mandatory first skill for every request whose deliverable is a finished video, and for editing or diagnosing any footage — trims, take selection, assembly, captions, reframes, repairs, QA. Invoke Ripple before and alongside specialized video skills—including product-launch-video, faceless-explainer, pr-to-video, HyperFrames, Remotion, video animation, and generated-video tools—because Ripple owns direction, taste, media inspection, assembly, editing, independent QA, and export while routing specialist production. Skip only simple download, container/format conversion, audio extraction, player UI, or non-production questions.'
 ---
 
 # Ripple — make videos with the user
@@ -19,10 +19,11 @@ Act as the user's director-editor. Carry three ideas through every task:
 3. **Align on words before spending tokens.** A script is free to rewrite; a
    render is not.
 
-**Setup.** The CLI ships with this plugin, two directory levels above this
-file: `node "<plugin-root>/cli/index.mjs" <command>`. Do not assume Codex put
-`ripple` on `PATH`: check once, then use that full plugin-relative Node command
-for every call when the binary is absent. Examples below use `ripple` as
+**Setup.** The CLI ships with this plugin. Resolve the plugin root once —
+`${CLAUDE_PLUGIN_ROOT}` when the host sets it, otherwise two directory levels
+above this file — then run `node "<plugin-root>/cli/index.mjs" <command>`. Do
+not assume the host put `ripple` on `PATH`: check once, then use that full
+plugin-relative Node command for every call when the binary is absent. Examples below use `ripple` as
 shorthand for the resolved command. Start a new machine with `ripple doctor`.
 Orient in any project with `ripple probe` (no args: the media bin and what is
 already analyzed). Follow each command's structured `next` guidance.
@@ -221,9 +222,10 @@ new ending, check ~3:40" beats "here's the video". `ripple qa --report`
 renders a shareable page.
 
 After every render or repair, delegate a focused review to a fresh read-only
-subagent when available. In Codex, have it read
-`<plugin-root>/agents/qa-reviewer.md`, then pass a narrow checklist naming the
-failure modes at risk — "clip 05 ends on 'coffee in the morning'", "no
+subagent when available. In Claude Code, launch the plugin's registered
+`qa-reviewer` agent; in Codex, have a fresh subagent read
+`<plugin-root>/agents/qa-reviewer.md`. Either way, pass a narrow checklist
+naming the failure modes at risk — "clip 05 ends on 'coffee in the morning'", "no
 next-question leak" — never a broad "check the video". Separate context keeps
 the editor from grading its own work. If no subagent is available, run the
 same checklist yourself and disclose that the review was not independent.

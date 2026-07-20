@@ -52,7 +52,7 @@
       "type": "render_transcript",
       "glob": "outputs/*.mp4",
       "includes": [
-        "bumble",
+        "showed up",
         "bonus"
       ]
     },

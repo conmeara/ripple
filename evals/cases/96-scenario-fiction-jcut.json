@@ -15,7 +15,7 @@
     { "id": "jcut-under-card", "type": "json_path", "file": "edit.json", "path": "scenes.1.jcut", "op": "gte", "value": 0.5 },
     { "id": "render", "type": "file_exists", "glob": "outputs/*.mp4" },
     { "id": "duration-all-three-scenes", "type": "duration_between", "glob": "outputs/*.mp4", "min": 44, "max": 53 },
-    { "id": "both-answers-present", "type": "render_transcript", "glob": "outputs/*.mp4", "includes": ["bumble", "bonus"] },
+    { "id": "both-answers-present", "type": "render_transcript", "glob": "outputs/*.mp4", "includes": ["showed up", "bonus"] },
     { "id": "hdr-preserved", "type": "color_transfer", "glob": "outputs/*.mp4", "expect": "arib-std-b67" }
   ]
 }

@@ -2,7 +2,7 @@
 
 ## Register
 
-Register: documentary (wedding interview)
+Register: documentary (interview)
 
 ## Deliverables
 

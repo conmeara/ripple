@@ -89,7 +89,7 @@
     },
     "grade": {
       "type": "object",
-      "description": "The chosen grade preset, recorded in the manifest per the deliver playbook (rendered by ripple cut)",
+      "description": "The chosen grade preset, recorded in the manifest per the ripple skill's grading guidance (rendered by ripple cut)",
       "properties": {
         "name": {
           "type": "string"

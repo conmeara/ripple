@@ -97,20 +97,20 @@ test("toSrt formats times and counters", () => {
 test("toAss: header scales to geometry; social events carry \\k sweeps", () => {
   const chunks = [{
     start: 0.2, end: 2.8,
-    words: [W(0.2, 0.8, "THE"), W(0.9, 1.4, "GROOM")],
-    lines: ["THE GROOM"],
+    words: [W(0.2, 0.8, "THE"), W(0.9, 1.4, "SPEAKER")],
+    lines: ["THE SPEAKER"],
   }];
   const ass = toAss(chunks, { width: 1080, height: 1920, style: "social" });
   assert.match(ass, /PlayResX: 1080/);
   assert.match(ass, /Style: social,[^\n]*,60,60,634,1/); // MarginV = 0.33 × 1920
-  assert.match(ass, /\{\\k70\}THE \{\\k50\}GROOM/); // sweep to next start; last = own duration
+  assert.match(ass, /\{\\k70\}THE \{\\k50\}SPEAKER/); // sweep to next start; last = own duration
   const sub = toAss([{ start: 0, end: 1, words: [], lines: ["a", "b"] }], { style: "subtitle" });
   assert.match(sub, /Dialogue: 0,0:00:00\.00,0:00:01\.00,subtitle,,0,0,0,,a\\Nb/);
 });
 
 test("escapeSubtitlesPath survives apostrophes and spaces (two parser levels)", () => {
-  const esc = escapeSubtitlesPath("/tmp/groom's cut/caps.ass");
-  assert.ok(!esc.includes("groom's")); // raw apostrophe must not survive
+  const esc = escapeSubtitlesPath("/tmp/editor's cut/caps.ass");
+  assert.ok(!esc.includes("editor's")); // raw apostrophe must not survive
   assert.ok(esc.startsWith("\\'"));
   assert.equal(escapeSubtitlesPath("/plain/path.ass"), "\\'/plain/path.ass\\'");
 });

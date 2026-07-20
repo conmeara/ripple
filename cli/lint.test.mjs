@@ -132,7 +132,7 @@ test("a warn finding surfaces but never gates: exit 0, ok:true", () => {
 });
 
 test("a drift-suspect index warns per scene and points to driftCheck", () => {
-  // The wedding failure's lint gap: scenes re-scoped by hand from a drifted
+  // The interview failure's lint gap: scenes re-scoped by hand from a drifted
   // index kept passing green. The index self-report becomes a warn that
   // names the arbiter (candidates' driftCheck) without gating.
   const dir = project({ scenes: [CLEAN] });

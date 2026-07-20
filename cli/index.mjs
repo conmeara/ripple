@@ -167,7 +167,7 @@ const DEPRECATED = {
   locate: "ripple locate was merged into timeline-sheet — run: ripple timeline-sheet <src> --at <output-time> --manifest edit.json",
   snapshot: "ripple snapshot was merged into history — run: ripple history [edit.json]",
   compare: "ripple compare was merged into history — run: ripple history --diff <a> <b>",
-  grade: "ripple grade was removed — grading recipes live in the deliver playbook; the manifest grade field still renders via ripple cut",
+  grade: "ripple grade was removed — grading recipes live in the ripple skill's Finish section; the manifest grade field still renders via ripple cut",
   review: "ripple review was merged into qa — run: ripple qa <file> --report",
 };
 

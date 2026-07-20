@@ -5,7 +5,7 @@
 //   node evals/run.mjs --only 30,35    run selected cases (id prefix match)
 //   node evals/run.mjs --list          list cases
 //
-// Env: RIPPLE_EVAL_FOOTAGE  dir with sample footage (default ~/Projects/Groom-Video)
+// Env: RIPPLE_EVAL_FOOTAGE  dir with the master sample footage (default ~/.ripple/eval-footage)
 //
 // Results land in evals/runs/<timestamp>/ (gitignored): per-case workspace,
 // agent transcript, final message, result.json, plus a run-level summary.
@@ -19,7 +19,7 @@ import { invokeClaude, invokeCodex, ensureCodexPlugin } from './lib/agents.mjs';
 
 const EVALS = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.dirname(EVALS);
-const FOOTAGE = process.env.RIPPLE_EVAL_FOOTAGE || path.join(os.homedir(), 'Projects', 'Groom-Video');
+const FOOTAGE = process.env.RIPPLE_EVAL_FOOTAGE || path.join(os.homedir(), '.ripple', 'eval-footage');
 const CACHE = path.join(os.homedir(), '.ripple', 'eval-cache');
 const FIXTURES = path.join(EVALS, 'fixtures');
 
@@ -51,10 +51,10 @@ function expand(str) {
 
 // Every fixture is cut from the one stable master (IMG_E1223.MOV) into
 // ~/.ripple/eval-cache, so evals never depend on a live project's derived
-// files. Ranges come from the original Groom-Video edit.json.
+// files. Ranges come from the master's original edit.json.
 const FIXTURE_CUTS = [
   { name: 'loose_married.mp4', ss: 750, t: 33, note: 'raw take: slate + dead air, full answer, throat-clear tail' },
-  { name: 'howmet.mp4', ss: 209, t: 24.3, note: 'trimmed answer: "…she showed up" (Bumble story)' },
+  { name: 'howmet.mp4', ss: 209, t: 24.3, note: 'trimmed answer ending "…she showed up"' },
   { name: 'married.mp4', ss: 757, t: 22.0, note: 'trimmed answer: "…just a bonus"' },
   // Whisper drift only shows on LONG sources — audio is copied bit-exact
   // (drift is an audio/whisper phenomenon), video downscaled to keep the

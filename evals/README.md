@@ -31,9 +31,7 @@ Lightweight end-to-end evals that check three things before a release:
    and near-miss queries. Its positives cover both existing-footage work and
    make-from-scratch requests that Ripple should route to specialist production
    tools. Run skill-creator's trigger eval against the SKILL.md description before
-   shipping description changes. The **19/20** result in
-   `trigger-baseline-2026-07-17.json` is a historical baseline for the previous
-   edit-first description, not the current video-making scope. Queries must
+   shipping description changes. Queries must
    reference files that exist, and detection must count the real installed skill.
 
 Agent policy: mostly **Codex** (`gpt-5.5` by default — override with
@@ -44,8 +42,9 @@ Fable is rejected by the runner.
 
 - `ffmpeg`/`ffprobe`, `whisper-cpp` + a model in `~/.ripple/models/` (`ripple doctor`)
 - `claude` CLI (Claude Code) and `codex` CLI on PATH, both authenticated
-- Sample footage: only `~/Projects/Groom-Video/IMG_E1223.MOV` (override the dir
-  with `RIPPLE_EVAL_FOOTAGE`). Every fixture is cut from that one master into
+- Sample footage: a single interview master, `IMG_E1223.MOV`, in the footage
+  dir (`RIPPLE_EVAL_FOOTAGE`, default `~/.ripple/eval-footage`; the fixture
+  cuts are range-locked to that specific file). Every fixture is cut from that one master into
   `~/.ripple/eval-cache/` on first run, so evals never depend on a live
   project's derived files. Delete the cache dir to rebuild.
 
@@ -85,8 +84,8 @@ Exit code is 0 only when every non-baseline case passes.
 - Codex runs use `ripple@ripple-local`, reinstalled automatically each run from
   `evals/codex/`. The runner stages a lean, content-versioned plugin bundle from
   the working tree before Codex snapshots it into the plugin cache.
-- The main fixture (`loose_married.mp4`) is a 33s HLG-HDR slice of the groom
-  interview containing a leaked "take two" slate, 5s of dead air, a complete
+- The main fixture (`loose_married.mp4`) is a 33s HLG-HDR slice of the
+  interview master containing a leaked "take two" slate, 5s of dead air, a complete
   answer ending "…just a bonus", and a throat-clear tail — real material for the
   slate-leak, endpoint, tail, and HDR-preservation failure modes the plugin
   exists to prevent. `howmet.mp4` / `married.mp4` are pre-trimmed answers for the

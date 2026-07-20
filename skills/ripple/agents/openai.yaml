@@ -1,6 +1,7 @@
 interface:
   display_name: "Ripple"
   short_description: "Make and edit video with verified cuts and project taste"
-  icon_small: "./assets/ripple-icon.png"
+  icon_small: "./assets/ripple-icon.svg"
   icon_large: "./assets/ripple-icon.png"
+  brand_color: "#C9520C"
   default_prompt: "Use $ripple to make or edit this video with the user and verify the result."
