@@ -1,6 +1,6 @@
 {
   "id": "32-tighten-codex-invoked",
-  "title": "Codex with explicit $ripple invocation: does the playbook change behavior? (vs case 30)",
+  "title": "Codex with explicit $ripple invocation: does the skill change behavior? (vs case 30)",
   "agent": "codex",
   "timeoutMinutes": 40,
   "prompt": "$ripple edit\n\nmedia/loose_married.mp4 is a raw interview take: there's a slate and dead air at the head, and he holds and clears his throat after finishing. Tighten it into a clean clip: start just before he begins the real answer and end just after his last word with a natural tail. Render the result into outputs/.",

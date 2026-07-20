@@ -1,4 +1,6 @@
 interface:
   display_name: "Ripple"
-  short_description: "Make and edit video — taste (VIDEO.md), script-first develop, verified cuts, QA, color, NLE handoff"
-  default_prompt: "Use $ripple to make this video with the user: capture taste, align on a script, produce the elements, cut with verified endpoints, then gate and deliver."
+  short_description: "Make and edit video with verified cuts and project taste"
+  icon_small: "./assets/ripple-icon.png"
+  icon_large: "./assets/ripple-icon.png"
+  default_prompt: "Use $ripple to make or edit this video with the user and verify the result."

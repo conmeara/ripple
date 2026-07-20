@@ -25,9 +25,14 @@ project state.
 
 **Perceive, decide with the user, assemble, verify, deliver.**
 
-![A Ripple timeline sheet aligns source frames, motion, waveform, silence, non-speech events, transcript, and a cut marker on one time axis](docs/assets/anatomy-of-a-timeline-sheet.png)
+At the center is the timeline sheet: frames, motion, waveform, silence, words,
+and the proposed cut on one shared axis.
+
+![Anatomy of a Ripple timeline sheet with frames, motion, waveform, silence, words, and a cut point](docs/assets/ripple-timeline-sheet-anatomy.svg)
 
 ## What's included
+
+![Ripple combines tools, an opinionated skill, and persistent project taste](docs/assets/ripple-three-pillars.svg)
 
 | Layer | Included | Role |
 |---|---|---|
@@ -41,6 +46,11 @@ The CLI is a local Node.js application. Ripple provides the analysis, timeline,
 editing, and QA logic; it uses FFmpeg and ffprobe for media processing, plus
 whisper-cpp for transcription when needed. Every command prints structured
 JSON; run `ripple help` or `ripple <command> --help` for usage.
+
+![Ripple moves from perception and cut decisions through assembly, verification, and delivery](docs/assets/ripple-workflow-pipeline.svg)
+
+For rendering, the gate is explicit: `edit.json` → `ripple lint` →
+`ripple cut` → `ripple qa`.
 
 | Command | What it does |
 |---|---|
@@ -62,6 +72,10 @@ JSON; run `ripple help` or `ripple <command> --help` for usage.
 | `captions` | Create output-time SRT and ASS captions, with optional burn-in |
 | `handoff` | Export OTIO, Premiere XML, FCPXML, or EDL timelines for an NLE |
 | `transcribe` | Reuse subtitles or transcribe locally, with optional word timing |
+
+The plugin's fail-open hook works in Claude Code and Codex: after `edit.json`
+changes, it surfaces a compact cut-safety summary without blocking the write or
+replacing the explicit `ripple lint` gate.
 
 ```bash
 ripple analyze interview.mov
@@ -102,6 +116,8 @@ After every render or repair, Ripple gives a read-only
 [`qa-reviewer`](agents/qa-reviewer.md) subagent a narrow checklist for what
 changed. It returns `PASS` or `FAIL` with direct evidence and cannot edit or
 re-render the video.
+
+![Ripple uses a separate read-only QA reviewer and loops failed checks through a narrow repair and fresh review](docs/assets/ripple-qa-loop.svg)
 
 A separate agent brings fresh context, so the editor is not the only judge of
 its own work.

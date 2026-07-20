@@ -5,6 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
+import { removeLegacyCodexLink, stageCodexPlugin } from "../evals/lib/agents.mjs";
 import { fileStamp } from "./util.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -25,7 +26,12 @@ test("Claude and Codex manifests expose the same Ripple release", () => {
   assert.equal(codex.skills, "./skills/");
   assert.equal(codex.interface.displayName, "Ripple");
   assert.equal(codex.interface.category, "Creativity");
+  assert.equal(codex.interface.brandColor, "#C9520C");
   assert.deepEqual(codex.interface.capabilities, ["Read", "Write"]);
+  for (const field of ["composerIcon", "logo", "logoDark"]) {
+    assert.match(codex.interface[field], /^\.\/assets\//, `${field} stays in plugin assets`);
+    assert.ok(existsSync(resolve(ROOT, codex.interface[field])), `missing ${field}`);
+  }
   assert.ok(existsSync(resolve(ROOT, codex.skills)));
   assert.equal("apps" in codex, false);
   assert.equal("mcpServers" in codex, false);
@@ -51,6 +57,41 @@ test("Codex marketplace exposes Ripple with explicit install policy", () => {
   assert.equal(plugin.category, "Creativity");
 });
 
+test("Codex evals stage a lean, content-versioned plugin bundle", () => {
+  const marketplace = readJson("evals", "codex", ".agents", "plugins", "marketplace.json");
+  assert.deepEqual(marketplace.plugins[0].source, {
+    source: "local",
+    path: "./plugins/ripple",
+  });
+
+  const staged = stageCodexPlugin(join(ROOT, "evals"));
+  assert.match(staged.version, /^\d+\.\d+\.\d+\+codex\.local-[0-9a-f]{12}$/);
+  assert.ok(staged.files > 0);
+  assert.ok(staged.bytes < 2 * 1024 * 1024, `staged bundle is ${staged.bytes} bytes`);
+  for (const entry of [".codex-plugin", "agents", "assets", "bin", "cli", "hooks", "schemas", "skills", "LICENSE", "package.json"]) {
+    assert.ok(existsSync(join(staged.bundle, entry)), `missing staged ${entry}`);
+  }
+  assert.equal(existsSync(join(staged.bundle, "evals")), false);
+  assert.equal(existsSync(join(staged.bundle, ".git")), false);
+  assert.equal(
+    existsSync(join(staged.bundle, "cli", "plugin.test.mjs")),
+    false,
+    "tests do not belong in the runtime bundle"
+  );
+});
+
+test("Codex staging removes only the legacy repo symlink", () => {
+  const marketplace = mkdtempSync(join(tmpdir(), "ripple-codex-marketplace-"));
+  const legacy = join(marketplace, "ripple");
+  symlinkSync("../..", legacy);
+  assert.equal(removeLegacyCodexLink(marketplace), true);
+  assert.equal(existsSync(legacy), false);
+
+  mkdirSync(legacy);
+  assert.equal(removeLegacyCodexLink(marketplace), false);
+  assert.equal(existsSync(legacy), true, "a real path must remain untouched");
+});
+
 test("the skill resolves the bundled CLI and carries Codex metadata", () => {
   const skill = readFileSync(join(ROOT, "skills", "ripple", "SKILL.md"), "utf8");
   const metadata = readFileSync(
@@ -60,8 +101,19 @@ test("the skill resolves the bundled CLI and carries Codex metadata", () => {
 
   assert.match(skill, /^name: ripple$/m, "frontmatter name");
   assert.match(skill, /<plugin-root>\/cli\/index\.mjs/, "CLI resolution line");
+  assert.match(skill, /Do not assume Codex put\s+`ripple` on `PATH`/, "Codex PATH fallback");
+  assert.match(skill, /open every returned sheet PNG with `view_image`/, "Codex visual review");
   assert.match(metadata, /display_name: "Ripple"/, "display_name");
+  assert.match(metadata, /icon_small: "\.\/assets\/ripple-icon\.png"/, "small icon");
+  assert.match(metadata, /icon_large: "\.\/assets\/ripple-icon\.png"/, "large icon");
   assert.match(metadata, /default_prompt: "Use \$ripple/, "default_prompt");
+  assert.deepEqual(
+    readFileSync(join(ROOT, "assets", "ripple-icon.png")),
+    readFileSync(join(ROOT, "skills", "ripple", "assets", "ripple-icon.png")),
+    "plugin and skill use the same icon bytes"
+  );
+  const short = metadata.match(/short_description: "([^"]+)"/)?.[1] ?? "";
+  assert.ok(short.length >= 25 && short.length <= 64, `short_description length: ${short.length}`);
 });
 
 test("the plugin-relative CLI path used by Codex is runnable", () => {

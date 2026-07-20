@@ -1,6 +1,6 @@
 {
   "id": "90-ablation-d-full",
-  "title": "Ablation rung D: full plugin (router + playbooks)",
+  "title": "Ablation rung D: full skill with craft guidance",
   "agent": "claude",
   "model": "sonnet",
   "skill": "full",

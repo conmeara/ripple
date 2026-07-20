@@ -8,7 +8,7 @@
       "name": "ripple",
       "source": {
         "source": "local",
-        "path": "./ripple"
+        "path": "./plugins/ripple"
       },
       "policy": {
         "installation": "AVAILABLE",

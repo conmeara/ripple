@@ -1,6 +1,6 @@
 {
   "skill": "ripple",
-  "note": "Trigger eval set (skill-creator method): realistic queries, 10 should-trigger phrased without ever saying 'ripple', 10 near-miss should-nots that share keywords but need something else. IMPORTANT: run from a workspace where every referenced file EXISTS (stub media is fine) - sessions given nonexistent paths spend their turns on file discovery and never reach the decision where a skill triggers. Measured 2026-07-17 with skill-creator's run_eval.py (patched to scan the full run, --max-turns 4).",
+  "note": "Trigger eval set (skill-creator method): realistic queries, including make-from-scratch requests Ripple should route to specialist production tools and near-misses that do not produce or edit a video. IMPORTANT: run from a workspace where every referenced file EXISTS (stub media is fine) - sessions given nonexistent paths spend their turns on file discovery and never reach the decision where a skill triggers. The 2026-07-17 baseline predates Ripple's broader video-making scope and must not be treated as current.",
   "evals": [
     { "query": "cut the dead air out of standup_recording.mov and tighten it up, it drags in the middle", "should_trigger": true },
     { "query": "i have 4 clips from my sister's graduation in ./footage - can you make me a 60 second video with some music", "should_trigger": true },
@@ -13,11 +13,11 @@
     { "query": "we filmed the best man's toast, like 5 attempts in one long file toast_full.mov - pick the best take and give me a clean clip", "should_trigger": true },
     { "query": "my zoom recording zoom_0424.mp4 plays video but theres no sound?? can you figure out whats wrong with it", "should_trigger": true },
     { "query": "compress vacation.mp4 so it fits in a 25MB email attachment", "should_trigger": false },
-    { "query": "make me an animated logo intro where the word NORTHWIND types on letter by letter over a transparent background", "should_trigger": false },
+    { "query": "make me an animated logo intro where the word NORTHWIND types on letter by letter over a transparent background", "should_trigger": true },
     { "query": "extract the audio from lecture.mp4 as an mp3", "should_trigger": false },
     { "query": "why does my ffmpeg build say 'unknown filter zscale' when I run this command", "should_trigger": false },
     { "query": "build me a react video player component with custom playback controls and a scrubber", "should_trigger": false },
-    { "query": "generate a 10 second video of a sunset over the ocean, cinematic drone shot", "should_trigger": false },
+    { "query": "generate a 10 second video of a sunset over the ocean, cinematic drone shot", "should_trigger": true },
     { "query": "whats a J-cut? my editor friend keeps mentioning them", "should_trigger": false },
     { "query": "resize the product photos in ./shots to 1080x1080 for instagram", "should_trigger": false },
     { "query": "download this youtube video for me: https://youtube.com/watch?v=dQw4w9WgXcQ", "should_trigger": false },

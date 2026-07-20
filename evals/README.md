@@ -3,12 +3,12 @@
 Lightweight end-to-end evals that check three things before a release:
 
 1. **Everything works** — the CLI pipeline runs on real footage (case 10, no agent).
-2. **Agents understand the plugin** — Codex and Claude, given plain-language editing
-   asks that never say "ripple", discover the skill, use the CLI, and follow the
-   playbooks (cases 20–70).
+2. **Agents understand the plugin** — Codex and Claude, given plain-language video
+   asks that never say "ripple", discover the skill, use the CLI, and follow its
+   workflow (cases 20–70).
 3. **It actually helps, layer by layer** — the ablation rungs (cases 90-a…d) run
    the same tighten task at four levels: bare agent + ffmpeg, + the CLI with no
-   skill, + the SKILL.md router only, + the full plugin. The summary prints them
+   skill, + the SKILL.md header only, + the full skill. The summary prints them
    side by side; the deltas are the measured value of each layer. Rung B (CLI,
    no skill) is the north-star acceptance case: if a bare agent can edit
    competently from `ripple help` alone, the CLI is the curriculum. Case 80 is
@@ -27,14 +27,14 @@ Lightweight end-to-end evals that check three things before a release:
    production-stack opinions fire when generation enters a task: VO → ElevenLabs
    with a standing voice ID, music → generated to the manifest's duration, b-roll
    → recut/stock before generation. Plan-only, no renders — cheap.
-7. **The skill triggers right** — `trigger-set.json` holds 20 realistic queries
-   (10 should-trigger phrased without ever saying "ripple", 10 near-miss
-   should-nots). Run with skill-creator's `run_eval.py` against the SKILL.md
-   description to measure trigger accuracy before shipping description changes.
-   Baseline (2026-07-17, Sonnet, 3 runs/query, ~20 competing video skills
-   installed): **19/20** — see `trigger-baseline-2026-07-17.json`. Two harness
-   lessons encoded in the set's note: queries must reference files that exist,
-   and detection must count the real installed skill, not just a synthetic clone.
+7. **The skill triggers right** — `trigger-set.json` holds 20 realistic positive
+   and near-miss queries. Its positives cover both existing-footage work and
+   make-from-scratch requests that Ripple should route to specialist production
+   tools. Run skill-creator's trigger eval against the SKILL.md description before
+   shipping description changes. The **19/20** result in
+   `trigger-baseline-2026-07-17.json` is a historical baseline for the previous
+   edit-first description, not the current video-making scope. Queries must
+   reference files that exist, and detection must count the real installed skill.
 
 Agent policy: mostly **Codex** (`gpt-5.5` by default — override with
 `RIPPLE_EVAL_CODEX_MODEL`), some **Claude Sonnet**, one **Claude Opus** case.
@@ -72,8 +72,8 @@ Exit code is 0 only when every non-baseline case passes.
 - Claude runs load the plugin from the working tree via `--plugin-dir`, so evals
   test HEAD, not the installed marketplace copy.
 - Claude cases can set `"skill": "none" | "router" | "full"` (default full):
-  `none` loads no plugin, `router` loads a stripped copy with SKILL.md but no
-  reference/ playbooks (built per run), `full` is the normal plugin. Add
+  `none` loads no plugin, `router` loads a stripped copy with only SKILL.md's
+  opening principles (built per run), and `full` loads the complete skill. Add
   `"bareCli": true` to also remove the `ripple` shim from PATH (ablation rung
   A). The knob is claude-only — codex installs its plugin globally.
 - Every agent and setup command gets a PATH shim so a bare `ripple` resolves to
@@ -83,8 +83,8 @@ Exit code is 0 only when every non-baseline case passes.
   recall prior sessions on the same footage and the eval stops measuring the
   plugin.
 - Codex runs use `ripple@ripple-local`, reinstalled automatically each run from
-  `evals/codex/` (a local marketplace whose `ripple` entry symlinks back to the
-  working tree; Codex snapshots it into its plugin cache at install time).
+  `evals/codex/`. The runner stages a lean, content-versioned plugin bundle from
+  the working tree before Codex snapshots it into the plugin cache.
 - The main fixture (`loose_married.mp4`) is a 33s HLG-HDR slice of the groom
   interview containing a leaked "take two" slate, 5s of dead air, a complete
   answer ending "…just a bonus", and a throat-clear tail — real material for the
@@ -107,7 +107,7 @@ Exit code is 0 only when every non-baseline case passes.
 | 12-drift-detection | none | on a 7.4-min source, chunked analysis prevents cumulative drift (suspected=false, no severe late endings) while candidates' isolated cross-check still flags an endpoint disagreement (INDEX_DRIFT), suppressing suggestedOut |
 | 20-routing-codex | codex | plain "what footage do I have" routes through the plugin; HDR reported |
 | 30-tighten-codex | codex | raw take → clean clip: slate dropped, ending kept, tail tight, HDR preserved |
-| 32-tighten-codex-invoked | codex | same task with explicit `$ripple edit` — isolates skill *triggering* (30 fails, 32 passes ⇒ triggering gap; both fail the same check ⇒ playbook-adherence gap) |
+| 32-tighten-codex-invoked | codex | same task with explicit `$ripple edit` — isolates skill *triggering* (30 fails, 32 passes ⇒ triggering gap; both fail the same check ⇒ skill-adherence gap) |
 | 35-tighten-sonnet | claude/sonnet | same task — cross-host parity |
 | 40-assembly-opus | claude/opus | two-scene assembly with manifest + QA discipline |
 | 50-repair-codex | codex | localized repair: end extended, head untouched, ending restored |
@@ -116,8 +116,8 @@ Exit code is 0 only when every non-baseline case passes.
 | 80-baseline-codex | codex (baseline) | same bar as case 30 without the plugin — the "does it help" comparison |
 | 90-ablation-a-bare | claude/sonnet (baseline) | rung A: bare agent + ffmpeg only |
 | 90-ablation-b-cli | claude/sonnet | rung B: + the CLI, no skill — **the north-star case** |
-| 90-ablation-c-router | claude/sonnet (baseline) | rung C: + SKILL.md router, no playbooks |
-| 90-ablation-d-full | claude/sonnet | rung D: full plugin — B−A = CLI value, C−B = router, D−C = playbooks |
+| 90-ablation-c-router | claude/sonnet (baseline) | rung C: + SKILL.md opening principles only |
+| 90-ablation-d-full | claude/sonnet | rung D: full skill — B−A = CLI value, C−B = principles, D−C = craft guidance |
 | 91-probe-index | claude/sonnet (baseline) | OUT from index JSON alone on a quiet-ending clip (ground truth 21.0–22.18s) |
 | 92-probe-sheet | claude/sonnet (baseline) | same, from the timeline-sheet image alone |
 | 93-probe-both | claude/sonnet (baseline) | same, from both channels — which perception channel earns its tokens |

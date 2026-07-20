@@ -1,7 +1,8 @@
 // Headless agent invocation for eval cases.
 // - claude: Claude Code with the working-tree plugin loaded via --plugin-dir
-// - codex:  Codex CLI with the plugin installed from evals/codex/marketplace.json
+// - codex:  Codex CLI with a lean plugin staged in the local eval marketplace
 import { spawn, execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -81,22 +82,104 @@ export async function invokeCodex({ prompt, model, ws, transcriptPath, finalPath
   return { ...res, agent: 'codex', model: model || '(default)' };
 }
 
-// (Re)install the ripple plugin for Codex from the local working tree.
-// Codex snapshots the plugin into its cache at install time, so reinstall
-// on every run to make sure evals test HEAD, not a stale snapshot.
+const CODEX_PLUGIN_REQUIRED = [
+  '.codex-plugin',
+  'agents',
+  'bin',
+  'cli',
+  'hooks',
+  'schemas',
+  'skills',
+  'LICENSE',
+  'package.json',
+];
+
+function bundledFiles(dir) {
+  const files = [];
+  const visit = current => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const file = path.join(current, entry.name);
+      if (entry.isDirectory()) visit(file);
+      else if (entry.isFile()) files.push(file);
+    }
+  };
+  visit(dir);
+  return files;
+}
+
+// Older eval runs created evals/codex/ripple -> ../.. so Codex could snapshot
+// the repository. Remove only that generated link; never touch a real path.
+export function removeLegacyCodexLink(marketplaceRoot) {
+  const legacyLink = path.join(marketplaceRoot, 'ripple');
+  let stat;
+  try {
+    stat = fs.lstatSync(legacyLink);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  }
+  if (!stat.isSymbolicLink()) return false;
+  fs.unlinkSync(legacyLink);
+  return true;
+}
+
+// Build only the runtime plugin. Pointing Codex at the repo root also copies
+// ignored eval runs and other development artifacts into its versioned cache.
+export function stageCodexPlugin(evalsDir) {
+  const root = path.resolve(evalsDir, '..');
+  const marketplaceRoot = path.resolve(evalsDir, 'codex');
+  removeLegacyCodexLink(marketplaceRoot);
+  const pluginsRoot = path.join(marketplaceRoot, 'plugins');
+  const bundle = path.join(pluginsRoot, 'ripple');
+  if (path.relative(marketplaceRoot, bundle) !== path.join('plugins', 'ripple')) {
+    throw new Error(`refusing unsafe Codex bundle path: ${bundle}`);
+  }
+
+  fs.rmSync(bundle, { recursive: true, force: true });
+  fs.mkdirSync(bundle, { recursive: true });
+  for (const entry of CODEX_PLUGIN_REQUIRED) {
+    const source = path.join(root, entry);
+    if (!fs.existsSync(source)) throw new Error(`missing Codex plugin runtime entry: ${entry}`);
+    fs.cpSync(source, path.join(bundle, entry), {
+      recursive: true,
+      filter: candidate => !(entry === 'cli' && candidate.endsWith('.test.mjs')),
+    });
+  }
+  const assets = path.join(root, 'assets');
+  if (fs.existsSync(assets)) fs.cpSync(assets, path.join(bundle, 'assets'), { recursive: true });
+
+  // Codex caches by manifest version. Derive local build metadata from the
+  // staged content so uncommitted working-tree changes cannot reuse stale bits.
+  const files = bundledFiles(bundle);
+  const hash = createHash('sha256');
+  for (const file of files) {
+    hash.update(path.relative(bundle, file).split(path.sep).join('/'));
+    hash.update('\0');
+    hash.update(fs.readFileSync(file));
+    hash.update('\0');
+  }
+  const cachebuster = hash.digest('hex').slice(0, 12);
+  const manifestPath = path.join(bundle, '.codex-plugin', 'plugin.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const baseVersion = manifest.version.replace(/\+.*/, '');
+  manifest.version = `${baseVersion}+codex.local-${cachebuster}`;
+  fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  const stagedFiles = bundledFiles(bundle);
+  const bytes = stagedFiles.reduce((sum, file) => sum + fs.statSync(file).size, 0);
+  return { bundle, version: manifest.version, files: stagedFiles.length, bytes };
+}
+
+// (Re)install the lean, content-versioned plugin for Codex. Codex snapshots a
+// local plugin at install time, so every eval run must refresh it before use.
 export function ensureCodexPlugin(evalsDir) {
-  // Codex resolves a local plugin's path relative to the marketplace root and
-  // won't escape it, so link the repo in from inside evals/codex/. Made at
-  // runtime rather than committed — a symlink to the repo root confuses
-  // tools that walk the tree.
-  const link = path.join(evalsDir, 'codex', 'ripple');
-  if (!fs.existsSync(link)) fs.symlinkSync('../..', link);
+  const staged = stageCodexPlugin(evalsDir);
   let markets = '';
   try { markets = execFileSync('codex', ['plugin', 'marketplace', 'list'], { encoding: 'utf8' }); } catch { /* fallthrough */ }
   if (!/ripple-local/.test(markets)) {
     execFileSync('codex', ['plugin', 'marketplace', 'add', path.join(evalsDir, 'codex')], { encoding: 'utf8' });
   }
-  try { execFileSync('codex', ['plugin', 'remove', 'ripple'], { encoding: 'utf8', stdio: 'pipe' }); } catch { /* not installed */ }
-  execFileSync('codex', ['plugin', 'add', 'ripple@ripple-local'], { encoding: 'utf8' });
-  return 'installed ripple@ripple-local (fresh snapshot of working tree)';
+  try { execFileSync('codex', ['plugin', 'remove', 'ripple@ripple-local', '--json'], { encoding: 'utf8', stdio: 'pipe' }); } catch { /* not installed */ }
+  execFileSync('codex', ['plugin', 'add', 'ripple@ripple-local', '--json'], { encoding: 'utf8' });
+  return `installed ripple@ripple-local ${staged.version} (${staged.files} files, ${Math.ceil(staged.bytes / 1024)} KiB)`;
 }

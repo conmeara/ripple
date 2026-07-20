@@ -3,7 +3,8 @@
   "version": "0.13.0",
   "description": "Open-source video-making toolkit for agents: local perception, a complete creative workflow, persistent taste, verifiable edits, and professional handoff.",
   "author": {
-    "name": "Conor O'Meara"
+    "name": "Conor O'Meara",
+    "url": "https://github.com/conmeara"
   },
   "homepage": "https://github.com/conmeara/ripple",
   "repository": "https://github.com/conmeara/ripple",
@@ -30,6 +31,10 @@
       "Write"
     ],
     "websiteURL": "https://github.com/conmeara/ripple",
+    "brandColor": "#C9520C",
+    "composerIcon": "./assets/ripple-icon.png",
+    "logo": "./assets/ripple-icon-light.png",
+    "logoDark": "./assets/ripple-icon-dark.png",
     "defaultPrompt": [
       "Make a concise video from this brief and available footage, then verify it.",
       "Repair this mistimed scene without rebuilding the rest of the edit.",

@@ -219,7 +219,7 @@ function summarize(results, runRoot) {
     lines.push('', '## Ablation rungs (same task, increasing layers)', '');
     lines.push('| rung | layer | result | checks | time | tokens (fresh in / out) |');
     lines.push('|---|---|---|---|---|---|');
-    const layer = r => r.bareCli ? 'bare agent + ffmpeg' : r.skill === 'none' ? 'CLI, no skill' : r.skill === 'router' ? 'CLI + router' : 'full plugin';
+    const layer = r => r.bareCli ? 'bare agent + ffmpeg' : r.skill === 'none' ? 'CLI, no skill' : r.skill === 'router' ? 'CLI + skill header' : 'full skill';
     for (const r of abl) {
       lines.push(`| ${r.id.replace(/^.*-ablation-/, '')} | ${layer(r)} | ${r.pass ? 'PASS' : 'FAIL'} | ${r.checks.filter(c => c.pass).length}/${r.checks.length} | ${r.agentSeconds ?? 0}s | ${fmtTokens(r.tokens)} |`);
     }

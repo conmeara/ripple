@@ -1,6 +1,6 @@
 {
   "id": "90-ablation-c-router",
-  "title": "Ablation rung C: CLI + SKILL.md router only (no playbooks)",
+  "title": "Ablation rung C: CLI + SKILL.md opening principles only",
   "agent": "claude",
   "model": "sonnet",
   "skill": "router",
