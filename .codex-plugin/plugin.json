@@ -31,8 +31,6 @@
       "Write"
     ],
     "websiteURL": "https://github.com/conmeara/ripple",
-    "privacyPolicyURL": "https://github.com/conmeara/ripple/blob/main/PRIVACY.md",
-    "termsOfServiceURL": "https://github.com/conmeara/ripple/blob/main/TERMS.md",
     "brandColor": "#C9520C",
     "composerIcon": "./assets/ripple-icon.png",
     "logo": "./assets/ripple-icon-light.png",

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Rebuild the public timeline-sheet image from synthetic media only.
+// Rebuild the Codex marketplace timeline-sheet image from synthetic media only.
 import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -22,7 +22,7 @@ function checked(command, args, label) {
   if (result.status !== 0) throw new Error(`${label}: ${result.stderr.trim()}`);
 }
 
-const scratch = mkdtempSync(join(tmpdir(), "ripple-public-timeline-"));
+const scratch = mkdtempSync(join(tmpdir(), "ripple-marketplace-timeline-"));
 const source = join(scratch, "synthetic-source.mp4");
 const sheet = join(scratch, "timeline-sheet.png");
 const legend = join(scratch, "legend.png");
@@ -105,8 +105,7 @@ try {
   checked(magick, [sheet, legend, "+append", "-strip", composed], "screenshot compose failed");
 
   copyFileSync(composed, join(ROOT, "assets", "screenshot-timeline-sheet.png"));
-  copyFileSync(composed, join(ROOT, "docs", "assets", "anatomy-of-a-timeline-sheet.png"));
-  process.stdout.write(`wrote synthetic timeline screenshot (${1920 + legendWidth}x${height})\n`);
+  process.stdout.write(`wrote synthetic marketplace timeline screenshot (${1920 + legendWidth}x${height})\n`);
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

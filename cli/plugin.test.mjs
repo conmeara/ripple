@@ -36,11 +36,11 @@ test("Claude and Codex manifests expose the same Ripple release", () => {
   const screenshot = resolve(ROOT, codex.interface.screenshots[0]);
   assert.ok(existsSync(screenshot), "missing marketplace screenshot");
   assert.ok(readFileSync(screenshot).byteLength > 100_000, "marketplace screenshot should be a real timeline render");
-  assert.deepEqual(
-    readFileSync(screenshot),
-    readFileSync(join(ROOT, "docs", "assets", "anatomy-of-a-timeline-sheet.png")),
-    "marketplace and README use the same synthetic timeline sheet"
-  );
+  const readmeScreenshot = join(ROOT, "docs", "assets", "anatomy-of-a-timeline-sheet.png");
+  assert.ok(existsSync(readmeScreenshot), "missing README timeline sheet");
+  assert.ok(readFileSync(readmeScreenshot).byteLength > 100_000, "README timeline sheet should be a real render");
+  assert.equal("privacyPolicyURL" in codex.interface, false);
+  assert.equal("termsOfServiceURL" in codex.interface, false);
   assert.ok(existsSync(resolve(ROOT, codex.skills)));
   assert.equal("apps" in codex, false);
   assert.equal("mcpServers" in codex, false);

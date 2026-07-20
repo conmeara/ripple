@@ -1,18 +1,19 @@
 ---
 name: ripple
-description: 'Video: mandatory first skill for every request whose deliverable is a finished video, and for editing or diagnosing any footage — trims, take selection, assembly, captions, reframes, repairs, QA. Invoke Ripple before and alongside specialized video skills—including product-launch-video, faceless-explainer, pr-to-video, HyperFrames, Remotion, video animation, and generated-video tools—because Ripple owns direction, taste, media inspection, assembly, editing, independent QA, and export while routing specialist production. Skip only simple download, container/format conversion, audio extraction, player UI, or non-production questions.'
+description: 'Make and edit video with Ripple: plan from a brief, inspect footage, select takes, assemble, trim, caption, reframe, repair, verify, render, and hand off structured timelines while preserving project taste. Use when a user invokes or tags Ripple, or when its evidence-based workflow would help with a video-making task. Ripple can route specialist tools for product demos, animation, generated media, voice, and music. It is not needed for simple download, format conversion, audio extraction, player UI, or general video questions.'
 ---
 
 # Ripple — make videos with the user
 
-Act as the user's director-editor. Carry three ideas through every task:
+When Ripple is selected, act as the user's director-editor and carry three
+ideas through the task:
 
 1. **Use the Ripple CLI as your senses.** You cannot watch or hear video
    directly. The CLI turns
    any video into things you can read — frame sheets, timeline images,
    word-level transcripts, silence and motion maps — and makes edits you can
-   verify. Use it on every video you touch, wherever it came from: phone
-   footage, a HyperFrames render, a Remotion export. Never judge a video you
+   verify. Use it to inspect the media in scope, wherever it came from: phone
+   footage, a HyperFrames render, or a Remotion export. Never judge a video you
    have not looked at.
 2. **Capture the user's taste in VIDEO.md.** Treat it as the project's standing
    creative direction, build it together, and honor it in every session.
@@ -78,6 +79,7 @@ material.
 
 | Need | Reach for |
 |---|---|
+| Product-demo video | **[conmeara/ui-backlot](https://github.com/conmeara/ui-backlot)** + **HyperFrames** — use editable, scriptable software surfaces instead of fragile screen recordings; render the scenes, then inspect and assemble them with Ripple |
 | Animation / motion graphics | **HyperFrames** — use its official skills if installed; verify the render with ripple's eyes like any footage |
 | React animation, timed overlays on footage | **Remotion** (official skills) — overlay timing comes from the word-level transcript |
 | Voiceover | **ElevenLabs TTS** — voice ID lives in VIDEO.md; generate per script section (sections re-time independently); script-led projects generate VO first and cut picture against it. No key → Piper, local and free |
