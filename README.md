@@ -1,23 +1,10 @@
 # Ripple
 
-**Give agents the skills, tools, and taste to make video with you.**
+**Ripple helps you make video with a coding agent.** It combines an opinionated
+skill with recommended workflows and services, a `VIDEO.md` file that captures
+the taste and style you want, and a CLI built for the agent.
 
-Ripple is an open-source video-making toolkit for coding agents. It helps an
-agent make video with you—not just edit footage—whether you start with a brief,
-existing footage, or both.
-
-Agents cannot watch or hear a timeline directly. Ripple turns video into
-evidence they can reason over: word-aligned transcripts, frames, motion,
-waveform, silence, measured timing, and explicit cut decisions on one shared
-time axis.
-
-The CLI supplies the senses and actions, the skill supplies strong editorial
-and production opinions, `VIDEO.md` preserves your taste, and `edit.json` keeps
-the current cut inspectable. Together, they carry the agent from perception and
-decision through assembly, verification, and delivery.
-
-> **Start here:** [Install Ripple](#install), then tell your agent: `Make a
-> 30-second promo from these clips and verify every cut.`
+**[Start here: install Ripple.](#install)**
 
 ## What's included
 
