@@ -4,11 +4,11 @@
   "agent": "claude",
   "model": "sonnet",
   "timeoutMinutes": 40,
-  "prompt": "media/loose_married.mp4 is a raw interview take: there's a slate and dead air at the head, and he holds and clears his throat after finishing. Tighten it into a clean clip: start just before he begins the real answer and end just after his last word with a natural tail. Render the result into outputs/.",
+  "prompt": "media/raw-interview.mp4 is a raw interview take: there's a slate and dead air at the head, and the speaker holds and clears their throat after finishing. Tighten it into a clean clip: start just before the real answer begins and end just after the last word with a natural tail. Render the result into outputs/.",
   "fixtures": [
     {
-      "from": "$CACHE/loose_married.mp4",
-      "to": "media/loose_married.mp4"
+      "from": "$CACHE/raw-interview.mp4",
+      "to": "media/raw-interview.mp4"
     },
     {
       "from": "$FIXTURES/VIDEO.md",
@@ -39,16 +39,15 @@
       "max": 22.5
     },
     {
-      "id": "ending-kept",
-      "type": "render_transcript",
+      "id": "source-window-preserved",
+      "type": "audio_source_correlation",
       "glob": "outputs/*.mp4",
-      "includes": [
-        "bonus",
-        "coffee"
-      ],
-      "excludes": [
-        "take"
-      ]
+      "sources": ["media/raw-interview.mp4"],
+      "minConfidence": 0.35,
+      "minSourceStart": 5.5,
+      "maxSourceStart": 7.5,
+      "minSourceEnd": 26.6,
+      "maxSourceEnd": 28.5
     },
     {
       "id": "hdr-preserved",

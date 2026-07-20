@@ -5,14 +5,17 @@
   "model": "sonnet",
   "skill": "none",
   "timeoutMinutes": 30,
-  "prompt": "media/interview.mp4 is 7.4 minutes of an interview Q&A. Somewhere in it the speaker answers a question about her least favorite chore. Find that answer and cut it as a standalone clip: the complete answer from its first word to its last, clean endpoints, no dead air - and start at the answer itself, not the question asked before it. Render to outputs/. A `ripple` CLI is available on PATH - run `ripple help` first.",
+  "prompt": "media/interview.mp4 is 7.4 minutes of an interview Q&A. Somewhere in it the speaker answers a question about a least-preferred routine task. Find that answer and cut it as a standalone clip: the complete answer from its first word to its last, clean endpoints, no dead air - and start at the answer itself, not the question asked before it. Render to outputs/. A `ripple` CLI is available on PATH - run `ripple help` first.",
   "fixtures": [
     { "from": "$CACHE/long_qanda.mp4", "to": "media/interview.mp4" }
   ],
   "checks": [
     { "id": "render", "type": "file_exists", "glob": "outputs/*.mp4" },
     { "id": "duration-complete-answer", "type": "duration_between", "glob": "outputs/*.mp4", "min": 25, "max": 33 },
-    { "id": "answer-present", "type": "render_transcript", "glob": "outputs/*.mp4", "includes": ["stove", "toilet"], "excludes": ["coffee", "sure"] },
+    { "id": "answer-start", "type": "json_path", "file": "edit.json", "path": "scenes.0.start", "op": "gte", "value": 408.5 },
+    { "id": "answer-start-not-late", "type": "json_path", "file": "edit.json", "path": "scenes.0.start", "op": "lte", "value": 411.0 },
+    { "id": "answer-end", "type": "json_path", "file": "edit.json", "path": "scenes.0.end", "op": "gte", "value": 436.5 },
+    { "id": "answer-end-not-late", "type": "json_path", "file": "edit.json", "path": "scenes.0.end", "op": "lte", "value": 439.0 },
     { "id": "hdr-preserved", "type": "color_transfer", "glob": "outputs/*.mp4", "expect": "arib-std-b67" }
   ]
 }

@@ -15,7 +15,7 @@ function project({ scenes, index } = {}) {
   mkdirSync(join(dir, "work", "analysis"), { recursive: true });
   const words = [
     { start: 0.3, end: 0.6, text: "We" },
-    { start: 0.7, end: 1.1, text: "met" },
+    { start: 0.7, end: 1.1, text: "work" },
     { start: 1.2, end: 9.2, text: "here." },
     { start: 15.2, end: 15.5, text: "I" },
     { start: 15.6, end: 22.0, text: "do." },
@@ -37,13 +37,13 @@ function project({ scenes, index } = {}) {
   return join(dir, "edit.json");
 }
 
-const CLEAN = { id: 1, slug: "met", source: "src.mp4", start: 0, end: 10, status: "locked" };
-const DEAD_TAIL = { id: 2, slug: "vows", source: "src.mp4", start: 15, end: 25, status: "locked" };
+const CLEAN = { id: 1, slug: "opening", source: "src.mp4", start: 0, end: 10, status: "locked" };
+const DEAD_TAIL = { id: 2, slug: "closing", source: "src.mp4", start: 15, end: 25, status: "locked" };
 
 test("endpoint flags retain their measured, stable envelope", () => {
   const timing = {
-    wordsInRange: 5, firstWordStart: 11.2, leadGap: 1.2, straddleStart: "owns",
-    lastWordEnd: 18, tailGap: 2.4, straddleEnd: "favorite",
+    wordsInRange: 5, firstWordStart: 11.2, leadGap: 1.2, straddleStart: "marks",
+    lastWordEnd: 18, tailGap: 2.4, straddleEnd: "marker",
     nextWordStart: 19, nextText: "What's next", nextAudioStart: 18.9,
   };
   const silence = { "-40dB": { leading: 0, tail: 0, spans: 1 } };
@@ -58,12 +58,12 @@ test("endpoint flags retain their measured, stable envelope", () => {
 test("lintManifest passes a clean scene and blocks a dead tail", () => {
   const manifest = project({ scenes: [CLEAN, DEAD_TAIL] });
   const { findings, scenes } = lintManifest(manifest);
-  assert.deepEqual(scenes, ["met", "vows"]);
-  assert.ok(!findings.some((f) => f.scene === "met"));
+  assert.deepEqual(scenes, ["opening", "closing"]);
+  assert.ok(!findings.some((f) => f.scene === "opening"));
   const tail = findings.find((f) => f.code === "DEAD_AIR_TAIL");
   assert.ok(tail, JSON.stringify(findings));
   assert.deepEqual(Object.keys(tail), ["code", "scene", "detail", "severity"]);
-  assert.equal(tail.scene, "vows");
+  assert.equal(tail.scene, "closing");
   assert.equal(tail.severity, "block");
   assert.match(tail.detail, /3s of nothing/);
 });
@@ -91,7 +91,7 @@ test("a sub-0.25s tail sliver matches candidates and flags speech at OUT", () =>
       version: 4, duration: 30, hasAudio: true,
       words: [
         { start: 0.6, end: 1.0, text: "We" },
-        { start: 1.1, end: 9.9, text: "met." },
+        { start: 1.1, end: 9.9, text: "work." },
       ],
       silences: { "-40dB": [{ start: 9.9, end: 25.0 }] },
     },
@@ -110,14 +110,14 @@ test("work/edit.json resolves the analysis cache from any cwd", () => {
     join(dir, "work", "analysis", `src_${fileStamp(src)}.analysis.json`),
     JSON.stringify({
       version: 4, file: src, duration: 30, hasAudio: true,
-      words: [{ start: 0.3, end: 0.6, text: "We" }, { start: 0.7, end: 9.2, text: "met." }],
+      words: [{ start: 0.3, end: 0.6, text: "We" }, { start: 0.7, end: 9.2, text: "work." }],
       silences: { "-40dB": [{ start: 9.2, end: 15.2 }] },
     })
   );
   const manifestPath = join(dir, "work", "edit.json");
   writeFileSync(manifestPath, JSON.stringify({
     version: 1,
-    scenes: [{ id: 1, slug: "met", source: "../src.mp4", start: 0, end: 10, status: "locked" }],
+    scenes: [{ id: 1, slug: "opening", source: "../src.mp4", start: 0, end: 10, status: "locked" }],
   }));
   const { findings } = lintManifest(manifestPath);
   assert.ok(!findings.some((f) => f.code === "NO_INDEX"), JSON.stringify(findings));
@@ -125,8 +125,8 @@ test("work/edit.json resolves the analysis cache from any cwd", () => {
 
 test("scene filtering and degraded indexes stay explicit", () => {
   const manifest = project({ scenes: [CLEAN, DEAD_TAIL] });
-  const only = lintManifest(manifest, { scene: "met" });
-  assert.deepEqual(only.scenes, ["met"]);
+  const only = lintManifest(manifest, { scene: "opening" });
+  assert.deepEqual(only.scenes, ["opening"]);
   assert.deepEqual(only.findings, []);
 
   const noWords = project({

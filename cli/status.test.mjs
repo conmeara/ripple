@@ -31,7 +31,7 @@ function runStatus(args, cwd) {
 function indexFixture(src, { suspects = 0 } = {}) {
   const words = [
     { start: 0.3, end: 0.6, text: "We" },
-    { start: 0.7, end: 1.1, text: "met" },
+    { start: 0.7, end: 1.1, text: "work" },
     { start: 1.2, end: 9.2, text: "here." },
     { start: 15.2, end: 15.5, text: "I" },
     { start: 15.6, end: 22.0, text: "do." },
@@ -63,8 +63,8 @@ function project({ scenes, videoMd = "# VIDEO.md\n\nTight tails.", indexed = tru
   return dir;
 }
 
-const CLEAN = { id: 1, slug: "met", source: "src.mp4", start: 0, end: 10, status: "locked" };
-const DEAD_TAIL = { id: 2, slug: "vows", source: "src.mp4", start: 15, end: 25, status: "proposed" };
+const CLEAN = { id: 1, slug: "opening", source: "src.mp4", start: 0, end: 10, status: "locked" };
+const DEAD_TAIL = { id: 2, slug: "closing", source: "src.mp4", start: 15, end: 25, status: "proposed" };
 
 // mtime control makes staleness deterministic — two writes in the same ms
 // must not decide a verdict.
@@ -124,7 +124,7 @@ test("block findings surface with lint's summary shape and route to lint", () =>
   assert.equal(status, 0); // status reports, it never gates
   assert.deepEqual(json.findings, { block: 1, warn: 0 });
   assert.deepEqual(json.manifest.statuses, { locked: 1, proposed: 1 });
-  assert.deepEqual(json.manifest.scenes[1], { slug: "vows", source: "src.mp4", duration: 10, status: "proposed" });
+  assert.deepEqual(json.manifest.scenes[1], { slug: "closing", source: "src.mp4", duration: 10, status: "proposed" });
   assert.equal(json.next, "lint");
   assert.match(json.verdict, /1 block finding/);
 });
@@ -133,7 +133,7 @@ test("preset clip dirs from ripple cut are never counted as sources", () => {
   const dir = project({ scenes: [CLEAN] });
   // What `ripple cut --preset vertical` leaves behind (cut.mjs dirSuffix).
   mkdirSync(join(dir, "clips_vertical"));
-  writeFileSync(join(dir, "clips_vertical", "01_met.mp4"), "derived clip");
+  writeFileSync(join(dir, "clips_vertical", "01_opening.mp4"), "derived clip");
   const { json } = runStatus([dir]);
   assert.equal(json.sources.count, 1); // src.mp4 only — no phantom unindexed source
   assert.equal(json.next, "cut"); // renders missing; the derived clips must not misroute to analyze
@@ -149,8 +149,8 @@ test("clean manifest with missing renders routes to cut; stale renders too", () 
   assert.equal(missing.json.next, "cut");
 
   mkdirSync(join(dir, "clips"));
-  writeFileSync(join(dir, "clips", "01_met.mp4"), "clip");
-  backdate(join(dir, "clips", "01_met.mp4"), 60); // older than edit.json
+  writeFileSync(join(dir, "clips", "01_opening.mp4"), "clip");
+  backdate(join(dir, "clips", "01_opening.mp4"), 60); // older than edit.json
   const stale = runStatus([dir]);
   assert.equal(stale.json.renders.rendered, 1);
   assert.equal(stale.json.renders.stale, 1);
@@ -161,7 +161,7 @@ test("current renders on a clean cut route to qa; last QA snapshot is picked up"
   const dir = project({ scenes: [CLEAN] });
   backdate(join(dir, "edit.json"), 60);
   mkdirSync(join(dir, "clips"));
-  writeFileSync(join(dir, "clips", "01_met.mp4"), "clip");
+  writeFileSync(join(dir, "clips", "01_opening.mp4"), "clip");
   mkdirSync(join(dir, "outputs"));
   writeFileSync(join(dir, "outputs", "interview_final.mp4"), "final");
   const clean = runStatus([dir]);
@@ -175,10 +175,40 @@ test("current renders on a clean cut route to qa; last QA snapshot is picked up"
   const after = runStatus([dir]);
   assert.deepEqual(after.json.qa, {
     runs: 2,
-    latest: { passed: 9, total: 10, when: "2026-07-02T00:00:00Z", ok: false },
+    latest: {
+      passed: 9, total: 10, when: "2026-07-02T00:00:00Z",
+      ok: null, status: "not-verified", verified: false,
+    },
   });
   assert.equal(after.json.next, "qa");
-  assert.match(after.json.verdict, /Last QA failed \(9\/10\)/);
+  assert.match(after.json.verdict, /Last QA was not verified \(9\/10/);
+});
+
+test("not-verified QA snapshots route to content verification, not a false failure", () => {
+  const dir = project({ scenes: [CLEAN] });
+  backdate(join(dir, "edit.json"), 60);
+  mkdirSync(join(dir, "clips"));
+  writeFileSync(join(dir, "clips", "01_opening.mp4"), "clip");
+  mkdirSync(join(dir, "outputs"));
+  writeFileSync(join(dir, "outputs", "interview_final.mp4"), "final");
+  mkdirSync(join(dir, ".ripple", "qa"), { recursive: true });
+  writeFileSync(join(dir, ".ripple", "qa", "qa-100.json"), JSON.stringify({
+    passed: 10,
+    total: 10,
+    timestamp: "2026-07-02T00:00:00Z",
+    status: "not-verified",
+    ok: null,
+    verified: false,
+    checks: [{ id: "content-gates", status: "not-verified", ok: null }],
+  }));
+
+  const { json } = runStatus([dir]);
+  assert.equal(json.qa.latest.status, "not-verified");
+  assert.equal(json.qa.latest.ok, null);
+  assert.equal(json.qa.latest.verified, false);
+  assert.equal(json.next, "qa");
+  assert.match(json.verdict, /not verified/);
+  assert.match(json.verdict, /add content expectations and a transcript/);
 });
 
 test("history: snapshot count and latest label from .ripple/history", () => {

@@ -11,9 +11,9 @@ import { findTool, run } from "./util.mjs";
 const ffmpeg = findTool(["ffmpeg"]);
 
 test("parseMarkers reads t:label pairs, bare times, and junk", () => {
-  assert.deepEqual(parseMarkers("209:IN,233.3:OUT howmet"), [
-    { t: 209, label: "IN" },
-    { t: 233.3, label: "OUT howmet" },
+  assert.deepEqual(parseMarkers("12.5:IN,36.8:OUT scene-a"), [
+    { t: 12.5, label: "IN" },
+    { t: 36.8, label: "OUT scene-a" },
   ]);
   assert.deepEqual(parseMarkers("495.8"), [{ t: 495.8, label: "" }]);
   assert.deepEqual(parseMarkers("abc:X,42:ok"), [{ t: 42, label: "ok" }]);
@@ -23,17 +23,17 @@ test("parseMarkers reads t:label pairs, bare times, and junk", () => {
 test("manifestMarkers keeps only bounds inside the window", () => {
   const manifest = {
     scenes: [
-      { slug: "howmet", start: 209, end: 233.3 },
-      { slug: "chore", start: 465, end: 495.8 },
+      { slug: "scene-a", start: 12.5, end: 36.8 },
+      { slug: "scene-b", start: 48.2, end: 61.4 },
     ],
   };
-  assert.deepEqual(manifestMarkers(manifest, { start: 200, end: 240 }), [
-    { t: 209, label: "howmet IN", kind: "in", slug: "howmet" },
-    { t: 233.3, label: "howmet OUT", kind: "out", slug: "howmet" },
+  assert.deepEqual(manifestMarkers(manifest, { start: 10, end: 40 }), [
+    { t: 12.5, label: "scene-a IN", kind: "in", slug: "scene-a" },
+    { t: 36.8, label: "scene-a OUT", kind: "out", slug: "scene-a" },
   ]);
-  assert.deepEqual(manifestMarkers(manifest, { start: 230, end: 470 }), [
-    { t: 233.3, label: "howmet OUT", kind: "out", slug: "howmet" },
-    { t: 465, label: "chore IN", kind: "in", slug: "chore" },
+  assert.deepEqual(manifestMarkers(manifest, { start: 30, end: 55 }), [
+    { t: 36.8, label: "scene-a OUT", kind: "out", slug: "scene-a" },
+    { t: 48.2, label: "scene-b IN", kind: "in", slug: "scene-b" },
   ]);
   assert.deepEqual(manifestMarkers(null, { start: 0, end: 10 }), []);
 });

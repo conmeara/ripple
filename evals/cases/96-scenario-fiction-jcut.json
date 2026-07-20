@@ -4,10 +4,10 @@
   "agent": "claude",
   "model": "sonnet",
   "timeoutMinutes": 30,
-  "prompt": "Assemble media/01_howmet.mp4, then a title card reading AND THEN, then media/10_married.mp4. Make the second clip's audio lead in under the card by about 1 second - a J-cut, so the voice pulls us through the card into the picture. Save the manifest as edit.json. Render to outputs/. Both clips are already trimmed answers - keep them whole.",
+  "prompt": "Assemble media/01_answer-a.mp4, then a title card reading AND THEN, then media/10_answer-b.mp4. Make the second clip's audio lead in under the card by about 1 second - a J-cut, so the voice pulls us through the card into the picture. Save the manifest as edit.json. Render to outputs/. Both clips are already trimmed answers - keep them whole.",
   "fixtures": [
-    { "from": "$CACHE/howmet.mp4", "to": "media/01_howmet.mp4" },
-    { "from": "$CACHE/married.mp4", "to": "media/10_married.mp4" },
+    { "from": "$CACHE/answer-a.mp4", "to": "media/01_answer-a.mp4" },
+    { "from": "$CACHE/answer-b.mp4", "to": "media/10_answer-b.mp4" },
     { "from": "$FIXTURES/VIDEO.md", "to": "VIDEO.md" }
   ],
   "checks": [
@@ -15,7 +15,9 @@
     { "id": "jcut-under-card", "type": "json_path", "file": "edit.json", "path": "scenes.1.jcut", "op": "gte", "value": 0.5 },
     { "id": "render", "type": "file_exists", "glob": "outputs/*.mp4" },
     { "id": "duration-all-three-scenes", "type": "duration_between", "glob": "outputs/*.mp4", "min": 44, "max": 53 },
-    { "id": "both-answers-present", "type": "render_transcript", "glob": "outputs/*.mp4", "includes": ["showed up", "bonus"] },
+    { "id": "both-answers-present", "type": "audio_source_correlation", "glob": "outputs/*.mp4", "sources": ["media/01_answer-a.mp4", "media/10_answer-b.mp4"], "minConfidence": 0.35 },
+    { "id": "source-order", "type": "manifest_source_order", "manifest": "edit.json", "sources": ["media/01_answer-a.mp4", "media/10_answer-b.mp4"] },
+    { "id": "jcut-rendered", "type": "rendered_jcut", "glob": "outputs/*.mp4", "manifest": "edit.json", "sceneIndex": 1, "minActiveDb": -55, "maxQuietDb": -65, "minContrastDb": 12, "minSourceConfidence": 0.35, "maxOffsetError": 0.35 },
     { "id": "hdr-preserved", "type": "color_transfer", "glob": "outputs/*.mp4", "expect": "arib-std-b67" }
   ]
 }

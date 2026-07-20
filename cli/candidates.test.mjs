@@ -23,7 +23,7 @@ const GOOD_TIMING = {
   tailGap: 0.8,
   straddleEnd: null,
   nextWordStart: 499.52,
-  nextText: "What's your favorite, okay,",
+  nextText: "What's the next marker, okay,",
   nextAudioStart: 499.3,
 };
 const QUIET = { "-35dB": { leading: 0, tail: 1.2, spans: 3 }, "-40dB": { leading: 0, tail: 1.0, spans: 3 } };
@@ -47,26 +47,26 @@ test("zero tail silence is NOT flagged when word timing shows a clean gap", () =
   const flags = endpointFlags(clean, silence, { maxTail: 1.0, maxLead: 0.5, end: 493.3 });
   assert.ok(!flags.some((f) => f.flag === "SPEECH_AT_OUT"));
   // But a straddled end corroborates: flag fires.
-  const bad = { ...GOOD_TIMING, straddleEnd: "favorite" };
+  const bad = { ...GOOD_TIMING, straddleEnd: "marker" };
   const flags2 = endpointFlags(bad, silence, { maxTail: 1.0, maxLead: 0.5, end: 493.3 });
   assert.ok(flags2.some((f) => f.flag === "SPEECH_AT_OUT"));
 });
 
-test("the shipped chore cut (end=501) trips NEXT_SPEECH_INSIDE", () => {
+test("a previously shipped cut with resumed speech trips NEXT_SPEECH_INSIDE", () => {
   const flags = endpointFlags(GOOD_TIMING, QUIET, { maxTail: 1.0, maxLead: 0.5, end: 501 });
   const names = flags.map((f) => f.flag);
   assert.ok(names.includes("NEXT_SPEECH_INSIDE"));
-  assert.ok(flags.find((f) => f.flag === "NEXT_SPEECH_INSIDE").detail.includes("What's your favorite"));
+  assert.ok(flags.find((f) => f.flag === "NEXT_SPEECH_INSIDE").detail.includes("What's the next marker"));
 });
 
-test("the shipped married cut (2.45s dead tail) trips DEAD_AIR_TAIL", () => {
+test("a previously shipped cut with a 2.45s dead tail trips DEAD_AIR_TAIL", () => {
   const timing = { ...GOOD_TIMING, lastWordEnd: 776.55, tailGap: 2.45, nextWordStart: null, nextText: null };
   const flags = endpointFlags(timing, QUIET, { maxTail: 1.0, maxLead: 0.5, end: 779 });
   assert.deepEqual(flags.map((f) => f.flag), ["DEAD_AIR_TAIL"]);
 });
 
 test("mid-word and late-start flags", () => {
-  const t = { ...GOOD_TIMING, straddleEnd: "favorite", straddleStart: "owns", leadGap: 1.2 };
+  const t = { ...GOOD_TIMING, straddleEnd: "marker", straddleStart: "marks", leadGap: 1.2 };
   const names = endpointFlags(t, QUIET, { maxTail: 10, maxLead: 0.5, end: 494 }).map((f) => f.flag);
   assert.ok(names.includes("MID_WORD_OUT"));
   assert.ok(names.includes("MID_WORD_IN"));
@@ -77,7 +77,7 @@ test("candidates and lint share the same endpoint implementation and flag shape"
   // candidates and lint must judge a range with the SAME implementation.
   assert.equal(endpointFlags, safetyEndpointFlags);
   // A range broken every way at once produces only {flag, detail} entries.
-  const t = { ...GOOD_TIMING, straddleEnd: "favorite", straddleStart: "owns", leadGap: 1.2, tailGap: 2.45 };
+  const t = { ...GOOD_TIMING, straddleEnd: "marker", straddleStart: "marks", leadGap: 1.2, tailGap: 2.45 };
   const silence = { "-40dB": { leading: 0, tail: 0, spans: 1 } };
   const flags = endpointFlags(t, silence, { maxTail: 1.0, maxLead: 0.5, end: 501 });
   assert.equal(flags.length, 6);
@@ -110,7 +110,7 @@ function candidatesProject() {
       version: 7, file: src, duration: 10, hasAudio: true,
       words: [
         { start: 0.3, end: 0.6, text: "We" },
-        { start: 0.7, end: 2.0, text: "met." },
+        { start: 0.7, end: 2.0, text: "work." },
       ],
       silences: { "-40dB": [{ start: 2.0, end: null }] },
       turns: [], // "ran, found none" — keeps a tdrz-capable machine from rebuilding
@@ -163,7 +163,7 @@ function manifestProject(scenes) {
       version: 7, file: src, duration: 10, hasAudio: true,
       words: [
         { start: 0.3, end: 0.6, text: "We" },
-        { start: 0.7, end: 2.0, text: "met." },
+        { start: 0.7, end: 2.0, text: "work." },
       ],
       silences: { "-40dB": [{ start: 2.0, end: null }] },
       turns: [],
@@ -257,7 +257,7 @@ test("suggestOut lands a breath after the last word, capped before next speech",
   assert.equal(suggestOut({ ...GOOD_TIMING, lastWordEnd: null }), null);
 });
 
-// ---------- auto-editor guards (LEARN, docs/prior-art.md) ----------
+// ---------- auto-editor guards ----------
 
 test("suggestIn: asymmetric lead margin, floored on prior speech/audio", () => {
   // Clean air before the phrase: 0.3s lead margin, above the prior-audio floor.

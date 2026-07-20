@@ -6,7 +6,7 @@
     { "query": "i have 4 clips from my sister's graduation in ./footage - can you make me a 60 second video with some music", "should_trigger": true },
     { "query": "the ending of question 5 got cut off in outputs/final_render.mp4, fix it", "should_trigger": true },
     { "query": "assemble intro.mp4 then demo.mp4 with a title card between them that says CHAPTER TWO", "should_trigger": true },
-    { "query": "this interview is almost 2 hours across 6 files in ./interview - find everywhere she talks about the merger and pull the best takes into a rough cut", "should_trigger": true },
+    { "query": "this interview is almost 2 hours across 6 files in ./interview - find everywhere the speaker talks about the merger and pull the best takes into a rough cut", "should_trigger": true },
     { "query": "can you make promo_v2.mp4 feel more like masterclass_intro.mp4? thats the vibe the client wants", "should_trigger": true },
     { "query": "add subtitles to final_v3.mp4 and burn them in", "should_trigger": true },
     { "query": "I'll finish the edit myself in resolve, just get me a timeline file I can import with the cuts in place", "should_trigger": true },

@@ -104,10 +104,25 @@ export function qaStatus(dirs) {
     }
     if (!files.length) continue;
     const snap = readJsonOrNull(join(qaDir, files[files.length - 1]));
+    const explicit = snap && ["status", "ok", "verified"].every((key) => Object.hasOwn(snap, key));
+    const status = !explicit
+      ? "not-verified"
+      : snap.status === "pass" && snap.ok === true && snap.verified === true
+        ? "pass"
+        : snap.status === "fail" || snap.ok === false
+          ? "fail"
+          : "not-verified";
     return {
       runs: files.length,
       latest: snap
-        ? { passed: snap.passed, total: snap.total, when: snap.timestamp ?? null, ok: snap.passed === snap.total }
+        ? {
+            passed: snap.passed,
+            total: snap.total,
+            when: snap.timestamp ?? null,
+            ok: status === "pass" ? true : status === "fail" ? false : null,
+            status,
+            verified: status === "pass" && snap.verified === true,
+          }
         : null,
     };
   }
@@ -188,7 +203,7 @@ export function computeVerdict({ videoMd, sources, manifestPath, manifestError, 
   if (!videoMd.present) {
     return {
       next: "init",
-      verdict: "No VIDEO.md — interview the user and set standing direction (skill reference/taste.md) before editing.",
+      verdict: "No VIDEO.md — interview the user and set standing direction (Ripple skill, Taste section) before editing.",
     };
   }
   if (sources.count === 0) {
@@ -215,7 +230,13 @@ export function computeVerdict({ videoMd, sources, manifestPath, manifestError, 
   if (renders && (renders.missing > 0 || renders.stale > 0 || !renders.final || renders.final.stale)) {
     return { next: "cut", verdict: "Renders are missing or older than edit.json — run ripple cut." };
   }
-  if (qa.latest && !qa.latest.ok) {
+  if (qa.latest?.status === "not-verified") {
+    return {
+      next: "qa",
+      verdict: `Last QA was not verified (${qa.latest.passed}/${qa.latest.total} executed checks passed) — add content expectations and a transcript, then re-run ripple qa.`,
+    };
+  }
+  if (qa.latest && (qa.latest.status === "fail" || qa.latest.ok === false)) {
     return {
       next: "qa",
       verdict: `Last QA failed (${qa.latest.passed}/${qa.latest.total}) — fix the failing gates and re-run ripple qa.`,

@@ -5,7 +5,8 @@
 //   node evals/run.mjs --only 30,35    run selected cases (id prefix match)
 //   node evals/run.mjs --list          list cases
 //
-// Env: RIPPLE_EVAL_FOOTAGE  dir with the master sample footage (default ~/.ripple/eval-footage)
+// Env: RIPPLE_EVAL_FOOTAGE  dir with the sample footage (default ~/.ripple/eval-footage)
+//      RIPPLE_EVAL_MASTER   full path to the range-locked interview master
 //
 // Results land in evals/runs/<timestamp>/ (gitignored): per-case workspace,
 // agent transcript, final message, result.json, plus a run-level summary.
@@ -20,6 +21,7 @@ import { invokeClaude, invokeCodex, ensureCodexPlugin } from './lib/agents.mjs';
 const EVALS = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.dirname(EVALS);
 const FOOTAGE = process.env.RIPPLE_EVAL_FOOTAGE || path.join(os.homedir(), '.ripple', 'eval-footage');
+const MASTER = process.env.RIPPLE_EVAL_MASTER || path.join(FOOTAGE, 'interview-master.mov');
 const CACHE = path.join(os.homedir(), '.ripple', 'eval-cache');
 const FIXTURES = path.join(EVALS, 'fixtures');
 
@@ -49,13 +51,13 @@ function expand(str) {
     .replaceAll('$ROOT', ROOT);
 }
 
-// Every fixture is cut from the one stable master (IMG_E1223.MOV) into
+// Every fixture is cut from one stable, range-locked interview master into
 // ~/.ripple/eval-cache, so evals never depend on a live project's derived
 // files. Ranges come from the master's original edit.json.
 const FIXTURE_CUTS = [
-  { name: 'loose_married.mp4', ss: 750, t: 33, note: 'raw take: slate + dead air, full answer, throat-clear tail' },
-  { name: 'howmet.mp4', ss: 209, t: 24.3, note: 'trimmed answer ending "…she showed up"' },
-  { name: 'married.mp4', ss: 757, t: 22.0, note: 'trimmed answer: "…just a bonus"' },
+  { name: 'raw-interview.mp4', ss: 750, t: 33, note: 'raw take: slate + dead air, full answer, throat-clear tail' },
+  { name: 'answer-a.mp4', ss: 209, t: 24.3, note: 'first pre-trimmed interview answer' },
+  { name: 'answer-b.mp4', ss: 757, t: 22.0, note: 'second pre-trimmed interview answer' },
   // Whisper drift only shows on LONG sources — audio is copied bit-exact
   // (drift is an audio/whisper phenomenon), video downscaled to keep the
   // fixture ~130MB instead of 1.2GB.
@@ -70,9 +72,9 @@ function prepFixtures() {
   fs.mkdirSync(CACHE, { recursive: true });
   const missing = FIXTURE_CUTS.filter(f => !fs.existsSync(path.join(CACHE, f.name)));
   if (!missing.length) return;
-  const master = path.join(FOOTAGE, 'IMG_E1223.MOV');
+  const master = MASTER;
   if (!fs.existsSync(master)) {
-    console.error(`Master footage not found: ${master} (set RIPPLE_EVAL_FOOTAGE)\nNeeded to build: ${missing.map(f => f.name).join(', ')}`);
+    console.error(`Master footage not found: ${master} (set RIPPLE_EVAL_MASTER or RIPPLE_EVAL_FOOTAGE)\nNeeded to build: ${missing.map(f => f.name).join(', ')}`);
     process.exit(2);
   }
   for (const f of missing) {

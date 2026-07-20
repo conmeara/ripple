@@ -19,12 +19,18 @@ export function run(cmd, args, opts = {}) {
 }
 
 const toolCache = new Map();
+
+export function toolLocatorCommand(platform = process.platform) {
+  return platform === "win32" ? "where.exe" : "which";
+}
+
 export function findTool(names) {
   const key = names.join(",");
   if (toolCache.has(key)) return toolCache.get(key);
+  const locator = toolLocatorCommand();
   for (const name of names) {
-    const which = run("which", [name]);
-    if (which.status === 0 && which.stdout.trim()) {
+    const located = run(locator, [name]);
+    if (located.status === 0 && located.stdout.trim()) {
       toolCache.set(key, name);
       return name;
     }

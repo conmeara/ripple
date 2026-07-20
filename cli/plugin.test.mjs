@@ -32,6 +32,15 @@ test("Claude and Codex manifests expose the same Ripple release", () => {
     assert.match(codex.interface[field], /^\.\/assets\//, `${field} stays in plugin assets`);
     assert.ok(existsSync(resolve(ROOT, codex.interface[field])), `missing ${field}`);
   }
+  assert.deepEqual(codex.interface.screenshots, ["./assets/screenshot-timeline-sheet.png"]);
+  const screenshot = resolve(ROOT, codex.interface.screenshots[0]);
+  assert.ok(existsSync(screenshot), "missing marketplace screenshot");
+  assert.ok(readFileSync(screenshot).byteLength > 100_000, "marketplace screenshot should be a real timeline render");
+  assert.deepEqual(
+    readFileSync(screenshot),
+    readFileSync(join(ROOT, "docs", "assets", "anatomy-of-a-timeline-sheet.png")),
+    "marketplace and README use the same synthetic timeline sheet"
+  );
   assert.ok(existsSync(resolve(ROOT, codex.skills)));
   assert.equal("apps" in codex, false);
   assert.equal("mcpServers" in codex, false);
@@ -126,6 +135,20 @@ test("the plugin-relative CLI path used by Codex is runnable", () => {
   assert.equal(result.stdout.trim(), readJson("package.json").version);
 });
 
+test("the public launcher is a portable Node entry point", () => {
+  const launcher = readFileSync(join(ROOT, "bin", "ripple"), "utf8");
+  assert.match(launcher, /^#!\/usr\/bin\/env node\n/);
+  assert.match(launcher, /import\("\.\.\/cli\/index\.mjs"\)/);
+  assert.doesNotMatch(launcher, /bash|BASH_SOURCE|readlink/);
+
+  const result = spawnSync(process.execPath, [join(ROOT, "bin", "ripple"), "--version"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), readJson("package.json").version);
+});
+
 test("the editor-suite commands dispatch through the CLI registry", () => {
   // Every other test drives the command modules directly, so a dropped or
   // typo'd COMMANDS entry (the user's only entry point) would stay green.
@@ -188,6 +211,36 @@ test("the npm bin survives the .bin symlink npm installs", () => {
   assert.equal(res.stdout.trim(), readJson("package.json").version);
 });
 
+test("the packed npm artifact installs and runs its ripple command", { timeout: 120_000 }, () => {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-packed-install-"));
+  const packDir = join(dir, "pack");
+  const project = join(dir, "project");
+  mkdirSync(packDir, { recursive: true });
+  mkdirSync(project, { recursive: true });
+  writeFileSync(join(project, "package.json"), JSON.stringify({ private: true, type: "module" }));
+
+  const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+  const packed = spawnSync(npm, ["pack", "--json", "--pack-destination", packDir], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  assert.equal(packed.status, 0, packed.stderr);
+  const [{ filename }] = JSON.parse(packed.stdout);
+  const tarball = join(packDir, filename);
+
+  const installed = spawnSync(npm, [
+    "install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund", tarball,
+  ], { cwd: project, encoding: "utf8" });
+  assert.equal(installed.status, 0, installed.stderr);
+
+  const command = spawnSync(npm, ["exec", "--offline", "--", "ripple", "--version"], {
+    cwd: project,
+    encoding: "utf8",
+  });
+  assert.equal(command.status, 0, command.stderr);
+  assert.equal(command.stdout.trim(), readJson("package.json").version);
+});
+
 // ---------- lint-on-write hook ----------
 
 const HOOK = join(ROOT, "hooks", "lint-manifest.mjs");
@@ -246,7 +299,7 @@ function project({ scenes, indexed = true } = {}) {
         version: 4, file: src, duration: 30, hasAudio: true,
         words: [
           { start: 0.3, end: 0.6, text: "We" },
-          { start: 0.7, end: 1.1, text: "met" },
+          { start: 0.7, end: 1.1, text: "work" },
           { start: 1.2, end: 9.2, text: "here." },
           { start: 15.2, end: 15.5, text: "I" },
           { start: 15.6, end: 22.0, text: "do." },
@@ -261,20 +314,21 @@ function project({ scenes, indexed = true } = {}) {
   return dir;
 }
 
-const CLEAN = { id: 1, slug: "met", source: "src.mp4", start: 0, end: 10, status: "locked" };
-const DEAD_TAIL = { id: 2, slug: "vows", source: "src.mp4", start: 15, end: 25, status: "locked" };
+const CLEAN = { id: 1, slug: "opening", source: "src.mp4", start: 0, end: 10, status: "locked" };
+const DEAD_TAIL = { id: 2, slug: "closing", source: "src.mp4", start: 15, end: 25, status: "locked" };
 
 test("a manifest write with findings surfaces a compact summary and never blocks", () => {
   const dir = project({ scenes: [CLEAN, DEAD_TAIL] });
   const { status, stdout } = runHook(writeEvent(dir, "edit.json"), dir);
   assert.equal(status, 0);
   const out = JSON.parse(stdout);
+  assert.deepEqual(Object.keys(out), ["hookSpecificOutput"]);
   assert.equal(out.hookSpecificOutput.hookEventName, "PostToolUse");
-  assert.equal(out.suppressOutput, true);
+  assert.deepEqual(Object.keys(out.hookSpecificOutput).sort(), ["additionalContext", "hookEventName"]);
   assert.equal("decision" in out, false);
   const context = out.hookSpecificOutput.additionalContext;
   assert.match(context, /1 block, 0 warn/);
-  assert.match(context, /\[DEAD_AIR_TAIL\] vows:/);
+  assert.match(context, /\[DEAD_AIR_TAIL\] closing:/);
   assert.match(context, /run `ripple lint` for the full report/);
 });
 
@@ -341,7 +395,7 @@ test("Codex apply_patch envelopes reach the same lint", () => {
     tmpdir()
   );
   assert.equal(status, 0);
-  assert.match(JSON.parse(stdout).hookSpecificOutput.additionalContext, /\[DEAD_AIR_TAIL\] vows:/);
+  assert.match(JSON.parse(stdout).hookSpecificOutput.additionalContext, /\[DEAD_AIR_TAIL\] closing:/);
 });
 
 // ---------- manifest schema ----------
@@ -359,8 +413,8 @@ test("edit.schema.json declares every field the CLI consumes", () => {
   // cut and the safety checks read these per scene — grep `scene.<field>`.
   has(schema.properties.scenes.items, [
     "id", "slug", "source", "start", "end", "expectEnding",
-    "card", "cardFile", "cardDuration", "jcut", "gainDb", "lcut", "transition",
+    "card", "cardFile", "cardDuration", "jcut", "gainDb", "grade", "qa", "lcut", "transition",
   ]);
   // qa's delivery gates.
-  has(schema.properties.qa, ["leakPatterns", "maxTailSilence", "maxLeadingSilence", "maxLoudnessSpread"]);
+  has(schema.properties.qa, ["allowAudioAtEnd", "leakPatterns", "maxTailSilence", "maxLeadingSilence", "maxLoudnessSpread"]);
 });

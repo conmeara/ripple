@@ -5,7 +5,7 @@ import { round3 } from "./util.mjs";
 // that no transcript carries. Terminal pitch (falling = thought complete,
 // level/rising = more coming) is the strongest "safe to cut here" cue after
 // the words themselves. Pure node; parameters calibrated on real interview
-// footage (see reference/perception.md for reliability notes).
+// footage; callers should treat these as measured cues, not editorial truth.
 //
 // IMPORTANT: terminal pitch signals thought-completion, never question
 // detection — wh-questions fall in American English.

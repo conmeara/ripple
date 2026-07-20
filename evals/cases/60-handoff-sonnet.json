@@ -7,8 +7,8 @@
   "prompt": "I'm going to finish this edit in DaVinci Resolve - hand it off.",
   "fixtures": [
     {
-      "from": "$CACHE/loose_married.mp4",
-      "to": "media/loose_married.mp4"
+      "from": "$CACHE/raw-interview.mp4",
+      "to": "media/raw-interview.mp4"
     },
     {
       "from": "$FIXTURES/good-edit.json",
@@ -20,7 +20,7 @@
     }
   ],
   "setup": [
-    "$RIPPLE analyze media/loose_married.mp4"
+    "$RIPPLE analyze media/raw-interview.mp4"
   ],
   "checks": [
     {

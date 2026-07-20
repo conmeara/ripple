@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { resolveManifestPath } from "./status.mjs";
 import { ensureDir, fail, output, parseArgs, round3 } from "./util.mjs";
 
 // Internal module: surfaced as `ripple qa --report` (the review page is a QA
@@ -13,10 +14,102 @@ function img(outDir, path, alt) {
   return `<figure><img src="${esc(relative(outDir, path))}" alt="${esc(alt)}" loading="lazy"><figcaption>${esc(alt)}</figcaption></figure>`;
 }
 
+export function qaCheckStatus(check) {
+  return check.status ?? (check.skipped ? "not-verified" : check.ok ? "pass" : "fail");
+}
+
+export function qaSnapshotStatus(snapshot) {
+  const explicit = snapshot && ["status", "ok", "verified"].every((key) => Object.hasOwn(snapshot, key));
+  if (!explicit) return "not-verified";
+  if (snapshot.status === "pass" && snapshot.ok === true && snapshot.verified === true) return "pass";
+  if (snapshot.status === "fail" || snapshot.ok === false) return "fail";
+  return "not-verified";
+}
+
+export function reviewManifestPath(explicit, cwd = process.cwd()) {
+  return explicit ?? resolveManifestPath(cwd);
+}
+
+export function readQaSnapshotEntries(qaDir, limit = 5) {
+  const files = readdirSync(qaDir)
+    .filter((file) => /^qa-.*\.json$/.test(file))
+    .sort();
+  const entries = [];
+  const unreadable = [];
+  for (const file of files) {
+    const snapshotPath = join(qaDir, file);
+    try {
+      const snapshot = JSON.parse(readFileSync(snapshotPath, "utf8"));
+      if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+        throw new TypeError("snapshot root must be an object");
+      }
+      entries.push({ file, snapshotPath, snapshot });
+    } catch {
+      unreadable.push({ file, snapshotPath });
+    }
+  }
+  return {
+    entries: entries.slice(-limit),
+    unreadable,
+    newestCandidate: files.at(-1) ?? null,
+  };
+}
+
+// A review badge is a statement about the current manifest and current
+// render, not merely the newest JSON filename. Any broken identity/freshness
+// link downgrades the badge to NOT VERIFIED while preserving the historical
+// check rows as evidence.
+export function qaSnapshotEvidence(snapshot, { snapshotPath, manifestPath, currentRender }) {
+  if (!snapshot) return { status: null, detail: "no QA snapshot" };
+  const issues = [];
+  const rawStatus = qaSnapshotStatus(snapshot);
+  if (rawStatus === "pass" && !(snapshot.status === "pass" && snapshot.ok === true && snapshot.verified === true)) {
+    issues.push("snapshot lacks explicit verified PASS fields");
+  }
+
+  const baseDir = dirname(resolve(manifestPath));
+  const expectedManifest = resolve(manifestPath);
+  const recordedManifest = snapshot.manifest ? resolve(baseDir, snapshot.manifest) : null;
+  if (recordedManifest !== expectedManifest) {
+    issues.push(`snapshot manifest ${snapshot.manifest ?? "(missing)"} does not match the review manifest`);
+  }
+
+  const recordedRender = snapshot.file ? resolve(baseDir, snapshot.file) : null;
+  if (!recordedRender || !existsSync(recordedRender)) {
+    issues.push(`snapshot render ${snapshot.file ?? "(missing)"} does not exist`);
+  }
+  if (!currentRender) {
+    issues.push("no current render exists in outputs/");
+  } else if (recordedRender !== resolve(currentRender)) {
+    issues.push(`snapshot target ${snapshot.file ?? "(missing)"} is not the latest render ${relative(baseDir, currentRender)}`);
+  }
+
+  if (!snapshotPath || !existsSync(snapshotPath)) {
+    issues.push("QA snapshot file is missing");
+  } else {
+    const snapshotMtime = statSync(snapshotPath).mtimeMs;
+    const manifestMtime = statSync(expectedManifest).mtimeMs;
+    const snapshotTimestamp = Date.parse(snapshot.timestamp);
+    if (!Number.isFinite(snapshotTimestamp)) issues.push("QA snapshot timestamp is missing or invalid");
+    if (snapshotMtime < manifestMtime) issues.push("QA snapshot predates the manifest");
+    if (Number.isFinite(snapshotTimestamp) && snapshotTimestamp < manifestMtime) issues.push("QA snapshot timestamp predates the manifest");
+    if (recordedRender && existsSync(recordedRender)) {
+      const renderMtime = statSync(recordedRender).mtimeMs;
+      if (renderMtime < manifestMtime) issues.push("render predates the manifest");
+      if (snapshotMtime < renderMtime) issues.push("QA snapshot predates the render");
+      if (Number.isFinite(snapshotTimestamp) && snapshotTimestamp < renderMtime) issues.push("QA snapshot timestamp predates the render");
+    }
+  }
+
+  return issues.length
+    ? { status: "not-verified", detail: issues.join("; ") }
+    : { status: rawStatus, detail: null };
+}
+
 export async function main(argv) {
-  const args = parseArgs(argv, { manifest: "string", out: "string", title: "string" });
-  const manifestPath = args.manifest ?? "edit.json";
-  if (!existsSync(manifestPath)) fail(`Manifest not found: ${manifestPath}. Run /ripple plan first.`, 2);
+  const args = parseArgs(argv, { manifest: "string", file: "string", out: "string", title: "string" });
+  const manifestPath = reviewManifestPath(args.manifest);
+  if (!manifestPath || !existsSync(manifestPath)) fail(`Manifest not found. Expected edit.json or work/edit.json; run /ripple plan first.`, 2);
   const baseDir = dirname(resolve(manifestPath));
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 
@@ -28,12 +121,47 @@ export async function main(argv) {
   const candidatesDir = join(baseDir, "work", "candidates");
   const sheetsDir = join(baseDir, "qa", "frame-sheets");
   const gradesSheet = join(baseDir, "qa", "grades", "grade_contact.jpg");
-  const qaDir = join(baseDir, ".ripple", "qa");
-  const snapshots = existsSync(qaDir)
-    ? readdirSync(qaDir).filter((f) => f.startsWith("qa-")).sort().slice(-5)
-        .map((f) => JSON.parse(readFileSync(join(qaDir, f), "utf8")))
-    : [];
-  const latest = snapshots[snapshots.length - 1] ?? null;
+  const qaDirs = [...new Set([
+    join(baseDir, ".ripple", "qa"),
+    join(process.cwd(), ".ripple", "qa"),
+  ])];
+  let snapshotEntries = [];
+  let unreadableSnapshots = [];
+  let newestSnapshotCandidate = null;
+  for (const qaDir of qaDirs) {
+    if (!existsSync(qaDir)) continue;
+    const loaded = readQaSnapshotEntries(qaDir);
+    if (loaded.entries.length || loaded.unreadable.length) {
+      snapshotEntries = loaded.entries;
+      unreadableSnapshots = loaded.unreadable;
+      newestSnapshotCandidate = loaded.newestCandidate;
+      break;
+    }
+  }
+  const snapshots = snapshotEntries.map((entry) => entry.snapshot);
+  const latestEntry = snapshotEntries.at(-1) ?? null;
+  const latest = latestEntry?.snapshot ?? null;
+  const reviewTarget = args.file
+    ? resolve(args.file)
+    : latest?.file
+      ? resolve(baseDir, latest.file)
+      : null;
+  let latestEvidence = latest
+    ? qaSnapshotEvidence(latest, {
+        snapshotPath: latestEntry.snapshotPath,
+        manifestPath,
+        currentRender: reviewTarget,
+      })
+    : { status: null, detail: null };
+  const newestSnapshotUnreadable = newestSnapshotCandidate
+    && newestSnapshotCandidate !== latestEntry?.file;
+  if (newestSnapshotUnreadable) {
+    const detail = `newest QA snapshot ${newestSnapshotCandidate} is unreadable or incomplete`;
+    latestEvidence = {
+      status: "not-verified",
+      detail: latestEvidence.detail ? `${latestEvidence.detail}; ${detail}` : detail,
+    };
+  }
 
   const sceneRows = (manifest.scenes ?? []).map((s) => {
     const dur = round3(s.end - s.start);
@@ -62,13 +190,22 @@ export async function main(argv) {
         .map((f) => img(outDir, join(sheetsDir, f), `frame sheet — ${f}`)).join("\n")
     : "";
 
-  const qaRows = latest
-    ? latest.checks.map((c) => {
-        const state = c.skipped ? "skip" : c.ok ? "pass" : "fail";
-        return `<tr><td class="mono">${esc(c.id)}</td><td><span class="chip ${state}">${state.toUpperCase()}</span></td><td class="dim">${esc(typeof c.detail === "string" ? c.detail : JSON.stringify(c.detail))}</td></tr>`;
+  const hasQaEvidence = Boolean(latest || newestSnapshotUnreadable);
+  const qaRows = hasQaEvidence
+    ? [
+        ...(latestEvidence.detail ? [{ id: "evidence-current", status: "not-verified", ok: null, detail: latestEvidence.detail }] : []),
+        ...(latest?.checks ?? []),
+      ].map((c) => {
+        const state = qaCheckStatus(c);
+        return `<tr><td class="mono">${esc(c.id)}</td><td><span class="chip ${state}">${state.replace("-", " ").toUpperCase()}</span></td><td class="dim">${esc(typeof c.detail === "string" ? c.detail : JSON.stringify(c.detail))}</td></tr>`;
       }).join("\n")
     : "";
-  const trendLine = snapshots.map((s) => `${s.passed}/${s.total}`).join(" → ");
+  const trendLine = snapshots.map((s) => `${s.passed}/${s.total} ${qaSnapshotStatus(s)}`).join(" → ");
+  const latestStatus = latestEvidence.status;
+  const snapshotWarnings = unreadableSnapshots.map(({ file }) => `ignored unreadable QA snapshot ${file}`);
+  const qaSummary = latest
+    ? `${esc(latest.passed)}/${esc(String(latest.total))} executed checks passed${trendLine ? ` · trend: ${esc(trendLine)}` : ""}`
+    : "no complete snapshot could be read";
 
   const html = `<!doctype html>
 <meta charset="utf-8">
@@ -91,7 +228,7 @@ export async function main(argv) {
   .chip.proposed { color:#d9a54a; border-color:#d9a54a66; }
   .chip.repaired { color:#6a9ec9; border-color:#6a9ec966; }
   .chip.fail { color:#c97a6a; border-color:#c97a6a66; }
-  .chip.skip { color:#6b7078; border-color:#6b707866; }
+  .chip.not-verified, .chip.skip { color:#d9a54a; border-color:#d9a54a66; }
   figure { margin:0 0 16px; } figcaption { color:#6b7078; font-size:12px; margin-top:4px; }
   img { max-width:100%; border-radius:4px; border:1px solid #2a2e38; }
   .scroll { overflow-x:auto; }
@@ -106,7 +243,7 @@ export async function main(argv) {
     ${sceneRows}
   </table></div>
 
-  ${latest ? `<h2>QA — latest run ${esc(latest.passed)}/${esc(String(latest.total))}${trendLine ? ` <span class="dim mono">(trend: ${esc(trendLine)})</span>` : ""}</h2>
+  ${hasQaEvidence ? `<h2>QA — ${esc(latestStatus.replace("-", " ").toUpperCase())} <span class="dim mono">(${qaSummary})</span></h2>
   <div class="scroll"><table><tr><th>CHECK</th><th>RESULT</th><th>DETAIL</th></tr>${qaRows}</table></div>` : ""}
 
   ${existsSync(gradesSheet) ? `<h2>Grade variants</h2>${img(outDir, gradesSheet, "grade comparison (same frame)")}` : ""}
@@ -122,7 +259,10 @@ export async function main(argv) {
     ok: true,
     review: outPath,
     scenes: manifest.scenes?.length ?? 0,
+    qaStatus: latestStatus,
+    qaFile: reviewTarget,
     qaTrend: trendLine || null,
+    ...(snapshotWarnings.length ? { qaSnapshotWarnings: snapshotWarnings } : {}),
     next: `Open it: open "${outPath}" — flag problems by scene slug; repairs stay localized.`,
   });
 }

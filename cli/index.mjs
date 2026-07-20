@@ -84,7 +84,7 @@ const COMMANDS = {
       [--manifest edit.json [--scene slug]]   (--around/--scene) before locking any cut
       [--at T]                    map an output time through the manifest, then zoom its source moment
       [--source-time T --scene slug]  reverse-map a scene's source time into the output timeline
-      [--markers "209:IN,233.3:OUT"]  orange cut lines with time chips
+      [--markers "12.5:IN,36.8:OUT"]  orange cut lines with time chips
       [--marks "A:493.5,B:494.2"]     lettered candidate anchors (image ↔ JSON share IDs)
       [--out path] [--width 1920] [--force] [--no-proxy]`,
   },
@@ -181,7 +181,7 @@ Global:
   --version                       Print the ripple version
 
 All commands print JSON to stdout (including error envelopes: {ok:false, error}).
-Exit codes: 0 success · 1 failed gate or runtime failure · 2 invalid usage or missing tool.
+Exit codes: 0 success · 1 failed gate, incomplete verification, or runtime failure · 2 invalid usage or missing tool.
 `;
 
 const argv = process.argv.slice(2);

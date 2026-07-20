@@ -30,7 +30,6 @@ function emit(context) {
   process.stdout.write(
     `${JSON.stringify({
       hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: context },
-      suppressOutput: true,
     })}\n`
   );
 }

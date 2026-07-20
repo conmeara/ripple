@@ -17,9 +17,8 @@ Lightweight end-to-end evals that check three things before a release:
    Sonnet only the index JSON, only the timeline sheet, or both, and ask for a
    known-ground-truth OUT on a clip whose quiet ending traps single-signal
    reasoning. They measure which perception channel earns its tokens.
-5. **Every scenario is served** — the scenario cases (94–98) put one
-   representative task from each of `docs/scenarios.md`'s four scenarios in
-   front of an agent: demo (motion, no speech), interview at scale (search),
+5. **Every scenario is served** — the scenario cases (94–98) cover five
+   representative jobs: demo (motion, no speech), interview at scale (search),
    fiction-lite (J-cut), multicam (sync), and animation (routing). A capability
    that moves none of these scores is dead weight — this is the kill rule's
    measuring stick.
@@ -30,9 +29,8 @@ Lightweight end-to-end evals that check three things before a release:
 7. **The skill triggers right** — `trigger-set.json` holds 20 realistic positive
    and near-miss queries. Its positives cover both existing-footage work and
    make-from-scratch requests that Ripple should route to specialist production
-   tools. Run skill-creator's trigger eval against the SKILL.md description before
-   shipping description changes. Queries must
-   reference files that exist, and detection must count the real installed skill.
+   tools. `trigger.mjs` tests the real working-tree plugin in isolated Claude
+   and Codex profiles and counts only a Ripple skill invocation.
 
 Agent policy: mostly **Codex** (`gpt-5.5` by default — override with
 `RIPPLE_EVAL_CODEX_MODEL`), some **Claude Sonnet**, one **Claude Opus** case.
@@ -42,9 +40,10 @@ Fable is rejected by the runner.
 
 - `ffmpeg`/`ffprobe`, `whisper-cpp` + a model in `~/.ripple/models/` (`ripple doctor`)
 - `claude` CLI (Claude Code) and `codex` CLI on PATH, both authenticated
-- Sample footage: a single interview master, `IMG_E1223.MOV`, in the footage
-  dir (`RIPPLE_EVAL_FOOTAGE`, default `~/.ripple/eval-footage`; the fixture
-  cuts are range-locked to that specific file). Every fixture is cut from that one master into
+- Sample footage: a single `interview-master.mov` in the footage dir
+  (`RIPPLE_EVAL_FOOTAGE`, default `~/.ripple/eval-footage`; override the full
+  path with `RIPPLE_EVAL_MASTER`). The fixture cuts are range-locked to that
+  file. Every fixture is cut from the master into
   `~/.ripple/eval-cache/` on first run, so evals never depend on a live
   project's derived files. Delete the cache dir to rebuild.
 
@@ -55,12 +54,19 @@ node evals/run.mjs              # full suite (roughly 30-60 min, mostly agent ti
 node evals/run.mjs --list       # list cases
 node evals/run.mjs --only 10    # just the no-agent CLI smoke
 node evals/run.mjs --only 30,80 # plugin vs baseline pair
+node evals/trigger.mjs --host claude,codex --runs 3 --workers 3
 ```
 
 Results land in `evals/runs/<timestamp>/` (gitignored): per-case workspace (`ws/`),
 the agent's full event transcript (`transcript.jsonl`), its final message
 (`final.txt`), `result.json`, and a run-level `summary.md` + `results.json`.
 Exit code is 0 only when every non-baseline case passes.
+
+Trigger results land in `evals/runs/trigger-<timestamp>/`. Each trial keeps its
+raw JSONL, stderr, and classification; run metadata records the commit, dirty
+state, host/model versions, and exact SKILL.md description hash. Classification
+happens while events stream, so a later task timeout cannot erase an invocation.
+A no-hit timeout or host failure is indeterminate, never a miss.
 
 ## How it works
 
@@ -84,17 +90,17 @@ Exit code is 0 only when every non-baseline case passes.
 - Codex runs use `ripple@ripple-local`, reinstalled automatically each run from
   `evals/codex/`. The runner stages a lean, content-versioned plugin bundle from
   the working tree before Codex snapshots it into the plugin cache.
-- The main fixture (`loose_married.mp4`) is a 33s HLG-HDR slice of the
-  interview master containing a leaked "take two" slate, 5s of dead air, a complete
-  answer ending "…just a bonus", and a throat-clear tail — real material for the
+- The main fixture (`raw-interview.mp4`) is a 33s HLG-HDR slice of the
+  interview master containing a leaked slate, 5s of dead air, a complete
+  answer, and a throat-clear tail — real material for the
   slate-leak, endpoint, tail, and HDR-preservation failure modes the plugin
-  exists to prevent. `howmet.mp4` / `married.mp4` are pre-trimmed answers for the
+  exists to prevent. `answer-a.mp4` / `answer-b.mp4` are pre-trimmed answers for the
   assembly and routing cases. `long_qanda.mp4` is a 7.4-minute slice (audio
   copied bit-exact, video downscaled to keep it ~130MB) that reproduces the
   whisper timestamp drift a real session shipped bad cuts from — the drift
   case asserts the index warns and candidates blocks.
 - Checks are deterministic: file existence, ffprobe duration/color bounds,
-  whisper transcript of the *rendered output* (did the ending survive? did the
+  audio correlation and source-window bounds (did the ending survive? did the
   slate leak?), manifest JSON assertions, and greps over the agent transcript
   (did it actually use the plugin?) and final message (did it report honestly?).
 
@@ -134,9 +140,8 @@ Exit code is 0 only when every non-baseline case passes.
 `summary.md` gives the table plus every failing check with its evidence.
 For agent behavior questions, read `transcript.jsonl` (every command the agent
 ran) and `final.txt` (what it told the user). A green 30 with a red 80
-`duration-tight`/`ending-kept` is the expected "plugin helps" signature.
+`duration-tight`/`source-window-preserved` is the expected "plugin helps"
+signature.
 
-Flaky notes: whisper wording can vary slightly between runs; checks only assert
-stable words ("bonus", "coffee", "take"). Agent runs are nondeterministic —
-a single red agent case means read the transcript before calling it a
-regression (same policy as the unit-test suite).
+Agent runs are nondeterministic. A single red agent case means read the
+transcript before calling it a regression (same policy as the unit-test suite).

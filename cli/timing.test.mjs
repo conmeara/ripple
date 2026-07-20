@@ -6,23 +6,23 @@ import {
   sentenceEnds, sentenceSpans, stretchedEndings, subtractSpans,
 } from "./timing.mjs";
 
-// Fixture shaped like the real interview-session failure (scene "chore"):
+// Fixture shaped like a real long-interview endpoint failure:
 // answer ends, ~6s look-down silence, then the next question is quietly
 // read — whisper stretches the last word across the silence and clumps the
 // resumed words at one timestamp.
 const WORDS = [
-  { start: 490.9, end: 491.31, text: "owns" },
+  { start: 490.9, end: 491.31, text: "marks" },
   { start: 491.31, end: 491.47, text: "the" },
-  { start: 491.47, end: 491.84, text: "toilet." },
-  { start: 491.84, end: 492.04, text: "God," },
-  { start: 492.04, end: 492.2, text: "she" },
-  { start: 492.2, end: 492.36, text: "loves" },
-  { start: 492.36, end: 492.6, text: "that" },
-  { start: 492.6, end: 494.8, text: "toilet." }, // end absorbed 1.8s of silence
+  { start: 491.47, end: 491.84, text: "milestone." },
+  { start: 491.84, end: 492.04, text: "Yes," },
+  { start: 492.04, end: 492.2, text: "the" },
+  { start: 492.2, end: 492.36, text: "team" },
+  { start: 492.36, end: 492.6, text: "marks" },
+  { start: 492.6, end: 494.8, text: "milestones." }, // end absorbed 1.8s of silence
   { start: 499.52, end: 499.52, text: "What's" }, // clumped after the pause
-  { start: 499.52, end: 499.52, text: "your" },
-  { start: 499.52, end: 500.04, text: "favorite," },
-  { start: 500.04, end: 500.32, text: "okay," },
+  { start: 499.52, end: 499.52, text: "the" },
+  { start: 499.52, end: 500.04, text: "next" },
+  { start: 500.04, end: 500.32, text: "marker," },
 ];
 const SILENCES = [{ start: 493.0, end: 499.3 }];
 
@@ -44,14 +44,14 @@ test("parseWhisperWords normalizes and filters annotations", () => {
 
 test("clampWordEnds trims a word end absorbed into silence", () => {
   const clamped = clampWordEnds(WORDS, SILENCES);
-  assert.equal(clamped[7].end, 493.0); // "toilet." 494.8 → 493.0
+  assert.equal(clamped[7].end, 493.0); // "milestones." 494.8 → 493.0
   assert.equal(clamped[6].end, 492.6); // untouched
 });
 
 test("cutTiming on the shipped bad cut (end=501) exposes the leak", () => {
   const t = cutTiming(WORDS, SILENCES, { start: 490, end: 501 });
   // The numbers say speech runs to 500.32 — 7.3s past the answer's real end
-  // (493.0). A cut claiming "ends with 'toilet.'" is contradicted by data.
+  // (493.0). A cut claiming it ends at 494.8 is contradicted by the audio.
   assert.equal(t.wordsInRange, 12);
   assert.equal(t.lastWordEnd, 500.32);
   assert.equal(t.tailGap, 0.68);
@@ -62,14 +62,14 @@ test("cutTiming on a correct cut reports the true tail", () => {
   assert.equal(t.lastWordEnd, 493.0); // acoustic end, not whisper's 494.8
   assert.equal(t.tailGap, 2.8); // real dead air inside the cut
   assert.equal(t.nextWordStart, 499.52);
-  assert.equal(t.nextText, "What's your favorite, okay,");
+  assert.equal(t.nextText, "What's the next marker,");
   assert.equal(t.nextAudioStart, 499.3); // silencedetect beats clumped words
   assert.equal(t.straddleEnd, null);
 });
 
 test("cutTiming flags a mid-word cut", () => {
   const t = cutTiming(WORDS, SILENCES, { start: 490, end: 492.5 });
-  assert.equal(t.straddleEnd, "that"); // 492.36–492.6 crosses end
+  assert.equal(t.straddleEnd, "marks"); // 492.36–492.6 crosses end
   assert.equal(t.lastWordEnd, 492.36);
 });
 
@@ -79,7 +79,7 @@ test("cutTiming start-side: leadGap and straddleStart", () => {
   assert.equal(t1.leadGap, 0.9);
   assert.equal(t1.straddleStart, null);
   const t2 = cutTiming(WORDS, SILENCES, { start: 491.0, end: 493 });
-  assert.equal(t2.straddleStart, "owns"); // 490.9–491.31 crosses start
+  assert.equal(t2.straddleStart, "marks"); // 490.9–491.31 crosses start
   assert.equal(t2.leadGap, 0);
 });
 
@@ -113,33 +113,33 @@ test("nonSpeechSpans finds audible-but-wordless regions (the laugh finder)", () 
 
 test("sentenceEnds fires on punctuation and on real gaps", () => {
   const ends = sentenceEnds(WORDS, SILENCES);
-  assert.ok(ends.includes(491.84)); // "toilet." (punctuated)
-  assert.ok(ends.includes(493.0)); // clamped "toilet." + 6s gap
-  assert.ok(!ends.includes(492.04)); // "God," continues
+  assert.ok(ends.includes(491.84)); // "milestone." (punctuated)
+  assert.ok(ends.includes(493.0)); // clamped "milestones." + 6s gap
+  assert.ok(!ends.includes(492.04)); // "Yes," continues
 });
 
 test("sentenceSpans groups words and reports pace", () => {
   const sentences = sentenceSpans(WORDS, SILENCES);
-  assert.equal(sentences[0].text, "owns the toilet.");
+  assert.equal(sentences[0].text, "marks the milestone.");
   assert.equal(sentences[0].start, 490.9);
   assert.equal(sentences[0].end, 491.84);
   assert.equal(sentences[0].words, 3);
   assert.ok(sentences[0].wps > 2 && sentences[0].wps < 4);
-  assert.equal(sentences[1].text, "God, she loves that toilet.");
+  assert.equal(sentences[1].text, "Yes, the team marks milestones.");
 });
 
 test("fillerSpans catches vocalized pauses and restarts, not real words", () => {
   const words = [
     { start: 0, end: 0.3, text: "Um," },
-    { start: 0.4, end: 0.7, text: "she" },
-    { start: 0.8, end: 1.1, text: "she" },
+    { start: 0.4, end: 0.7, text: "we" },
+    { start: 0.8, end: 1.1, text: "we" },
     { start: 1.2, end: 1.5, text: "likes" },
     { start: 1.6, end: 1.9, text: "like" },
   ];
   const spans = fillerSpans(words);
   assert.deepEqual(spans.map((s) => [s.text, s.kind]), [
     ["Um,", "filler"],
-    ["she", "restart"],
+    ["we", "restart"],
   ]);
 });
 
@@ -181,10 +181,10 @@ test("sceneChangesFromMotion finds outlier spikes with a refractory gap", () => 
 test("snapWordStarts pushes drifted word starts out of silence (real case)", () => {
   // Whole-file whisper smeared the resumed question across a 6.8s silence.
   const words = [
-    { start: 492.21, end: 492.92, text: "toilet." },
+    { start: 492.21, end: 492.92, text: "milestone." },
     { start: 492.99, end: 494.93, text: "What's" }, // fully inside silence (20ms after onset)
-    { start: 494.93, end: 496.24, text: "your" },
-    { start: 496.24, end: 499.92, text: "favorite?" }, // starts inside, ends after
+    { start: 494.93, end: 496.24, text: "the" },
+    { start: 496.24, end: 499.92, text: "marker?" }, // starts inside, ends after
     { start: 499.92, end: 500.39, text: "Okay," }, // real word after resume
   ];
   const silences = [{ start: 492.928, end: 499.717 }];
@@ -204,9 +204,9 @@ test("snapWordStarts leaves words in soft speech alone (low overlap)", () => {
   assert.deepEqual(snapped, words);
 });
 
-test("snapWords end-to-end restores acoustic truth on the chore cut", () => {
+test("snapWords end-to-end restores acoustic truth on the endpoint fixture", () => {
   const words = [
-    { start: 492.21, end: 494.8, text: "toilet." }, // end absorbed silence
+    { start: 492.21, end: 494.8, text: "milestone." }, // end absorbed silence
     { start: 492.99, end: 494.93, text: "What's" }, // start drifted into it
   ];
   const silences = [{ start: 492.928, end: 499.717 }];
@@ -306,16 +306,16 @@ test("a mid-file fabrication stranded inside a closed silence is suspect", () =>
 });
 
 test("whisper's backward smear of resumed speech is NOT suspect — its chain reaches the resume", () => {
-  // The chore-cut shape: real resumed speech spread across the pause, last
+  // The endpoint-failure shape: real resumed speech spread across the pause, last
   // word crossing the silence end. The rms over the smeared placements is
   // genuinely dead (the audio lives at the resume), so only the chain test
   // separates this from a fabrication — flagging it would erase nextText
   // and bring the next-question leak back.
   const words = [
-    { start: 492.21, end: 492.92, text: "toilet." },
+    { start: 492.21, end: 492.92, text: "milestone." },
     { start: 492.99, end: 494.93, text: "What's" },
-    { start: 494.93, end: 496.24, text: "your" },
-    { start: 496.24, end: 499.92, text: "favorite?" },
+    { start: 494.93, end: 496.24, text: "the" },
+    { start: 496.24, end: 499.92, text: "marker?" },
   ];
   const silences = [{ start: 492.928, end: 499.717 }];
   const rms = Array.from({ length: 40 }, (_, i) => {

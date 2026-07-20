@@ -89,7 +89,7 @@
     },
     "grade": {
       "type": "object",
-      "description": "The chosen grade preset, recorded in the manifest per the ripple skill's grading guidance (rendered by ripple cut)",
+      "description": "Legacy edit-wide SDR grade fallback. Prefer scenes[].grade so each shot can be corrected independently. Ripple cut applies manifest grade filters only to SDR deliveries; use a color-managed NLE when preserving HDR.",
       "properties": {
         "name": {
           "type": "string"
@@ -247,6 +247,33 @@
             "type": "number",
             "description": "Per-scene dialogue gain in dB \u2014 applied by cut to the clip, segments, and J/L-cut card audio. The fader for qa's dialogue-loudness spread."
           },
+          "grade": {
+            "type": "object",
+            "description": "Per-scene SDR grade recipe. Overrides the edit-wide grade fallback; set filter to null for an explicitly neutral scene. Ripple cut skips manifest grade filters when preserving HDR; use a color-managed NLE for that path.",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "filter": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "ffmpeg filter chain; null = neutral; omitted = inherit the edit-wide SDR grade fallback"
+              }
+            }
+          },
+          "qa": {
+            "type": "object",
+            "description": "Narrow, scene-specific QA declarations.",
+            "properties": {
+              "allowAudioAtEnd": {
+                "type": "boolean",
+                "default": false,
+                "description": "Explicitly allow this scene to carry audio through its OUT. Use only for an intentional, reviewed continuous-audio boundary."
+              }
+            }
+          },
           "lcut": {
             "type": "number",
             "exclusiveMinimum": 0,
@@ -278,6 +305,16 @@
     "qa": {
       "type": "object",
       "properties": {
+        "allowNoAudio": {
+          "type": "boolean",
+          "default": false,
+          "description": "Explicitly allow a final delivery with no audio stream. Use only for an intentional, reviewed silent video."
+        },
+        "allowAudioAtEnd": {
+          "type": "boolean",
+          "default": false,
+          "description": "Explicitly allow the final delivery to end with active audio. Use only for an intentional, reviewed ending."
+        },
         "leakPatterns": {
           "type": "array",
           "items": {

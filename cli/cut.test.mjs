@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   assemblyDuration, assemblyTimeline, buildAssemblyFilter, buildConcatFilter, buildEncodeArgs, buildMusicFilter, buildSceneVf, clipName, directJoins, geometryChain, jumpCutFinding, jumpCutReading, microFadeChain, MICRO_FADE, offBeatFinding, segmentBoundaries,
-  expectedLeadingSilence, setparamsFilter, validateManifest,
+  expectedLeadingSilence, resolveGradeFilter, setparamsFilter, validateManifest,
 } from "./cut.mjs";
 
 function sceneFixture(overrides = {}) {
@@ -84,6 +84,34 @@ test("buildSceneVf composes scale, fps, grade, and format in order", () => {
   assert.ok(vf.indexOf("scale=1920:1080") < vf.indexOf("fps=24000/1001"));
   assert.ok(vf.indexOf("fps=") < vf.indexOf("eq=saturation"));
   assert.ok(vf.indexOf("eq=saturation") < vf.indexOf("format=yuv420p"));
+});
+
+test("per-scene grades override the edit fallback, including explicit neutral", () => {
+  const fallback = { name: "warm", filter: "eq=saturation=1.1" };
+  assert.equal(resolveGradeFilter(fallback, undefined, { mode: "sdr" }), "eq=saturation=1.1");
+  assert.equal(
+    resolveGradeFilter(fallback, { name: "cool", filter: "colortemperature=temperature=4800" }, { mode: "sdr" }),
+    "colortemperature=temperature=4800"
+  );
+  assert.equal(resolveGradeFilter(fallback, { name: "neutral", filter: null }, { mode: "sdr" }), null);
+  assert.equal(resolveGradeFilter(fallback, { name: "warm note" }, { mode: "sdr" }), "eq=saturation=1.1");
+  assert.equal(resolveGradeFilter(fallback, undefined, { mode: "hdr" }), null);
+});
+
+test("validateManifest rejects malformed edit and scene grades", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ripple-test-"));
+  writeFileSync(join(dir, "src.mp4"), "stub");
+  const errors = validateManifest(
+    {
+      version: 1,
+      grade: { filter: 12 },
+      scenes: [sceneFixture({ grade: { name: false, filter: ["eq=saturation=2"] } })],
+    },
+    dir
+  );
+  assert.ok(errors.some((error) => error.includes("manifest: grade.filter")));
+  assert.ok(errors.some((error) => error.includes("scene intro: grade.name")));
+  assert.ok(errors.some((error) => error.includes("scene intro: grade.filter")));
 });
 
 test("buildConcatFilter normalizes every input and concats once", () => {

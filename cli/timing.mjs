@@ -24,7 +24,7 @@ export function parseWhisperWords(whisperJson) {
 }
 
 // Whisper lets a word's end timestamp absorb the silence that follows it
-// ("toilet." spanning 492.6–494.8 across 2s of dead air). Clamp each word's
+// ("milestone." spanning 492.6–494.8 across 2s of dead air). Clamp each word's
 // end to the start of any silence span that begins inside the word.
 export function clampWordEnds(words, silences) {
   return words.map((w) => {
@@ -37,8 +37,8 @@ export function clampWordEnds(words, silences) {
 }
 
 // Symmetric fusion: whisper also smears the START of speech that resumes
-// after a long pause backward into the silence (observed: "What's your
-// favorite?" placed 4.5s early, spread across a 6.8s silence). A word cannot
+// after a long pause backward into the silence (observed: "What's the
+// marker?" placed 4.5s early, spread across a 6.8s silence). A word cannot
 // start inside real silence — push it to where audio resumes. Words fully
 // swallowed by a silence span collapse to zero width at the resume point
 // (matching whisper's own clumping; their text still matters for nextText).
@@ -112,8 +112,8 @@ export function markSuspectWords(words, {
     return samples.length > 0 && samples.every((v) => v.db <= floorDb);
   };
   // Smear exemption: whisper drags resumed speech backward across a pause as
-  // a CONTIGUOUS chain of words that reaches the resume point ("What's your
-  // favorite?" spread over a 6.8s silence, its last word crossing the
+  // a CONTIGUOUS chain of words that reaches the resume point ("What's the
+  // marker?" spread over a 6.8s silence, its last word crossing the
   // silence end). A chain that gets within resumeSlack of the silence end is
   // mis-timed real speech — snapWords will repair it. A chain stranded
   // mid-silence ("Thanks for watching." ending 13s before audio resumes) is
@@ -390,7 +390,7 @@ export function sentenceSpans(words, silences, { minGap = 0.4 } = {}) {
 const FILLER_RE = /^(um+|uh+|erm+|hmm+|mhm+|ah+|eh+)[,.]?$/i;
 
 // Filler-word spans: the exact removable ranges for a "tighter" pass, plus
-// immediate word repeats (restarts: "she— she owns"). The only judgment left
+// immediate word repeats (restarts: "we— we mark"). The only judgment left
 // for the model is whether removal creates a jump cut.
 export function fillerSpans(allWords, { fillers = FILLER_RE } = {}) {
   const words = realWords(allWords);

@@ -12,7 +12,9 @@ import {
 // Optional ffmpeg filters worth knowing about before choosing a pipeline.
 // drawtext is famously absent from many builds (title cards); the rest
 // gate specific techniques.
-const INTERESTING_FILTERS = ["drawtext", "tile", "zoompan", "loudnorm", "libplacebo"];
+const INTERESTING_FILTERS = [
+  "zscale", "drawtext", "subtitles", "ass", "tile", "zoompan", "loudnorm", "libplacebo",
+];
 
 const MEDIA_RE = /\.(mov|mp4|mkv|webm|m4v|avi|mts|m2ts|mxf|mp3|wav|m4a|aac|flac|aiff|ogg)$/i;
 // Derived/managed dirs an editor's bin never shows.
@@ -25,6 +27,38 @@ const CLIPS_DIR_RE = /^clips(_.+)?$/;
 
 function skipDir(name) {
   return SKIP_DIRS.has(name) || CLIPS_DIR_RE.test(name);
+}
+
+export function filterCapabilitiesFromText(text) {
+  const available = {};
+  for (const filter of INTERESTING_FILTERS) {
+    available[filter] = new RegExp(`\\s${filter}\\s`).test(text);
+  }
+  // Both filters are provided by ffmpeg's libass integration. Expose the
+  // library-level capability the skill talks about as well as the raw names.
+  available.libass = available.subtitles && available.ass;
+  if (!available.drawtext) {
+    available.note =
+      "drawtext unavailable — render title cards via HyperFrames/Remotion or ImageMagick PNG + loop, not drawtext.";
+  }
+  return available;
+}
+
+export function probeFilters({ findToolFn = findTool, runFn = run } = {}) {
+  const ffmpeg = findToolFn(["ffmpeg"]);
+  if (!ffmpeg) return { error: "ffmpeg not found on PATH" };
+  const res = runFn(ffmpeg, ["-hide_banner", "-filters"]);
+  if (res.status !== 0) return { error: res.stderr.trim() || "ffmpeg -filters failed" };
+  return filterCapabilitiesFromText(res.stdout);
+}
+
+export function attachFilterCapabilities(result, ffmpegFilters) {
+  result.ffmpegFilters = ffmpegFilters;
+  if (ffmpegFilters.error) {
+    result.ok = false;
+    result.error = `ffmpeg capability probe failed: ${ffmpegFilters.error}`;
+  }
+  return result;
 }
 
 export function findMedia(root, { maxDepth = 3 } = {}) {
@@ -103,6 +137,15 @@ export async function main(argv) {
   const args = parseArgs(argv, { filters: "boolean", "analysis-dir": "string" });
   const target = args._[0];
 
+  // Capability discovery is useful before a source exists. With no target,
+  // --filters answers only that question instead of silently returning a bin.
+  if (args.filters && !target) {
+    const ffmpegFilters = probeFilters();
+    output({ ok: !ffmpegFilters.error, ffmpegFilters });
+    if (ffmpegFilters.error) process.exit(1);
+    return;
+  }
+
   // No file (or a directory) = the bin listing.
   const isDir = target && existsSync(target) && statSync(target).isDirectory();
   if (!target || isDir) {
@@ -147,22 +190,9 @@ export async function main(argv) {
   };
 
   if (args.filters) {
-    const ffmpeg = findTool(["ffmpeg"]);
-    if (ffmpeg) {
-      const res = run(ffmpeg, ["-hide_banner", "-filters"]);
-      const available = {};
-      for (const f of INTERESTING_FILTERS) {
-        available[f] = new RegExp(`\\s${f}\\s`).test(res.stdout);
-      }
-      result.ffmpegFilters = available;
-      if (!available.drawtext) {
-        result.ffmpegFilters.note =
-          "drawtext unavailable — render title cards via HyperFrames/Remotion or ImageMagick PNG + loop, not drawtext.";
-      }
-    } else {
-      result.ffmpegFilters = { error: "ffmpeg not found on PATH" };
-    }
+    attachFilterCapabilities(result, probeFilters());
   }
 
   output(result);
+  if (!result.ok) process.exit(1);
 }

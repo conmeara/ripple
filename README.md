@@ -78,9 +78,11 @@ ripple timeline-sheet interview.mov
 
 ## Hook
 
-The plugin runs the same fail-open hook in Claude Code and Codex. After
-`edit.json` changes, it surfaces a compact cut-safety summary without blocking
-the write; the agent still runs `ripple lint` before rendering.
+After `edit.json` changes, Ripple's fail-open hook surfaces cached cut-safety
+findings without blocking the write. Claude Code loads it with the plugin. In
+the first Codex session, **Hooks need review** appears: choose **Review hooks**,
+inspect Ripple's command, then trust it. Codex runs only trusted unmanaged
+hooks. The agent still runs `ripple lint` before rendering.
 
 ## Skill
 
@@ -114,8 +116,8 @@ standing direction until the user approves it.
 
 After every render or repair, Ripple gives a read-only
 [`qa-reviewer`](agents/qa-reviewer.md) subagent a narrow checklist for what
-changed. It returns `PASS` or `FAIL` with direct evidence and cannot edit or
-re-render the video.
+changed. It returns `PASS`, `FAIL`, or `NOT VERIFIED` with direct evidence and
+cannot edit or re-render the video.
 
 ![Ripple uses a separate read-only QA reviewer and loops failed checks through a narrow repair and fresh review](docs/assets/ripple-qa-loop.svg)
 

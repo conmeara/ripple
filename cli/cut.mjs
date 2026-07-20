@@ -17,6 +17,20 @@ export function validateManifest(manifest, baseDir = ".") {
     return errors;
   }
   const slugs = new Set();
+  const validateGrade = (grade, where) => {
+    if (grade === undefined) return;
+    if (!grade || typeof grade !== "object" || Array.isArray(grade)) {
+      errors.push(`${where}: grade must be an object`);
+      return;
+    }
+    if (grade.name !== undefined && typeof grade.name !== "string") {
+      errors.push(`${where}: grade.name must be a string`);
+    }
+    if (grade.filter !== undefined && grade.filter !== null && typeof grade.filter !== "string") {
+      errors.push(`${where}: grade.filter must be a string or null`);
+    }
+  };
+  validateGrade(manifest.grade, "manifest");
   for (const s of scenes) {
     const where = `scene ${s.slug ?? s.id ?? "?"}`;
     if (!s.slug) errors.push(`${where}: missing slug`);
@@ -28,6 +42,7 @@ export function validateManifest(manifest, baseDir = ".") {
       errors.push(`${where}: start/end invalid (start=${s.start}, end=${s.end})`);
     }
     if (s.gainDb !== undefined && typeof s.gainDb !== "number") errors.push(`${where}: gainDb must be a number`);
+    validateGrade(s.grade, where);
     if (s.cardDuration !== undefined && !(typeof s.cardDuration === "number" && s.cardDuration > 0)) {
       errors.push(`${where}: cardDuration must be a positive number`);
     }
@@ -379,6 +394,18 @@ export function buildSceneVf({ color, gradeFilter, width, height, fps, pixFmt, f
   return `setpts=PTS-STARTPTS${size},fps=${fps}${grade},format=${pixFmt}${setparamsFilter(color)}`;
 }
 
+// A scene grade overrides the legacy manifest-wide fallback, including an
+// explicit `filter: null` neutral override. SDR recipes are never applied to
+// an HDR-preserving pipeline: that conversion needs its own approved chain.
+export function resolveGradeFilter(manifestGrade, sceneGrade, color) {
+  if (color.mode !== "sdr") return null;
+  // Only an explicit scene filter overrides the fallback. A name-only scene
+  // annotation must not silently erase an edit-wide recipe; filter:null is
+  // the deliberate neutral override described by the schema and skill.
+  if (sceneGrade && Object.hasOwn(sceneGrade, "filter")) return sceneGrade.filter;
+  return manifestGrade?.filter ?? null;
+}
+
 export function buildConcatFilter(n, { width, height, fps, pixFmt, color, fit, cropRect }) {
   const parts = [];
   const size = geometryChain({ width, height, fit, cropRect }); // leading comma or ""
@@ -571,9 +598,11 @@ export async function main(argv) {
   }
 
   const enc = buildEncodeArgs({ profile, color, encoders });
-  const gradeFilter = color.mode === "sdr" ? manifest.grade?.filter ?? null : null;
-  const gradeSkipped = color.mode === "hdr" && manifest.grade?.filter
-    ? "grade filter skipped: SDR grade presets on HDR footage would break color — grade HDR explicitly or deliver SDR"
+  const requestedSceneGrades = manifest.scenes
+    .filter((scene) => resolveGradeFilter(manifest.grade, scene.grade, { mode: "sdr" }))
+    .map((scene) => scene.slug);
+  const gradeSkipped = color.mode === "hdr" && requestedSceneGrades.length
+    ? `grade filter not applied to preserved-HDR scene(s): ${requestedSceneGrades.join(", ")}: Ripple's manifest grade filters are SDR-only — hand off to a color-managed NLE or explicitly deliver SDR`
     : null;
 
   // 30ms audio fades at every footage cut boundary, on by default; the manifest
@@ -597,9 +626,13 @@ export async function main(argv) {
   // transitioned joins (exact -t durations + the incoming transition).
   const segMeta = [];
 
-  const geo = { color, gradeFilter, width, height, fps, pixFmt: enc.pixFmt, fit, cropRect };
+  const geo = { color, width, height, fps, pixFmt: enc.pixFmt, fit, cropRect };
 
   for (const scene of scenes) {
+    const sceneGeo = {
+      ...geo,
+      gradeFilter: resolveGradeFilter(manifest.grade, scene.grade, color),
+    };
     const src = resolve(baseDir, scene.source);
     const duration = round3(scene.end - scene.start);
     const lcut = scene.lcut ?? 0;
@@ -615,7 +648,7 @@ export async function main(argv) {
         [
           "-ss", String(scene.start), "-t", String(duration), "-i", src,
           "-map", "0:v:0", "-map", "0:a:0",
-          "-vf", buildSceneVf(geo),
+          "-vf", buildSceneVf(sceneGeo),
           "-af", `asetpts=PTS-STARTPTS,aresample=48000${sceneGain(scene)}${microFadeChain(duration, { enabled: microFades })}`,
           ...enc.video, ...enc.audio, "-movflags", "+faststart", clipPath,
         ],
@@ -715,7 +748,7 @@ export async function main(argv) {
         [
           "-ss", String(round3(scene.start + jcut)), "-t", String(bodyDur), "-i", src,
           "-map", "0:v:0", "-map", "0:a:0",
-          "-vf", buildSceneVf(geo),
+          "-vf", buildSceneVf(sceneGeo),
           // jcut>0: head continues the card's J-cut audio (same take) — no fade
           // in. lcut>0: tail continues under the NEXT card's L-cut audio — no
           // fade out. Fading either would dip mid-phrase.

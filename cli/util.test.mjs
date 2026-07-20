@@ -3,8 +3,17 @@ import { test } from "node:test";
 import { mkdirSync, mkdtempSync, renameSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { detectHdr, fileStamp, parseArgs, parseLoudnorm, parseSilence, round3, silenceEdges } from "./util.mjs";
+import {
+  detectHdr, fileStamp, parseArgs, parseLoudnorm, parseSilence, round3, silenceEdges,
+  toolLocatorCommand,
+} from "./util.mjs";
 import { contentGatePlan } from "./qa.mjs";
+
+test("tool discovery uses the native PATH locator on each platform", () => {
+  assert.equal(toolLocatorCommand("win32"), "where.exe");
+  assert.equal(toolLocatorCommand("darwin"), "which");
+  assert.equal(toolLocatorCommand("linux"), "which");
+});
 
 test("content gates run whenever a transcript is available or obtainable", () => {
   assert.equal(contentGatePlan({ hasTranscript: true, transcribeRequested: false, whisperReady: false, expectsContent: true }), "run");

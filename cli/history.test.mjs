@@ -42,6 +42,53 @@ test("diffManifests: add/remove/reorder/top-level", () => {
   assert.ok(diffManifests(BASE, BASE).identical);
 });
 
+test("diffManifests records per-scene grade and QA declarations", () => {
+  const b = structuredClone(BASE);
+  b.scenes[0].grade = { name: "warm", filter: "colortemperature=temperature=6500" };
+  b.scenes[0].qa = { allowAudioAtEnd: true };
+  const changes = diffManifests(BASE, b).changed[0].changes;
+  assert.deepEqual(changes.grade.to, b.scenes[0].grade);
+  assert.deepEqual(changes.qa.to, b.scenes[0].qa);
+});
+
+test("diffManifests surfaces QA endings and audio micro-fade behavior", () => {
+  const b = structuredClone(BASE);
+  b.audioMicroFades = false;
+  b.scenes[0].expectEnding = "the final frame";
+  const d = diffManifests(BASE, b);
+  assert.notEqual(manifestHash(BASE), manifestHash(b));
+  assert.equal(d.identical, false);
+  assert.deepEqual(d.top.audioMicroFades, { from: null, to: false });
+  assert.deepEqual(d.changed[0].changes.expectEnding, { from: null, to: "the final frame" });
+});
+
+test("diffManifests includes the scene's full editorial state", () => {
+  const b = structuredClone(BASE);
+  Object.assign(b.scenes[0], {
+    id: 9,
+    title: "Opening answer",
+    take: "take 3",
+    candidates: [{ start: 8, end: 12, note: "earlier option" }],
+    reasoning: "cleanest complete delivery",
+    status: "locked",
+  });
+  const changes = diffManifests(BASE, b).changed[0].changes;
+  for (const field of ["id", "title", "take", "candidates", "reasoning", "status"]) {
+    assert.ok(changes[field], `${field} must be visible in history`);
+    assert.deepEqual(changes[field].to, b.scenes[0][field]);
+  }
+});
+
+test("diffManifests does not call future manifest fields identical", () => {
+  const b = structuredClone(BASE);
+  b.deliveryPolicy = { watermark: false };
+  b.scenes[0].reviewNote = "approved by user";
+  const d = diffManifests(BASE, b);
+  assert.equal(d.identical, false);
+  assert.deepEqual(d.top.deliveryPolicy.to, b.deliveryPolicy);
+  assert.equal(d.changed[0].changes.reviewNote.to, "approved by user");
+});
+
 test("snapshot save/list dedups identical manifests", () => {
   const dir = mkdtempSync(join(tmpdir(), "ripple-hist-"));
   const first = saveSnapshot(BASE, { label: "first", dir });
@@ -61,19 +108,19 @@ test("snapshot save/list dedups identical manifests", () => {
 
 test("searchWords: exact word sequence, punctuation- and case-insensitive", () => {
   const words = [
-    { start: 1, end: 1.3, text: "God," },
-    { start: 1.3, end: 1.5, text: "she" },
-    { start: 1.5, end: 1.8, text: "loves" },
-    { start: 1.8, end: 2.1, text: "that" },
-    { start: 2.1, end: 2.5, text: "toilet." },
-    { start: 5, end: 5.4, text: "toilet" },
+    { start: 1, end: 1.3, text: "Yes," },
+    { start: 1.3, end: 1.5, text: "the" },
+    { start: 1.5, end: 1.8, text: "team" },
+    { start: 1.8, end: 2.1, text: "marks" },
+    { start: 2.1, end: 2.5, text: "milestones." },
+    { start: 5, end: 5.4, text: "milestones" },
   ];
-  const hits = searchWords(words, "loves that toilet");
+  const hits = searchWords(words, "team marks milestones");
   assert.equal(hits.length, 1);
   assert.equal(hits[0].start, 1.5);
   assert.equal(hits[0].end, 2.5);
-  assert.equal(searchWords(words, "TOILET").length, 2);
-  assert.equal(searchWords(words, "she hates").length, 0);
+  assert.equal(searchWords(words, "MILESTONES").length, 2);
+  assert.equal(searchWords(words, "team misses").length, 0);
   assert.equal(searchWords(words, "").length, 0);
   assert.equal(searchWords(null, "x").length, 0);
 });

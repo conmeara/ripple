@@ -57,7 +57,22 @@ function loadManifest(path) {
   return parsed.manifest && parsed.savedAt ? { manifest: parsed.manifest, label: parsed.label } : { manifest: parsed };
 }
 
-const SCENE_FIELDS = ["source", "start", "end", "card", "cardFile", "cardDuration", "jcut", "lcut", "transition", "gainDb"];
+const SCENE_FIELDS = [
+  "id", "title", "source", "start", "end", "take", "candidates", "reasoning", "status", "expectEnding",
+  "card", "cardFile", "cardDuration", "jcut", "lcut", "transition", "gainDb", "grade", "qa",
+];
+const TOP_FIELDS = ["music", "output", "color", "grade", "qa", "title", "audioMicroFades", "version"];
+
+// Known schema fields keep their established, readable order. Including any
+// extra keys makes history forward-compatible: a future manifest field must
+// not change manifestHash while the human diff still says "identical."
+function diffFields(a, b, known, excluded = []) {
+  const seen = new Set([...known, ...excluded]);
+  const extra = [...new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})])]
+    .filter((key) => !seen.has(key))
+    .sort();
+  return [...known, ...extra];
+}
 
 export function diffManifests(a, b) {
   const aScenes = new Map((a.scenes ?? []).map((s) => [s.slug, s]));
@@ -70,7 +85,7 @@ export function diffManifests(a, b) {
     const sb = bScenes.get(slug);
     if (!sb) continue;
     const changes = {};
-    for (const field of SCENE_FIELDS) {
+    for (const field of diffFields(sa, sb, SCENE_FIELDS, ["slug"])) {
       if (JSON.stringify(sa[field]) !== JSON.stringify(sb[field])) {
         changes[field] = { from: sa[field] ?? null, to: sb[field] ?? null };
       }
@@ -85,7 +100,7 @@ export function diffManifests(a, b) {
   const reordered = JSON.stringify(aOrder) !== JSON.stringify(bOrder);
 
   const top = {};
-  for (const key of ["music", "output", "color", "grade", "qa", "title"]) {
+  for (const key of diffFields(a, b, TOP_FIELDS, ["scenes"])) {
     if (JSON.stringify(a[key]) !== JSON.stringify(b[key])) {
       top[key] = { from: a[key] ?? null, to: b[key] ?? null };
     }

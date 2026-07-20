@@ -37,7 +37,7 @@ function project({ scenes } = {}) {
       version: 4, file: src, duration: 30, hasAudio: true,
       words: [
         { start: 0.3, end: 0.6, text: "We" },
-        { start: 0.7, end: 1.1, text: "met" },
+        { start: 0.7, end: 1.1, text: "work" },
         { start: 1.2, end: 9.2, text: "here." },
         { start: 15.2, end: 15.5, text: "I" },
         { start: 15.6, end: 22.0, text: "do." },
@@ -51,8 +51,8 @@ function project({ scenes } = {}) {
   return dir;
 }
 
-const CLEAN = { id: 1, slug: "met", source: "src.mp4", start: 0, end: 10, status: "locked" };
-const DEAD_TAIL = { id: 2, slug: "vows", source: "src.mp4", start: 15, end: 25, status: "locked" };
+const CLEAN = { id: 1, slug: "opening", source: "src.mp4", start: 0, end: 10, status: "locked" };
+const DEAD_TAIL = { id: 2, slug: "closing", source: "src.mp4", start: 15, end: 25, status: "locked" };
 
 test("clean manifest: ok envelope, exit 0", () => {
   const dir = project({ scenes: [CLEAN] });
@@ -69,15 +69,15 @@ test("a block finding fails the gate: ok:false, exit 1, hint present", () => {
   assert.equal(status, 1);
   assert.equal(json.ok, false);
   assert.equal(json.summary.block, 1);
-  assert.equal(json.findings.find((f) => f.code === "DEAD_AIR_TAIL").scene, "vows");
+  assert.equal(json.findings.find((f) => f.code === "DEAD_AIR_TAIL").scene, "closing");
   assert.match(json.hint, /re-scope the cut/);
 });
 
 test("--scene lints only the named scene; a miss is a usage error", () => {
   const dir = project({ scenes: [CLEAN, DEAD_TAIL] });
-  const ok = runLint(["edit.json", "--scene", "met"], dir);
+  const ok = runLint(["edit.json", "--scene", "opening"], dir);
   assert.equal(ok.status, 0);
-  assert.deepEqual(ok.json.scenes, ["met"]);
+  assert.deepEqual(ok.json.scenes, ["opening"]);
   const miss = runLint(["edit.json", "--scene", "nope"], dir);
   assert.equal(miss.status, 2);
   assert.equal(miss.json.ok, false);
@@ -146,7 +146,7 @@ test("a drift-suspect index warns per scene and points to driftCheck", () => {
   const f = json.findings.find((x) => x.code === "DRIFT_SUSPECT");
   assert.ok(f, JSON.stringify(json.findings));
   assert.equal(f.severity, "warn");
-  assert.equal(f.scene, "met");
+  assert.equal(f.scene, "opening");
   assert.match(f.detail, /driftCheck/);
 });
 

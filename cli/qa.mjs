@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { basename, dirname, join, resolve } from "node:path";
 import { assemblyTimeline, clipName, expectedLeadingSilence } from "./cut.mjs";
 import { resolveManifestPath } from "./status.mjs";
 import {
@@ -7,9 +8,136 @@ import {
 } from "./util.mjs";
 
 const DEFAULT_LEAK_PATTERNS = ["next question", "take [0-9]"];
+const SILENCE_THRESHOLDS_DB = [-35, -40, -45];
 
 function check(id, ok, detail) {
-  return { id, ok: Boolean(ok), detail };
+  const passed = Boolean(ok);
+  return { id, ok: passed, status: passed ? "pass" : "fail", verified: true, detail };
+}
+
+function notVerifiedCheck(id, detail) {
+  return { id, ok: null, status: "not-verified", verified: false, skipped: true, detail };
+}
+
+// Silence detection runs on the audio stream, whose EOF may be a few frames
+// earlier than the video/container EOF. Comparing detector timestamps to the
+// format duration made real trailing silence look like `0s` (the case-40
+// false green). Always close silence spans on the timeline they were measured
+// against.
+export function audioTimelineDuration(probe) {
+  const audio = (probe?.streams ?? []).find((s) => s.codec_type === "audio");
+  if (!audio) return null;
+  const streamDuration = Number(audio.duration);
+  if (streamDuration > 0) return streamDuration;
+  const formatDuration = Number(probe?.format?.duration);
+  return formatDuration > 0 ? formatDuration : null;
+}
+
+export function measuredSilenceEdges(stderr, probe) {
+  const duration = audioTimelineDuration(probe);
+  return duration ? silenceEdges(parseSilence(stderr), duration) : null;
+}
+
+export function conservativeSilenceEdges(measurements) {
+  return {
+    leading: round3(Math.min(...measurements.map((m) => m.leading))),
+    tail: round3(Math.min(...measurements.map((m) => m.tail))),
+  };
+}
+
+export function trailingRmsSilence(frames, duration, thresholdDb = -48) {
+  if (!frames.length || !(duration > 0)) return 0;
+  const deltas = frames.slice(1).map((f, i) => f.time - frames[i].time).filter((n) => n > 0 && n < 1);
+  const frameDuration = deltas.length ? deltas.sort((a, b) => a - b)[Math.floor(deltas.length / 2)] : 0;
+  const lastActive = frames.findLast((f) => f.db > thresholdDb);
+  const activeEnd = lastActive ? lastActive.time + frameDuration : 0;
+  return round3(Math.max(0, duration - activeEnd));
+}
+
+function detectRmsTail(ffmpeg, file, probe, thresholdDb = -48) {
+  const duration = audioTimelineDuration(probe);
+  const res = run(ffmpeg, [
+    "-hide_banner", "-nostats", "-i", file, "-vn", "-map", "0:a:0",
+    "-af", "asetpts=N/SR/TB,astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level",
+    "-f", "null", "-",
+  ]);
+  if (res.status !== 0) return { ok: false, error: `RMS edge analysis failed: ${res.stderr.trim().slice(-180)}` };
+  const frames = [];
+  let time = null;
+  for (const line of res.stderr.split("\n")) {
+    const pts = line.match(/pts_time:([\d.]+)/);
+    if (pts) time = Number(pts[1]);
+    const rms = line.match(/lavfi\.astats\.Overall\.RMS_level=(-?inf|-?[\d.]+)/i);
+    if (rms && time !== null) {
+      frames.push({ time, db: rms[1].toLowerCase() === "-inf" ? -Infinity : Number(rms[1]) });
+    }
+  }
+  if (!frames.length) return { ok: false, error: "RMS edge analysis returned no audio frames" };
+  return { ok: true, tail: trailingRmsSilence(frames, duration, thresholdDb), thresholdDb };
+}
+
+function detectSilenceEdges(ffmpeg, file, probe) {
+  const measurements = [];
+  for (const noiseDb of SILENCE_THRESHOLDS_DB) {
+    const res = run(ffmpeg, [
+      "-hide_banner", "-nostats", "-i", file,
+      "-vn", "-map", "0:a:0", "-af", `silencedetect=noise=${noiseDb}dB:d=0.25`, "-f", "null", "-",
+    ]);
+    if (res.status !== 0) {
+      return { ok: false, error: `silencedetect ${noiseDb}dB failed: ${res.stderr.trim().slice(-180)}` };
+    }
+    const edges = measuredSilenceEdges(res.stderr, probe);
+    measurements.push({ noiseDb, ...edges });
+  }
+  const rms = detectRmsTail(ffmpeg, file, probe);
+  if (!rms.ok) return rms;
+  const edges = conservativeSilenceEdges(measurements);
+  // silencedetect is peak-sensitive; encoded room tone can briefly cross
+  // -45dB even while the whole end window sits around -54dB. RMS catches that
+  // sustained dead tail. Taking the longer tail is conservative: quiet speech
+  // can trigger review, but it can never be mislabeled as a safe boundary.
+  edges.tail = round3(Math.max(edges.tail, rms.tail));
+  const evidence = measurements.map((m) => `${m.noiseDb}dB: lead ${m.leading}s / tail ${m.tail}s`).join(", ") +
+    `, RMS ${rms.thresholdDb}dB: tail ${rms.tail}s`;
+  return { ok: true, edges, measurements, rms, evidence };
+}
+
+// A natural dialogue cut needs some measured room tone after the last sound,
+// but not an excessive dead tail. Audio right up to OUT is allowed only when
+// a machine-readable manifest field explains it. The exemption never excuses
+// too much silence.
+export function assessTailSilence({ tail, maxTail, exemption = null }) {
+  if (tail > maxTail) {
+    return { ok: false, detail: `${tail}s trailing silence (max ${maxTail}s)` };
+  }
+  if (tail <= 0 && !exemption) {
+    return {
+      ok: false,
+      detail: `0s trailing silence — audio reaches the cut boundary; set an explicit allowAudioAtEnd only when that overlap is intentional`,
+    };
+  }
+  if (tail <= 0) {
+    return { ok: true, detail: `0s trailing silence; boundary audio explicitly allowed by ${exemption}` };
+  }
+  return { ok: true, detail: `${tail}s trailing silence (max ${maxTail}s)` };
+}
+
+export function tailAudioExemption({ manifest, scene } = {}) {
+  if (scene) {
+    if (scene.qa?.allowAudioAtEnd === true) return `scene.qa.allowAudioAtEnd=true (${scene.slug})`;
+    if (scene.lcut > 0) return `scene.lcut=${scene.lcut}s`;
+    return null;
+  }
+  if (manifest?.qa?.allowAudioAtEnd === true) return "manifest qa.allowAudioAtEnd=true";
+  if (manifest?.music) return `manifest music bed (${manifest.music.source ?? "declared"})`;
+  return null;
+}
+
+// The final OUT is the last scene's OUT. Preserve that scene's deliberately
+// narrow boundary exemption before falling back to final-wide manifest policy.
+export function finalTailAudioExemption(manifest) {
+  const lastScene = manifest?.scenes?.at(-1);
+  return tailAudioExemption({ scene: lastScene }) ?? tailAudioExemption({ manifest });
 }
 
 // Parse ffmpeg blackdetect stderr into [{start, end, duration}].
@@ -99,13 +227,30 @@ export function contentGatePlan({ hasTranscript, transcribeRequested, whisperRea
   return "skip";
 }
 
-// Whisper txt hard-wraps lines, so an expected ending can straddle a newline
-// ("just a\n bonus") — match whitespace-normalized or a real ending fails on
-// wherever the wrap happened to land this run.
+// Whisper txt hard-wraps lines, so an expected ending can straddle a newline.
+// Match whitespace-normalized or a real ending fails wherever the wrap lands.
 export function missingEndings(text, scenes) {
   const norm = (s) => s.toLowerCase().replace(/\s+/g, " ");
   const hay = norm(text);
   return scenes.filter((s) => !hay.includes(norm(s.expectEnding)));
+}
+
+// A report can read snapshots while another process is finishing QA. Publish
+// each snapshot with a same-directory rename so readers see either the old
+// complete set or the new complete JSON, never a partially written final file.
+export function writeQaSnapshotAtomic(snapshotPath, snapshot) {
+  const payload = JSON.stringify(snapshot, null, 2);
+  const temporaryPath = join(
+    dirname(snapshotPath),
+    `.${basename(snapshotPath)}.${process.pid}.${randomUUID()}.tmp`
+  );
+  try {
+    writeFileSync(temporaryPath, payload, { encoding: "utf8", flag: "wx" });
+    renameSync(temporaryPath, snapshotPath);
+  } catch (error) {
+    try { unlinkSync(temporaryPath); } catch {}
+    throw error;
+  }
 }
 
 export async function main(argv) {
@@ -113,7 +258,7 @@ export async function main(argv) {
     manifest: "string", "clips-dir": "string", "expect-clips": "number",
     transcript: "string", transcribe: "boolean",
     "max-tail-silence": "number", "max-leading-silence": "number",
-    "no-snapshot": "boolean", report: "boolean", out: "string", title: "string",
+    "no-snapshot": "boolean", report: "boolean", file: "string", out: "string", title: "string",
   });
 
   // --report renders the HTML QA report (cut list, QA trend, evidence
@@ -123,6 +268,7 @@ export async function main(argv) {
     const { main: renderReport } = await import("./review.mjs");
     await renderReport([
       ...(args.manifest ? ["--manifest", args.manifest] : []),
+      ...(args.file ?? args._[0] ? ["--file", args.file ?? args._[0]] : []),
       ...(args.out ? ["--out", args.out] : []),
       ...(args.title ? ["--title", args.title] : []),
     ]);
@@ -130,7 +276,7 @@ export async function main(argv) {
   }
 
   const file = args._[0];
-  if (!file) fail("Usage: ripple qa <file> [--manifest edit.json] [--clips-dir clips] [--expect-clips N] [--transcript path] [--max-tail-silence 1.0] [--max-leading-silence 0.5]\n       ripple qa --report [--manifest edit.json] [--out qa/review.html] [--title \"...\"]   (HTML QA report)", 2);
+  if (!file) fail("Usage: ripple qa <file> [--manifest edit.json] [--clips-dir clips] [--expect-clips N] [--transcript path] [--max-tail-silence 1.0] [--max-leading-silence 0.5]\n       ripple qa --report [--manifest edit.json] [--file final.mp4] [--out qa/review.html] [--title \"...\"]   (HTML QA report)", 2);
   if (!existsSync(file)) fail(`File not found: ${file}`, 2);
 
   const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
@@ -155,6 +301,20 @@ export async function main(argv) {
   }
   const maxTail = args["max-tail-silence"] ?? manifest?.qa?.maxTailSilence ?? 1.0;
   const maxLeading = args["max-leading-silence"] ?? manifest?.qa?.maxLeadingSilence ?? 0.5;
+
+  // A clean decode of yesterday's render is not evidence for today's edit.
+  // Keep this tri-state: stale evidence is neither a verified pass nor proof
+  // that the current manifest would render incorrectly.
+  if (manifestPath) {
+    const renderMtime = statSync(file).mtimeMs;
+    const manifestMtime = statSync(manifestPath).mtimeMs;
+    if (renderMtime < manifestMtime) {
+      checks.push(notVerifiedCheck("render-freshness",
+        `output predates ${manifestPath} — re-run ripple cut, then QA the rebuilt final`));
+    } else {
+      checks.push(check("render-freshness", true, "output is at least as recent as the manifest"));
+    }
+  }
 
   // 1. Full decode.
   const decode = run(ffmpeg, ["-hide_banner", "-v", "error", "-i", file, "-f", "null", "-"]);
@@ -235,10 +395,9 @@ export async function main(argv) {
   // sibling clips/ (where cut renders them) — the per-scene gates must not
   // silently vanish just because --clips-dir wasn't spelled out.
   const clipsDir = args["clips-dir"] ??
-    (manifestPath && existsSync(join(dirname(resolve(manifestPath)), "clips"))
-      ? join(dirname(resolve(manifestPath)), "clips")
-      : undefined);
+    (manifestPath ? join(dirname(resolve(manifestPath)), "clips") : undefined);
   const expected = args["expect-clips"] ?? manifest?.scenes?.length;
+  const expectsClipEvidence = expected !== undefined && expected > 0;
   if (clipsDir && existsSync(clipsDir)) {
     const clips = readdirSync(clipsDir).filter((f) => /\.(mp4|mov|webm)$/i.test(f)).sort();
     if (expected !== undefined) {
@@ -257,59 +416,98 @@ export async function main(argv) {
     if (manifest?.scenes?.length) {
       const rows = [];
       const tailFails = [];
-      const ffprobe = requireTool(["ffprobe"], "Install ffmpeg (brew install ffmpeg).");
       // Clips older than the manifest measure a PREVIOUS cut — say so, or
       // per-scene numbers (tails, loudness, gainDb advice) mislead.
       const manifestMtime = manifestPath && existsSync(manifestPath) ? statSync(manifestPath).mtimeMs : 0;
-      const staleClips = manifest.scenes.filter((s) => {
+      const staleClips = manifest.scenes.map((s) => {
         const p = join(clipsDir, clipName(s));
-        return existsSync(p) && manifestMtime && statSync(p).mtimeMs < manifestMtime;
-      }).length;
-      const staleNote = staleClips ? ` — ${staleClips} clip(s) predate the manifest; re-run ripple cut before trusting per-scene numbers` : "";
+        return existsSync(p) && manifestMtime && statSync(p).mtimeMs < manifestMtime ? clipName(s) : null;
+      }).filter(Boolean);
+      const staleDetail = staleClips.length
+        ? `${staleClips.length} expected scene clip(s) predate the manifest (${staleClips.join(", ")}) — re-run ripple cut before reviewing scene evidence`
+        : "";
       for (const scene of manifest.scenes) {
         const clipPath = join(clipsDir, clipName(scene));
-        if (!existsSync(clipPath)) continue;
-        // Unreadable clips are clip-decode's finding — skip, don't abort QA.
-        const probeRes = run(ffprobe, ["-hide_banner", "-v", "error", "-show_format", "-print_format", "json", clipPath]);
-        let clipDur = 0;
-        if (probeRes.status === 0) {
-          try { clipDur = Number(JSON.parse(probeRes.stdout).format?.duration ?? 0); } catch { /* skip */ }
+        if (!existsSync(clipPath)) {
+          rows.push(`${scene.slug}: clip missing`);
+          tailFails.push(`${scene.slug}: expected clip missing (${clipName(scene)})`);
+          continue;
         }
-        if (!(clipDur > 0)) continue;
-        const res = run(ffmpeg, [
-          "-hide_banner", "-nostats", "-i", clipPath,
-          "-vn", "-map", "0:a:0", "-af", "silencedetect=noise=-40dB:d=0.25", "-f", "null", "-",
+        // Unreadable clips are clip-decode's finding — skip, don't abort QA.
+        const probeRes = run(requireTool(["ffprobe"], "Install ffmpeg (brew install ffmpeg)."), [
+          "-hide_banner", "-v", "error", "-show_format", "-show_streams", "-print_format", "json", clipPath,
         ]);
-        const e = silenceEdges(parseSilence(res.stderr), clipDur);
-        rows.push(`${scene.slug} ${e.tail}s`);
-        if (e.tail > maxTail) tailFails.push(`${scene.slug}: ${e.tail}s tail (max ${maxTail}s)`);
+        let clipProbe = null;
+        if (probeRes.status === 0) {
+          try { clipProbe = JSON.parse(probeRes.stdout); } catch { /* handled below */ }
+        }
+        const clipAudioDuration = audioTimelineDuration(clipProbe);
+        if (!clipAudioDuration) {
+          rows.push(`${scene.slug}: no audio stream`);
+          tailFails.push(`${scene.slug}: no measurable audio stream`);
+          continue;
+        }
+        const detection = detectSilenceEdges(ffmpeg, clipPath, clipProbe);
+        if (!detection.ok) {
+          rows.push(`${scene.slug}: silence detection failed`);
+          tailFails.push(`${scene.slug}: ${detection.error}`);
+          continue;
+        }
+        const e = detection.edges;
+        const exemption = tailAudioExemption({ manifest, scene });
+        const assessment = assessTailSilence({ tail: e.tail, maxTail, exemption });
+        rows.push(`${scene.slug} ${e.tail}s [${detection.evidence}]${exemption && e.tail <= 0 ? ` (exempt: ${exemption})` : ""}`);
+        if (!assessment.ok) tailFails.push(`${scene.slug}: ${assessment.detail}`);
       }
-      if (rows.length) {
+      if (staleClips.length) {
+        checks.push(notVerifiedCheck("scene-tails", staleDetail));
+      } else {
         checks.push(check("scene-tails", tailFails.length === 0,
-          (tailFails.length ? tailFails.join("; ") : `all scene tails within ${maxTail}s (${rows.join(", ")})`) + staleNote));
+          tailFails.length ? tailFails.join("; ") : `all scene tails within ${maxTail}s (${rows.join(", ")})`));
       }
 
       // Dialogue loudness consistency: one scene 6dB quieter than its
       // neighbor is the defect a mixing panel exists to prevent. Clips are
       // bed-free by design, so this measures dialogue, not the mix.
       const loud = [];
+      const unmeasured = [];
       for (const scene of manifest.scenes) {
         const clipPath = join(clipsDir, clipName(scene));
-        if (!existsSync(clipPath)) continue;
+        if (!existsSync(clipPath)) {
+          unmeasured.push(`${scene.slug}: clip missing`);
+          continue;
+        }
         const ln = run(ffmpeg, [
           "-hide_banner", "-nostats", "-i", clipPath,
           "-vn", "-map", "0:a:0", "-af", "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-",
         ]);
         const m = parseLoudnorm(ln.stderr);
         if (m && Number.isFinite(m.input_i)) loud.push({ slug: scene.slug, lufs: m.input_i });
+        else unmeasured.push(`${scene.slug}: no measurable dialogue loudness`);
       }
-      if (loud.length >= 2) {
+      if (manifest.scenes.length >= 2 && staleClips.length) {
+        checks.push(notVerifiedCheck("dialogue-loudness", staleDetail));
+      } else if (manifest.scenes.length >= 2 && loud.length === manifest.scenes.length) {
         const vals = loud.map((l) => l.lufs);
         const spread = round3(Math.max(...vals) - Math.min(...vals));
         const maxSpread = manifest?.qa?.maxLoudnessSpread ?? 3;
         checks.push(check("dialogue-loudness", spread <= maxSpread,
           `${spread} LU spread across scenes (max ${maxSpread} — fix with scene.gainDb): ` +
-            loud.map((l) => `${l.slug} ${l.lufs}`).join(", ") + staleNote));
+            loud.map((l) => `${l.slug} ${l.lufs}`).join(", ")));
+      } else if (manifest.scenes.length >= 2) {
+        checks.push(notVerifiedCheck("dialogue-loudness",
+          `measured ${loud.length}/${manifest.scenes.length} expected scene clips — ${unmeasured.join("; ") || "insufficient comparable dialogue"}`));
+      }
+    }
+  } else if (expectsClipEvidence) {
+    const where = clipsDir ?? "a clips directory";
+    const detail = `expected ${expected} scene clip(s), but ${where} is missing — run ripple cut with clip rendering, then re-run QA`;
+    checks.push(notVerifiedCheck("clip-count", detail));
+    checks.push(notVerifiedCheck("clip-decode", `clip decode evidence unavailable: ${detail}`));
+    if (manifest?.scenes?.length) {
+      checks.push(notVerifiedCheck("scene-tails", `per-scene tail evidence unavailable: ${detail}`));
+      if (manifest.scenes.length >= 2) {
+        checks.push(notVerifiedCheck("dialogue-loudness", `dialogue consistency evidence unavailable: ${detail}`));
       }
     }
   }
@@ -317,18 +515,33 @@ export async function main(argv) {
   // 4. Leading/tail silence of the final. An opening title card plays
   // intentional silence — the gate allows for it instead of failing red on
   // every card-led cut (which just teaches everyone to ignore red QA).
-  const silenceRes = run(ffmpeg, [
-    "-hide_banner", "-nostats", "-i", file,
-    "-vn", "-map", "0:a:0", "-af", "silencedetect=noise=-40dB:d=0.25", "-f", "null", "-",
-  ]);
-  const edges = silenceEdges(parseSilence(silenceRes.stderr), duration);
-  const bedNote = manifest?.music ? " — music bed present: edges reflect the mix, not dialogue" : "";
-  const cardLead = manifest?.scenes ? expectedLeadingSilence(manifest.scenes) : 0;
-  const leadDetail = cardLead > 0
-    ? `${edges.leading}s (${cardLead}s intentional opening card + max ${maxLeading}s)${bedNote}`
-    : `${edges.leading}s (max ${maxLeading}s)${bedNote}`;
-  checks.push(check("leading-silence", edges.leading <= cardLead + maxLeading, leadDetail));
-  checks.push(check("tail-silence", edges.tail <= maxTail, `${edges.tail}s (max ${maxTail}s)${bedNote}`));
+  const finalAudioDuration = audioTimelineDuration(probe);
+  if (!finalAudioDuration) {
+    const allowed = manifest?.qa?.allowNoAudio === true;
+    const detail = allowed
+      ? "no audio stream; explicitly allowed by manifest qa.allowNoAudio=true"
+      : "no audio stream — delivery audio may have been dropped; set qa.allowNoAudio=true only for an intentional, reviewed silent video";
+    checks.push(check("leading-silence", allowed, detail));
+    checks.push(check("tail-silence", allowed, detail));
+  } else {
+    const detection = detectSilenceEdges(ffmpeg, file, probe);
+    const edges = detection.edges;
+    const bedNote = manifest?.music ? " — music bed present: edges reflect the mix, not dialogue" : "";
+    const cardLead = manifest?.scenes ? expectedLeadingSilence(manifest.scenes) : 0;
+    if (!detection.ok) {
+      checks.push(check("leading-silence", false, detection.error));
+      checks.push(check("tail-silence", false, detection.error));
+    } else {
+      const leadDetail = cardLead > 0
+        ? `${edges.leading}s (${cardLead}s intentional opening card + max ${maxLeading}s)${bedNote}`
+        : `${edges.leading}s (max ${maxLeading}s)${bedNote}`;
+      checks.push(check("leading-silence", edges.leading <= cardLead + maxLeading,
+        `${leadDetail} — thresholds: ${detection.evidence}`));
+      const tailAssessment = assessTailSilence({ tail: edges.tail, maxTail, exemption: finalTailAudioExemption(manifest) });
+      checks.push(check("tail-silence", tailAssessment.ok,
+        `${tailAssessment.detail}${bedNote} — thresholds: ${detection.evidence}`));
+    }
+  }
 
   // 4b. Loudness. A bed masks dialogue-edge silence (noted above), so the
   // gate that actually catches a bed mixed too hot — or a final mastered off
@@ -361,13 +574,32 @@ export async function main(argv) {
     whisperReady,
     expectsContent,
   });
+  let contentEvidence = null;
 
   if (plan === "run") {
     let transcriptPath = args.transcript;
+    let transcriptMethod = "provided";
     if (!transcriptPath || !existsSync(transcriptPath)) {
       const t = transcribeFile(file, { outDir: join(process.cwd(), "qa") });
       transcriptPath = t.files.txt;
+      transcriptMethod = "ripple-transcribe";
     }
+    const resolvedTranscript = resolve(transcriptPath);
+    const transcriptMtime = statSync(resolvedTranscript).mtimeMs;
+    const renderMtime = statSync(file).mtimeMs;
+    const fresh = transcriptMethod === "ripple-transcribe" || transcriptMtime >= renderMtime;
+    contentEvidence = {
+      method: transcriptMethod,
+      transcript: resolvedTranscript,
+      transcriptMtime: new Date(transcriptMtime).toISOString(),
+      render: resolve(file),
+    };
+    checks.push(check("transcript-freshness", fresh,
+      transcriptMethod === "ripple-transcribe"
+        ? `transcript generated or content-cache-resolved from the rendered file: ${resolvedTranscript}`
+        : fresh
+          ? `provided transcript is at least as recent as the render: ${resolvedTranscript}`
+          : `provided transcript predates the render and may describe an older/different file: ${resolvedTranscript}`));
     const text = readFileSync(transcriptPath, "utf8");
     const leakPatterns = manifest?.qa?.leakPatterns ?? DEFAULT_LEAK_PATTERNS;
     // Manifest patterns are agent-written and arrive in other dialects —
@@ -402,19 +634,28 @@ export async function main(argv) {
     checks.push(check("content-gates", false,
       "manifest defines expected endings/leak patterns but no transcript was provided — " +
         "re-run with --transcribe (or --transcript <path>); a delivery must not pass with unverified content"));
+  } else if (!finalAudioDuration && manifest?.qa?.allowNoAudio === true) {
+    checks.push(check("content-gates", true,
+      "no audio stream and qa.allowNoAudio=true — spoken-content gates are not applicable"));
   } else {
-    checks.push({ id: "content-gates", ok: true, skipped: true,
-      detail: "no transcript and no content expectations in the manifest — content gates not run (excluded from totals)" });
+    checks.push(notVerifiedCheck("content-gates",
+      "no transcript and no content expectations in the manifest — content gates not run (excluded from totals)"));
   }
 
-  const counted = checks.filter((c) => !c.skipped);
-  const passed = counted.filter((c) => c.ok).length;
-  const ok = passed === counted.length;
+  const counted = checks.filter((c) => c.status !== "not-verified");
+  const passed = counted.filter((c) => c.status === "pass").length;
+  const failed = counted.filter((c) => c.status === "fail");
+  const unverified = checks.filter((c) => c.status === "not-verified");
+  const status = failed.length ? "fail" : unverified.length ? "not-verified" : "pass";
+  const ok = status === "pass" ? true : status === "fail" ? false : null;
+  const verified = status === "pass";
 
   // Snapshot + trend.
   let trend = null;
   if (!args["no-snapshot"]) {
-    const qaDir = join(process.cwd(), ".ripple", "qa");
+    // Keep QA evidence with the manifest it verifies. Root-level fallback is
+    // handled by status/review for snapshots produced before this contract.
+    const qaDir = join(manifestPath ? dirname(resolve(manifestPath)) : process.cwd(), ".ripple", "qa");
     mkdirSync(qaDir, { recursive: true });
     const previous = readdirSync(qaDir).filter((f) => f.startsWith("qa-")).sort().slice(-4);
     trend = previous.map((f) => {
@@ -426,18 +667,31 @@ export async function main(argv) {
       }
     });
     trend.push(`${passed}/${counted.length} (this run)`);
-    writeFileSync(
+    writeQaSnapshotAtomic(
       join(qaDir, `qa-${Date.now()}.json`),
-      JSON.stringify({ file, timestamp: new Date().toISOString(), passed, total: counted.length, checks }, null, 2)
+      {
+        file: resolve(file),
+        ...(manifestPath ? { manifest: resolve(manifestPath) } : {}),
+        ...(contentEvidence ? { contentEvidence } : {}),
+        timestamp: new Date().toISOString(), ok, status, verified,
+        passed, total: counted.length, checks,
+      }
     );
   }
 
   output({
-    ok, file,
+    ok, status, verified, file,
     // Which manifest explained the gates — auto-discovery must be visible.
     ...(manifestPath ? { manifest: manifestPath } : {}),
-    passed: `${passed}/${counted.length}`, checks, trend,
-    ...(ok ? { hint: "delivery gates passed" } : {}),
+    ...(contentEvidence ? { contentEvidence } : {}),
+    passed: `${passed}/${counted.length}`, notVerified: unverified.map((c) => c.id), checks, trend,
+    ...(status === "pass"
+      ? { hint: "delivery gates passed" }
+      : status === "not-verified"
+        ? { hint: "delivery NOT verified: required evidence is missing; see notVerified checks, then add the needed clip or transcript artifacts" }
+        : {}),
   });
-  if (!ok) process.exit(1);
+  // Shell success means verified delivery. JSON preserves the distinction
+  // between a measured failure and missing evidence, but neither is green.
+  if (status !== "pass") process.exit(1);
 }

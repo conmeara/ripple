@@ -3,11 +3,11 @@
   "title": "Codex repairs a cut-off ending without rebuilding the edit",
   "agent": "codex",
   "timeoutMinutes": 40,
-  "prompt": "The married-life answer in outputs/draft.mp4 got cut off at the end - repair it and re-render.",
+  "prompt": "The interview answer in outputs/draft.mp4 got cut off at the end - repair it and re-render.",
   "fixtures": [
     {
-      "from": "$CACHE/loose_married.mp4",
-      "to": "media/loose_married.mp4"
+      "from": "$CACHE/raw-interview.mp4",
+      "to": "media/raw-interview.mp4"
     },
     {
       "from": "$FIXTURES/repair-edit.json",
@@ -19,7 +19,7 @@
     }
   ],
   "setup": [
-    "$RIPPLE analyze media/loose_married.mp4",
+    "$RIPPLE analyze media/raw-interview.mp4",
     "$RIPPLE cut edit.json --profile draft --out outputs/draft.mp4 > setup-cut.json"
   ],
   "checks": [
@@ -60,15 +60,15 @@
       "max": 23
     },
     {
-      "id": "ending-restored",
-      "type": "render_transcript",
+      "id": "source-window-restored",
+      "type": "audio_source_correlation",
       "glob": "outputs/*.mp4",
-      "includes": [
-        "bonus"
-      ],
-      "excludes": [
-        "take"
-      ]
+      "sources": ["media/raw-interview.mp4"],
+      "minConfidence": 0.35,
+      "minSourceStart": 5.5,
+      "maxSourceStart": 7.5,
+      "minSourceEnd": 26.6,
+      "maxSourceEnd": 28.5
     },
     {
       "id": "hdr-preserved",

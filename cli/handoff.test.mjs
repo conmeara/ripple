@@ -11,13 +11,13 @@ function eventsFixture() {
   const manifest = {
     scenes: [
       {
-        slug: "how_we_met", sourceAbs: "/media/take2.mp4", start: 0, end: 6.5,
-        card: "How did you meet?", cardDuration: 2.5,
-        reasoning: "clean take", expectEnding: "it was perfect",
+        slug: "opening_statement", sourceAbs: "/media/take2.mp4", start: 0, end: 6.5,
+        card: "What changed?", cardDuration: 2.5,
+        reasoning: "clean take", expectEnding: "ready to ship",
       },
       {
-        slug: "favorite_memory", sourceAbs: "/media/take3.mp4", start: 1, end: 7,
-        reasoning: "single take", jcut: 1.0, card: "Favorite memory?", cardDuration: 2.5,
+        slug: "closing_statement", sourceAbs: "/media/take3.mp4", start: 1, end: 7,
+        reasoning: "single take", jcut: 1.0, card: "What comes next?", cardDuration: 2.5,
       },
     ],
   };
@@ -63,7 +63,7 @@ test("EDL: header, one event block per clip, correct timecode math", () => {
   assert.match(edl, /^TITLE: T\nFCM: NON-DROP FRAME/);
   assert.equal((edl.match(/^\d{3} {2}AX/gm) ?? []).length, 4);
   assert.ok(edl.includes("00:00:02:12 00:00:09:00")); // scene 1 record in/out
-  assert.ok(edl.includes("* FROM CLIP NAME: how_we_met"));
+  assert.ok(edl.includes("* FROM CLIP NAME: opening_statement"));
   assert.ok(edl.includes("* SOURCE FILE: /media/take2.mp4"));
 });
 
@@ -102,7 +102,7 @@ test("otio: clip markers sit in the clip's source_range space, not 0-based", () 
   // its head marker must be at frame 24 — matching source_range.start_time.
   const otio = JSON.parse(buildOtio(eventsFixture(), { title: "T", rate: FPS24.rate, manifestPath: "edit.json" }));
   const scene2 = otio.tracks.children[0].children[3];
-  assert.equal(scene2.name, "favorite_memory");
+  assert.equal(scene2.name, "closing_statement");
   assert.equal(scene2.source_range.start_time.value, 24);
   assert.deepEqual(scene2.markers[0].marked_range.start_time, scene2.source_range.start_time);
 });
@@ -117,7 +117,7 @@ test("fcpxml: frame-aligned rational times, asset dedup, clip-marker notes", () 
   // Scene 1: recIn 2.5s → offset 60/24s, srcIn 0 → start "0s", 6.5s → 156/24s.
   assert.match(xml, /offset="60\/24s" start="0s" duration="156\/24s"/);
   // Reasoning travels as the clip marker's note, escaped.
-  assert.match(xml, /value="how_we_met" note="clean take · ends: &quot;it was perfect&quot;"/);
+  assert.match(xml, /value="opening_statement" note="clean take · ends: &quot;ready to ship&quot;"/);
   assert.match(xml, /<project name="T &amp; Co">/);
 });
 

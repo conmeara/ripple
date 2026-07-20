@@ -6,8 +6,8 @@
   "prompt": "Run QA on outputs/draft.mp4 against edit.json and report each gate as PASS or FAIL with evidence. Do not change the edit and do not re-render.",
   "fixtures": [
     {
-      "from": "$CACHE/loose_married.mp4",
-      "to": "media/loose_married.mp4"
+      "from": "$CACHE/raw-interview.mp4",
+      "to": "media/raw-interview.mp4"
     },
     {
       "from": "$FIXTURES/repair-edit.json",
@@ -19,7 +19,7 @@
     }
   ],
   "setup": [
-    "$RIPPLE analyze media/loose_married.mp4",
+    "$RIPPLE analyze media/raw-interview.mp4",
     "$RIPPLE cut edit.json --profile draft --out outputs/draft.mp4 > setup-cut.json"
   ],
   "checks": [

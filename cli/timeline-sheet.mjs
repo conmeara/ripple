@@ -41,7 +41,7 @@ export function parseSomMarks(spec) {
     .filter(Boolean);
 }
 
-// "209:IN,233.3:OUT howmet" → [{t, label}]
+// "12.5:IN,36.8:OUT scene-a" → [{t, label}]
 export function parseMarkers(spec) {
   if (!spec) return [];
   return spec
@@ -482,7 +482,7 @@ export async function main(argv) {
 
   if (!file) {
     fail("Usage: ripple timeline-sheet <file> [--start S --end E | --around T --span 12]\n" +
-      "       [--manifest edit.json [--scene slug]] [--markers \"209:IN,233.3:OUT\"]\n" +
+      "       [--manifest edit.json [--scene slug]] [--markers \"12.5:IN,36.8:OUT\"]\n" +
       "       [--out path] [--width 1920]\n" +
       "       ripple timeline-sheet --at 1:23 [--manifest edit.json]   (\"at 1:23 it drags\" → scene, source time, zoomed sheet)", 2);
   }

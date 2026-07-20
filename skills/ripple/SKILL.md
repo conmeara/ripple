@@ -139,7 +139,7 @@ edit.json.
 
 ### Place the cut
 
-Run `ripple candidates --start S --end E` on every range before it locks:
+Run `ripple candidates <src> --start S --end E` on every range before it locks:
 
 - **IN** just before the first word (0.1–0.3s pre-roll); **OUT** = last word
   end + tail (default ≤1.0s). If VIDEO.md asks for a different rhythm, pass
@@ -210,11 +210,21 @@ have looked at it, and it ships in the right color.
 
 ### QA every render
 
-`ripple qa <final> --manifest edit.json` runs the deterministic gates — clean
+`ripple qa <final> --manifest edit.json --transcribe` runs the deterministic gates — clean
 decode, color policy, tail and leading silence, loudness, prompt leaks,
 expected endings, unexplained black or frozen frames. Exit 1 means fix, not
-argue; tune delivery thresholds in the manifest's `qa` block when the output
+argue, or supply the missing evidence when status is `not-verified`; tune delivery thresholds in the manifest's `qa` block when the output
 specification changes.
+
+Spoken-content gates require evidence: add each scene's `expectEnding` and any
+`qa.leakPatterns`, then pass `--transcribe` (or `--transcript <path>`). Without
+that evidence, QA reports the content gates as **not verified**, never passed.
+Audio reaching a boundary also fails by default. Only set
+`scene.qa.allowAudioAtEnd` for that specific scene, or
+`qa.allowAudioAtEnd` for the final, when the user explicitly approved a
+continuous-audio ending; QA records the exemption. Music beds and L-cuts are
+recognized from their manifest fields. A missing final audio stream fails;
+set `qa.allowNoAudio` only when the user explicitly approved a silent video.
 
 Then look and show: frame-sheet the result, give the user a scene table
 (slug, bounds, ending, tail) and point at exactly what changed — "Q8 has a
@@ -225,8 +235,9 @@ After every render or repair, delegate a focused review to a fresh read-only
 subagent when available. In Claude Code, launch the plugin's registered
 `qa-reviewer` agent; in Codex, have a fresh subagent read
 `<plugin-root>/agents/qa-reviewer.md`. Either way, pass a narrow checklist
-naming the failure modes at risk — "clip 05 ends on 'coffee in the morning'", "no
-next-question leak" — never a broad "check the video". Separate context keeps
+and the resolved Ripple command, naming the failure modes at risk — "clip 05
+ends on 'coffee in the morning'", "no next-question leak" — never a broad
+"check the video". Separate context keeps
 the editor from grading its own work. If no subagent is available, run the
 same checklist yourself and disclose that the review was not independent.
 
@@ -246,15 +257,22 @@ zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,zs
 ```
 
 Builds differ — `ripple probe --filters` before depending on `zscale`,
-`drawtext`, or libass, and fall back rather than emitting a chain the binary
+`drawtext`, or libass (`subtitles`/`ass`), and fall back rather than emitting a chain the binary
 cannot run.
 
 ### Grade — per scene, approved on stills
 
-Grade **per scene or shot, never as one blanket correction** — shots from
+Ripple applies manifest grade filters only to **SDR deliveries**. When
+preserving HDR, record the look and hand off to a color-managed NLE; or get
+explicit approval to deliver SDR before using `scene.grade`. Never imply an
+HDR grade was rendered when the CLI reports that it skipped one.
+
+For SDR, grade **per scene or shot, never as one blanket correction** — set
+`scene.grade` (`name`, `filter`) in edit.json. Shots from
 different sources or lighting need different correction before they share a
-look. Grading is config, not surgery: the look bakes into the single final
-encode; drafts stay ungraded (a grade hides cut problems).
+look. Grading is config, not surgery: the look bakes into each rendered SDR scene;
+keep grade filters neutral while approving cuts, because a grade can hide cut
+problems, then apply the approved scene recipes for finishing.
 
 Iterate on **one representative frame per scene** — a face in typical light,
 never a title card. To get approval before any full render, assemble the
@@ -278,8 +296,9 @@ in `qa/` and let the user pick with their eyes.
   needs a libass ffmpeg.
 - **Reframes:** vertical/square presets re-deliver the same cut; set
   `output.crop` only after reading a full frame — center-crop misses subjects.
-- **The final export is always a fresh single encode from source** via the
-  manifest — never a re-encode of a draft.
+- **The final export is always rebuilt from the manifest and original media.**
+  Ripple may encode high-quality scene intermediates before final assembly;
+  it never re-encodes a previous draft.
 
 ### Handoff — a peer ending, not a fallback
 

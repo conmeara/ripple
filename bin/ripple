@@ -1,14 +1,4 @@
-#!/usr/bin/env bash
-# Ripple CLI launcher. Claude Code adds this directory to PATH while the
-# plugin is enabled; other hosts can invoke it by its plugin-relative path,
-# and npm installs it as a symlink (node_modules/.bin/ripple -> this file) —
-# so resolve symlinks before locating the CLI, or the exec points at a dead
-# path outside the package.
-SOURCE="${BASH_SOURCE[0]}"
-while [ -L "$SOURCE" ]; do
-  DIR="$(cd "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
-  SOURCE="$(readlink "$SOURCE")"
-  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
-done
-SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd -P)"
-exec node "$SCRIPT_DIR/../cli/index.mjs" "$@"
+#!/usr/bin/env node
+// Cross-platform launcher for npm and plugin installs. Import resolution is
+// relative to this real file even when npm exposes it through a .bin shim.
+await import("../cli/index.mjs");

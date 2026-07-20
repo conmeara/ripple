@@ -9,7 +9,7 @@
   "timeoutMinutes": 10,
   "prompt": "index.json is the perception index (word timings, silences, sentences, energy) of a ~22-second interview answer clip. The media itself is NOT available. Determine where the cut should end: the OUT point lands just after the speaker's final word, with a natural tail of at most ~0.8 seconds - without cutting off any of the ending, even a quiet one. Write your answer to answer.json as {\"out\": <seconds>}. Do not render or fetch anything.",
   "fixtures": [
-    { "from": "$CACHE/married.mp4", "to": "media/clip.mp4" }
+    { "from": "$CACHE/answer-b.mp4", "to": "media/clip.mp4" }
   ],
   "setup": [
     "$RIPPLE analyze media/clip.mp4 > /dev/null",

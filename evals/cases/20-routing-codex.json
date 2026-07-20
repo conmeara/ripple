@@ -6,12 +6,12 @@
   "prompt": "What footage do I have in this project, and is any of it HDR?",
   "fixtures": [
     {
-      "from": "$CACHE/howmet.mp4",
-      "to": "media/01_howmet.mp4"
+      "from": "$CACHE/answer-a.mp4",
+      "to": "media/01_answer-a.mp4"
     },
     {
-      "from": "$CACHE/married.mp4",
-      "to": "media/10_married.mp4"
+      "from": "$CACHE/answer-b.mp4",
+      "to": "media/10_answer-b.mp4"
     },
     {
       "from": "$FIXTURES/VIDEO.md",
@@ -27,12 +27,12 @@
     {
       "id": "names-clip-1",
       "type": "final_grep",
-      "pattern": "howmet"
+      "pattern": "answer-a"
     },
     {
       "id": "names-clip-2",
       "type": "final_grep",
-      "pattern": "married"
+      "pattern": "answer-b"
     },
     {
       "id": "answers-hdr",

@@ -5,8 +5,8 @@
   "timeoutMinutes": 15,
   "fixtures": [
     {
-      "from": "$CACHE/loose_married.mp4",
-      "to": "media/loose_married.mp4"
+      "from": "$CACHE/raw-interview.mp4",
+      "to": "media/raw-interview.mp4"
     },
     {
       "from": "$FIXTURES/good-edit.json",
@@ -18,10 +18,10 @@
     }
   ],
   "setup": [
-    "$RIPPLE analyze media/loose_married.mp4",
-    "$RIPPLE probe media/loose_married.mp4 > probe.json",
-    "$RIPPLE candidates media/loose_married.mp4 --start 6.9 --end 27.3 --label married > candidates.json",
-    "$RIPPLE timeline-sheet media/loose_married.mp4 --manifest edit.json --out tsheet.png",
+    "$RIPPLE analyze media/raw-interview.mp4",
+    "$RIPPLE probe media/raw-interview.mp4 > probe.json",
+    "$RIPPLE candidates media/raw-interview.mp4 --start 6.9 --end 27.3 --label answer > candidates.json",
+    "$RIPPLE timeline-sheet media/raw-interview.mp4 --manifest edit.json --out tsheet.png",
     "$RIPPLE cut edit.json --profile draft --out outputs/draft.mp4 > cut.json"
   ],
   "checks": [

@@ -8,8 +8,8 @@
   "prompt": "media/camA.mp4 and media/camB.mp4 are two cameras rolling on the same speech, started at different times. Determine how many seconds after camA's start camB begins - i.e. the number to add to a camB timestamp to land on the same moment in camA. Write answer.json as {\"offset\": <seconds>}. Do not render anything. A `ripple` CLI is available on PATH - run `ripple help` first.",
   "setup": [
     "mkdir -p media",
-    "ffmpeg -y -v error -i $CACHE/married.mp4 -t 18 -c copy media/camA.mp4",
-    "ffmpeg -y -v error -ss 3.7 -i $CACHE/married.mp4 -vf scale=640:-2 -c:v libx264 -preset veryfast -crf 24 -c:a aac media/camB.mp4"
+    "ffmpeg -y -v error -i $CACHE/answer-b.mp4 -t 18 -c copy media/camA.mp4",
+    "ffmpeg -y -v error -ss 3.7 -i $CACHE/answer-b.mp4 -vf scale=640:-2 -c:v libx264 -preset veryfast -crf 24 -c:a aac media/camB.mp4"
   ],
   "checks": [
     { "id": "offset-not-low", "type": "json_path", "file": "answer.json", "path": "offset", "op": "gte", "value": 3.45 },

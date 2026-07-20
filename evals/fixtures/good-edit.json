@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "title": "Married answer",
+  "title": "Interview answer",
   "color": { "policy": "preserve" },
   "qa": {
     "leakPatterns": ["[Tt]ake (one|two|three|[0-9]+)", "[Aa]ll right,? take"],
@@ -10,13 +10,12 @@
   "scenes": [
     {
       "id": 1,
-      "slug": "married",
-      "title": "Married life answer",
-      "source": "media/loose_married.mp4",
+      "slug": "answer",
+      "title": "Interview response",
+      "source": "media/raw-interview.mp4",
       "start": 6.9,
       "end": 27.3,
       "status": "locked",
-      "expectEnding": "just a bonus",
       "reasoning": "Single take. Head trimmed past the slate to 6.9 (speech starts 7.2); OUT = lastWordEnd 26.55 + 0.75s tail, before the throat-clear at 30.0."
     }
   ]

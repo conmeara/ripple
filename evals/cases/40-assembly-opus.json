@@ -4,15 +4,15 @@
   "agent": "claude",
   "model": "opus",
   "timeoutMinutes": 40,
-  "prompt": "Assemble media/01_howmet.mp4 followed by media/10_married.mp4 into one video with a clean hard cut between them, then QA the result. Render to outputs/. Both clips are already trimmed answers - keep them whole.",
+  "prompt": "Assemble media/01_answer-a.mp4 followed by media/10_answer-b.mp4 into one video with a clean hard cut between them, then QA the result. Render to outputs/. Keep both spoken answers complete, but trim excess dead air so the join and ending each have a natural tail of no more than 1 second.",
   "fixtures": [
     {
-      "from": "$CACHE/howmet.mp4",
-      "to": "media/01_howmet.mp4"
+      "from": "$CACHE/answer-a.mp4",
+      "to": "media/01_answer-a.mp4"
     },
     {
-      "from": "$CACHE/married.mp4",
-      "to": "media/10_married.mp4"
+      "from": "$CACHE/answer-b.mp4",
+      "to": "media/10_answer-b.mp4"
     },
     {
       "from": "$FIXTURES/VIDEO.md",
@@ -49,12 +49,35 @@
     },
     {
       "id": "both-answers-present",
-      "type": "render_transcript",
+      "type": "audio_source_correlation",
       "glob": "outputs/*.mp4",
-      "includes": [
-        "showed up",
-        "bonus"
-      ]
+      "sources": ["media/01_answer-a.mp4", "media/10_answer-b.mp4"],
+      "minConfidence": 0.35
+    },
+    {
+      "id": "source-order",
+      "type": "manifest_source_order",
+      "manifest": "edit.json",
+      "sources": ["media/01_answer-a.mp4", "media/10_answer-b.mp4"]
+    },
+    {
+      "id": "audio-boundaries-clean",
+      "type": "render_audio_boundaries",
+      "glob": "outputs/*.mp4",
+      "manifest": "edit.json",
+      "minTail": 0.05,
+      "maxTail": 1.0,
+      "maxJoinSilence": 1.25,
+      "minHardJoins": 1,
+      "maxHardJoins": 1
+    },
+    {
+      "id": "qa-verified",
+      "type": "qa_snapshot",
+      "glob": "outputs/*.mp4",
+      "manifest": "edit.json",
+      "status": "pass",
+      "gates": ["render-freshness", "scene-tails", "tail-silence", "prompt-leak", "scene-endings"]
     },
     {
       "id": "hdr-preserved",

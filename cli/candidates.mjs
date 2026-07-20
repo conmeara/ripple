@@ -15,10 +15,9 @@ import {
 // imported it from.
 export { endpointFlags };
 
-// The auto-editor guard defaults (docs/prior-art.md, "Silence/word-driven
-// cutting"). Two LEARN items ported as (instrument, opinion) pairs. These
-// guard flags are candidates-local: they inform the lock decision but lint
-// doesn't gate on them (a micro-clip may be intentional B).
+// Conservative guard defaults prevent blind silence-cutting failures. These
+// flags are candidates-local: they inform the lock decision but lint doesn't
+// gate on them (a micro-clip may be an intentional beat).
 const MIN_CUT = 0.25; // shortest silence a cut may land in
 const MIN_CLIP = 1.0; // shortest kept range that still reads as a shot
 const LEAD_MARGIN = 0.3; // air BEFORE the first word (less than the tail)
@@ -348,7 +347,7 @@ export async function main(argv) {
   });
   const ffmpeg = requireTool(["ffmpeg"], "Install ffmpeg (brew install ffmpeg).");
   const thresholds = (args.thresholds ?? "-35,-40,-45").split(",").map((t) => t.trim());
-  // auto-editor guard tunables (flag overrides; defaults from prior-art).
+  // Auto-editor guard tunables (flag overrides with conservative defaults).
   const guards = {
     minCut: args["min-cut"] ?? MIN_CUT,
     minClip: args["min-clip"] ?? MIN_CLIP,
