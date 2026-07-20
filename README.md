@@ -2,7 +2,8 @@
 
 **Ripple helps you make video with a coding agent.** It combines an opinionated
 skill with recommended workflows and services, a `VIDEO.md` file that captures
-the taste and style you want, and a CLI built for the agent.
+the taste and style you want, and a CLI that translates video and audio into
+text and image tokens the agent can reason over.
 
 **[Start here: install Ripple.](#install)**
 
