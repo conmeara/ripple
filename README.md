@@ -25,11 +25,6 @@ project state.
 
 **Perceive, decide with the user, assemble, verify, deliver.**
 
-At the center is the timeline sheet: frames, motion, waveform, silence, words,
-and the proposed cut on one shared axis.
-
-![A Ripple timeline sheet aligns source frames, motion, waveform, silence, non-speech events, transcript, and a cut marker on one time axis](docs/assets/anatomy-of-a-timeline-sheet.png)
-
 ## What's included
 
 ![Ripple combines tools, an opinionated skill, and persistent project taste](docs/assets/ripple-three-pillars.svg)
@@ -47,7 +42,10 @@ editing, and QA logic; it uses FFmpeg and ffprobe for media processing, plus
 whisper-cpp for transcription when needed. Every command prints structured
 JSON; run `ripple help` or `ripple <command> --help` for usage.
 
-![Ripple moves from perception and cut decisions through assembly, verification, and delivery](docs/assets/ripple-workflow-pipeline.svg)
+At the center is the timeline sheet: frames, motion, waveform, silence, words,
+and the proposed cut on one shared axis.
+
+![A Ripple timeline sheet aligns source frames, motion, waveform, silence, non-speech events, transcript, and a cut marker on one time axis](docs/assets/anatomy-of-a-timeline-sheet.png)
 
 For rendering, the gate is explicit: `edit.json` → `ripple lint` →
 `ripple cut` → `ripple qa`.
