@@ -28,7 +28,7 @@ project state.
 At the center is the timeline sheet: frames, motion, waveform, silence, words,
 and the proposed cut on one shared axis.
 
-![Anatomy of a Ripple timeline sheet with frames, motion, waveform, silence, words, and a cut point](docs/assets/ripple-timeline-sheet-anatomy.svg)
+![A Ripple timeline sheet aligns source frames, motion, waveform, silence, non-speech events, transcript, and a cut marker on one time axis](docs/assets/anatomy-of-a-timeline-sheet.png)
 
 ## What's included
 
@@ -73,14 +73,16 @@ For rendering, the gate is explicit: `edit.json` → `ripple lint` →
 | `handoff` | Export OTIO, Premiere XML, FCPXML, or EDL timelines for an NLE |
 | `transcribe` | Reuse subtitles or transcribe locally, with optional word timing |
 
-The plugin's fail-open hook works in Claude Code and Codex: after `edit.json`
-changes, it surfaces a compact cut-safety summary without blocking the write or
-replacing the explicit `ripple lint` gate.
-
 ```bash
 ripple analyze interview.mov
 ripple timeline-sheet interview.mov
 ```
+
+## Hook
+
+The plugin runs the same fail-open hook in Claude Code and Codex. After
+`edit.json` changes, it surfaces a compact cut-safety summary without blocking
+the write; the agent still runs `ripple lint` before rendering.
 
 ## Skill
 
